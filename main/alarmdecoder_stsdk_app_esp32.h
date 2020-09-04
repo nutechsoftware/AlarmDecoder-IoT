@@ -33,6 +33,9 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count);
 static void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data);
 static void connection_start(void);
 static void capability_init();
+static void ota_polling_task_func(void *arg);
+void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data);
+void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
 #ifdef __cplusplus
 }
 #endif

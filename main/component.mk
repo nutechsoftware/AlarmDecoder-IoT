@@ -3,4 +3,4 @@
 #
 # (Uses default behaviour of compiling all source files in directory, adding 'include' to include path.)
 
-COMPONENT_EMBED_TXTFILES := onboarding_config.json device_info.json
+COMPONENT_EMBED_TXTFILES := onboarding_config.json device_info.json root.pem public_key.pem

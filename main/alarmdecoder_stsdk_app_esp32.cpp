@@ -45,6 +45,7 @@ extern "C" {
 // STSDK include
 #include "st_dev.h"
 #include "device_control.h"
+
 // device types
 #include "caps_switch.h"
 #include "caps_securitySystem.h"
@@ -53,6 +54,9 @@ extern "C" {
 #include "caps_tamperAlert.h"
 #include "caps_contactSensor.h"
 #include "caps_carbonMonoxideDetector.h"
+
+// OTA updates
+#include "ota_util.h"
 
 // ST CLI
 #include "iot_uart_cli.h"
@@ -92,6 +96,10 @@ static int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 static caps_switch_data_t *cap_switch_data;
 static caps_contactSensor_data_t *cap_contactSensor_data_chime;
 static caps_securitySystem_data_t *cap_securitySystem_data;
+
+TaskHandle_t ota_task_handle = NULL;
+IOT_CAP_HANDLE *ota_cap_handle = NULL;
+
 /**
  * AlarmDecoder callbacks.
  * As the AlarmDecoder receives data via put() data is validated.
@@ -495,7 +503,7 @@ void app_main()
 
     // Add AD2 capabilies
     capability_init();
-    
+
     // Init onboarding button and LED
     iot_gpio_init();
 
@@ -505,6 +513,9 @@ void app_main()
 
     // Start main AlarmDecoder IoT app task
     xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, 10, NULL);
+
+    // Firmware update task
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, 5, NULL);
 
     // connect to SmartThings server
     connection_start();
@@ -546,6 +557,9 @@ static void cap_switch_cmd_cb(struct caps_switch_data *caps_data)
 
 static void capability_init()
 {
+    int iot_err;
+
+    // FIXME: dummy switch tied to physical button on ESP32
     cap_switch_data = caps_switch_initialize(ctx, "trash", NULL, NULL);
     if (cap_switch_data) {
         const char *init_value = caps_helper_switch.attr_switch.value_on;
@@ -556,10 +570,17 @@ static void capability_init()
         cap_switch_data->set_switch_value(cap_switch_data, init_value);
     }
 
+    // firmwareUpdate capabilities init
+	ota_cap_handle = st_cap_handle_init(ctx, "main", "firmwareUpdate", cap_current_version_init_cb, NULL);
+    if (ota_cap_handle) {
+		iot_err = st_cap_cmd_set_cb(ota_cap_handle, "updateFirmware", update_firmware_cmd_cb, NULL);
+		if (iot_err)
+			printf("fail to set cmd_cb for updateFirmware");
+    }
+
     // securitySystem device type init
     cap_securitySystem_data = caps_securitySystem_initialize(ctx, "main", NULL, NULL);
     if (cap_securitySystem_data) {
-        ESP_LOGI(TAG, "test ******************");
         const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
         cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
     }
@@ -568,10 +589,6 @@ static void capability_init()
     cap_contactSensor_data_chime = caps_contactSensor_initialize(ctx, "chime", NULL, NULL);
     if (cap_contactSensor_data_chime) {
         const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        // needed?
-        //cap_contactSensor_data_chime->cmd_on_usr_cb = cap_switch_cmd_cb;
-        //cap_contactSensor_data_chime->cmd_off_usr_cb = cap_switch_cmd_cb;
-
         cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, contact_init_value);
     }
 
@@ -692,6 +709,127 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
         st_conn_cleanup(ctx, false);
         xTaskCreate(connection_start_task, "connection_task", 2048, NULL, 10, NULL);
     }
+}
+
+
+/*
+ * OTA update support
+ */
+void cap_available_version_set(char *available_version)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+	if (!available_version) {
+		printf("invalid parameter");
+		return;
+	}
+
+	/* Setup switch on state */
+	init_evt = st_cap_attr_create_string("availableVersion", available_version, NULL);
+
+	/* Send switch on event */
+	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		printf("fail to send init_data\n");
+
+	st_cap_attr_free(init_evt);
+}
+
+void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+	/* Setup switch on state */
+    // FIXME: get from device_info ctx->device_info->firmware_version
+    // that is loaded from device_info.json
+    init_evt = st_cap_attr_create_string("currentVersion", (char *)OTA_FIRMWARE_VERSION, NULL);
+
+	/* Send switch on event */
+	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		printf("fail to send init_data\n");
+
+	st_cap_attr_free(init_evt);
+}
+
+static void _task_fatal_error()
+{
+	ota_task_handle = NULL;
+	printf("Exiting task due to fatal error...");
+	(void)vTaskDelete(NULL);
+
+	while (1) {
+		;
+	}
+}
+static void ota_task_func(void * pvParameter)
+{
+	printf("\n Starting OTA...\n");
+
+	esp_err_t ret = ota_https_update_device();
+	if (ret != ESP_OK) {
+		printf("Firmware Upgrades Failed (%d) \n", ret);
+		_task_fatal_error();
+	}
+
+	printf("Prepare to restart system!");
+	esp_restart();
+}
+
+void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
+			iot_cap_cmd_data_t *cmd_data, void *usr_data)
+{
+	ota_nvs_flash_init();
+
+	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, 5, &ota_task_handle);
+}
+
+static void ota_polling_task_func(void *arg)
+{
+	while (1) {
+
+		vTaskDelay(30000 / portTICK_PERIOD_MS);
+
+		printf("\n Starting check new version...\n");
+
+		if (ota_task_handle != NULL) {
+			printf("Device is updating.. \n");
+			continue;
+		}
+
+		if (g_iot_status != IOT_STATUS_CONNECTING) {
+			printf("Device is not connected to cloud.. \n");
+			continue;
+		}
+
+		char *read_data = NULL;
+		unsigned int read_data_len = 0;
+
+		esp_err_t ret = ota_https_read_version_info(&read_data, &read_data_len);
+		if (ret == ESP_OK) {
+			char *available_version = NULL;
+
+			esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
+			if (err != ESP_OK) {
+				printf("ota_api_get_available_version is failed : %d\n", err);
+				continue;
+			}
+
+			cap_available_version_set(available_version);
+
+			if (available_version)
+				free(available_version);
+		}
+
+		/* Set polling period */
+		unsigned int polling_day = ota_get_polling_period_day();
+		unsigned int task_delay_sec = polling_day * 24 * 3600;
+		vTaskDelay(task_delay_sec * 1000 / portTICK_PERIOD_MS);
+	}
 }
 
 
