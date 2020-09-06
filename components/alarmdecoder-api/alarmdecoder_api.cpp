@@ -311,9 +311,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
 
                 // First extract the 32 bit address mask from section #3
                 // to use it as a storage key for the state.
-                uint32_t amask = strtol(msg.substr(AMASK_START,
-                                        AMASK_END).c_str(), nullptr, 16);
+                uint32_t amask = strtol(msg.substr(AMASK_START, AMASK_END-AMASK_START).c_str(), nullptr, 16);
 
+                printf("Mask %u '%s'\n",amask,msg.substr(AMASK_START,AMASK_END-AMASK_START).c_str());
                 amask = AD2_NTOHL(amask);
                 // Ademco/DSC: MASK 00000000 = System
                 // Ademco 00000001 is keypad address 0
@@ -376,9 +376,17 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
                         break;
                   }
                 }
+
+                // if this is the first state update then send ARMED/READY states
+                if (ad2ps->unknown_state ) {
+                  SEND_ARMED_CHANGE = true;
+                  SEND_READY_CHANGE = true;
+                  ad2ps->unknown_state = false;
+                }
+
                 // armed_state change send notification
                 if ( ad2ps->armed_home != ARMED_HOME ||
-                     ad2ps->armed_away != ARMED_AWAY ) {
+                     ad2ps->armed_away != ARMED_AWAY) {
                   SEND_ARMED_CHANGE = true;
                 }
 
@@ -477,7 +485,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
                 if ( SEND_CHIME_CHANGE && ON_CHIME_CHANGE_CB ) {
                   ON_CHIME_CHANGE_CB(&msg, ad2ps);
                 }
-
 
               }
             } else {

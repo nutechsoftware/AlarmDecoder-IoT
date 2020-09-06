@@ -149,6 +149,7 @@ class AD2VirtualPartitionState
 
   // SECTION #1 data
   //  https://www.alarmdecoder.com/wiki/index.php/Protocol#Bit_field
+  bool unknown_state = true;
   bool ready = false;
   bool armed_away = false;
   bool armed_home = false;
