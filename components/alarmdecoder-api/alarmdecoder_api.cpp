@@ -313,7 +313,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
                 // to use it as a storage key for the state.
                 uint32_t amask = strtol(msg.substr(AMASK_START, AMASK_END-AMASK_START).c_str(), nullptr, 16);
 
-                printf("Mask %u '%s'\n",amask,msg.substr(AMASK_START,AMASK_END-AMASK_START).c_str());
                 amask = AD2_NTOHL(amask);
                 // Ademco/DSC: MASK 00000000 = System
                 // Ademco 00000001 is keypad address 0
@@ -381,6 +380,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
                 if (ad2ps->unknown_state ) {
                   SEND_ARMED_CHANGE = true;
                   SEND_READY_CHANGE = true;
+                  SEND_CHIME_CHANGE = true;
                   ad2ps->unknown_state = false;
                 }
 
@@ -452,7 +452,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
 
 
                 // FIXME: debugging / testing
-                ESP_LOGI(TAG, "!DBG: SIZE(%i) PID(%i) MASK(%08X) Ready(%i) Armed[Away(%i) Home(%i)] Bypassed(%i) Exit(%i)",
+                ESP_LOGD(TAG, "!DBG: SSIZE(%i) PID(%i) MASK(%08X) Ready(%i) Armed[Away(%i) Home(%i)] Bypassed(%i) Exit(%i)",
                  AD2PStates.size(),ad2ps->partition,amask,ad2ps->ready,ad2ps->armed_away,ad2ps->armed_home,ad2ps->zone_bypassed,ad2ps->exit_now);
 
                 // Call ON_MESSAGE callback if enabled.
