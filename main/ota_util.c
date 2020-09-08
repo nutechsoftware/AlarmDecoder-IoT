@@ -37,6 +37,9 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/ssl.h"
 
+#include "esp_log.h"
+static const char *TAG = "OTA_UTIL";
+
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
 #define CONFIG_FIRMWARE_VERSOIN_INFO_URL CONFIG_OTA_SERVER_URL"ad2iotv10_version_info.json"
 #define CONFIG_FIRMWARE_UPGRADE_URL CONFIG_OTA_SERVER_URL"signed_alarmdecoder_stsdk_esp32.bin"
@@ -101,13 +104,13 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 	esp_err_t ret = ESP_OK;
 
 	if (!update_info) {
-		printf("Invalid parameter \n");
+		ESP_LOGE(TAG, "%s: Invalid parameter", __func__);
 		return ESP_ERR_INVALID_ARG;
 	}
 
 	data = malloc((size_t) update_info_len + 1);
 	if (!data) {
-		printf("Couldn't allocate memory to add version info\n");
+		ESP_LOGE(TAG, "%s: Couldn't allocate memory to add version info", __func__);
 		return ESP_ERR_NO_MEM;
 	}
 	memcpy(data, update_info, update_info_len);
@@ -142,14 +145,14 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		}
 	}
 
-	printf("isNewVersion : %d \n", is_new_version);
+	ESP_LOGI(TAG, "%s: isNewVersion : %d", __func__, is_new_version);
 
 	if (is_new_version) {
 
 		/* latest */
 		item = cJSON_GetObjectItem(profile, name_latest);
 		if (!item) {
-			printf("IOT_ERROR_UNINITIALIZED \n");
+			ESP_LOGE(TAG, "%s: IOT_ERROR_UNINITIALIZED", __func__);
 			ret = ESP_FAIL;
 			goto clean_up;
 		}
@@ -157,7 +160,7 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		str_len = strlen(cJSON_GetStringValue(item));
 		latest_version = malloc(str_len + 1);
 		if (!latest_version) {
-			printf("Couldn't allocate memory to add latest version\n");
+			ESP_LOGE(TAG, "%s: Couldn't allocate memory to add latest version", __func__);
 			ret = ESP_ERR_NO_MEM;
 			goto clean_up;
 		}
@@ -181,25 +184,25 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
 	switch(evt->event_id) {
 		case HTTP_EVENT_ERROR:
-			printf("HTTP_EVENT_ERROR\n");
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_ERROR", __func__);
 			break;
 		case HTTP_EVENT_ON_CONNECTED:
-			printf("HTTP_EVENT_ON_CONNECTED\n");
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_CONNECTED", __func__);
 			break;
 		case HTTP_EVENT_HEADER_SENT:
-			printf("HTTP_EVENT_HEADER_SENT\n");
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_HEADER_SENT", __func__);
 			break;
 		case HTTP_EVENT_ON_HEADER:
-			printf("HTTP_EVENT_ON_HEADER, key=%s, value=%s\n", evt->header_key, evt->header_value);
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_HEADER, key=%s, value=%s", __func__, evt->header_key, evt->header_value);
 			break;
 		case HTTP_EVENT_ON_DATA:
-			//printf("HTTP_EVENT_ON_DATA, len=%d \n", evt->data_len);
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_DATA, len=%d", __func__, evt->data_len);
 			break;
 		case HTTP_EVENT_ON_FINISH:
-			printf("HTTP_EVENT_ON_FINISH\n");
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_FINISH", __func__);
 			break;
 		case HTTP_EVENT_DISCONNECTED:
-			printf("HTTP_EVENT_DISCONNECTED\n");
+			ESP_LOGD(TAG, "%s: HTTP_EVENT_DISCONNECTED", __func__);
 			break;
 	}
 	return ESP_OK;
@@ -218,18 +221,18 @@ static void _print_sha256 (const uint8_t *image_hash, const char *label)
 	for (int i = 0; i < OTA_CRYPTO_SHA256_LEN; ++i) {
 		sprintf(&hash_print[i * 2], "%02x", image_hash[i]);
 	}
-	printf("%s: %s \n", label, hash_print);
+	ESP_LOGD(TAG, "%s: %s: %s", __func__, label, hash_print);
 }
 
 static int _crypto_sha256(const unsigned char *src, size_t src_len, unsigned char *dst)
 {
 	int ret;
 
-	printf("src: %d@%p, dst: %p", src_len, src, dst);
+	ESP_LOGD(TAG, "%s: src: %d@%p, dst: %p", __func__, src_len, src, dst);
 
 	ret = mbedtls_sha256_ret(src, src_len, dst, 0);
 	if (ret) {
-		printf("mbedtls_sha256_ret = -0x%04X", -ret);
+		ESP_LOGD(TAG, "%s: mbedtls_sha256_ret = -0x%04X", __func__, -ret);
 		return ret;
 	}
 
@@ -249,25 +252,25 @@ static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
 
 	ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)public_key, public_key_len );
 	if (ret != 0) {
-		printf("Parse error: 0x%04X\n", ret);
+		ESP_LOGE(TAG, "%s: Parse error: 0x%04X", __func__, ret);
 		goto clean_up;
 	}
 
 	if (!mbedtls_pk_can_do( &pk, MBEDTLS_PK_RSA))
 	{
-		printf("Failed! Key is not an RSA key\n");
+		ESP_LOGE(TAG, "%s: Failed! Key is not an RSA key", __func__);
 		ret = MBEDTLS_ERR_SSL_PK_TYPE_MISMATCH;
 		goto clean_up;
 	}
 
 	ret = mbedtls_rsa_check_pubkey(mbedtls_pk_rsa(pk));
 	if (ret != 0) {
-		printf("Check pubkey failed: 0x%04X\n", ret);
+		ESP_LOGE(TAG, "%s: Check pubkey failed: 0x%04X", __func__, ret);
 		goto clean_up;
 	}
 
 	if ((ret = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, OTA_CRYPTO_SHA256_LEN, sig, OTA_SIGNATURE_SIZE)) != 0 ) {
-		printf("\n Invaild firmware : 0x%04X\n", ret);
+		ESP_LOGE(TAG, "%s: Invaild firmware : 0x%04X", __func__, ret);
 		goto clean_up;
 	}
 
@@ -286,12 +289,12 @@ static bool _check_firmware_validation(const unsigned char *sha256, unsigned cha
 
 	// Get the message digest info structure for SHA256
 	if (!sig_data) {
-		printf("invalid sig data \n");
+		ESP_LOGE(TAG, "%s: invalid sig data", __func__);
 		goto clean_up;
 	}
 
 	if (sig_len < OTA_DEFAULT_SIGNATURE_BUF_SIZE) {
-		printf("invalid sig len : %d\n", sig_len);
+		ESP_LOGE(TAG, "%s: invalid sig len : %d", __func__, sig_len);
 		goto clean_up;
 	}
 
@@ -300,21 +303,21 @@ static bool _check_firmware_validation(const unsigned char *sha256, unsigned cha
 
 	// Get the message digest info structure for SHA256
 	if (_crypto_sha256(sha256, OTA_CRYPTO_SHA256_LEN, hash) != 0) {
-		printf("invalid digest \n");
+		ESP_LOGE(TAG, "%s: invalid digest", __func__);
 		goto clean_up;
 	}
 
 	// check signature's header
 	if (sig_data[0] != 0xff || sig_data[1] != 0xff ||
 		sig_data[2] != 0xff || sig_data[3] != 0xff) {
-		printf("invalid signature header \n");
+		ESP_LOGE(TAG, "%s: invalid signature header", __func__);
 		goto clean_up;
 	}
 
 	// check signature's footer
 	if (sig_data[OTA_DEFAULT_SIGNATURE_BUF_SIZE - 1] != 0xff || sig_data[OTA_DEFAULT_SIGNATURE_BUF_SIZE - 2] != 0xff ||
 		sig_data[OTA_DEFAULT_SIGNATURE_BUF_SIZE - 3] != 0xff || sig_data[OTA_DEFAULT_SIGNATURE_BUF_SIZE - 4] != 0xff) {
-		printf("Invalid footer \n");
+		ESP_LOGE(TAG, "%s: Invalid footer", __func__);
 		goto clean_up;
 	}
 
@@ -322,7 +325,7 @@ static bool _check_firmware_validation(const unsigned char *sha256, unsigned cha
 	memcpy(sig, sig_data + OTA_SIGNATURE_PREFACE_SIZE, OTA_SIGNATURE_SIZE);
 
 	if (_pk_verify((const unsigned char *)sig, hash) != 0) {
-		printf("_pk_verify is failed \n");
+		ESP_LOGE(TAG, "%s: _pk_verify is failed", __func__);
 	} else {
 		ret = true;
 	}
@@ -334,7 +337,7 @@ clean_up:
 
 esp_err_t ota_https_update_device()
 {
-	printf("ota_https_update_device \n");
+	ESP_LOGI(TAG, "%s: ota_https_update_device", __func__);
 
 	esp_err_t ret = ESP_FAIL;
 
@@ -350,30 +353,30 @@ esp_err_t ota_https_update_device()
 	mbedtls_sha256_context ctx;
 	mbedtls_sha256_init( &ctx );
 	if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
-		printf("Failed to initialise api \n");
+		ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
 		return ESP_FAIL;
 	}
 
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	if (client == NULL) {
-		printf("Failed to initialise HTTP connection\n");
+		ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
 		return ESP_FAIL;
 	}
 
 	if (esp_http_client_get_transport_type(client) != HTTP_TRANSPORT_OVER_SSL) {
-		printf("Transport is not over HTTPS\n");
+		ESP_LOGE(TAG, "%s: Transport is not over HTTPS", __func__);
 		return ESP_FAIL;
 	}
 
 	ret = esp_http_client_open(client, 0);
 	if (ret != ESP_OK) {
 		esp_http_client_cleanup(client);
-		printf("Failed to open HTTP connection: %d \n", ret);
+		ESP_LOGE(TAG, "%s: Failed to open HTTP connection: %d", __func__, ret);
 		return ret;
 	}
 	content_len = esp_http_client_fetch_headers(client);
 	if (content_len <= OTA_DEFAULT_SIGNATURE_BUF_SIZE) {
-		printf("content size error \n");
+		ESP_LOGE(TAG, "%s: content size error", __func__);
 		_http_cleanup(client);
 		return ESP_FAIL;
 	}
@@ -382,28 +385,28 @@ esp_err_t ota_https_update_device()
 
 	esp_ota_handle_t update_handle = 0;
 	const esp_partition_t *update_partition = NULL;
-	printf("Starting OTA...\n");
+	ESP_LOGI(TAG, "%s: Starting OTA", __func__);
 	update_partition = esp_ota_get_next_update_partition(NULL);
 	if (update_partition == NULL) {
-		printf("Passive OTA partition not found\n");
+		ESP_LOGE(TAG, "%s: Passive OTA partition not found", __func__);
 		_http_cleanup(client);
 		return ESP_FAIL;
 	}
-	printf("Writing to partition subtype %d at offset 0x%x \n",
+	ESP_LOGI(TAG, "%s: Writing to partition subtype %d at offset 0x%x", __func__,
 			 update_partition->subtype, update_partition->address);
 
 	ret = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
 	if (ret != ESP_OK) {
-		printf("esp_ota_begin failed, error=%d", ret);
+		ESP_LOGE(TAG, "%s: esp_ota_begin failed, error=%d", __func__, ret);
 		_http_cleanup(client);
 		return ret;
 	}
-	printf("esp_ota_begin succeeded\n Please Wait. This may take time\n");
+	ESP_LOGI(TAG, "%s: esp_ota_begin succeeded. Please Wait. This may take time.", __func__);
 
 	esp_err_t ota_write_err = ESP_OK;
 	char *upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
 	if (!upgrade_data_buf) {
-		printf("Couldn't allocate memory to upgrade data buffer\n");
+		ESP_LOGE(TAG, "%s: Couldn't allocate memory to upgrade data buffer", __func__);
 		_http_cleanup(client);
 		return ESP_ERR_NO_MEM;
 	}
@@ -416,7 +419,7 @@ esp_err_t ota_https_update_device()
 
 	sig = (unsigned char *)malloc(OTA_DEFAULT_SIGNATURE_BUF_SIZE);
 	if (!sig) {
-		printf("Couldn't allocate memory to add sig buffer\n");
+		ESP_LOGE(TAG, "%s: Couldn't allocate memory to add sig buffer", __func__);
 		free(upgrade_data_buf);
 		_http_cleanup(client);
 		return ESP_ERR_NO_MEM;
@@ -428,11 +431,11 @@ esp_err_t ota_https_update_device()
 	while (1) {
 		int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
 		if (data_read == 0) {
-			printf("Connection closed,all data received\n");
+			ESP_LOGI(TAG, "%s: Connection closed,all data received", __func__);
 			break;
 		}
 		if (data_read < 0) {
-			printf("Error: SSL data read error\n");
+			ESP_LOGE(TAG, "%s: Error: SSL data read error", __func__);
 			break;
 		}
 
@@ -443,7 +446,7 @@ esp_err_t ota_https_update_device()
 			excess_len = data_read - remain_len;
 
 			if (sig_len + excess_len > OTA_DEFAULT_SIGNATURE_BUF_SIZE) {
-				printf("Invalid signature len : %d, %d\n", sig_len, excess_len);
+				ESP_LOGE(TAG, "%s: Invalid signature len : %d, %d", __func__, sig_len, excess_len);
 				break;
 			}
 
@@ -457,7 +460,7 @@ esp_err_t ota_https_update_device()
 
 		if (data_read > 0) {
 			if (mbedtls_sha256_update_ret(&ctx, (const unsigned char *)upgrade_data_buf, data_read) != 0) {
-				printf("Failed getting HASH \n");
+				ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
 			}
 
 			ota_write_err = esp_ota_write( update_handle, (const void *)upgrade_data_buf, data_read);
@@ -469,12 +472,12 @@ esp_err_t ota_https_update_device()
 		}
 	}
 
-	printf("Total binary data length writen: %d\n", total_read_len);
+	ESP_LOGI(TAG, "%s: Total binary data length writen: %d", __func__, total_read_len);
 
 	unsigned char md[OTA_CRYPTO_SHA256_LEN] = {0,};
 
 	if (mbedtls_sha256_finish_ret( &ctx, md) != 0) {
-		printf("Failed getting HASH \n");
+		ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
 		ret = ESP_FAIL;
 		goto clean_up;
 	}
@@ -482,27 +485,27 @@ esp_err_t ota_https_update_device()
 
 	/* Check firmware validation */
 	if (_check_firmware_validation((const unsigned char *)md, sig, sig_len) != true) {
-		printf("Signature verified NOK\n");
+		ESP_LOGE(TAG,"%s: Signature verified NOK", __func__);
 		ret = ESP_FAIL;
 		goto clean_up;
 	}
 
 	ret = esp_ota_end(update_handle);
 	if (ota_write_err != ESP_OK) {
-		printf("esp_ota_write failed! err=0x%d\n", ota_write_err);
+		ESP_LOGE(TAG, "%s: esp_ota_write failed! err=0x%d", __func__, ota_write_err);
 		goto clean_up;
    	} else if (ret != ESP_OK) {
-		printf("esp_ota_end failed! err=0x%d. Image is invalid\n", ret);
+		ESP_LOGE(TAG, "%s: esp_ota_end failed! err=0x%d. Image is invalid", __func__, ret);
 		goto clean_up;
 	}
 
 	ret = esp_ota_set_boot_partition(update_partition);
 	if (ret != ESP_OK) {
-		printf("esp_ota_set_boot_partition failed! err=0x%d\n", ret);
+		ESP_LOGE(TAG, "%s: esp_ota_set_boot_partition failed! err=0x%d", __func__, ret);
 		goto clean_up;
 	}
 
-	printf("esp_ota_set_boot_partition succeeded\n");
+	ESP_LOGI(TAG, "%s: esp_ota_set_boot_partition succeeded", __func__);
 
 clean_up:
 
@@ -531,19 +534,19 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 
 	esp_http_client_handle_t client = esp_http_client_init(&config);
 	if (client == NULL) {
-		printf("Failed to initialise HTTP connection\n");
+		ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
 		return ESP_FAIL;
 	}
 
 	if (esp_http_client_get_transport_type(client) != HTTP_TRANSPORT_OVER_SSL) {
-		printf("Transport is not over HTTPS\n");
+		ESP_LOGE(TAG, "%s: Transport is not over HTTPS", __func__);
 		return ESP_FAIL;
 	}
 
 	ret = esp_http_client_open(client, 0);
 	if (ret != ESP_OK) {
 		esp_http_client_cleanup(client);
-		printf("Failed to open HTTP connection: %d", ret);
+		ESP_LOGE(TAG, "%s: Failed to open HTTP connection: %d", __func__, ret);
 		return ret;
 	}
 	esp_http_client_fetch_headers(client);
@@ -551,7 +554,7 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	char *upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
 	if (!upgrade_data_buf) {
 		esp_http_client_cleanup(client);
-		printf("Couldn't allocate memory to upgrade data buffer\n");
+		ESP_LOGE(TAG, "%s: Couldn't allocate memory to upgrade data buffer", __func__);
 		return ESP_ERR_NO_MEM;
 	}
 
@@ -561,7 +564,7 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	if (!read_data_buf) {
 		esp_http_client_cleanup(client);
 		free(upgrade_data_buf);
-		printf("Couldn't allocate memory to read data buffer\n");
+		ESP_LOGE(TAG, "%s: Couldn't allocate memory to read data buffer", __func__);
 		return ESP_ERR_NO_MEM;
 	}
 	memset(read_data_buf, '\0', OTA_VERSION_INFO_BUF_SIZE);
@@ -570,18 +573,18 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	while (1) {
 		int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
 		if (data_read == 0) {
-			printf("Connection closed,all data received\n");
+			ESP_LOGI(TAG, "%s: Connection closed,all data received", __func__);
 			break;
 		}
 		if (data_read < 0) {
-			printf("Error: SSL data read error\n");
+			ESP_LOGE(TAG, "%s: Error: SSL data read error", __func__);
 			break;
 		}
 		if (data_read > 0) {
 			total_read_len += data_read;
 
 			if (total_read_len >= OTA_VERSION_INFO_BUF_SIZE) {
-				printf("Max length of data is exceeded. \n");
+				ESP_LOGE(TAG, "%s: Max length of data is exceeded.", __func__);
 				break;
 			}
 
@@ -590,14 +593,14 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 		}
 	}
 
-	printf("Written image length %d\n", total_read_len);
+	ESP_LOGI(TAG, "%s: Written image length %d", __func__, total_read_len);
 
 	_http_cleanup(client);
 
 	free(upgrade_data_buf);
 
 	if (total_read_len == 0) {
-		printf("read error\n");
+		ESP_LOGE(TAG, "%s: read error", __func__);
 		free(read_data_buf);
 		return ESP_ERR_INVALID_SIZE;
 	}

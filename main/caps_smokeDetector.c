@@ -22,6 +22,8 @@
 
 #include "st_dev.h"
 #include "caps_smokeDetector.h"
+#include "esp_log.h"
+static const char *TAG = "CAPS_SMOK";
 
 static int caps_smokeDetector_attr_smoke_str2idx(const char *value)
 {
@@ -38,7 +40,7 @@ static int caps_smokeDetector_attr_smoke_str2idx(const char *value)
 static const char *caps_smokeDetector_get_smoke_value(caps_smokeDetector_data_t *caps_data)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return NULL;
     }
     return caps_data->smoke_value;
@@ -47,7 +49,7 @@ static const char *caps_smokeDetector_get_smoke_value(caps_smokeDetector_data_t 
 static void caps_smokeDetector_set_smoke_value(caps_smokeDetector_data_t *caps_data, const char *value)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return;
     }
     if (caps_data->smoke_value) {
@@ -61,11 +63,11 @@ static void caps_smokeDetector_attr_smoke_send(caps_smokeDetector_data_t *caps_d
     int sequence_no = -1;
 
     if (!caps_data || !caps_data->handle) {
-        printf("fail to get handle\n");
+        ESP_LOGE(TAG, "%s: fail to get handle", __func__);
         return;
     }
     if (!caps_data->smoke_value) {
-        printf("value is NULL\n");
+        ESP_LOGE(TAG, "%s: value is NULL", __func__);
         return;
     }
 
@@ -77,9 +79,9 @@ static void caps_smokeDetector_attr_smoke_send(caps_smokeDetector_data_t *caps_d
             sequence_no);
 
     if (sequence_no < 0)
-        printf("fail to send smoke value\n");
+        ESP_LOGE(TAG, "%s:fail to send smoke value", __func__);
     else
-        printf("Sequence number return : %d\n", sequence_no);
+        ESP_LOGI(TAG, "%s: Sequence number return : %d", __func__, sequence_no);
 
 }
 
@@ -98,7 +100,7 @@ caps_smokeDetector_data_t *caps_smokeDetector_initialize(IOT_CTX *ctx, const cha
 
     caps_data = malloc(sizeof(caps_smokeDetector_data_t));
     if (!caps_data) {
-        printf("fail to malloc for caps_smokeDetector_data\n");
+        ESP_LOGE(TAG, "%s: fail to malloc for caps_smokeDetector_data", __func__);
         return NULL;
     }
 
@@ -115,7 +117,7 @@ caps_smokeDetector_data_t *caps_smokeDetector_initialize(IOT_CTX *ctx, const cha
         caps_data->handle = st_cap_handle_init(ctx, component, caps_helper_smokeDetector.id, caps_smokeDetector_init_cb, caps_data);
     }
     if (!caps_data->handle) {
-        printf("fail to init smokeDetector handle\n");
+        ESP_LOGE(TAG, "%s: fail to init smokeDetector handle", __func__);
     }
 
     return caps_data;

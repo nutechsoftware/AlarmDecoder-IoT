@@ -22,11 +22,13 @@
 
 #include "st_dev.h"
 #include "caps_securitySystem.h"
+#include "esp_log.h"
+static const char *TAG = "CAPS_SECS";
 
 static const char *caps_securitySystem_get_alarm_value(caps_securitySystem_data_t *caps_data)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return NULL;
     }
     return caps_data->alarm_value;
@@ -35,7 +37,7 @@ static const char *caps_securitySystem_get_alarm_value(caps_securitySystem_data_
 static void caps_securitySystem_set_alarm_value(caps_securitySystem_data_t *caps_data, const char *value)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return;
     }
     if (caps_data->alarm_value) {
@@ -49,11 +51,11 @@ static void caps_securitySystem_attr_alarm_send(caps_securitySystem_data_t *caps
     int sequence_no = -1;
 
     if (!caps_data || !caps_data->handle) {
-        printf("fail to get handle\n");
+        ESP_LOGE(TAG, "%s: fail to get handle", __func__);
         return;
     }
     if (!caps_data->alarm_value) {
-        printf("value is NULL\n");
+        ESP_LOGE(TAG, "%s: value is NULL", __func__);
         return;
     }
 
@@ -65,9 +67,9 @@ static void caps_securitySystem_attr_alarm_send(caps_securitySystem_data_t *caps
             sequence_no);
 
     if (sequence_no < 0)
-        printf("fail to send alarm value\n");
+        ESP_LOGE(TAG, "%s: fail to send alarm value", __func__);
     else
-        printf("Sequence number return : %d\n", sequence_no);
+        ESP_LOGI(TAG, "%s: Sequence number return : %d", __func__, sequence_no);
 }
 
 
@@ -86,7 +88,7 @@ static int caps_securitySystem_attr_securitySystemStatus_str2idx(const char *val
 static const char *caps_securitySystem_get_securitySystemStatus_value(caps_securitySystem_data_t *caps_data)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return NULL;
     }
     return caps_data->securitySystemStatus_value;
@@ -95,7 +97,7 @@ static const char *caps_securitySystem_get_securitySystemStatus_value(caps_secur
 static void caps_securitySystem_set_securitySystemStatus_value(caps_securitySystem_data_t *caps_data, const char *value)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return;
     }
     if (caps_data->securitySystemStatus_value) {
@@ -109,11 +111,11 @@ static void caps_securitySystem_attr_securitySystemStatus_send(caps_securitySyst
     int sequence_no = -1;
 
     if (!caps_data || !caps_data->handle) {
-        printf("fail to get handle\n");
+        ESP_LOGE(TAG, "%s: fail to get handle", __func__);
         return;
     }
     if (!caps_data->securitySystemStatus_value) {
-        printf("value is NULL\n");
+        ESP_LOGE(TAG, "%s: value is NULL", __func__);
         return;
     }
 
@@ -125,9 +127,9 @@ static void caps_securitySystem_attr_securitySystemStatus_send(caps_securitySyst
             sequence_no);
 
     if (sequence_no < 0)
-        printf("fail to send securitySystemStatus value\n");
+        ESP_LOGE(TAG, "%s: fail to send securitySystemStatus value", __func__);
     else
-        printf("Sequence number return : %d\n", sequence_no);
+        ESP_LOGI(TAG, "%s: Sequence number return : %d", __func__, sequence_no);
 
 }
 
@@ -137,7 +139,7 @@ static void caps_securitySystem_cmd_armStay_cb(IOT_CAP_HANDLE *handle, iot_cap_c
     caps_securitySystem_data_t *caps_data = (caps_securitySystem_data_t *)usr_data;
     const char* value = caps_helper_securitySystem.attr_securitySystemStatus.values[CAP_ENUM_SECURITYSYSTEM_SECURITYSYSTEMSTATUS_VALUE_ARMEDSTAY];
 
-    printf("called [%s] func with num_args:%u\n", __func__, cmd_data->num_args);
+    ESP_LOGI(TAG, "%s: num_args:%u", __func__, cmd_data->num_args);
 
     caps_securitySystem_set_securitySystemStatus_value(caps_data, value);
     if (caps_data && caps_data->cmd_armStay_usr_cb)
@@ -150,7 +152,7 @@ static void caps_securitySystem_cmd_disarm_cb(IOT_CAP_HANDLE *handle, iot_cap_cm
     caps_securitySystem_data_t *caps_data = (caps_securitySystem_data_t *)usr_data;
     const char* value = caps_helper_securitySystem.attr_securitySystemStatus.values[CAP_ENUM_SECURITYSYSTEM_SECURITYSYSTEMSTATUS_VALUE_DISARMED];
 
-    printf("called [%s] func with num_args:%u\n", __func__, cmd_data->num_args);
+    ESP_LOGI(TAG, "%s: num_args:%u", __func__, cmd_data->num_args);
 
     caps_securitySystem_set_securitySystemStatus_value(caps_data, value);
     if (caps_data && caps_data->cmd_disarm_usr_cb)
@@ -163,7 +165,7 @@ static void caps_securitySystem_cmd_armAway_cb(IOT_CAP_HANDLE *handle, iot_cap_c
     caps_securitySystem_data_t *caps_data = (caps_securitySystem_data_t *)usr_data;
     const char* value = caps_helper_securitySystem.attr_securitySystemStatus.values[CAP_ENUM_SECURITYSYSTEM_SECURITYSYSTEMSTATUS_VALUE_ARMEDAWAY];
 
-    printf("called [%s] func with num_args:%u\n", __func__, cmd_data->num_args);
+    ESP_LOGI(TAG, "%s: num_args:%u", __func__, cmd_data->num_args);
 
     caps_securitySystem_set_securitySystemStatus_value(caps_data, value);
     if (caps_data && caps_data->cmd_armAway_usr_cb)
@@ -187,7 +189,7 @@ caps_securitySystem_data_t *caps_securitySystem_initialize(IOT_CTX *ctx, const c
 
     caps_data = malloc(sizeof(caps_securitySystem_data_t));
     if (!caps_data) {
-        printf("fail to malloc for caps_securitySystem_data\n");
+        ESP_LOGE(TAG, "%s: fail to malloc for caps_securitySystem_data", __func__);
         return NULL;
     }
 
@@ -209,18 +211,18 @@ caps_securitySystem_data_t *caps_securitySystem_initialize(IOT_CTX *ctx, const c
     if (caps_data->handle) {
         err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_securitySystem.cmd_armStay.name, caps_securitySystem_cmd_armStay_cb, caps_data);
         if (err) {
-            printf("fail to set cmd_cb for armStay of securitySystem\n");
+            ESP_LOGE(TAG, "%s: fail to set cmd_cb for armStay of securitySystem", __func__);
     }
         err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_securitySystem.cmd_disarm.name, caps_securitySystem_cmd_disarm_cb, caps_data);
         if (err) {
-            printf("fail to set cmd_cb for disarm of securitySystem\n");
+            ESP_LOGE(TAG, "%s: fail to set cmd_cb for disarm of securitySystem", __func__);
     }
         err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_securitySystem.cmd_armAway.name, caps_securitySystem_cmd_armAway_cb, caps_data);
         if (err) {
-            printf("fail to set cmd_cb for armAway of securitySystem\n");
+            ESP_LOGE(TAG, "%s: fail to set cmd_cb for armAway of securitySystem", __func__);
     }
     } else {
-        printf("fail to init securitySystem handle\n");
+        ESP_LOGE(TAG, "%s: fail to init securitySystem handle", __func__);
     }
 
     return caps_data;

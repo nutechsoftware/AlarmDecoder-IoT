@@ -1,6 +1,6 @@
 /* ***************************************************************************
  *
- * Copyright (c) 2020 Samsung Electronics All Rights Reserved.
+ * Copyright 2019-2020 Samsung Electronics All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,26 @@
  *
  ****************************************************************************/
 
-#include <esp_https_ota.h>
-#include <esp_ota_ops.h>
-#include <esp_log.h>
+#include "caps/iot_caps_helper_refresh.h"
 
-#define OTA_FIRMWARE_VERSION "AD2IOT-100A"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int ota_get_polling_period_day();
-void ota_nvs_flash_init();
-esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
-esp_err_t ota_https_update_device();
-esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
+typedef struct caps_refresh_data {
+    IOT_CAP_HANDLE* handle;
+    void *usr_data;
+    void *cmd_data;
+
+
+
+    void (*init_usr_cb)(struct caps_refresh_data *caps_data);
+
+    void (*cmd_refresh_usr_cb)(struct caps_refresh_data *caps_data);
+} caps_refresh_data_t;
+
+caps_refresh_data_t *caps_refresh_initialize(IOT_CTX *ctx, const char *component, void *init_usr_cb, void *usr_data);
+#ifdef __cplusplus
+}
+#endif
+

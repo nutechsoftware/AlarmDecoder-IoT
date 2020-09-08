@@ -1,5 +1,5 @@
 /**
- *  @file    alarmdecoder_stsdk_app_esp32.h
+ *  @file    ad2_utils.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *  @version 1.0
@@ -21,25 +21,24 @@
  *  limitations under the License.
  *
  */
-#ifndef AlarmDecoder_app_h
-#define AlarmDecoder_app_h
+#ifndef ad2_utils_h
+#define ad2_utils_h
+
+#define AD2_MAX_ADDRESS 99
+#define AD2_MAX_VPARTITION 9
+#define AD2_MAX_CODE 127
+
+#define AD2_DEFAULT_CODE_SLOT 0
+#define AD2_DEFAULT_VPA_SLOT 0
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void alarmdecoder_start(iot_status_t *, IOT_CTX**);
-void button_event(IOT_CAP_HANDLE *handle, int type, int count);
-static void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data);
-static void connection_start(void);
-static void capability_init();
-static void ota_polling_task_func(void *arg);
-void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data);
-void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
-void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data);
-void ping_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
-void refresh_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
-void send_to_ad2(char *buf);
+void ad2_set_nv_code(int slot, char *code);
+void ad2_get_nv_code(int slot, char *code, int size);
+void ad2_set_nv_vpaddr(int slot, int32_t address);
+void ad2_get_nv_vpaddr(int slot, int32_t *address);
+int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
 #ifdef __cplusplus
 }
 #endif

@@ -25,47 +25,149 @@
 
 #include "st_dev.h"
 
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+
+#include "ad2_utils.h"
+
+#include "esp_log.h"
+static const char *TAG = "CLI_CMD";
+
 extern IOT_CTX *ctx;
 
-static int _cli_copy_nth_arg(char* dest, char* src, int size, int n)
+
+/**
+ * Set the USER code for a given slot.
+ * Store N number of codes in NV flash on the ESP32 chip
+ * not in the cloud. The NV area should be encrypted and protected
+ * from reading. Valid slots are from 0 to AD2_MAX_CODE
+ * where slot 0 is the default user.
+ *
+ * ex.
+ *   STDK # code 1 1234
+ */
+static void _cli_cmd_code(char *string)
 {
-    int start = 0, end = -1;
-    int i = 0, word_index = 0;
-    int len;
+    char buf[7]; // MAX 6 digit code null terminated
+    int slot = 0;
 
-    for (i = 0; src[i] != '\0'; i++) {
-        if ((src[i] == ' ') && (src[i+1]!=' ') && (src[i+1]!='\0')) { //start check
-            word_index++;
-            if (word_index == n) {
-                start = i+1;
+    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
+        slot = strtol(buf, NULL, 10);
+    }
+
+    if (slot >= 0 && slot <= AD2_MAX_CODE) {
+        if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
+            if (strlen(buf)) {
+                    if (atoi(buf) == -1) {
+                        printf("Removing code in slot %i...\n", slot);
+                        ad2_set_nv_code(slot, NULL);
+                    } else {
+                        printf("Setting code in slot %i to '%s'...\n", slot, buf);
+                        ad2_set_nv_code(slot, buf);
+                    }
             }
-        } else if ((src[i] != ' ') && ((src[i+1]==' ')||(src[i+1]=='\0'))) { //end check
-            if (word_index == n) {
-                end = i;
-                break;
-            }
+        } else {
+            // show contents of this slot
+            memset(buf, 0, sizeof(buf));
+            ad2_get_nv_code(slot, buf, sizeof(buf));
+            printf("The code in slot %i is '%s'\n", slot, buf);
         }
+    } else {
+        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
+    }
+}
+
+/**
+ * Set the Virtual Partition address code for a given slot.
+ * Store N number of codes in NV flash on the ESP32 chip
+ * not in the cloud. The NV area should be encrypted and protected
+ * from reading. Valid slots are from 0 to AD2_MAX_VPARTITION
+ * where Virtual Partition 0 is the default partition.
+ *
+ * ex. Set virtual parition 0 to use address 18 for TX/RX
+ *   and address 16 for TX/RX on virtual partition 1.
+ *   STDK # vpaddr 0 18
+ *   STDK # vpaddr 1 16
+ */
+static void _cli_cmd_vpaddr(char *string)
+{
+    char buf[3]; // MAX 2 digit numbers
+    int slot = 0;
+    int address = 0;
+
+    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
+        slot = strtol(buf, NULL, 10);
     }
 
-    if (end == -1) {
-        //printf("Fail to find %dth arg\n", n);
-        return -1;
+    if (slot >= 0 && slot <= AD2_MAX_VPARTITION) {
+        if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
+            int address = strtol(buf, NULL, 10);
+            if (address>=0 && address < AD2_MAX_ADDRESS) {
+                    printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
+                    ad2_set_nv_vpaddr(slot, address);
+            } else {
+                    // delete entry
+                    address = -1;
+                    printf("Deleting vpaddr in slot %i...\n", slot);
+                    ad2_set_nv_vpaddr(slot, address);
+            }
+        } else {
+            // show contents of this slot
+            ad2_get_nv_vpaddr(slot, &address);
+            printf("The vpaddr in slot %i is %i\n", slot, address);
+        }
+    } else {
+        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_ADDRESS);
+    }
+}
+
+/**
+ * Configure the AD2IoT connection to the AlarmDecoder device
+ */
+static void _cli_cmd_ad2source(char *string)
+{
+    #if 0
+    char buf[3]; // MAX 2 digit numbers
+    int slot = 0;
+    int address = 0;
+
+    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
+        slot = strtol(buf, NULL, 10);
     }
 
-    len = end - start + 1;
-    if ( len > size - 1) {
-        len = size - 1;
+    if (slot >= 0 && slot <= AD2_MAX_VPARTITION) {
+        if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
+            int address = strtol(buf, NULL, 10);
+            if (address>=0 && address < AD2_MAX_ADDRESS) {
+                    printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
+                    ad2_set_nv_vpaddr(slot, address);
+            } else {
+                    // delete entry
+                    address = -1;
+                    printf("Deleting vpaddr in slot %i...\n", slot);
+                    ad2_set_nv_vpaddr(slot, address);
+            }
+        } else {
+            // show contents of this slot
+            ad2_get_nv_vpaddr(slot, &address);
+            printf("The vpaddr in slot %i is %i\n", slot, address);
+        }
+    } else {
+        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_ADDRESS);
     }
+    #endif
+}
 
-    strncpy(dest, &src[start], len);
-    dest[len] = '\0';
-    return 0;
-
+static void _cli_cmd_reboot(char *string)
+{
+    ESP_LOGE(TAG, "%s: rebooting now.", __func__);
+    st_conn_cleanup(ctx, true);
 }
 
 static void _cli_cmd_cleanup(char *string)
 {
-    printf("clean-up data with reboot option");
+    ESP_LOGI(TAG, "%s: clean-up data with reboot option", __func__);
     st_conn_cleanup(ctx, true);
 }
 
@@ -76,22 +178,61 @@ static void _cli_cmd_butten_event(char *string)
     int count = 1;
     int type = BUTTON_SHORT_PRESS;
 
-    if (_cli_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
+    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
         count = strtol(buf, NULL, 10);
     }
-    if (_cli_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
+    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
         if (strncmp(buf, "long", 4) == 0) {
             type = BUTTON_LONG_PRESS;
         }
     }
 
-    printf("button_event : count %d, type %d\n", count, type);
+    ESP_LOGI(TAG, "%s: button_event : count %d, type %d", __func__, count, type);
     button_event(ctx, type, count);
 }
 
 static struct cli_command cmd_list[] = {
-    {"cleanup", "clean-up data with reboot option", _cli_cmd_cleanup},
-    {"button", "button {count} {type} : ex) button 5 / button 1 long", _cli_cmd_butten_event},
+    {"reboot",
+        "reboot this microcontroller\n", _cli_cmd_reboot},
+    {"cleanup",
+        "Cleanup NV data with reboot option\n"
+        "  Syntax: cleanup\n", _cli_cmd_cleanup},
+    {"button",
+        "Simulate a button press event\n"
+        "  Syntax: button <count> <type>\n"
+        "  Example: button 5 / button 1 long\n", _cli_cmd_butten_event},
+    {"code",
+        "Manage user codes\n"
+        "  Syntax: code <id> <value>\n"
+        "  Examples:\n"
+        "    Set default code to 1234\n"
+        "      code 0 1234\n"
+        "    Set alarm code for slot 1\n"
+        "      code 1 1234\n"
+        "    Show code in slot #3\n"
+        "      code 3\n"
+        "    Remove code for slot 2\n"
+        "      code 2 -1\n"
+        "    Note: value -1 will remove an entry.\n", _cli_cmd_code},
+    {"vpaddr",
+        "Manage virtual partitions\n"
+        "  Syntax: vpaddr <partition> <address>\n"
+        "  Examples:\n"
+        "    Set default send address to 18\n"
+        "      vpaddr 0 18\n"
+        "    Show address for partition 2\n"
+        "      vpaddr 2\n"
+        "    Remove virtual partition in slot 2\n"
+        "      vpaddr 2 -1\n"
+        "  Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr},
+    {"ad2source",
+        "Manage AlarmDecoder protocol source.\n"
+        "  Syntax: ad2source <[S]OCK|[C]OM> <AUTHORITY|PORT#>\n"
+        "  Examples:\n"
+        "    Set source to ser2sock client at address and port\n"
+        "      ad2source SOCK 192.168.1.2:10000\n"
+        "    Set source to local attached uart #2\n"
+        "      ad2source COM 2\n", _cli_cmd_ad2source},
 };
 
 void register_iot_cli_cmd(void) {

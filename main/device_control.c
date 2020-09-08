@@ -23,6 +23,8 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
+static const char *TAG = "DEVC";
 
 void change_switch_state(int switch_state)
 {
@@ -49,7 +51,7 @@ int get_button_event(int* button_event_type, int* button_event_count)
         vTaskDelay( pdMS_TO_TICKS(BUTTON_DEBOUNCE_TIME_MS) );
         gpio_level = gpio_get_level(GPIO_INPUT_BUTTON);
         if (button_last_state != gpio_level) {
-            printf("Button event, val: %d, tick: %u\n", gpio_level, (uint32_t)xTaskGetTickCount());
+            ESP_LOGI(TAG, "%s: Button event, val: %d, tick: %u", __func__, gpio_level, (uint32_t)xTaskGetTickCount());
             button_last_state = gpio_level;
             if (gpio_level == BUTTON_GPIO_PRESSED) {
                 button_count++;

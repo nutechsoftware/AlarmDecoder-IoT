@@ -22,6 +22,8 @@
 
 #include "st_dev.h"
 #include "caps_tamperAlert.h"
+#include "esp_log.h"
+static const char *TAG = "CAPS_TAMP";
 
 static int caps_tamperAlert_attr_tamper_str2idx(const char *value)
 {
@@ -38,7 +40,7 @@ static int caps_tamperAlert_attr_tamper_str2idx(const char *value)
 static const char *caps_tamperAlert_get_tamper_value(caps_tamperAlert_data_t *caps_data)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return NULL;
     }
     return caps_data->tamper_value;
@@ -47,7 +49,7 @@ static const char *caps_tamperAlert_get_tamper_value(caps_tamperAlert_data_t *ca
 static void caps_tamperAlert_set_tamper_value(caps_tamperAlert_data_t *caps_data, const char *value)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return;
     }
     if (caps_data->tamper_value) {
@@ -61,11 +63,11 @@ static void caps_tamperAlert_attr_tamper_send(caps_tamperAlert_data_t *caps_data
     int sequence_no = -1;
 
     if (!caps_data || !caps_data->handle) {
-        printf("fail to get handle\n");
+        ESP_LOGE(TAG, "%s: fail to get handle", __func__);
         return;
     }
     if (!caps_data->tamper_value) {
-        printf("value is NULL\n");
+        ESP_LOGE(TAG, "%s: value is NULL", __func__);
         return;
     }
 
@@ -77,9 +79,9 @@ static void caps_tamperAlert_attr_tamper_send(caps_tamperAlert_data_t *caps_data
             sequence_no);
 
     if (sequence_no < 0)
-        printf("fail to send tamper value\n");
+        ESP_LOGE(TAG, "%s: fail to send tamper value", __func__);
     else
-        printf("Sequence number return : %d\n", sequence_no);
+        ESP_LOGI(TAG, "%s: Sequence number return : %d", __func__, sequence_no);
 
 }
 
@@ -98,7 +100,7 @@ caps_tamperAlert_data_t *caps_tamperAlert_initialize(IOT_CTX *ctx, const char *c
 
     caps_data = malloc(sizeof(caps_tamperAlert_data_t));
     if (!caps_data) {
-        printf("fail to malloc for caps_tamperAlert_data\n");
+        ESP_LOGE(TAG, "%s: fail to malloc for caps_tamperAlert_data", __func__);
         return NULL;
     }
 
@@ -115,7 +117,7 @@ caps_tamperAlert_data_t *caps_tamperAlert_initialize(IOT_CTX *ctx, const char *c
         caps_data->handle = st_cap_handle_init(ctx, component, caps_helper_tamperAlert.id, caps_tamperAlert_init_cb, caps_data);
     }
     if (!caps_data->handle) {
-        printf("fail to init tamperAlert handle\n");
+        ESP_LOGE(TAG, "%s: fail to init tamperAlert handle", __func__);
     }
 
     return caps_data;

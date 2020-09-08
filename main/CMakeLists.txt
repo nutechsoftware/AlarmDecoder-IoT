@@ -10,6 +10,8 @@ idf_component_register(SRCS "alarmdecoder_stsdk_app_esp32.cpp"
                             "caps_momentary.c"
                             "caps_contactSensor.c"
                             "caps_carbonMonoxideDetector.c"
+                            "ad2_utils.c"
+                            "caps_refresh.c"
                     EMBED_FILES "device_info.json"
                                 "onboarding_config.json"
                     REQUIRES idf::alarmdecoder-api

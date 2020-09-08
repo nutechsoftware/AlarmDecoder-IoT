@@ -21,53 +21,53 @@
 #include <stdlib.h>
 
 #include "st_dev.h"
-#include "caps_momentary.h"
+#include "caps_refresh.h"
 #include "esp_log.h"
-static const char *TAG = "CAPS_MOME";
+static const char *TAG = "CAPS_REFR";
 
-static void caps_momentary_cmd_push_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data)
+static void caps_refresh_cmd_refresh_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-    caps_momentary_data_t *caps_data = (caps_momentary_data_t *)usr_data;
+    caps_refresh_data_t *caps_data = (caps_refresh_data_t *)usr_data;
 
     ESP_LOGI(TAG, "%s: num_args:%u", __func__, cmd_data->num_args);
 
-    if (caps_data && caps_data->cmd_push_usr_cb)
-        caps_data->cmd_push_usr_cb(caps_data);
+    if (caps_data && caps_data->cmd_refresh_usr_cb)
+        caps_data->cmd_refresh_usr_cb(caps_data);
 }
 
-static void caps_momentary_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
+static void caps_refresh_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-    caps_momentary_data_t *caps_data = usr_data;
+    caps_refresh_data_t *caps_data = usr_data;
     if (caps_data && caps_data->init_usr_cb)
         caps_data->init_usr_cb(caps_data);
 }
 
-caps_momentary_data_t *caps_momentary_initialize(IOT_CTX *ctx, const char *component, void *init_usr_cb, void *usr_data)
+caps_refresh_data_t *caps_refresh_initialize(IOT_CTX *ctx, const char *component, void *init_usr_cb, void *usr_data)
 {
-    caps_momentary_data_t *caps_data = NULL;
+    caps_refresh_data_t *caps_data = NULL;
     int err;
 
-    caps_data = malloc(sizeof(caps_momentary_data_t));
+    caps_data = malloc(sizeof(caps_refresh_data_t));
     if (!caps_data) {
-        ESP_LOGE(TAG, "%s: fail to malloc for caps_momentary_data", __func__);
+        ESP_LOGE(TAG, "%s: fail to malloc for caps_refresh_data", __func__);
         return NULL;
     }
 
-    memset(caps_data, 0, sizeof(caps_momentary_data_t));
+    memset(caps_data, 0, sizeof(caps_refresh_data_t));
 
     caps_data->init_usr_cb = init_usr_cb;
     caps_data->usr_data = usr_data;
 
     if (ctx) {
-        caps_data->handle = st_cap_handle_init(ctx, component, caps_helper_momentary.id, caps_momentary_init_cb, caps_data);
+        caps_data->handle = st_cap_handle_init(ctx, component, caps_helper_refresh.id, caps_refresh_init_cb, caps_data);
     }
     if (caps_data->handle) {
-        err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_momentary.cmd_push.name, caps_momentary_cmd_push_cb, caps_data);
+        err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_refresh.cmd_refresh.name, caps_refresh_cmd_refresh_cb, caps_data);
         if (err) {
-            ESP_LOGE(TAG, "%s: fail to set cmd_cb for push of momentary", __func__);
+            ESP_LOGE(TAG, "%s: fail to set cmd_cb for refresh of refresh", __func__);
     }
     } else {
-        ESP_LOGE(TAG, "%s: fail to init momentary handle", __func__);
+        ESP_LOGE(TAG, "%s: fail to init refresh handle", __func__);
     }
 
     return caps_data;

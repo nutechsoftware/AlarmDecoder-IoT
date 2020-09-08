@@ -22,6 +22,8 @@
 
 #include "st_dev.h"
 #include "caps_switch.h"
+#include "esp_log.h"
+static const char *TAG = "CAPS_SWIT";
 
 static int caps_switch_attr_switch_str2idx(const char *value)
 {
@@ -38,7 +40,7 @@ static int caps_switch_attr_switch_str2idx(const char *value)
 static const char *caps_switch_get_switch_value(caps_switch_data_t *caps_data)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return NULL;
     }
     return caps_data->switch_value;
@@ -47,7 +49,7 @@ static const char *caps_switch_get_switch_value(caps_switch_data_t *caps_data)
 static void caps_switch_set_switch_value(caps_switch_data_t *caps_data, const char *value)
 {
     if (!caps_data) {
-        printf("caps_data is NULL\n");
+        ESP_LOGE(TAG, "%s: caps_data is NULL", __func__);
         return;
     }
     if (caps_data->switch_value) {
@@ -61,11 +63,11 @@ static void caps_switch_attr_switch_send(caps_switch_data_t *caps_data)
     int sequence_no = -1;
 
     if (!caps_data || !caps_data->handle) {
-        printf("fail to get handle\n");
+        ESP_LOGE(TAG, "%s: fail to get handle", __func__);
         return;
     }
     if (!caps_data->switch_value) {
-        printf("value is NULL\n");
+        ESP_LOGE(TAG, "%s: value is NULL", __func__);
         return;
     }
 
@@ -77,9 +79,9 @@ static void caps_switch_attr_switch_send(caps_switch_data_t *caps_data)
             sequence_no);
 
     if (sequence_no < 0)
-        printf("fail to send switch value\n");
+        ESP_LOGE(TAG, "%s: fail to send switch value", __func__);
     else
-        printf("Sequence number return : %d\n", sequence_no);
+        ESP_LOGI(TAG, "%s: Sequence number return : %d", __func__, sequence_no);
 
 }
 
@@ -89,7 +91,7 @@ static void caps_switch_cmd_on_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cm
     caps_switch_data_t *caps_data = (caps_switch_data_t *)usr_data;
     const char* value = caps_helper_switch.attr_switch.values[CAP_ENUM_SWITCH_SWITCH_VALUE_ON];
 
-    printf("called [%s] func with num_args:%u\n", __func__, cmd_data->num_args);
+    ESP_LOGI(TAG, "%s: num_args:%u", __func__, cmd_data->num_args);
 
     caps_switch_set_switch_value(caps_data, value);
     if (caps_data && caps_data->cmd_on_usr_cb)
@@ -102,7 +104,7 @@ static void caps_switch_cmd_off_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *c
     caps_switch_data_t *caps_data = (caps_switch_data_t *)usr_data;
     const char* value = caps_helper_switch.attr_switch.values[CAP_ENUM_SWITCH_SWITCH_VALUE_OFF];
 
-    printf("called [%s] func with num_args:%u\n", __func__, cmd_data->num_args);
+    ESP_LOGI(TAG, "%s: num_args:%u", __func__, cmd_data->num_args);
 
     caps_switch_set_switch_value(caps_data, value);
     if (caps_data && caps_data->cmd_off_usr_cb)
@@ -125,7 +127,7 @@ caps_switch_data_t *caps_switch_initialize(IOT_CTX *ctx, const char *component, 
 
     caps_data = malloc(sizeof(caps_switch_data_t));
     if (!caps_data) {
-        printf("fail to malloc for caps_switch_data\n");
+        ESP_LOGE(TAG, "%s: fail to malloc for caps_switch_data", __func__);
         return NULL;
     }
 
@@ -144,14 +146,14 @@ caps_switch_data_t *caps_switch_initialize(IOT_CTX *ctx, const char *component, 
     if (caps_data->handle) {
         err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_switch.cmd_on.name, caps_switch_cmd_on_cb, caps_data);
         if (err) {
-            printf("fail to set cmd_cb for on of switch\n");
+            ESP_LOGE(TAG, "%s: fail to set cmd_cb for on of switch", __func__);
     }
         err = st_cap_cmd_set_cb(caps_data->handle, caps_helper_switch.cmd_off.name, caps_switch_cmd_off_cb, caps_data);
         if (err) {
-            printf("fail to set cmd_cb for off of switch\n");
+            ESP_LOGE(TAG, "%s: fail to set cmd_cb for off of switch", __func__);
     }
     } else {
-        printf("fail to init switch handle\n");
+        ESP_LOGE(TAG, "%s: fail to init switch handle", __func__);
     }
 
     return caps_data;

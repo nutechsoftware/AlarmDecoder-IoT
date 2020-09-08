@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,10 +26,15 @@
 #include "driver/uart.h"
 
 #include "iot_uart_cli.h"
+#include "esp_log.h"
+
+#include "ad2_utils.h"
+
+static const char *TAG = "UART_CLI";
 
 #define UART_BUF_SIZE (20)
 
-#define PROMPT_STRING "STDK # "
+#define PROMPT_STRING "AD2IOT # "
 
 /**
 * to decide whether the main function is running or not by user action...
@@ -94,12 +98,12 @@ void cli_register_command(cli_cmd_t* cmd)
 
 
     if ( (!cmd) || (!cmd->command) ) {
-        printf("register fail : cmd is invalid.\n");
+        ESP_LOGE(TAG, "%s: register fail : cmd is invalid.", __func__);
         return;
     }
 
     if (cli_find_command(cmd->command)) {
-        printf("register fail : same cmd is already exists.\n");
+        ESP_LOGE(TAG, "%s: register fail : same cmd already exists.", __func__);
         return;
     }
 
@@ -119,15 +123,32 @@ void cli_register_command(cli_cmd_t* cmd)
 }
 
 static void cli_cmd_help(char *cmd) {
+    bool showhelp = true;
     cli_cmd_list_t* now = cli_cmd_list;
+    char buf[20]; // buffer to hold help argument
 
-    printf("----------Command List\n");
-    while (now) {
-        if (!now->cmd)
-            continue;
+    if (ad2_copy_nth_arg(buf, cmd, sizeof(buf), 1) >= 0) {
+        cli_cmd_t *command;
+        command = cli_find_command(buf);
+        if (command != NULL) {
+            printf("Help for command '%s'\n%s\n", command->command, command->help_string);
+            showhelp = false;
+        } else {
+            printf("Command not found '%s'\n", cmd);
+        }
+    }
 
-        printf("%15s : %s\n", now->cmd->command, now->cmd->help_string);
-        now = now->next;
+    if (showhelp) {
+        printf("Available AD2IoT terminal commands\n  [");
+        while (now) {
+            if (!now->cmd)
+                continue;
+            printf("%s",now->cmd->command);
+            now = now->next;
+            if (now)
+                printf(", ");
+        }
+        printf("]\n\nType help <command> for details on each command.\n");
     }
 }
 

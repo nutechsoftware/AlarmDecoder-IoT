@@ -28,9 +28,15 @@
 #define SER2SOCK_CLIENT_PORT 10000
 #define SER2SOCK_SERVER_PORT 10000
 #define AD2IOT_SER2SOCK_IPV4
+#define AD2_SER2SOCK_SERVER
+
+/// only pick one source
 //#define AD2_UART_SOURCE
 #define AD2_SER2SOCK_SOURCE
-#define AD2_SER2SOCK_SERVER
+
+int g_ad2_client_fd = -1;
+
+
 
 /**
  * AlarmDecoder Arduino library.
@@ -47,6 +53,7 @@ extern "C" {
 #include "device_control.h"
 
 // device types
+#include "caps_refresh.h"
 #include "caps_switch.h"
 #include "caps_securitySystem.h"
 #include "caps_momentary.h"
@@ -65,9 +72,15 @@ extern "C" {
 // esp includes
 #include "driver/uart.h"
 #include <lwip/netdb.h>
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
 // AD2IoT include
 #include "alarmdecoder_stsdk_app_esp32.h"
+
+// common utils
+#include "ad2_utils.h"
 
 /**
  * Constants / Static / Extern
@@ -95,10 +108,14 @@ static int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 
 static caps_switch_data_t *cap_switch_data;
 static caps_contactSensor_data_t *cap_contactSensor_data_chime;
+static caps_momentary_data_t *cap_momentary_data_chime;
+
 static caps_securitySystem_data_t *cap_securitySystem_data;
 
 TaskHandle_t ota_task_handle = NULL;
 IOT_CAP_HANDLE *ota_cap_handle = NULL;
+IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
+IOT_CAP_HANDLE *refresh_cap_handle = NULL;
 
 /**
  * AlarmDecoder callbacks.
@@ -114,9 +131,6 @@ IOT_CAP_HANDLE *ota_cap_handle = NULL;
  */
 void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
   ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-  // catpure the current state as json string
-  //std::string json;
-  //jsonAD2VirtualPartitionState(s, json);
 }
 
 /**
@@ -166,13 +180,15 @@ void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s) {
 /**
  * ON_CHIME_CHANGE
  * When CHIME state change event is triggered.
+ * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
+ * to make it clear Chime ON = Contact LED ON
  */
 void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
   ESP_LOGI(TAG, "ON_CHIME_CHANGE: CHIME(%i)", s->chime_on);
   if ( s->chime_on)
-    cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
-  else
     cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
+  else
+    cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
 
   cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
 }
@@ -234,14 +250,14 @@ static void ser2sock_client_task(void *pvParameters)
             struct sockaddr_in6 dest_addr = { 0 };
             ESP_ERROR_CHECK(get_addr_from_stdin(SER2SOCK_CLIENT_PORT, SOCK_STREAM, &ip_protocol, &addr_family, &dest_addr));
 #endif
-            int sock =  socket(addr_family, SOCK_STREAM, ip_protocol);
-            if (sock < 0) {
+            g_ad2_client_fd =  socket(addr_family, SOCK_STREAM, ip_protocol);
+            if (g_ad2_client_fd < 0) {
                 ESP_LOGE(TAG, "ser2sock client unable to create socket: errno %d", errno);
                 break;
             }
             ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host_ip, SER2SOCK_CLIENT_PORT);
 
-            int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
+            int err = connect(g_ad2_client_fd, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
             if (err != 0) {
                 ESP_LOGE(TAG, "ser2sock client socket unable to connect: errno %d", errno);
                 break;
@@ -249,7 +265,7 @@ static void ser2sock_client_task(void *pvParameters)
             ESP_LOGI(TAG, "ser2sock client successfully connected");
 
             while (1) {
-                int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+                int len = recv(g_ad2_client_fd, rx_buffer, sizeof(rx_buffer) - 1, 0);
                 // Error occurred during receiving
                 if (len < 0) {
                     ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
@@ -266,10 +282,11 @@ static void ser2sock_client_task(void *pvParameters)
                     break;
             }
 
-            if (sock != -1) {
+            if (g_ad2_client_fd != -1) {
                 ESP_LOGE(TAG, "ser2sock client shutting down socket and restarting in 3 seconds.");
-                shutdown(sock, 0);
-                close(sock);
+                shutdown(g_ad2_client_fd, 0);
+                close(g_ad2_client_fd);
+                g_ad2_client_fd = -1;
                 vTaskDelay(3000 / portTICK_PERIOD_MS);
             }
         }
@@ -278,6 +295,24 @@ static void ser2sock_client_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
+/**
+ * send a string to the AD2
+ */
+void send_to_ad2(char *buf)
+{
+#if defined(AD2_UART_SOURCE)
+#endif
+#if defined(AD2_SER2SOCK_SOURCE)
+  if(g_ad2_client_fd>-1) {
+
+  } else {
+        ESP_LOGE(TAG, "invalid handle in send_to_ad2");
+        return;
+  }
+  int len = send(g_ad2_client_fd, buf, strlen(buf), 0);
+
+#endif
+}
 
 /**
  * do_retransmit for ser2sock_server_task
@@ -310,6 +345,7 @@ inline void do_retransmit(const int sock)
         }
     } while (len > 0);
 }
+
 /**
  * ser2sock server task
  */
@@ -449,10 +485,36 @@ void init_ad2_gpio()
 void app_main()
 {
 
-    //// AlarmDecoder
+    //// AlarmDecoder App main
+
+    // Initialize nvs partition for key value storage.
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_LOGI(TAG, "truncating nvs partition");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+        ESP_LOGI(TAG, "nvs_flash_init done");
+    }
+    ESP_ERROR_CHECK( err );
 
     // init the AlarmDecoder IoT host uP GPIO
     init_ad2_gpio();
+
+    // init the virtual partition database from NV storage
+    // see iot_cli_cmd::vpaddr
+    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
+        int32_t x = -1;
+        ad2_get_nv_vpaddr(n, &x);
+        // if we found a NV record then initialize the AD2PState for the mask.
+        if (x != -1) {
+            uint32_t amask = 1;
+            amask <<= x-1;
+           AD2Parse.getAD2PState(&amask, true);
+           ESP_LOGI(TAG, "init vpaddr slot %i mask %i", n, x);
+        }
+    }
 
 #if defined(AD2_UART_SOURCE)
     // init the AlarmDecoder UART
@@ -496,9 +558,9 @@ void app_main()
     if (ctx != NULL) {
         iot_err = st_conn_set_noti_cb(ctx, iot_noti_cb, NULL);
         if (iot_err)
-            printf("fail to set notification callback function\n");
+            ESP_LOGE(TAG, "fail to set notification callback function");
     } else {
-        printf("fail to create the iot_context\n");
+        ESP_LOGE(TAG, "fail to create the iot_context");
     }
 
     // Add AD2 capabilies
@@ -549,6 +611,105 @@ static int get_switch_state(void)
     return switch_state;
 }
 
+/**
+ * callback from cloud to arm away. We modify to report back to the
+ * cloud our current state not an armed away state. If/when arm away state
+ * changes it will be sent.
+ */
+static void cap_securitySystem_arm_away_cmd_cb(struct caps_securitySystem_data *caps_data)
+{
+    const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
+    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+
+    uint32_t amask = 0xffffff7f;
+    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+
+    // send back our current state
+    //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int32_t address = -1;
+    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
+    ESP_LOGI(TAG ,"Sending ARM AWAY command");
+    send_to_ad2(msg);
+}
+
+static void cap_securitySystem_arm_stay_cmd_cb(struct caps_securitySystem_data *caps_data)
+{
+    const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
+    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+
+    uint32_t amask = 0xffffff7f;
+    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+
+    // send back our current state
+    //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int32_t address = -1;
+    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
+    ESP_LOGI(TAG, "Sending ARM STAY command");
+    send_to_ad2(msg);
+}
+
+static void cap_securitySystem_disarm_cmd_cb(struct caps_securitySystem_data *caps_data)
+{
+    const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
+    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+
+    uint32_t amask = 0xffffff7f;
+    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+
+    // send back our current state
+    //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+
+    // Get user code
+    char code[7] = {0};
+    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int32_t address = -1;
+    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "1");
+    ESP_LOGI(TAG, "Sending DISARM command");
+    send_to_ad2(msg);
+}
+
+static void cap_securitySystem_chime_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    uint32_t amask = 0xffffff7f;
+    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int32_t address = -1;
+    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "9");
+    ESP_LOGI(TAG, "Sending CHIME toggle command");
+    send_to_ad2(msg);
+}
+
 static void cap_switch_cmd_cb(struct caps_switch_data *caps_data)
 {
     int switch_state = get_switch_state();
@@ -566,8 +727,22 @@ static void capability_init()
 
         cap_switch_data->cmd_on_usr_cb = cap_switch_cmd_cb;
         cap_switch_data->cmd_off_usr_cb = cap_switch_cmd_cb;
+    }
 
-        cap_switch_data->set_switch_value(cap_switch_data, init_value);
+    // refresh device type init
+    refresh_cap_handle = st_cap_handle_init(ctx, "main", "refresh", NULL, NULL);
+    if (refresh_cap_handle) {
+		iot_err = st_cap_cmd_set_cb(refresh_cap_handle, "refresh", refresh_cmd_cb, NULL);
+		if (iot_err)
+            ESP_LOGE(TAG, "fail to set cmd_cb for refresh");
+    }
+
+    // healthCheck capabilities init
+	healthCheck_cap_handle = st_cap_handle_init(ctx, "main", "healthCheck", cap_health_check_init_cb, NULL);
+    if (healthCheck_cap_handle) {
+		iot_err = st_cap_cmd_set_cb(healthCheck_cap_handle, "ping", refresh_cmd_cb, NULL);
+		if (iot_err)
+            ESP_LOGE(TAG, "fail to set cmd_cb for healthCheck");
     }
 
     // firmwareUpdate capabilities init
@@ -575,7 +750,7 @@ static void capability_init()
     if (ota_cap_handle) {
 		iot_err = st_cap_cmd_set_cb(ota_cap_handle, "updateFirmware", update_firmware_cmd_cb, NULL);
 		if (iot_err)
-			printf("fail to set cmd_cb for updateFirmware");
+			ESP_LOGE(TAG, "fail to set cmd_cb for updateFirmware");
     }
 
     // securitySystem device type init
@@ -583,15 +758,25 @@ static void capability_init()
     if (cap_securitySystem_data) {
         const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
         cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+        cap_securitySystem_data->cmd_armAway_usr_cb = cap_securitySystem_arm_away_cmd_cb;
+        cap_securitySystem_data->cmd_armStay_usr_cb = cap_securitySystem_arm_stay_cmd_cb;
+        cap_securitySystem_data->cmd_disarm_usr_cb = cap_securitySystem_disarm_cmd_cb;
     }
 
-    // Chime contact & momentary
+    // Chime contact sensor
     cap_contactSensor_data_chime = caps_contactSensor_initialize(ctx, "chime", NULL, NULL);
     if (cap_contactSensor_data_chime) {
         const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
         cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, contact_init_value);
     }
+    // Chime Momentary button
+    cap_momentary_data_chime = caps_momentary_initialize(ctx, "chime", NULL, NULL);
+    if (cap_momentary_data_chime) {
+        cap_momentary_data_chime->cmd_push_usr_cb = cap_securitySystem_chime_cmd_cb;
+    }
 
+    // Load list of CODES from NVS
+    // TODO: encryption
 
 }
 
@@ -601,7 +786,7 @@ static void iot_status_cb(iot_status_t status,
     g_iot_status = status;
     g_iot_stat_lv = stat_lv;
 
-    printf("status: %d, stat: %d\n", g_iot_status, g_iot_stat_lv);
+    ESP_LOGI(TAG, "iot_status_cb %d, stat: %d", g_iot_status, g_iot_stat_lv);
 
     switch(status)
     {
@@ -637,7 +822,7 @@ static void connection_start(void)
 #if defined(SET_PIN_NUMBER_CONFRIM)
     pin_num = (iot_pin_t *) malloc(sizeof(iot_pin_t));
     if (!pin_num)
-        printf("failed to malloc for iot_pin_t\n");
+        ESP_LOGE(TAG, "failed to malloc for iot_pin_t");
 
     // to decide the pin confirmation number(ex. "12345678"). It will use for easysetup.
     //    pin confirmation number must be 8 digit number.
@@ -647,7 +832,7 @@ static void connection_start(void)
     // process on-boarding procedure. There is nothing more to do on the app side than call the API.
     err = st_conn_start(ctx, (st_status_cb)&iot_status_cb, IOT_STATUS_ALL, NULL, pin_num);
     if (err) {
-        printf("fail to start connection. err:%d\n", err);
+        ESP_LOGE(TAG, "fail to start connection. err:%d", err);
     }
     if (pin_num) {
         free(pin_num);
@@ -662,12 +847,12 @@ static void connection_start_task(void *arg)
 
 static void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data)
 {
-    printf("Notification message received\n");
+    ESP_LOGI(TAG, "Notification message received");
 
     if (noti_data->type == IOT_NOTI_TYPE_DEV_DELETED) {
-        printf("[device deleted]\n");
+        ESP_LOGI(TAG, "[device deleted]");
     } else if (noti_data->type == IOT_NOTI_TYPE_RATE_LIMIT) {
-        printf("[rate limit] Remaining time:%d, sequence number:%d\n",
+        ESP_LOGI(TAG, "[rate limit] Remaining time:%d, sequence number:%d",
                noti_data->raw.rate_limit.remainingTime, noti_data->raw.rate_limit.sequenceNumber);
     }
 }
@@ -675,7 +860,7 @@ static void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data)
 void button_event(IOT_CAP_HANDLE *handle, int type, int count)
 {
     if (type == BUTTON_SHORT_PRESS) {
-        printf("Button short press, count: %d\n", count);
+        ESP_LOGI(TAG, "Button short press, count: %d", count);
         switch(count) {
             case 1:
                 if (g_iot_status == IOT_STATUS_NEED_INTERACT) {
@@ -704,7 +889,7 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
                 break;
         }
     } else if (type == BUTTON_LONG_PRESS) {
-        printf("Button long press, iot_status: %d\n", g_iot_status);
+        ESP_LOGI(TAG, "Button long press, iot_status: %d", g_iot_status);
         led_blink(get_switch_state(), 100, 3);
         st_conn_cleanup(ctx, false);
         xTaskCreate(connection_start_task, "connection_task", 2048, NULL, 10, NULL);
@@ -722,7 +907,7 @@ void cap_available_version_set(char *available_version)
 	int32_t sequence_no;
 
 	if (!available_version) {
-		printf("invalid parameter");
+		ESP_LOGE(TAG, "invalid parameter");
 		return;
 	}
 
@@ -732,9 +917,24 @@ void cap_available_version_set(char *available_version)
 	/* Send switch on event */
 	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
 	if (sequence_no < 0)
-		printf("fail to send init_data\n");
+		ESP_LOGE(TAG, "fail to send init_data");
 
 	st_cap_attr_free(init_evt);
+}
+
+void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+    init_evt = st_cap_attr_create_int("checkInterval", 60, NULL);
+	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		ESP_LOGE(TAG, "fail to send init_data");
+
+	st_cap_attr_free(init_evt);
+
 }
 
 void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
@@ -748,10 +948,10 @@ void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
     // that is loaded from device_info.json
     init_evt = st_cap_attr_create_string("currentVersion", (char *)OTA_FIRMWARE_VERSION, NULL);
 
-	/* Send switch on event */
+	/* Send current version attribute */
 	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
 	if (sequence_no < 0)
-		printf("fail to send init_data\n");
+		ESP_LOGE(TAG, "fail to send init_data");
 
 	st_cap_attr_free(init_evt);
 }
@@ -759,7 +959,7 @@ void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 static void _task_fatal_error()
 {
 	ota_task_handle = NULL;
-	printf("Exiting task due to fatal error...");
+	ESP_LOGE(TAG, "Exiting task due to fatal error...");
 	(void)vTaskDelete(NULL);
 
 	while (1) {
@@ -768,16 +968,47 @@ static void _task_fatal_error()
 }
 static void ota_task_func(void * pvParameter)
 {
-	printf("\n Starting OTA...\n");
+	ESP_LOGI(TAG, "Starting OTA");
 
 	esp_err_t ret = ota_https_update_device();
 	if (ret != ESP_OK) {
-		printf("Firmware Upgrades Failed (%d) \n", ret);
+		ESP_LOGE(TAG, "Firmware Upgrades Failed (%d)", ret);
 		_task_fatal_error();
 	}
 
-	printf("Prepare to restart system!");
+	ESP_LOGI(TAG, "Prepare to restart system!");
 	esp_restart();
+}
+
+void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
+			iot_cap_cmd_data_t *cmd_data, void *usr_data)
+{
+    int32_t address = -1;
+    uint32_t mask = 1;
+    ESP_LOGI(TAG, "refresh_cmd_cb");
+
+
+    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    if (address == -1) {
+        ESP_LOGE(TAG, "default virtual partition defined. see 'vpaddr' command");
+        return;
+    }
+
+    mask <<= address-1;
+    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&mask);
+
+    if (s != nullptr) {
+      if (s->armed_home || s->armed_away) {
+        my_ON_ARM_CB(nullptr, s);
+      } else {
+        my_ON_DISARM_CB(nullptr, s);
+      }
+
+      my_ON_CHIME_CHANGE_CB(nullptr, s);
+      my_ON_READY_CHANGE_CB(nullptr, s);
+    } else {
+      ESP_LOGE(TAG, "vpaddr[%u] not found", address);
+    }
 }
 
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
@@ -794,15 +1025,15 @@ static void ota_polling_task_func(void *arg)
 
 		vTaskDelay(30000 / portTICK_PERIOD_MS);
 
-		printf("\n Starting check new version...\n");
+		ESP_LOGI(TAG, "Starting check new version");
 
 		if (ota_task_handle != NULL) {
-			printf("Device is updating.. \n");
+			ESP_LOGI(TAG, "Device is updating");
 			continue;
 		}
 
 		if (g_iot_status != IOT_STATUS_CONNECTING) {
-			printf("Device is not connected to cloud.. \n");
+			ESP_LOGI(TAG, "Device is not connected to cloud");
 			continue;
 		}
 
@@ -815,7 +1046,7 @@ static void ota_polling_task_func(void *arg)
 
 			esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
 			if (err != ESP_OK) {
-				printf("ota_api_get_available_version is failed : %d\n", err);
+				ESP_LOGE(TAG, "ota_api_get_available_version is failed : %d", err);
 				continue;
 			}
 
