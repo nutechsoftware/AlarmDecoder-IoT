@@ -62,7 +62,7 @@ void ad2_set_nv_code(int slot, char *code)
 /**
  * Get NV code
  */
-void ad2_get_nv_code(int slot, char *code, int size)
+void ad2_get_nv_code(int slot, char *code, size_t size)
 {
     esp_err_t err;
     nvs_handle my_handle;
@@ -120,6 +120,46 @@ void ad2_get_nv_vpaddr(int slot, int32_t *paddress)
         nvs_close(my_handle);
     }
 }
+
+/**
+ * set NV mode arg
+ */
+void ad2_set_nv_mode_arg(uint8_t mode, char *arg)
+{
+    esp_err_t err;
+
+    // Open NVS
+    nvs_handle my_handle;
+    err = nvs_open("ad2source", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
+    } else {
+        err = nvs_set_u8(my_handle, "mode", mode);
+        err = nvs_set_str(my_handle, "arg", arg);
+        err = nvs_commit(my_handle);
+        nvs_close(my_handle);
+    }
+}
+
+/**
+ * Get NV mode arg
+ */
+void ad2_get_nv_mode_arg(uint8_t *mode, char *arg, size_t size)
+{
+    esp_err_t err;
+    nvs_handle my_handle;
+    err = nvs_open("ad2source", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
+    } else {
+        size_t code_size = size;
+        char key[8] = {0};
+        err = nvs_get_u8(my_handle, "mode", mode);
+        err = nvs_get_str(my_handle, "arg", arg, &size);
+        nvs_close(my_handle);
+    }
+}
+
 
 /**
  * Copy the Nth space seperated word from a string.

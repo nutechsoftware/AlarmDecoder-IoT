@@ -1,24 +1,31 @@
-/* ***************************************************************************
+/**
+ *  @file    iot_cli_cmd.c
+ *  @author  Sean Mathews <coder@f34r.com>
+ *  @date    02/20/2020
+ *  @version 1.0
  *
- * Copyright 2019 Samsung Electronics All Rights Reserved.
+ *  @brief AlarmDecoder IoT embedded network appliance for SmartThings
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific
- * language governing permissions and limitations under the License.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- ****************************************************************************/
-
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 #include "iot_uart_cli.h"
 #include "device_control.h"
@@ -39,9 +46,10 @@ extern IOT_CTX *ctx;
 
 /**
  * Set the USER code for a given slot.
- * Store N number of codes in NV flash on the ESP32 chip
- * not in the cloud. The NV area should be encrypted and protected
- * from reading. Valid slots are from 0 to AD2_MAX_CODE
+ *
+ * command: code <slot> <code>
+ *
+ * Valid slots are from 0 to AD2_MAX_CODE
  * where slot 0 is the default user.
  *
  * ex.
@@ -80,10 +88,11 @@ static void _cli_cmd_code(char *string)
 
 /**
  * Set the Virtual Partition address code for a given slot.
- * Store N number of codes in NV flash on the ESP32 chip
- * not in the cloud. The NV area should be encrypted and protected
- * from reading. Valid slots are from 0 to AD2_MAX_VPARTITION
- * where Virtual Partition 0 is the default partition.
+ *
+ * command: vpaddr <slot> <code>
+ *
+ * Valid slots are from 0 to AD2_MAX_VPARTITION
+ * where slot 0 is the default.
  *
  * ex. Set virtual parition 0 to use address 18 for TX/RX
  *   and address 16 for TX/RX on virtual partition 1.
@@ -124,39 +133,36 @@ static void _cli_cmd_vpaddr(char *string)
 
 /**
  * Configure the AD2IoT connection to the AlarmDecoder device
+ *
+ *  command: ad2source <mode> <arg>
+ * ex.
+ *   ad2source c 2
+ *   ad2source s 192.168.1.2:10000
  */
 static void _cli_cmd_ad2source(char *string)
 {
-    #if 0
-    char buf[3]; // MAX 2 digit numbers
-    int slot = 0;
-    int address = 0;
+    char arg[AD2_MAX_MODE_ARG_SIZE]; // Big enough for a long(ish) host name
+    uint8_t mode = 0;
 
-    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
-        slot = strtol(buf, NULL, 10);
-    }
-
-    if (slot >= 0 && slot <= AD2_MAX_VPARTITION) {
-        if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
-            int address = strtol(buf, NULL, 10);
-            if (address>=0 && address < AD2_MAX_ADDRESS) {
-                    printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
-                    ad2_set_nv_vpaddr(slot, address);
-            } else {
-                    // delete entry
-                    address = -1;
-                    printf("Deleting vpaddr in slot %i...\n", slot);
-                    ad2_set_nv_vpaddr(slot, address);
+    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+        mode = toupper((int)arg[0]);
+        if (ad2_copy_nth_arg(arg, string, sizeof(arg), 2) >= 0) {
+            switch (mode)
+            {
+                case 'S':
+                case 'C':
+                    ad2_set_nv_mode_arg(mode, arg);
+                    break;
+                default:
+                    printf("Invalid mode selected must be [S]ocket or [C]OM\n");
             }
         } else {
-            // show contents of this slot
-            ad2_get_nv_vpaddr(slot, &address);
-            printf("The vpaddr in slot %i is %i\n", slot, address);
+            printf("Missing <arg>\n");
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_ADDRESS);
+        ad2_get_nv_mode_arg(&mode, arg, sizeof(arg));
+        printf("Current %s '%s'\n", (mode=='C'?"UART#":"AUTHORITY"), arg);
     }
-    #endif
 }
 
 static void _cli_cmd_reboot(char *string)
@@ -227,8 +233,10 @@ static struct cli_command cmd_list[] = {
         "  Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr},
     {"ad2source",
         "Manage AlarmDecoder protocol source.\n"
-        "  Syntax: ad2source <[S]OCK|[C]OM> <AUTHORITY|PORT#>\n"
+        "  Syntax: ad2source <[S]OCK|[C]OM> <AUTHORITY|UART#>\n"
         "  Examples:\n"
+        "    Show current mode\n"
+        "      ad2source"
         "    Set source to ser2sock client at address and port\n"
         "      ad2source SOCK 192.168.1.2:10000\n"
         "    Set source to local attached uart #2\n"

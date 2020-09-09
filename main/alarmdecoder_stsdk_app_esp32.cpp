@@ -24,18 +24,9 @@
 
 // configuration
 /// FIXME: Kconfig.projbuild
-#define SER2SOCK_CLIENT_HOST "192.168.3.202"
-#define SER2SOCK_CLIENT_PORT 10000
 #define SER2SOCK_SERVER_PORT 10000
 #define AD2IOT_SER2SOCK_IPV4
 #define AD2_SER2SOCK_SERVER
-
-/// only pick one source
-//#define AD2_UART_SOURCE
-#define AD2_SER2SOCK_SOURCE
-
-int g_ad2_client_fd = -1;
-
 
 
 /**
@@ -88,6 +79,10 @@ extern "C" {
 static const char *TAG = "AD2_IoT";
 
 static AlarmDecoderParser AD2Parse;
+
+// AD2 device connection settings
+int g_ad2_client_handle = -1;
+uint8_t g_ad2_mode = 0;
 
 // onboarding_config_start is null-terminated string
 extern const uint8_t onboarding_config_start[]  asm("_binary_onboarding_config_json_start");
@@ -225,39 +220,62 @@ static void ad2_app_main_task(void *arg)
 static void ser2sock_client_task(void *pvParameters)
 {
     uint8_t rx_buffer[128];
-    char host_ip[] = SER2SOCK_CLIENT_HOST;
+    char host[AD2_MAX_MODE_ARG_SIZE] = {0};
+    int port = 0;
     int addr_family = 0;
     int ip_protocol = 0;
 
     while (1) {
         if (g_iot_status == IOT_STATUS_CONNECTING) {
+
+            // load settings from NVS
+            ad2_get_nv_mode_arg(&g_ad2_mode, host, sizeof(host));
+            char tokens[] = ": ";
+	        char *hostptr = strtok(host, tokens);
+            char *portptr = NULL;
+            bool connectok = true;
+            if (hostptr != NULL) {
+                portptr = strtok(NULL, tokens);
+                if (portptr != NULL) {
+                    connectok = true;
+                }
+            }
+
+            if (connectok) {
+                port = atoi(portptr);
+            } else {
+                ESP_LOGE(TAG, "Error parsing host:port from settings");
+            }
+
+            ESP_LOGI(TAG, "Connecting to ser2sock host %s:%i", hostptr, port);
+
 #if defined(AD2IOT_SER2SOCK_IPV4)
             struct sockaddr_in dest_addr;
-            dest_addr.sin_addr.s_addr = inet_addr(host_ip);
+            dest_addr.sin_addr.s_addr = inet_addr(host);
             dest_addr.sin_family = AF_INET;
-            dest_addr.sin_port = htons(SER2SOCK_CLIENT_PORT);
+            dest_addr.sin_port = htons(port);
             addr_family = AF_INET;
             ip_protocol = IPPROTO_IP;
 #elif defined(SER2SOCK_IPV6)
             struct sockaddr_in6 dest_addr = { 0 };
-            inet6_aton(host_ip, &dest_addr.sin6_addr);
+            inet6_aton(host, &dest_addr.sin6_addr);
             dest_addr.sin6_family = AF_INET6;
-            dest_addr.sin6_port = htons(SER2SOCK_CLIENT_PORT);
+            dest_addr.sin6_port = htons(port);
             dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(EXAMPLE_INTERFACE);
             addr_family = AF_INET6;
             ip_protocol = IPPROTO_IPV6;
 #elif defined(CONFIG_EXAMPLE_SOCKET_IP_INPUT_STDIN)
             struct sockaddr_in6 dest_addr = { 0 };
-            ESP_ERROR_CHECK(get_addr_from_stdin(SER2SOCK_CLIENT_PORT, SOCK_STREAM, &ip_protocol, &addr_family, &dest_addr));
+            ESP_ERROR_CHECK(get_addr_from_stdin(port, SOCK_STREAM, &ip_protocol, &addr_family, &dest_addr));
 #endif
-            g_ad2_client_fd =  socket(addr_family, SOCK_STREAM, ip_protocol);
-            if (g_ad2_client_fd < 0) {
+            g_ad2_client_handle =  socket(addr_family, SOCK_STREAM, ip_protocol);
+            if (g_ad2_client_handle < 0) {
                 ESP_LOGE(TAG, "ser2sock client unable to create socket: errno %d", errno);
                 break;
             }
-            ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host_ip, SER2SOCK_CLIENT_PORT);
+            ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host, port);
 
-            int err = connect(g_ad2_client_fd, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
+            int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
             if (err != 0) {
                 ESP_LOGE(TAG, "ser2sock client socket unable to connect: errno %d", errno);
                 break;
@@ -265,7 +283,7 @@ static void ser2sock_client_task(void *pvParameters)
             ESP_LOGI(TAG, "ser2sock client successfully connected");
 
             while (1) {
-                int len = recv(g_ad2_client_fd, rx_buffer, sizeof(rx_buffer) - 1, 0);
+                int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
                 // Error occurred during receiving
                 if (len < 0) {
                     ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
@@ -282,11 +300,11 @@ static void ser2sock_client_task(void *pvParameters)
                     break;
             }
 
-            if (g_ad2_client_fd != -1) {
+            if (g_ad2_client_handle != -1) {
                 ESP_LOGE(TAG, "ser2sock client shutting down socket and restarting in 3 seconds.");
-                shutdown(g_ad2_client_fd, 0);
-                close(g_ad2_client_fd);
-                g_ad2_client_fd = -1;
+                shutdown(g_ad2_client_handle, 0);
+                close(g_ad2_client_handle);
+                g_ad2_client_handle = -1;
                 vTaskDelay(3000 / portTICK_PERIOD_MS);
             }
         }
@@ -300,18 +318,22 @@ static void ser2sock_client_task(void *pvParameters)
  */
 void send_to_ad2(char *buf)
 {
-#if defined(AD2_UART_SOURCE)
-#endif
-#if defined(AD2_SER2SOCK_SOURCE)
-  if(g_ad2_client_fd>-1) {
+  int len;
 
+  if(g_ad2_client_handle>-1) {
+    if (g_ad2_mode == 'C') {
+      uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
+    } else
+    if (g_ad2_mode == 'S') {
+      // the handle is a socket fd use send()
+      len = send(g_ad2_client_handle, buf, strlen(buf), 0);
+    } else {
+
+    }
   } else {
         ESP_LOGE(TAG, "invalid handle in send_to_ad2");
         return;
   }
-  int len = send(g_ad2_client_fd, buf, strlen(buf), 0);
-
-#endif
 }
 
 /**
@@ -468,8 +490,8 @@ void init_ad2_uart_client() {
         .rx_flow_ctrl_thresh = 0,
         .use_ref_tick = false
     };
-    uart_param_config(UART_NUM_1, &uart_config);
-    uart_driver_install(UART_NUM_1, 2048, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_param_config((uart_port_t)g_ad2_client_handle, &uart_config);
+    uart_driver_install((uart_port_t)g_ad2_client_handle, 2048, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
 }
 
 /**
@@ -516,15 +538,21 @@ void app_main()
         }
     }
 
-#if defined(AD2_UART_SOURCE)
-    // init the AlarmDecoder UART
-    init_ad2_uart_client();
-#endif
+    // Load AD2IoT operating mode [Socket|UART] and argument
+    char arg[AD2_MAX_MODE_ARG_SIZE];
+    ad2_get_nv_mode_arg(&g_ad2_mode, arg, sizeof(arg));
 
-#if defined(AD2_SER2SOCK_SOURCE)
-    // init ser2sock client
-    init_ser2sock_client();
-#endif
+    // init the AlarmDecoder UART
+    if (g_ad2_mode == 'C') {
+      init_ad2_uart_client();
+    } else
+    if (g_ad2_mode == 'S') {
+      // init ser2sock client
+      init_ser2sock_client();
+    } else {
+      ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+      printf("AD2IoT operating mode configured. Configure using ad2source command.\n");
+    }
 
 #if defined(AD2_SER2SOCK_SERVER)
     // init ser2sock server
