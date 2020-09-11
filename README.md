@@ -26,7 +26,7 @@ Next decide if you want to build your own profile and layout or join the existin
 - Join the AlarmDecoder organization where the profiles are already working and in current development. Enroll in the  AlarmDecoder organization using the Manufacturer ID '''0AOf'''
 https://smartthings.developer.samsung.com/partner/enroll
 
-- Use the SmartThings developer workspace to create custom profiles and onboarding as described [here](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
+- Use the SmartThings developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
 
 
 ## Configure the AD2IoT device.
