@@ -29,6 +29,36 @@ https://smartthings.developer.samsung.com/partner/enroll
 - Use the SmartThings developer workspace to create custom profiles and onboarding as described [here](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
 
 
+## Configure the AD2IoT device.
+ - Connect the ESP32 development board USB to a host computer and run a terminal program to connect to the virtual com port.
+ - Configure the AD2* Source cli command **'ad2source'**
+ - Configure the SmartThings security credentials
+  **'stserial'** **'stpublickey'** **'stprivatekey'**
+  - Add the credentials to the SmartThings developer workspace.
+
+## AD2Iot CLI command reference
+ - help
+   - Show the list of commands or give more detail on a command.
+ - reboot
+   - Reboot the microcontroller
+ - cleanup
+   - Erase adoption and other NV data and set the device back into adopt mode for SmartThings.
+ - button
+   - Simulate a button press event.
+ - code
+   - Manage user codes.
+ - vpaddr
+   - Manage virtual partitions.
+ - ad2source
+   - Configure the source for AlarmDecoder signals. Local UART or remote using tcpip to a remote host and port.
+ - stserial
+   - Sets the SmartThings device_info serialNumber
+ - stprivatekey
+   - Sets the SmartThings device_info privateKey
+ - stpublickey
+   - Sets the SmartThings device_info publicKey
+
+
 ## Building firmware
 ### Configure the project
 
@@ -48,7 +78,7 @@ Build the project and flash it to the board, then run monitor tool to view seria
 
 See the [Prerequisites](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref#prerequisites) for full steps to configure and use ESP-IDF and the STSDK to build this project.
 
-## Example Output
+## Example Output from ESP32 USB serial console.
 
 ```
 I (131082) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
