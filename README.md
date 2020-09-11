@@ -2,18 +2,34 @@
 
 ## Overview
 
-This project provides a framework for building a network IoT appliance to monitor and control alarm panel(s) using the AD2pHAT from AlarmDecoder.com and the open source hardware ESP32-DevKit V4 or the ESP32-EVB from Olimex.
+This project provides a framework for building a network IoT appliance to monitor and control alarm panel(s) using the AD2pHAT from AlarmDecoder.com and ESP32-DevKitC-32E or compatible ESP32 development board.
+
+## Hardware Required
+
+To run this example, it's recommended that you have a ESP32-DevKitC-32E or similar ESP32 based board. It is recommended to use the latest ESP32 V3 chips as they have improved encryption and firmware security features.
 
 Using an Olimex ESP32-EVB-EA it takes 6 seconds :) after booting to connect to the network and start sending messages.
 
-## How to use example
 
-### Hardware Required
+### Firmware
+TODO: HOWTO flash the latest available firmware or compile this project from source. [Building firmware](#Building-firmware)
 
-To run this example, it's recommended that you have an ESP32-DevKit V4 or Olimex development board - [ESP32-EVB-EA](https://www.olimex.com/Products/IoT/ESP32/ESP32-EVB/open-source-hardware).
 
-#### Pin Assignment
+## New SmartThings app integration
+A few options are available as the AD2IoT device moves toward being certified and directly available in the SmartThings app. In order to Discover and adopt the AD2IoT device it needs to be visible in the "My Testing Devices" under the "Adding device" panel.
 
+First you will need to [enable Developer Mode in the app
+](https://developer.samsung.com/smartthings/blog/en-us/2019/02/13/using-developer-mode-in-the-smartthings-app)
+
+Next decide if you want to build your own profile and layout or join the existing AlarmDecoder profile for how this device will be shown in the SmartThings app.
+
+- Join the AlarmDecoder organization where the profiles are already working and in current development. Enroll in the  AlarmDecoder organization using the Manufacturer ID '''0AOf'''
+https://smartthings.developer.samsung.com/partner/enroll
+
+- Use the SmartThings developer workspace to create custom profiles and onboarding as described [here](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
+
+
+## Building firmware
 ### Configure the project
 
 ```
