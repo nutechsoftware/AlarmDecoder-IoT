@@ -1,5 +1,5 @@
  /**
- *  @file    twilio.c
+ *  @file    twilio.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/12/2020
  *  @version 1.0
@@ -101,7 +101,7 @@ void twilio_send_task(void *pvParameters) {
                                     NULL, 0)) != 0)
     {
         ESP_LOGE(TAG, "mbedtls_ctr_drbg_seed returned %d", ret);
-        abort();
+        goto exit;
     }
 
     ESP_LOGI(TAG, "Loading the CA root certificate...");
@@ -112,7 +112,7 @@ void twilio_send_task(void *pvParameters) {
     if(ret < 0)
     {
         ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -ret);
-        abort();
+        goto exit;
     }
 
     ESP_LOGI(TAG, "Setting hostname for TLS session...");
@@ -121,7 +121,7 @@ void twilio_send_task(void *pvParameters) {
     if((ret = mbedtls_ssl_set_hostname(&ssl, WEB_SERVER)) != 0)
     {
         ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -ret);
-        abort();
+        goto exit;
     }
 
     ESP_LOGI(TAG, "Setting up the SSL/TLS structure...");
@@ -240,10 +240,12 @@ void twilio_send_task(void *pvParameters) {
 
         len = ret;
         ESP_LOGD(TAG, "%d bytes read", len);
+#ifdef DEBUG_TWILIO
         /* Print response directly to stdout as it is read */
         for(int i = 0; i < len; i++) {
             putchar(buf[i]);
         }
+#endif
     } while(1);
 
     mbedtls_ssl_close_notify(&ssl);
@@ -257,10 +259,10 @@ exit:
         mbedtls_strerror(ret, buf, 100);
         ESP_LOGE(TAG, "Last error was: -0x%x - %s", -ret, buf);
     }
-
-    putchar('\n'); // JSON output doesn't have a newline at end
-
+#ifdef DEBUG_TWILIO
+    printf("\n");
+#endif
     ESP_LOGI(TAG, "Completed requests");
 
-vTaskDelete(NULL);
+    vTaskDelete(NULL);
 }

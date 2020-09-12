@@ -24,6 +24,8 @@
 #ifndef twilio_h
 #define twilio_h
 
+#define DEBUG_TWILIO
+
 #ifdef __cplusplus
 extern "C" {
 #endif
