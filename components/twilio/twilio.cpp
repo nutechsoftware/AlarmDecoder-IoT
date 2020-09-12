@@ -62,7 +62,7 @@ static const char *TAG = "AD2UTIL";
 #define WEB_URL "/test"
 
 static const char *REQUEST = "GET " WEB_URL " HTTP/1.0\r\n"
-    "Host: "WEB_SERVER"\r\n"
+    "Host: " WEB_SERVER "\r\n"
     "User-Agent: esp-idf/1.0 esp32\r\n"
     "\r\n";
 
@@ -81,6 +81,7 @@ void twilio_send_task(void *pvParameters) {
 
     char buf[512];
     int ret, flags, len;
+    size_t written_bytes = 0;
 
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
@@ -196,7 +197,6 @@ void twilio_send_task(void *pvParameters) {
 
     ESP_LOGI(TAG, "Writing HTTP request...");
 
-    size_t written_bytes = 0;
     do {
         ret = mbedtls_ssl_write(&ssl,
                                 (const unsigned char *)REQUEST + written_bytes,
