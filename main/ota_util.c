@@ -52,11 +52,11 @@ static const char *TAG = "OTA_UTIL";
 #define OTA_DEFAULT_BUF_SIZE 256
 #define OTA_CRYPTO_SHA256_LEN 32
 
-extern const uint8_t public_key_start[]	asm("_binary_public_key_pem_start");
-extern const uint8_t public_key_end[]		asm("_binary_public_key_pem_end");
+extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
+extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
 
-extern const uint8_t root_pem_start[]	asm("_binary_root_pem_start");
-extern const uint8_t root_pem_end[]		asm("_binary_root_pem_end");
+extern const uint8_t root_pem_start[]	asm("_binary_update_root_pem_start");
+extern const uint8_t root_pem_end[]		asm("_binary_update_root_pem_end");
 
 
 static unsigned int polling_day = 1;
