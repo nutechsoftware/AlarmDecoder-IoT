@@ -1,0 +1,7 @@
+menu "Twilio client"
+    config TWILIO_CLIENT
+        bool "Twilio client"
+        default n
+        help
+            Enable Twilio client
+endmenu

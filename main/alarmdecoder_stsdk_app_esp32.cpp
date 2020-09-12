@@ -73,6 +73,10 @@ extern "C" {
 // common utils
 #include "ad2_utils.h"
 
+// twilio support
+#include "twilio.h"
+
+
 /**
  * Constants / Static / Extern
  */

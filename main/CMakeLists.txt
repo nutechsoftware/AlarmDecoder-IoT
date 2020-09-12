@@ -15,6 +15,7 @@ idf_component_register(SRCS "alarmdecoder_stsdk_app_esp32.cpp"
                     EMBED_FILES "device_info.json"
                                 "onboarding_config.json"
                     REQUIRES idf::alarmdecoder-api
+                    REQUIRES idf::twilio
                     )
 
 set(STDK_IOT_CORE_USE_DEFINED_CONFIG "y")
