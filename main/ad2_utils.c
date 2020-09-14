@@ -160,6 +160,39 @@ void ad2_get_nv_mode_arg(uint8_t *mode, char *arg, size_t size)
     }
 }
 
+/**
+ * Generic get NV arg
+ */
+void ad2_get_nv_arg(char *key, char *arg, size_t size)
+{
+    esp_err_t err;
+    nvs_handle my_handle;
+    err = nvs_open(key, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
+    } else {
+        err = nvs_get_str(my_handle, key, arg, &size);
+        nvs_close(my_handle);
+    }
+}
+
+/**
+ * Generic set NV arg
+ */
+void ad2_set_nv_arg(char *key, char *arg)
+{
+    esp_err_t err;
+    nvs_handle my_handle;
+    err = nvs_open(key, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
+    } else {
+        err = nvs_set_str(my_handle, key, arg);
+        err = nvs_commit(my_handle);
+        nvs_close(my_handle);
+    }
+}
+
 
 /**
  * Copy the Nth space seperated word from a string.
