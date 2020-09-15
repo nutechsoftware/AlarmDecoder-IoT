@@ -128,6 +128,7 @@ IOT_CAP_HANDLE *refresh_cap_handle = NULL;
  */
 void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
   ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
+  ESP_LOGI(TAG, "RAM left %d", esp_get_free_heap_size());
 }
 
 /**
@@ -221,9 +222,8 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
 
     // add to the queue
     twilio_add_queue(sid.c_str(), token.c_str(), from.c_str(), to.c_str(), type, body.c_str());
-
+    ESP_LOGI(TAG, "Adding task to twilio send queue");
   }
-#endif
 #endif
 }
 

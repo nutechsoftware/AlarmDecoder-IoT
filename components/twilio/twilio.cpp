@@ -53,6 +53,9 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/error.h"
 #include "mbedtls/certs.h"
+#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
+#include "mbedtls/ssl_cache.h"
+#endif
 
 extern "C" {
 #include "ad2_utils.h"
@@ -61,7 +64,18 @@ extern "C" {
 #include "twilio.h"
 }
 
+#if CONFIG_TWILIO_CLIENT
+
 QueueHandle_t  sendQ=NULL;
+mbedtls_ssl_config conf;
+mbedtls_entropy_context entropy;
+mbedtls_ctr_drbg_context ctr_drbg;
+mbedtls_ssl_context ssl;
+mbedtls_x509_crt cacert;
+mbedtls_net_context server_fd;
+#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
+mbedtls_ssl_cache_context cache;
+#endif
 
 static const char *TAG = "TWILIO";
 
@@ -194,26 +208,43 @@ void twilio_add_queue(const char * sid, const char * token, const char *from, co
  */
 void twilio_consumer_task(void *pvParameter) {
     while(1) {
+        ESP_LOGI(TAG,"queue consumer loop start");
         if(sendQ == NULL) {
             ESP_LOGW(TAG, "sendQ is not ready task ending");
             break;
         }
         twilio_message_data_t *message_data = NULL;
         if ( xQueueReceive(sendQ,&message_data,portMAX_DELAY) ) {
+            ESP_LOGI(TAG, "creating task for twilio notification");
             // process the message
-            xTaskCreate(&twilio_send_task, "twilio_send_task", 4096*2, (void *)message_data, tskIDLE_PRIORITY+1, NULL);
+            BaseType_t xReturned = xTaskCreate(&twilio_send_task, "twilio_send_task", 1024*7, (void *)message_data, tskIDLE_PRIORITY+5, NULL);
+            if (xReturned != pdPASS) {
+                ESP_LOGE(TAG, "failed to create twilio task.");
+            }
+            // Sleep after spawingin a task.
+            vTaskDelay(500/portTICK_PERIOD_MS); //wait for 500 ms
         }
-        // back to sleep for a bit
-        vTaskDelay(500/portTICK_PERIOD_MS); //wait for 500 ms
     }
     vTaskDelete(NULL);
 }
 
+/**
+ * cleanup memory
+ */
+void twilio_free() {
+    mbedtls_ssl_free( &ssl );
+    mbedtls_x509_crt_free( &cacert );
+    mbedtls_ctr_drbg_free( &ctr_drbg);
+    mbedtls_ssl_config_free( &conf );
+    mbedtls_entropy_free( &entropy );
+}
 
 /**
  * Background task to send a message to twilio
  */
 void twilio_send_task(void *pvParameters) {
+    ESP_LOGI(TAG, "twilio send task start stack free %s", esp_get_free_heap_size());
+
     twilio_message_data_t *message_data = (twilio_message_data_t *)pvParameters;
 
     char buf[512];
@@ -223,16 +254,6 @@ void twilio_send_task(void *pvParameters) {
     std::string body;
     char * reqp = NULL;
 
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_context ctr_drbg;
-    mbedtls_ssl_context ssl;
-    mbedtls_x509_crt cacert;
-    mbedtls_ssl_config conf;
-    mbedtls_net_context server_fd;
-
-    mbedtls_ssl_init(&ssl);
-    mbedtls_x509_crt_init(&cacert);
-    mbedtls_ctr_drbg_init(&ctr_drbg);
 
     // should never happen sanity check.
     if (message_data == NULL) {
@@ -240,7 +261,6 @@ void twilio_send_task(void *pvParameters) {
         vTaskDelete(NULL);
         return;
     }
-
     // load message data local for ease of access
     std::string sid = message_data->sid;
     std::string token = message_data->token;
@@ -249,7 +269,7 @@ void twilio_send_task(void *pvParameters) {
     char type = message_data->type;
     std::string arg = message_data->arg;
 
-    // free everyting we are done with the pointers.
+    // free we are done with the pointers.
     free(message_data->sid);
     free(message_data->token);
     free(message_data->from);
@@ -275,64 +295,11 @@ void twilio_send_task(void *pvParameters) {
             return;
     }
 
-    ESP_LOGI(TAG, "Seeding the random number generator");
-    mbedtls_ssl_config_init(&conf);
-    mbedtls_entropy_init(&entropy);
-    if((ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                    NULL, 0)) != 0)
-    {
-        ESP_LOGE(TAG, "mbedtls_ctr_drbg_seed returned %d", ret);
-        goto exit;
-    }
-
-    ESP_LOGI(TAG, "Loading the CA root certificate...");
-    ret = mbedtls_x509_crt_parse(&cacert, twilio_root_pem_start,
-                                 twilio_root_pem_end-twilio_root_pem_start);
-
-    if(ret < 0)
-    {
-        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -ret);
-        goto exit;
-    }
-
-    ESP_LOGI(TAG, "Setting hostname for TLS session...");
-     /* Hostname set here should match CN in server certificate */
-    if((ret = mbedtls_ssl_set_hostname(&ssl, WEB_SERVER)) != 0)
-    {
-        ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -ret);
-        goto exit;
-    }
-
-    ESP_LOGI(TAG, "Setting up the SSL/TLS structure...");
-    if((ret = mbedtls_ssl_config_defaults(&conf,
-                                          MBEDTLS_SSL_IS_CLIENT,
-                                          MBEDTLS_SSL_TRANSPORT_STREAM,
-                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
-    {
-        ESP_LOGE(TAG, "mbedtls_ssl_config_defaults returned %d", ret);
-        goto exit;
-    }
-
-    /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
-       a warning if CA verification fails but it will continue to connect.
-       You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
-    */
-    mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
-    mbedtls_ssl_conf_ca_chain(&conf, &cacert, NULL);
-    mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &ctr_drbg);
-#ifdef CONFIG_MBEDTLS_DEBUG
-    mbedtls_esp_enable_debug_log(&conf, 4);
-#endif
-
-    if ((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0)
-    {
-        ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -ret);
-        goto exit;
-    }
-
-    mbedtls_net_init(&server_fd);
-
     ESP_LOGI(TAG, "Connecting to %s:%s...", WEB_SERVER, WEB_PORT);
+
+    // clean up and ready for new request
+    mbedtls_ssl_session_reset(&ssl);
+    mbedtls_net_free(&server_fd);
 
     if ((ret = mbedtls_net_connect(&server_fd, WEB_SERVER,
                                     WEB_PORT, MBEDTLS_NET_PROTO_TCP)) != 0)
@@ -428,15 +395,13 @@ void twilio_send_task(void *pvParameters) {
     mbedtls_ssl_close_notify(&ssl);
 
 exit:
-    mbedtls_ssl_session_reset(&ssl);
-    mbedtls_net_free(&server_fd);
 
     if(ret != 0)
     {
         mbedtls_strerror(ret, buf, 100);
         ESP_LOGE(TAG, "Last error was: -0x%x - %s", -ret, buf);
     }
-    ESP_LOGI(TAG, "Completed requests");
+    ESP_LOGI(TAG, "Completed requests stack free %d", uxTaskGetStackHighWaterMark(NULL));
 
     vTaskDelete(NULL);
 }
@@ -523,9 +488,93 @@ static struct cli_command twilio_cmd_list[] = {
 };
 
 /**
- * Initialize queue
+ * Initialize queue and SSL
  */
 void twilio_init() {
+
+    // init server_fd
+    mbedtls_net_init(&server_fd);
+    // init ssl
+    mbedtls_ssl_init(&ssl);
+    // init SSL conf
+    mbedtls_ssl_config_init(&conf);
+#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
+    mbedtls_ssl_cache_init( &cache );
+#endif
+    // init cert
+    mbedtls_x509_crt_init(&cacert);
+    // init entropy
+    mbedtls_entropy_init(&entropy);
+    // init drbg
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+#if defined(DEBUG_TWILIO)
+    mbedtls_debug_set_threshold( DEBUG_LEVEL );
+#endif
+
+    ESP_LOGI(TAG, "Loading the CA root certificate...");
+    int ret = mbedtls_x509_crt_parse(&cacert, twilio_root_pem_start,
+                                 twilio_root_pem_end-twilio_root_pem_start);
+    if(ret < 0)
+    {
+        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -ret);
+        twilio_free();
+        return;
+    }
+
+    ESP_LOGI(TAG, "Seeding the random number generator");
+    if((ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                    NULL, 0)) != 0)
+    {
+        ESP_LOGE(TAG, "mbedtls_ctr_drbg_seed returned %d", ret);
+        twilio_free();
+        return;
+    }
+
+    /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
+       a warning if CA verification fails but it will continue to connect.
+       You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
+    */
+    mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
+    mbedtls_ssl_conf_ca_chain(&conf, &cacert, NULL);
+    mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+#ifdef CONFIG_MBEDTLS_DEBUG
+    mbedtls_esp_enable_debug_log(&conf, 4);
+#endif
+
+#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
+    mbedtls_ssl_conf_session_cache( &conf, &cache,
+                                   mbedtls_ssl_cache_get,
+                                   mbedtls_ssl_cache_set );
+#endif
+
+    ESP_LOGI(TAG, "Setting hostname for TLS session...");
+     /* Hostname set here should match CN in server certificate */
+    if((ret = mbedtls_ssl_set_hostname(&ssl, WEB_SERVER)) != 0)
+    {
+        ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -ret);
+        twilio_free();
+        return;
+    }
+
+    ESP_LOGI(TAG, "Setting up the SSL/TLS structure...");
+    if((ret = mbedtls_ssl_config_defaults(&conf,
+                                          MBEDTLS_SSL_IS_CLIENT,
+                                          MBEDTLS_SSL_TRANSPORT_STREAM,
+                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
+    {
+        ESP_LOGE(TAG, "mbedtls_ssl_config_defaults returned %d", ret);
+        twilio_free();
+        return;
+    }
+
+
+    if ((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0)
+    {
+        ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -ret);
+        twilio_free();
+        return;
+    }
+
 
     // register twilio CLI commands
     for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++)
@@ -541,3 +590,5 @@ void twilio_init() {
 }
 
 } // extern "C"
+
+#endif /*  CONFIG_TWILIO_CLIENT */

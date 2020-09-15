@@ -23,8 +23,9 @@
  */
 #ifndef twilio_h
 #define twilio_h
+#if CONFIG_TWILIO_CLIENT
 
-#define DEBUG_TWILIO
+//#define DEBUG_TWILIO
 #define TWILIO_QUEUE_SIZE 20
 #define AD2_DEFAULT_TWILIO_SLOT 0
 
@@ -60,5 +61,5 @@ void twilio_add_queue(const char *sid, const char *token, const char *from, cons
 #ifdef __cplusplus
 }
 #endif
-
-#endif
+#endif // CONFIG_TWILIO_CLIENT
+#endif // twilio_h
