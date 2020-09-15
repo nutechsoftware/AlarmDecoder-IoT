@@ -27,6 +27,15 @@
 #define SER2SOCK_SERVER_PORT 10000
 #define AD2IOT_SER2SOCK_IPV4
 #define AD2_SER2SOCK_SERVER
+#define AD2_MAX_ADDRESS       99
+#define AD2_MAX_VPARTITION    9
+#define AD2_MAX_CODE          99
+#define AD2_DEFAULT_CODE_SLOT 0
+#define AD2_DEFAULT_VPA_SLOT  0
+#define AD2_MAX_MODE_ARG_SIZE 80
+#define VPADDR_CONFIG_KEY     "vpa"
+#define CODES_CONFIG_KEY      "codes"
+#define AD2MODE_CONFIG_KEY    "ad2source"
 
 
 /**
@@ -233,7 +242,9 @@ static void ser2sock_client_task(void *pvParameters)
         if (g_iot_status == IOT_STATUS_CONNECTING) {
 
             // load settings from NVS
-            ad2_get_nv_mode_arg(&g_ad2_mode, host, sizeof(host));
+            // host stored in slot 1
+            ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, host, sizeof(host));
+
             char tokens[] = ": ";
 	        char *hostptr = strtok(host, tokens);
             char *portptr = NULL;
@@ -544,8 +555,8 @@ void app_main()
     // init the virtual partition database from NV storage
     // see iot_cli_cmd::vpaddr
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
-        int32_t x = -1;
-        ad2_get_nv_vpaddr(n, &x);
+        int x = -1;
+        ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, n, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
             uint32_t amask = 1;
@@ -556,8 +567,11 @@ void app_main()
     }
 
     // Load AD2IoT operating mode [Socket|UART] and argument
-    char arg[AD2_MAX_MODE_ARG_SIZE];
-    ad2_get_nv_mode_arg(&g_ad2_mode, arg, sizeof(arg));
+
+    // get the mode
+    char mode[2];
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, mode, sizeof(mode));
+    g_ad2_mode = mode[0];
 
     // init the AlarmDecoder UART
     if (g_ad2_mode == 'C') {
@@ -666,21 +680,21 @@ static void cap_securitySystem_arm_away_cmd_cb(struct caps_securitySystem_data *
     const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
     cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
 
-    uint32_t amask = 0xffffff7f;
-    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+    // TODO: uint32_t amask = 0xffffff7f;
+    // TODO: AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
 
     // send back our current state
     //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
 
     // Get user code
     char code[7];
-    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
 
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
-    int32_t address = -1;
-    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
     ESP_LOGI(TAG ,"Sending ARM AWAY command");
     send_to_ad2(msg);
@@ -691,21 +705,21 @@ static void cap_securitySystem_arm_stay_cmd_cb(struct caps_securitySystem_data *
     const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
     cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
 
-    uint32_t amask = 0xffffff7f;
-    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+    // TODO: uint32_t amask = 0xffffff7f;
+    // TODO: AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
 
     // send back our current state
     //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
 
     // Get user code
     char code[7];
-    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
 
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
-    int32_t address = -1;
-    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
     ESP_LOGI(TAG, "Sending ARM STAY command");
     send_to_ad2(msg);
@@ -716,21 +730,21 @@ static void cap_securitySystem_disarm_cmd_cb(struct caps_securitySystem_data *ca
     const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
     cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
 
-    uint32_t amask = 0xffffff7f;
-    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+    // TODO: uint32_t amask = 0xffffff7f;
+    // TODO: AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
 
     // send back our current state
     //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
 
     // Get user code
     char code[7] = {0};
-    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
 
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
-    int32_t address = -1;
-    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "1");
     ESP_LOGI(TAG, "Sending DISARM command");
     send_to_ad2(msg);
@@ -738,18 +752,18 @@ static void cap_securitySystem_disarm_cmd_cb(struct caps_securitySystem_data *ca
 
 static void cap_securitySystem_chime_cmd_cb(struct caps_momentary_data *caps_data)
 {
-    uint32_t amask = 0xffffff7f;
-    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+    // TODO: uint32_t amask = 0xffffff7f;
+    // TODO: AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
 
     // Get user code
     char code[7];
-    ad2_get_nv_code(AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
 
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
-    int32_t address = -1;
-    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "9");
     ESP_LOGI(TAG, "Sending CHIME toggle command");
     send_to_ad2(msg);
@@ -763,6 +777,7 @@ static void cap_switch_cmd_cb(struct caps_switch_data *caps_data)
 
 static void capability_init()
 {
+    ESP_LOGI(TAG, "capabilities_init");
     int iot_err;
 
     // FIXME: dummy switch tied to physical button on ESP32
@@ -1028,12 +1043,11 @@ static void ota_task_func(void * pvParameter)
 void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 			iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-    int32_t address = -1;
+    int address = -1;
     uint32_t mask = 1;
     ESP_LOGI(TAG, "refresh_cmd_cb");
 
-
-    ad2_get_nv_vpaddr(AD2_DEFAULT_VPA_SLOT, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
     if (address == -1) {
         ESP_LOGE(TAG, "default virtual partition defined. see 'vpaddr' command");
         return;

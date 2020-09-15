@@ -70,16 +70,16 @@ static void _cli_cmd_code_event(char *string)
             if (strlen(buf)) {
                     if (atoi(buf) == -1) {
                         printf("Removing code in slot %i...\n", slot);
-                        ad2_set_nv_code(slot, NULL);
+                        ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
                     } else {
                         printf("Setting code in slot %i to '%s'...\n", slot, buf);
-                        ad2_set_nv_code(slot, buf);
+                        ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
                     }
             }
         } else {
             // show contents of this slot
             memset(buf, 0, sizeof(buf));
-            ad2_get_nv_code(slot, buf, sizeof(buf));
+            ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf, sizeof(buf));
             printf("The code in slot %i is '%s'\n", slot, buf);
         }
     } else {
@@ -115,16 +115,15 @@ static void _cli_cmd_vpaddr_event(char *string)
             int address = strtol(buf, NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
                     printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
-                    ad2_set_nv_vpaddr(slot, address);
+                    ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
             } else {
                     // delete entry
-                    address = -1;
                     printf("Deleting vpaddr in slot %i...\n", slot);
-                    ad2_set_nv_vpaddr(slot, address);
+                    ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, -1);
             }
         } else {
             // show contents of this slot
-            ad2_get_nv_vpaddr(slot, &address);
+            ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, &address);
             printf("The vpaddr in slot %i is %i\n", slot, address);
         }
     } else {
@@ -142,17 +141,21 @@ static void _cli_cmd_vpaddr_event(char *string)
  */
 static void _cli_cmd_ad2source_event(char *string)
 {
+    char modesz[2]; // just a single byte and null term
     char arg[AD2_MAX_MODE_ARG_SIZE]; // Big enough for a long(ish) host name
-    uint8_t mode = 0;
 
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
-        mode = toupper((int)arg[0]);
+    if (ad2_copy_nth_arg(modesz, string, sizeof(modesz), 1) >= 0) {
+        // upper case it all
+        uint8_t mode = toupper((int)modesz[0]); modesz[0] = mode; modesz[1] = 0;
         if (ad2_copy_nth_arg(arg, string, sizeof(arg), 2) >= 0) {
             switch (mode)
             {
                 case 'S':
                 case 'C':
-                    ad2_set_nv_mode_arg(mode, arg);
+                    // save mode in slot 0
+                    ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, modesz);
+                    // save arg in slot 1
+                    ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, arg);
                     break;
                 default:
                     printf("Invalid mode selected must be [S]ocket or [C]OM\n");
@@ -161,8 +164,13 @@ static void _cli_cmd_ad2source_event(char *string)
             printf("Missing <arg>\n");
         }
     } else {
-        ad2_get_nv_mode_arg(&mode, arg, sizeof(arg));
-        printf("Current %s '%s'\n", (mode=='C'?"UART#":"AUTHORITY"), arg);
+        // get mode in slot 0
+        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, modesz, sizeof(modesz));
+
+        // get arg in slot 1
+        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, arg, sizeof(arg));
+
+        printf("Current %s '%s'\n", (modesz[0]=='C'?"UART#":"AUTHORITY"), arg);
     }
 }
 

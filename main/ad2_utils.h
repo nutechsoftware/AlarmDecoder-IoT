@@ -24,27 +24,16 @@
 #ifndef ad2_utils_h
 #define ad2_utils_h
 
-#define AD2_MAX_ADDRESS 99
-#define AD2_MAX_VPARTITION 9
-#define AD2_MAX_CODE 127
-
-#define AD2_DEFAULT_CODE_SLOT 0
-#define AD2_DEFAULT_VPA_SLOT 0
-
-#define AD2_MAX_MODE_ARG_SIZE 80
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-void ad2_set_nv_code(int slot, char *code);
-void ad2_get_nv_code(int slot, char *code, size_t size);
-void ad2_set_nv_vpaddr(int slot, int32_t address);
-void ad2_get_nv_vpaddr(int slot, int32_t *address);
-void ad2_set_nv_mode_arg(uint8_t mode, char *arg);
-void ad2_get_nv_mode_arg(uint8_t *mode, char *arg, size_t size);
 int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
-void ad2_get_nv_arg(char *key, char *arg, size_t size);
-void ad2_set_nv_arg(char *key, char *arg);
+void ad2_get_nv_arg(const char *key, char *arg, size_t size);
+void ad2_set_nv_arg(const char *key, char *arg);
+void ad2_set_nv_slot_key_int(const char *key, int slot, int value);
+void ad2_get_nv_slot_key_int(const char *key, int slot, int *value);
+void ad2_set_nv_slot_key_string(const char *key, int slot, char *value);
+void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t size);
 #ifdef __cplusplus
 }
 #endif

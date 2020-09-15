@@ -35,127 +35,97 @@
 static const char *TAG = "AD2UTIL";
 
 /**
- * set NV Code
+ * Generic get NV int value by key and slot(0-99)
  */
-void ad2_set_nv_code(int slot, char *code)
-{
+void ad2_get_nv_slot_key_int(const char *key, int slot, int *value) {
     esp_err_t err;
 
     // Open NVS
     nvs_handle my_handle;
-    err = nvs_open("codes", NVS_READWRITE, &my_handle);
+    err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        char key[8] = {0};
-        snprintf(key, sizeof(key), "CODE%03i", slot);
-        if (code == NULL) {
-            err = nvs_erase_key(my_handle, key);
+        int tlen = strlen(key)+3; // add space for XX\n
+        char *tkey = malloc(tlen);
+        snprintf(tkey, tlen, "%02i", slot);
+        err = nvs_get_i32(my_handle, tkey, value);
+        free(tkey);
+        nvs_close(my_handle);
+    }
+}
+
+/**
+ * Generic set NV int value by key and slot(0-99)
+ * Value < 0 will remove entry
+ */
+void ad2_set_nv_slot_key_int(const char *key, int slot, int value) {
+    esp_err_t err;
+
+    // Open NVS
+    nvs_handle my_handle;
+    err = nvs_open(key, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
+    } else {
+        int tlen = strlen(key)+3; // add space for XX\n
+        char *tkey = malloc(tlen);
+        snprintf(tkey, tlen, "%02i", slot);
+        if (value == -1) {
+            err = nvs_erase_key(my_handle, tkey);
         } else {
-            err = nvs_set_str(my_handle, key, code);
+            err = nvs_set_i32(my_handle, tkey, value);
         }
+        free(tkey);
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     }
 }
 
 /**
- * Get NV code
+ * Generic get NV string value by key and slot(0-99)
  */
-void ad2_get_nv_code(int slot, char *code, size_t size)
-{
+void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t size) {
     esp_err_t err;
+
+    // Open NVS
     nvs_handle my_handle;
-    err = nvs_open("codes", NVS_READWRITE, &my_handle);
+    err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        size_t code_size = size;
-        char key[8] = {0};
-        snprintf(key, sizeof(key), "CODE%03i", slot);
-        err = nvs_get_str(my_handle, key, code, &code_size);
+        int tlen = strlen(key)+3; // add space for XX\n
+        char *tkey = malloc(tlen);
+        snprintf(tkey, tlen, "%02i", slot);
+        err = nvs_get_str(my_handle, tkey, value, &size);
+        free(tkey);
         nvs_close(my_handle);
     }
 }
 
 /**
- * Set NV virtual partition address
+ * Generic set NV string value by key and slot(0-99)
+ * Value < 0 will remove entry
  */
-void ad2_set_nv_vpaddr(int slot, int32_t address)
-{
+void ad2_set_nv_slot_key_string(const char *key, int slot, char *value) {
     esp_err_t err;
 
     // Open NVS
     nvs_handle my_handle;
-    err = nvs_open("vpal", NVS_READWRITE, &my_handle);
+    err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        char key[5] = {0};
-        snprintf(key, sizeof(key), "VPA%01i", slot);
-        if (address == -1) {
-            err = nvs_erase_key(my_handle, key);
+        int tlen = strlen(key)+3; // add space for XX\n
+        char *tkey = malloc(tlen);
+        snprintf(tkey, tlen, "%02i", slot);
+        if (value == NULL) {
+            err = nvs_erase_key(my_handle, tkey);
         } else {
-            err = nvs_set_i32(my_handle, key, address);
+            err = nvs_set_str(my_handle, tkey, value);
         }
+        free(tkey);
         err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    }
-}
-
-/**
- * Get NV virtual partition address
- */
-void ad2_get_nv_vpaddr(int slot, int32_t *paddress)
-{
-    esp_err_t err;
-    nvs_handle my_handle;
-    err = nvs_open("vpal", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        char key[5] = {0};
-        snprintf(key, sizeof(key), "VPA%01i", slot);
-        err = nvs_get_i32(my_handle, key, paddress);
-        nvs_close(my_handle);
-    }
-}
-
-/**
- * set NV mode arg
- */
-void ad2_set_nv_mode_arg(uint8_t mode, char *arg)
-{
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open("ad2source", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        err = nvs_set_u8(my_handle, "mode", mode);
-        err = nvs_set_str(my_handle, "arg", arg);
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    }
-}
-
-/**
- * Get NV mode arg
- */
-void ad2_get_nv_mode_arg(uint8_t *mode, char *arg, size_t size)
-{
-    esp_err_t err;
-    nvs_handle my_handle;
-    err = nvs_open("ad2source", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        size_t code_size = size;
-        char key[8] = {0};
-        err = nvs_get_u8(my_handle, "mode", mode);
-        err = nvs_get_str(my_handle, "arg", arg, &size);
         nvs_close(my_handle);
     }
 }
@@ -163,7 +133,7 @@ void ad2_get_nv_mode_arg(uint8_t *mode, char *arg, size_t size)
 /**
  * Generic get NV arg
  */
-void ad2_get_nv_arg(char *key, char *arg, size_t size)
+void ad2_get_nv_arg(const char *key, char *arg, size_t size)
 {
     esp_err_t err;
     nvs_handle my_handle;
@@ -179,7 +149,7 @@ void ad2_get_nv_arg(char *key, char *arg, size_t size)
 /**
  * Generic set NV arg
  */
-void ad2_set_nv_arg(char *key, char *arg)
+void ad2_set_nv_arg(const char *key, char *arg)
 {
     esp_err_t err;
     nvs_handle my_handle;
