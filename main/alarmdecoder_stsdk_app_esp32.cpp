@@ -22,21 +22,6 @@
  *
  */
 
-// configuration
-/// FIXME: Kconfig.projbuild
-#define SER2SOCK_SERVER_PORT 10000
-#define AD2IOT_SER2SOCK_IPV4
-#define AD2_SER2SOCK_SERVER
-#define AD2_MAX_ADDRESS       99
-#define AD2_MAX_VPARTITION    9
-#define AD2_MAX_CODE          99
-#define AD2_DEFAULT_CODE_SLOT 0
-#define AD2_DEFAULT_VPA_SLOT  0
-#define AD2_MAX_MODE_ARG_SIZE 80
-#define VPADDR_CONFIG_KEY     "vpa"
-#define CODES_CONFIG_KEY      "codes"
-#define AD2MODE_CONFIG_KEY    "ad2source"
-
 
 /**
  * AlarmDecoder Arduino library.
@@ -75,6 +60,9 @@ extern "C" {
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+
+// common settings
+#include "ad2_settings.h"
 
 // AD2IoT include
 #include "alarmdecoder_stsdk_app_esp32.h"

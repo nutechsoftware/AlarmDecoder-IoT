@@ -4,7 +4,7 @@
  *  @date    02/20/2020
  *  @version 1.0
  *
- *  @brief AlarmDecoder IoT embedded network appliance for SmartThings
+ *  @brief ad2 specifc utils
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *

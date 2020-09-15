@@ -38,7 +38,7 @@
 #include "nvs.h"
 
 #include "ad2_utils.h"
-
+#include "ad2_settings.h"
 #include "esp_log.h"
 static const char *TAG = "CLI_CMD";
 
