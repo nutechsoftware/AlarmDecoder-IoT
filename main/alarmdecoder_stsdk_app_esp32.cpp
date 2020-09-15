@@ -71,8 +71,9 @@ extern "C" {
 #include "ad2_utils.h"
 
 // twilio support
+#if defined(CONFIG_TWILIO_CLIENT)
 #include "twilio.h"
-
+#endif
 
 /**
  * Constants / Static / Extern
@@ -187,6 +188,14 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
     cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
 
   cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
+
+#if defined(CONFIG_TWILIO_CLIENT)
+  if (g_iot_status == IOT_STATUS_CONNECTING) {
+      // load our settings for this event type.
+      //ad2_get_nv_arg(TWILIO_CONFIG_TOKEN, arg, sizeof(arg));
+      //twilio_add_queue("13115552368", "13115552368", 'M', "arg string");
+  }
+#endif
 }
 
 /**
@@ -321,15 +330,13 @@ static void ser2sock_client_task(void *pvParameters)
  */
 void send_to_ad2(char *buf)
 {
-  int len;
-
   if(g_ad2_client_handle>-1) {
     if (g_ad2_mode == 'C') {
       uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
     } else
     if (g_ad2_mode == 'S') {
       // the handle is a socket fd use send()
-      len = send(g_ad2_client_handle, buf, strlen(buf), 0);
+      send(g_ad2_client_handle, buf, strlen(buf), 0);
     } else {
 
     }
@@ -469,14 +476,14 @@ static void ser2sock_server_task(void *pvParameters)
  * Initialize ser2sock client on port 10000
  */
 void init_ser2sock_client() {
-    xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, 5, NULL);
+    xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
 
 /**
  * Initialize ser2sock server on port 10000
  */
 void init_ser2sock_server() {
-    xTaskCreate(ser2sock_server_task, "ser2sock_server", 4096, (void*)AF_INET, 5, NULL);
+    xTaskCreate(ser2sock_server_task, "ser2sock_server", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
 
 
@@ -583,6 +590,11 @@ void app_main()
     init_eth();
 #endif
 
+#if defined(CONFIG_TWILIO_CLIENT)
+    // Initialize twilio
+    twilio_init();
+#endif
+
     // AlarmDecoder callback wiring.
     AD2Parse.setCB_ON_MESSAGE(my_ON_MESSAGE_CB);
     AD2Parse.setCB_ON_LRR(my_ON_LRR_CB);
@@ -621,10 +633,10 @@ void app_main()
     uart_cli_main();
 
     // Start main AlarmDecoder IoT app task
-    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, 10, NULL);
+    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // Firmware update task
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, 5, NULL);
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // connect to SmartThings server
     connection_start();
@@ -771,8 +783,7 @@ static void capability_init()
     // FIXME: dummy switch tied to physical button on ESP32
     cap_switch_data = caps_switch_initialize(ctx, "trash", NULL, NULL);
     if (cap_switch_data) {
-        const char *init_value = caps_helper_switch.attr_switch.value_on;
-
+        // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
         cap_switch_data->cmd_on_usr_cb = cap_switch_cmd_cb;
         cap_switch_data->cmd_off_usr_cb = cap_switch_cmd_cb;
     }
@@ -940,7 +951,7 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
         ESP_LOGI(TAG, "Button long press, iot_status: %d", g_iot_status);
         led_blink(get_switch_state(), 100, 3);
         st_conn_cleanup(ctx, false);
-        xTaskCreate(connection_start_task, "connection_task", 2048, NULL, 10, NULL);
+        xTaskCreate(connection_start_task, "connection_task", 2048, NULL, tskIDLE_PRIORITY+2, NULL);
     }
 }
 
@@ -1063,7 +1074,7 @@ void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
 {
 	ota_nvs_flash_init();
 
-	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, 5, &ota_task_handle);
+	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 static void ota_polling_task_func(void *arg)

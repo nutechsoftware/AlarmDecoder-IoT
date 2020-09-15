@@ -20,7 +20,7 @@
 #define _IOT_ESP_UART_CLI_H_
 
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
-#define CLI_TASK_PRIORITY (5)
+#define CLI_TASK_PRIORITY (tskIDLE_PRIORITY+2)
 #define CLI_TASK_SIZE    (8192)
 #define MAX_UART_LINE_SIZE    (1024)
 typedef void (* command_function_t)(char *string);
