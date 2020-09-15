@@ -71,7 +71,7 @@ extern "C" {
 #include "ad2_utils.h"
 
 // twilio support
-#if defined(CONFIG_TWILIO_CLIENT)
+#if CONFIG_TWILIO_CLIENT
 #include "twilio.h"
 #endif
 
@@ -191,7 +191,7 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
   cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
 
 // FIXME: Testing.. todo: cleanup compress simplify
-#if defined(CONFIG_TWILIO_CLIENT)
+#if CONFIG_TWILIO_CLIENT
   if (g_iot_status == IOT_STATUS_CONNECTING) {
     // load our settings for this event type.
     char buf[80];
@@ -622,7 +622,7 @@ void app_main()
     init_eth();
 #endif
 
-#if defined(CONFIG_TWILIO_CLIENT)
+#if CONFIG_TWILIO_CLIENT
     // Initialize twilio
     twilio_init();
 #endif
