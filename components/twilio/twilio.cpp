@@ -137,7 +137,7 @@ std::string get_auth_header(const std::string& user, const std::string& password
     password.c_str()
   );
 
-  int result = mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
+  mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
   outbuffer[out_len] = '\0';
 
   std::string encoded_string = std::string((char *)outbuffer);
@@ -170,10 +170,12 @@ std::string build_request_string(std::string sid,
 /**
  * twilio_add_queue()
  */
-void twilio_add_queue(char *from, char *to, uint8_t type, char *arg) {
+void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg) {
     if (sendQ) {
         twilio_message_data_t *message_data = NULL;
         message_data = (twilio_message_data_t *)malloc(sizeof(twilio_message_data_t));
+        message_data->sid = strdup(sid);
+        message_data->token = strdup(token);
         message_data->from =  strdup(from);
         message_data->to =  strdup(to);
         message_data->type = type;
@@ -200,14 +202,6 @@ void twilio_consumer_task(void *pvParameter) {
         if ( xQueueReceive(sendQ,&message_data,portMAX_DELAY) ) {
             // process the message
             xTaskCreate(&twilio_send_task, "twilio_send_task", 4096*2, (void *)message_data, tskIDLE_PRIORITY+1, NULL);
-
-            // free everyting
-            free(message_data->sid);
-            free(message_data->token);
-            free(message_data->from);
-            free(message_data->to);
-            free(message_data->arg);
-            free(message_data);
         }
         // back to sleep for a bit
         vTaskDelay(500/portTICK_PERIOD_MS); //wait for 500 ms
@@ -240,6 +234,7 @@ void twilio_send_task(void *pvParameters) {
     mbedtls_x509_crt_init(&cacert);
     mbedtls_ctr_drbg_init(&ctr_drbg);
 
+    // should never happen sanity check.
     if (message_data == NULL) {
         ESP_LOGE(TAG, "error null message_data aborting task.");
         vTaskDelete(NULL);
@@ -251,8 +246,16 @@ void twilio_send_task(void *pvParameters) {
     std::string token = message_data->token;
     std::string to = message_data->to;
     std::string from = message_data->from;
-    uint8_t type = message_data->type;
+    char type = message_data->type;
     std::string arg = message_data->arg;
+
+    // free everyting we are done with the pointers.
+    free(message_data->sid);
+    free(message_data->token);
+    free(message_data->from);
+    free(message_data->to);
+    free(message_data->arg);
+    free(message_data);
 
     /* Build the HTTPS POST request. */
     switch(type) {
@@ -372,7 +375,9 @@ void twilio_send_task(void *pvParameters) {
     // build request string including basic auth headers
     http_request = build_request_string(sid, token, body);
     reqp = (char *)http_request.c_str();
-
+#if defined(TWILIO_DEBUG)
+    printf("sending message to twilio\n%s\n",http_request.c_str());
+#endif
     /* Send HTTPS POST request. */
     ESP_LOGI(TAG, "Writing HTTP request...");
     do {
@@ -437,12 +442,6 @@ exit:
 }
 
 extern "C" {
-#define TWILIO_SID   "twsid"
-#define TWILIO_TOKEN "twtoken"
-#define TWILIO_TYPE  "type"
-#define TWILIO_TO    "twto"
-#define TWILIO_FROM  "twfrom"
-#define TWILIO_BODY  "twbody"
 
 char * TWILIO_SETTINGS [] = {
   TWILIO_SID,
@@ -478,22 +477,24 @@ static void _cli_cmd_twilio_event(char *string)
             printf("What?\n"); // FIXME: Impossible ish.
             break;
         }
-        if(!strcmp(key, TWILIO_SETTINGS[i]))
+        if(!strcmp(key, TWILIO_SETTINGS[i]) == 0)
         {
             if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
                 slot = strtol(buf, NULL, 10);
             }
             if (slot >= 0) {
                 if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
-                    ad2_set_nv_slot_key_string(TWILIO_TOKEN, slot, buf);
+                    ad2_set_nv_slot_key_string(key, slot, buf);
                 } else {
                     // FIXME: block get in production
-                    ad2_get_nv_slot_key_string(TWILIO_TOKEN, slot, buf, sizeof(buf));
-                    printf("Current slot #%02i '" TWILIO_TOKEN "' value '%s'\n", slot, buf);
+                    ad2_get_nv_slot_key_string(key, slot, buf, sizeof(buf));
+                    printf("Current slot #%02i '%s' value '%s'\n", slot, key, buf);
                 }
             } else {
                 printf("Missing <slot>\n");
             }
+            // found match search done
+            break;
         }
     }
 }

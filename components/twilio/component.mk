@@ -8,6 +8,6 @@
 #
 
 #include $(IDF_PATH)/make/component_common.mk
-COMPONENT_ADD_INCLUDEDIRS := .
+COMPONENT_ADD_INCLUDEDIRS := . ../../main/
 COMPONENT_EMBED_TXTFILES := twilio_root.pem
 

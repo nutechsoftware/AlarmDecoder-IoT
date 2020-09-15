@@ -189,12 +189,41 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
 
   cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
 
+// FIXME: Testing.. todo: cleanup compress simplify
 #if defined(CONFIG_TWILIO_CLIENT)
   if (g_iot_status == IOT_STATUS_CONNECTING) {
-      // load our settings for this event type.
-      //ad2_get_nv_arg(TWILIO_CONFIG_TOKEN, arg, sizeof(arg));
-      //twilio_add_queue("13115552368", "13115552368", 'M', "arg string");
+    // load our settings for this event type.
+    char buf[80];
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string sid = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string token = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string from = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string to = buf;
+
+    buf[0] = 'M'; // default to Messages
+    ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    char type = buf[0];
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string body = "TEST 123";
+
+    // add to the queue
+    twilio_add_queue(sid.c_str(), token.c_str(), from.c_str(), to.c_str(), type, body.c_str());
+
   }
+#endif
 #endif
 }
 
@@ -261,14 +290,14 @@ static void ser2sock_client_task(void *pvParameters)
 
             ESP_LOGI(TAG, "Connecting to ser2sock host %s:%i", hostptr, port);
 
-#if defined(AD2IOT_SER2SOCK_IPV4)
+#if defined(CONFIG_AD2IOT_SER2SOCK_IPV4)
             struct sockaddr_in dest_addr;
             dest_addr.sin_addr.s_addr = inet_addr(host);
             dest_addr.sin_family = AF_INET;
             dest_addr.sin_port = htons(port);
             addr_family = AF_INET;
             ip_protocol = IPPROTO_IP;
-#elif defined(SER2SOCK_IPV6)
+#elif defined(CONFIG_AD2IOT_SER2SOCK_IPV6)
             struct sockaddr_in6 dest_addr = { 0 };
             inet6_aton(host, &dest_addr.sin6_addr);
             dest_addr.sin6_family = AF_INET6;
@@ -381,6 +410,7 @@ inline void do_retransmit(const int sock)
 /**
  * ser2sock server task
  */
+#ifdef SER2SOCK_SERVER
 static void ser2sock_server_task(void *pvParameters)
 {
     char addr_str[128];
@@ -471,6 +501,7 @@ static void ser2sock_server_task(void *pvParameters)
     }
     vTaskDelete(NULL);
 }
+#endif
 
 /**
  * Initialize ser2sock client on port 10000
@@ -482,9 +513,11 @@ void init_ser2sock_client() {
 /**
  * Initialize ser2sock server on port 10000
  */
+#if defined(AD2_SER2SOCK_SERVER)
 void init_ser2sock_server() {
     xTaskCreate(ser2sock_server_task, "ser2sock_server", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
+#endif
 
 
 /**
@@ -573,7 +606,6 @@ void app_main()
       init_ad2_uart_client();
     } else
     if (g_ad2_mode == 'S') {
-      // init ser2sock client
       init_ser2sock_client();
     } else {
       ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
