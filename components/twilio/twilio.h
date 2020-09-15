@@ -25,11 +25,31 @@
 #define twilio_h
 
 #define DEBUG_TWILIO
+#define TWILIO_QUEUE_SIZE 20
+#define TWILIO_CONFIG_TOKEN "TW"
+
+/* Constants that aren't configurable in menuconfig */
+#define WEB_SERVER "api.twilio.com"
+#define WEB_PORT "443"
+#define API_VERSION "2010-04-01"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct twilio_message_data {
+    char *sid;
+    char *token;
+    char *from;
+    char *to;
+    uint8_t type; // 'M' Message 'R' Redirect 'T' Twiml url
+    char *arg;
+} twilio_message_data_t;
+
+void twilio_init();
 void twilio_send_task(void *pvParameters);
+void twilio_add_queue(char *from, char *to, uint8_t type, char *arg);
+
 #ifdef __cplusplus
 }
 #endif
