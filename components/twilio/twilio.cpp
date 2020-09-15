@@ -243,7 +243,7 @@ void twilio_free() {
  * Background task to send a message to twilio
  */
 void twilio_send_task(void *pvParameters) {
-    ESP_LOGI(TAG, "twilio send task start stack free %s", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "twilio send task start stack free %d", esp_get_free_heap_size());
 
     twilio_message_data_t *message_data = (twilio_message_data_t *)pvParameters;
 
