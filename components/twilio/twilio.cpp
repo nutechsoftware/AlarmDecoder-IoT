@@ -217,7 +217,7 @@ void twilio_consumer_task(void *pvParameter) {
         if ( xQueueReceive(sendQ,&message_data,portMAX_DELAY) ) {
             ESP_LOGI(TAG, "creating task for twilio notification");
             // process the message
-            BaseType_t xReturned = xTaskCreate(&twilio_send_task, "twilio_send_task", 1024*7, (void *)message_data, tskIDLE_PRIORITY+5, NULL);
+            BaseType_t xReturned = xTaskCreate(&twilio_send_task, "twilio_send_task", 1024*5, (void *)message_data, tskIDLE_PRIORITY+5, NULL);
             if (xReturned != pdPASS) {
                 ESP_LOGE(TAG, "failed to create twilio task.");
             }
