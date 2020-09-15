@@ -770,7 +770,7 @@ CONFIG_TCPIP_LWIP=y
 #
 # Twilio client
 #
-CONFIG_TWILIO_CLIENT=y
+CONFIG_TWILIO_CLIENT=
 
 #
 # Unity unit testing library
