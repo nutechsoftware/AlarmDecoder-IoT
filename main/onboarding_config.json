@@ -1,19 +1,16 @@
 {
   "onboardingConfig": {
-    "deviceOnboardingId": "NAME",
-    "mnId": "MNID",
-    "setupId": "999",
-    "vid": "VID",
-    "deviceTypeId": "TYPE",
+    "deviceOnboardingId": "AD2IOTV10",
+    "mnId": "0AOf",
+    "setupId": "100",
+    "vid": "AD2IOTV10",
+    "deviceTypeId": "Others",
     "ownershipValidationTypes": [
-      "JUSTWORKS",
-      "BUTTON",
-      "PIN",
-      "QR"
+      "JUSTWORKS"
     ],
     "identityType": "ED25519",
     "deviceIntegrationProfileKey": {
-      "id": "DIP_UUID",
+      "id": "7acfbc60-59ba-413b-8dca-3ac22038d43b",
       "majorVersion": 0,
       "minorVersion": 1
     }
