@@ -109,6 +109,9 @@ static caps_momentary_data_t *cap_momentary_data_chime;
 
 static caps_securitySystem_data_t *cap_securitySystem_data;
 
+static caps_smokeDetector_data_t *cap_smokeDetector_data;
+static caps_momentary_data_t *cap_momentary_data_fire;
+
 TaskHandle_t ota_task_handle = NULL;
 IOT_CAP_HANDLE *ota_cap_handle = NULL;
 IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
@@ -225,6 +228,23 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
     ESP_LOGI(TAG, "Adding task to twilio send queue");
   }
 #endif
+}
+
+/**
+ * ON_FIRE
+ * When FIRE state change event is triggered.
+ * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
+ * to make it clear FIRE ON = Contact LED ON
+ */
+void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s) {
+  ESP_LOGI(TAG, "ON_FIRE_CB: FIRE(%i)", s->fire_alarm);
+  if ( s->fire_alarm ) {
+    cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
+  } else {
+    cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_clear);
+  }
+
+  cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
 }
 
 /**
@@ -634,7 +654,7 @@ void app_main()
     AD2Parse.setCB_ON_DISARM(my_ON_DISARM_CB);
     AD2Parse.setCB_ON_READY_CHANGE(my_ON_READY_CHANGE_CB);
     AD2Parse.setCB_ON_CHIME_CHANGE(my_ON_CHIME_CHANGE_CB);
-
+    AD2Parse.setCB_ON_FIRE(my_ON_FIRE_CB);
 
     //// SmartThings setup
     unsigned char *onboarding_config = (unsigned char *) onboarding_config_start;
@@ -801,15 +821,36 @@ static void cap_securitySystem_chime_cmd_cb(struct caps_momentary_data *caps_dat
     send_to_ad2(msg);
 }
 
+static void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s", address, "\004\004\004");
+    ESP_LOGI(TAG, "Sending CHIME toggle command");
+#if 0 // DANGER trip FIRE PANIC alarm on panel.
+    send_to_ad2(msg);
+#endif
+}
+
 static void cap_switch_cmd_cb(struct caps_switch_data *caps_data)
 {
     int switch_state = get_switch_state();
     change_switch_state(switch_state);
 }
 
+/**
+ * Initialize all SmartThings capabilities.
+ */
 static void capability_init()
 {
-    ESP_LOGI(TAG, "capabilities_init");
+    ESP_LOGI(TAG, "capability_init");
     int iot_err;
 
     // FIXME: dummy switch tied to physical button on ESP32
@@ -866,9 +907,18 @@ static void capability_init()
         cap_momentary_data_chime->cmd_push_usr_cb = cap_securitySystem_chime_cmd_cb;
     }
 
-    // Load list of CODES from NVS
-    // TODO: encryption
+    // Smoke Detector
+    cap_smokeDetector_data = caps_smokeDetector_initialize(ctx, "fire", NULL, NULL);
+    if (cap_smokeDetector_data) {
+        const char *smoke_init_value = caps_helper_smokeDetector.attr_smoke.value_clear;
+        cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, smoke_init_value);
+    }
 
+    // Fire Alarm Momentary button
+    cap_momentary_data_fire = caps_momentary_initialize(ctx, "fire", NULL, NULL);
+    if (cap_momentary_data_fire) {
+        cap_momentary_data_fire->cmd_push_usr_cb = cap_fire_cmd_cb;
+    }
 }
 
 static void iot_status_cb(iot_status_t status,
