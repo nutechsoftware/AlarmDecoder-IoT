@@ -1,8 +1,7 @@
 /**
- *  @file    ArduinoAlarmDecoder.h
+ *  @file    alarmdecoder_api.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    01/15/2020
- *  @version 1.0
  *
  *  @brief AlarmDecoder embedded state machine and parser
  *
@@ -21,8 +20,8 @@
  *  limitations under the License.
  *
  */
-#ifndef AlarmDecoder_h
-#define AlarmDecoder_h
+#ifndef alarmdecoder_api_h
+#define alarmdecoder_api_h
 
 #include <stdint.h>
 #include <stdio.h>
@@ -292,4 +291,4 @@ void ad2test(void);
 // Utility functions.
 bool is_bit_set(int pos, const char * bitStr);
 
-#endif
+#endif // alarmdecoder_api_h

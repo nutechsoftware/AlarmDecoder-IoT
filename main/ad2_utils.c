@@ -2,7 +2,6 @@
  *  @file    ad2_utils.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
- *  @version 1.0
  *
  *  @brief ad2 specifc utils
  *

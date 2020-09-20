@@ -1,5 +1,5 @@
 /**
- *  @file    ArduinoAlarmDecoder.cpp
+ *  @file    alarmdecoder_api.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    01/15/2020
  *  @version 1.0

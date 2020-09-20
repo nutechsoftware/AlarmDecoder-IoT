@@ -2,9 +2,8 @@
  *  @file    iot_cli_cmd.c
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
- *  @version 1.0
  *
- *  @brief AlarmDecoder IoT embedded network appliance for SmartThings
+ *  @brief CLI interface for AD2IoT
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *

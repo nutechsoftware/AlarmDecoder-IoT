@@ -1,25 +1,31 @@
-/* ***************************************************************************
+/**
+ *  @file    ota_util.c
+ *  @author  Sean Mathews <coder@f34r.com>
+ *  @date    09/18/2020
+ *  @version 1.0
  *
- * Copyright (c) 2020 Samsung Electronics All Rights Reserved.
+ *  @brief OTA update support
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific
- * language governing permissions and limitations under the License.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- ****************************************************************************/
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
 
-//for implementing main features of IoT device
 #include <stdbool.h>
-
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -40,26 +46,21 @@
 #include "esp_log.h"
 static const char *TAG = "OTA_UTIL";
 
-#define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
-#define CONFIG_FIRMWARE_VERSOIN_INFO_URL CONFIG_OTA_SERVER_URL"ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_URL CONFIG_OTA_SERVER_URL"signed_alarmdecoder_stsdk_esp32.bin"
-
-#define OTA_SIGNATURE_SIZE 256
-#define OTA_SIGNATURE_FOOTER_SIZE 6
-#define OTA_SIGNATURE_PREFACE_SIZE 6
-#define OTA_DEFAULT_SIGNATURE_BUF_SIZE OTA_SIGNATURE_PREFACE_SIZE + OTA_SIGNATURE_SIZE + OTA_SIGNATURE_FOOTER_SIZE
-
-#define OTA_DEFAULT_BUF_SIZE 256
-#define OTA_CRYPTO_SHA256_LEN 32
-
 extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
 extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
 
 extern const uint8_t root_pem_start[]	asm("_binary_update_root_pem_start");
 extern const uint8_t root_pem_end[]		asm("_binary_update_root_pem_end");
 
+// OTA Update task
+TaskHandle_t ota_task_handle = NULL;
 
 static unsigned int polling_day = 1;
+
+static const char name_versioninfo[] = "versioninfo";
+static const char name_latest[] = "latest";
+static const char name_upgrade[] = "upgrade";
+static const char name_polling[] = "polling";
 
 int ota_get_polling_period_day()
 {
@@ -85,10 +86,30 @@ void ota_nvs_flash_init()
 	ESP_ERROR_CHECK( err );
 }
 
-static const char name_versioninfo[] = "versioninfo";
-static const char name_latest[] = "latest";
-static const char name_upgrade[] = "upgrade";
-static const char name_polling[] = "polling";
+static void _task_fatal_error()
+{
+	ota_task_handle = NULL;
+	ESP_LOGE(TAG, "Exiting task due to fatal error...");
+	(void)vTaskDelete(NULL);
+
+	while (1) {
+		;
+	}
+}
+
+static void ota_task_func(void * pvParameter)
+{
+	ESP_LOGI(TAG, "Starting OTA");
+
+	esp_err_t ret = ota_https_update_device();
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Firmware Upgrades Failed (%d)", ret);
+		_task_fatal_error();
+	}
+
+	ESP_LOGI(TAG, "Prepare to restart system!");
+	esp_restart();
+}
 
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version)
 {
@@ -608,4 +629,10 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	*version_info = read_data_buf;
 	*version_info_len = total_read_len;
 	return ESP_OK;
+}
+
+
+void do_ota_update() {
+	ota_nvs_flash_init();
+	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
 }

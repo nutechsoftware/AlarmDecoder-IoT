@@ -7,6 +7,5 @@
 # please read the SDK documents if you need to do this.
 #
 
-COMPONENT_ADD_INCLUDEDIRS := . ../../main/
-COMPONENT_EMBED_TXTFILES := twilio_root.pem
-
+COMPONENT_ADD_INCLUDEDIRS := .
+COMPONENT_EMBED_TXTFILES := device_info.json onboarding_config.json

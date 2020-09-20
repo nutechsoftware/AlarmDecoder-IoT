@@ -1,9 +1,9 @@
 /**
- *  @file    iot_cli_cmd.h
+ *  @file    alarmdecoder_main.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *
- *  @brief CLI interface for AD2IoT
+ *  @brief AlarmDecoder IoT embedded network appliance
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
@@ -20,5 +20,16 @@
  *  limitations under the License.
  *
  */
+#ifndef AlarmDecoder_app_h
+#define AlarmDecoder_app_h
 
-void register_iot_cli_cmd(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
+void send_to_ad2(char *buf);
+static void ota_polling_task_func(void *arg);
+#ifdef __cplusplus
+}
+#endif
+
+#endif
