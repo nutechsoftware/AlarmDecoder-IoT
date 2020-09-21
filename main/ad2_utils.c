@@ -3,7 +3,7 @@
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *
- *  @brief ad2 specifc utils
+ *  @brief AD2IOT common utils shared between main and components
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
@@ -43,10 +43,19 @@ static const char *TAG = "AD2UTIL";
 
 #include "ad2_utils.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * Generic get NV int value by key and slot(0-99)
+ * @brief Generic get NV string value by key and slot(0-99).
+ *
+ * @param [in]key to search for.
+ * @param [in]slot inter slot from 0 - 99.
+ * @param [out]valueout int * to store search results.
+ *
  */
-void ad2_get_nv_slot_key_int(const char *key, int slot, int *value) {
+void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout) {
     esp_err_t err;
 
     // Open NVS
@@ -58,15 +67,20 @@ void ad2_get_nv_slot_key_int(const char *key, int slot, int *value) {
         int tlen = strlen(key)+3; // add space for XX\n
         char *tkey = malloc(tlen);
         snprintf(tkey, tlen, "%02i", slot);
-        err = nvs_get_i32(my_handle, tkey, value);
+        err = nvs_get_i32(my_handle, tkey, valueout);
         free(tkey);
         nvs_close(my_handle);
     }
 }
 
 /**
- * Generic set NV int value by key and slot(0-99)
- * Value < 0 will remove entry
+ * @brief Generic set NV string value by key and slot(0-99).
+ *
+ * @param [in]key to search for.
+ * @param [in]slot inter slot from 0 - 99.
+ * @param [in]value int value to store for search results.
+ *
+ * @note  value < 0 will remove entry
  */
 void ad2_set_nv_slot_key_int(const char *key, int slot, int value) {
     esp_err_t err;
@@ -92,9 +106,14 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, int value) {
 }
 
 /**
- * Generic get NV string value by key and slot(0-99)
+ * @brief Generic get NV string value by key and slot(0-99).
+ *
+ * @param [in]key to search for.
+ * @param [in]slot inter slot from 0 - 99.
+ * @param [out]valueout pointer store search results.
+ *
  */
-void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t size) {
+void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_t size) {
     esp_err_t err;
 
     // Open NVS
@@ -106,15 +125,20 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t s
         int tlen = strlen(key)+3; // add space for XX\n
         char *tkey = malloc(tlen);
         snprintf(tkey, tlen, "%02i", slot);
-        err = nvs_get_str(my_handle, tkey, value, &size);
+        err = nvs_get_str(my_handle, tkey, valueout, &size);
         free(tkey);
         nvs_close(my_handle);
     }
 }
 
 /**
- * Generic set NV string value by key and slot(0-99)
- * Value < 0 will remove entry
+ * @brief Generic set NV string value by key and slot(0-99).
+ * A value pointer of 0 or NULL will remove the entry if found.
+ *
+ * @param [in]key pointer to key to save value under
+ * @param [in]slot int slot# from 0 - 99
+ * @param [in]value pointer to string to store for search results.
+ *
  */
 void ad2_set_nv_slot_key_string(const char *key, int slot, char *value) {
     esp_err_t err;
@@ -127,7 +151,7 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, char *value) {
     } else {
         int tlen = strlen(key)+3; // add space for XX\n
         char *tkey = malloc(tlen);
-        snprintf(tkey, tlen, "%02i", slot);
+        snprintf(tkey, tlen, "%02i", slot); // MAX XX(99)
         if (value == NULL) {
             err = nvs_erase_key(my_handle, tkey);
         } else {
@@ -140,9 +164,16 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, char *value) {
 }
 
 /**
- * Generic get NV arg
+ * @brief Generic get NV value by key.
+ *
+ * @param [in]key pointer to key for the value to find
+ * @param [out]valueout pointer to store value string if found
+ * @param [in]size size of results storage.
+ *
+ * @note string will be truncated if larger than size including
+ * the null terminator.
  */
-void ad2_get_nv_arg(const char *key, char *arg, size_t size)
+void ad2_get_nv_arg(const char *key, char *valueout, size_t size)
 {
     esp_err_t err;
     nvs_handle my_handle;
@@ -150,15 +181,19 @@ void ad2_get_nv_arg(const char *key, char *arg, size_t size)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        err = nvs_get_str(my_handle, key, arg, &size);
+        err = nvs_get_str(my_handle, key, valueout, &size);
         nvs_close(my_handle);
     }
 }
 
 /**
- * Generic set NV arg
+ * @brief Generic set NV value by key.
+ *
+ * @param [in]key pointer to key for stored value
+ * @param [in]value pointer to value string to store
+ *
  */
-void ad2_set_nv_arg(const char *key, char *arg)
+void ad2_set_nv_arg(const char *key, char *value)
 {
     esp_err_t err;
     nvs_handle my_handle;
@@ -166,7 +201,7 @@ void ad2_set_nv_arg(const char *key, char *arg)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        err = nvs_set_str(my_handle, key, arg);
+        err = nvs_set_str(my_handle, key, value);
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     }
@@ -174,7 +209,14 @@ void ad2_set_nv_arg(const char *key, char *arg)
 
 
 /**
- * Copy the Nth space seperated word from a string.
+ * @brief Copy the Nth space seperated word from a string.
+ *
+ * @param dest pointer to output bytes
+ * @param [in]src pointer to input bytes
+ * @param [in]size size of input buffer
+ * @param [in]n argument number to return if possible
+ *
+ * @return 0 on success -1 on failure
  */
 int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
 {
@@ -197,7 +239,7 @@ int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
     }
 
     if (end == -1) {
-        //ESP_LOGD(TAG, "%s: Fail to find %dth arg", __func__, n);
+        ESP_LOGD(TAG, "%s: Fail to find %dth arg", __func__, n);
         return -1;
     }
 
@@ -212,30 +254,67 @@ int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
 
 }
 
-void ad2_arm_away() {
-// TODO: uint32_t amask = 0xffffff7f;
-    // TODO: AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
-
-    // send back our current state
-    //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+/**
+ * @brief Send the ARM AWAY command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_arm_away(int codeId, int vpartId) {
 
     // Get user code
     char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
 
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
     ESP_LOGI(TAG ,"Sending ARM AWAY command");
     ad2_send(msg);
 }
 
+/**
+ * @brief Send the ARM STAY command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_arm_stay(int codeId, int vpartId) {
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "2");
+    ESP_LOGI(TAG ,"Sending ARM AWAY command");
+    ad2_send(msg);
+}
 
 /**
- * send a string to the AD2
+ * @brief send RAW string to the AD2 devices.
+ *
+ * @param [in]buf Pointer to string to send to AD2 devices.
+ *
  */
 void ad2_send(char *buf)
 {
@@ -247,10 +326,14 @@ void ad2_send(char *buf)
       // the handle is a socket fd use send()
       send(g_ad2_client_handle, buf, strlen(buf), 0);
     } else {
-
+        ESP_LOGE(TAG, "invalid ad2 connection mode");
     }
   } else {
         ESP_LOGE(TAG, "invalid handle in send_to_ad2");
         return;
   }
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

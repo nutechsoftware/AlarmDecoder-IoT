@@ -3,7 +3,7 @@
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *
- *  @brief ad2 specifc utils
+ *  @brief AD2IOT common utils shared between main and components
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
@@ -28,16 +28,26 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-void ad2_arm_away();
-void ad2_arm_stay();
+
+// Communication with AD2* device
+
+void ad2_arm_away(int codeId, int addressId);
+void ad2_arm_stay(int codeId, int addressId);
 void ad2_send(char *buf);
+
+// string utils
+
 int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
-void ad2_get_nv_arg(const char *key, char *arg, size_t size);
-void ad2_set_nv_arg(const char *key, char *arg);
+
+// NV Storage utilities
+
+void ad2_get_nv_arg(const char *key, char *value, size_t size);
+void ad2_set_nv_arg(const char *key, char *value);
 void ad2_set_nv_slot_key_int(const char *key, int slot, int value);
 void ad2_get_nv_slot_key_int(const char *key, int slot, int *value);
 void ad2_set_nv_slot_key_string(const char *key, int slot, char *value);
 void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t size);
+
 #ifdef __cplusplus
 }
 #endif
