@@ -235,11 +235,11 @@ static void ad2_app_main_task(void *arg)
     int button_event_count;
 
     for (;;) {
-        if (get_button_event(&button_event_type, &button_event_count)) {
+        if (hal_get_button_event(&button_event_type, &button_event_count)) {
             button_event(handle, button_event_type, button_event_count);
         }
         if (noti_led_mode != LED_ANIMATION_MODE_IDLE) {
-            change_led_mode(noti_led_mode);
+            hal_change_led_mode(noti_led_mode);
         }
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -523,7 +523,7 @@ void app_main()
     //// AlarmDecoder App main
 
     // init the AD2IoT gpio
-    gpio_init();
+    hal_gpio_init();
 
     // Dump hardware info
     esp_chip_info_t chip_info;

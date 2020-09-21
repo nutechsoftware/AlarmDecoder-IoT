@@ -57,12 +57,14 @@ static const char *TAG = "STSDK";
 extern "C" {
 #endif
 
-
+// @brief global ST status tracking
 iot_status_t g_iot_status = IOT_STATUS_IDLE;
-iot_stat_lv_t g_iot_stat_lv;
-IOT_CTX* ctx = NULL;
 
-//#define SET_PIN_NUMBER_CONFRIM
+// @brief global ST stat tracking
+iot_stat_lv_t g_iot_stat_lv;
+
+// @brief global ST context pointer
+IOT_CTX* ctx = NULL;
 
 // onboarding_config_start is null-terminated string
 extern const uint8_t onboarding_config_start[]  asm("_binary_onboarding_config_json_start");
@@ -72,17 +74,34 @@ extern const uint8_t onboarding_config_end[]    asm("_binary_onboarding_config_j
 extern const uint8_t device_info_start[]        asm("_binary_device_info_json_start");
 extern const uint8_t device_info_end[]          asm("_binary_device_info_json_end");
 
-caps_switch_data_t *cap_switch_data;
+// @brief Physical|Virtual Relay / Switch B
+caps_switch_data_t *cap_switch_a_data;
+
+// @brief Physical|Virtual Relay / Switch A
+caps_switch_data_t *cap_switch_b_data;
+
+// @brief Chime virtual contact sensor
 caps_contactSensor_data_t *cap_contactSensor_data_chime;
+
+// @brief Chime momentary button
 caps_momentary_data_t *cap_momentary_data_chime;
 
+// @brief Security System capability
 caps_securitySystem_data_t *cap_securitySystem_data;
 
+// @brief Smoke Detector capability
 caps_smokeDetector_data_t *cap_smokeDetector_data;
+
+// @brief Fire Alarm momentary button
 caps_momentary_data_t *cap_momentary_data_fire;
 
+// @brief OTA device capabilies
 IOT_CAP_HANDLE *ota_cap_handle = NULL;
+
+// @brief Health Check capabilities
 IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
+
+// @brief Refresh action capabilities
 IOT_CAP_HANDLE *refresh_cap_handle = NULL;
 
 /**
@@ -202,9 +221,26 @@ static struct cli_command stsdk_cmd_list[] = {
 };
 
 
-int get_switch_state(void)
+int get_switch_a_state(void)
 {
-    const char* switch_value = cap_switch_data->get_switch_value(cap_switch_data);
+    const char* switch_value = cap_switch_a_data->get_switch_value(cap_switch_a_data);
+    int switch_state = SWITCH_OFF;
+
+    if (!switch_value) {
+        return -1;
+    }
+
+    if (!strcmp(switch_value, caps_helper_switch.attr_switch.value_on)) {
+        switch_state = SWITCH_ON;
+    } else if (!strcmp(switch_value, caps_helper_switch.attr_switch.value_off)) {
+        switch_state = SWITCH_OFF;
+    }
+    return switch_state;
+}
+
+int get_switch_b_state(void)
+{
+    const char* switch_value = cap_switch_b_data->get_switch_value(cap_switch_b_data);
     int switch_state = SWITCH_OFF;
 
     if (!switch_value) {
@@ -252,10 +288,16 @@ void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
 {
 }
 
-void cap_switch_cmd_cb(struct caps_switch_data *caps_data)
+void cap_switch_a_cmd_cb(struct caps_switch_data *caps_data)
 {
-    int switch_state = get_switch_state();
-    change_switch_state(switch_state);
+    int switch_state = get_switch_a_state();
+    hal_change_switch_a_state(switch_state);
+}
+
+void cap_switch_b_cmd_cb(struct caps_switch_data *caps_data)
+{
+    int switch_state = get_switch_b_state();
+    hal_change_switch_b_state(switch_state);
 }
 
 void stsdk_init(void) {
@@ -292,12 +334,19 @@ void capability_init()
     ESP_LOGI(TAG, "capability_init");
     int iot_err;
 
-    // FIXME: dummy switch tied to physical button on ESP32
-    cap_switch_data = caps_switch_initialize(ctx, "trash", NULL, NULL);
-    if (cap_switch_data) {
+    // Virtual or Phsyical RELAYs/SWITCHs
+    cap_switch_a_data = caps_switch_initialize(ctx, "switch1", NULL, NULL);
+    if (cap_switch_a_data) {
         // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
-        cap_switch_data->cmd_on_usr_cb = cap_switch_cmd_cb;
-        cap_switch_data->cmd_off_usr_cb = cap_switch_cmd_cb;
+        cap_switch_a_data->cmd_on_usr_cb = cap_switch_a_cmd_cb;
+        cap_switch_a_data->cmd_off_usr_cb = cap_switch_a_cmd_cb;
+    }
+
+    cap_switch_b_data = caps_switch_initialize(ctx, "switch2", NULL, NULL);
+    if (cap_switch_b_data) {
+        // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
+        cap_switch_b_data->cmd_on_usr_cb = cap_switch_b_cmd_cb;
+        cap_switch_b_data->cmd_off_usr_cb = cap_switch_b_cmd_cb;
     }
 
     // refresh device type init
@@ -385,7 +434,7 @@ void iot_status_cb(iot_status_t status,
         case IOT_STATUS_CONNECTING:
             noti_led_mode = LED_ANIMATION_MODE_IDLE;
             // FIXME: send update on all caps to cloud
-            change_switch_state(get_switch_state());
+            hal_change_switch_a_state(get_switch_a_state());
             break;
         default:
             break;
@@ -454,16 +503,16 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
                 if (g_iot_status == IOT_STATUS_NEED_INTERACT) {
                     st_conn_ownership_confirm(ctx, true);
                     noti_led_mode = LED_ANIMATION_MODE_IDLE;
-                    change_switch_state(get_switch_state());
+                    hal_change_switch_a_state(get_switch_a_state());
                 } else {
-                    if (get_switch_state() == SWITCH_ON) {
-                        change_switch_state(SWITCH_OFF);
-                        cap_switch_data->set_switch_value(cap_switch_data, caps_helper_switch.attr_switch.value_off);
-                        cap_switch_data->attr_switch_send(cap_switch_data);
+                    if (get_switch_a_state() == SWITCH_ON) {
+                        hal_change_switch_a_state(SWITCH_OFF);
+                        cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_off);
+                        cap_switch_a_data->attr_switch_send(cap_switch_a_data);
                     } else {
-                        change_switch_state(SWITCH_ON);
-                        cap_switch_data->set_switch_value(cap_switch_data, caps_helper_switch.attr_switch.value_on);
-                        cap_switch_data->attr_switch_send(cap_switch_data);
+                        hal_change_switch_a_state(SWITCH_ON);
+                        cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_on);
+                        cap_switch_a_data->attr_switch_send(cap_switch_a_data);
                     }
                 }
                 break;
@@ -473,12 +522,12 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
 
                 break;
             default:
-                led_blink(get_switch_state(), 100, count);
+                hal_led_blink(get_switch_a_state(), 100, count);
                 break;
         }
     } else if (type == BUTTON_LONG_PRESS) {
         ESP_LOGI(TAG, "Button long press, iot_status: %d", g_iot_status);
-        led_blink(get_switch_state(), 100, 3);
+        hal_led_blink(get_switch_a_state(), 100, 3);
         st_conn_cleanup(ctx, false);
         xTaskCreate(connection_start_task, "connection_task", 2048, NULL, tskIDLE_PRIORITY+2, NULL);
     }

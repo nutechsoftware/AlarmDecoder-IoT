@@ -74,9 +74,10 @@ enum button_event_type {
     BUTTON_SHORT_PRESS = 1,
 };
 
-void change_switch_state(int switch_state);
-void button_isr_handler(void *arg);
-int get_button_event(int* button_event_type, int* button_event_count);
-void led_blink(int switch_state, int delay, int count);
-void change_led_mode(int noti_led_mode);
-void gpio_init(void);
+int hal_get_button_event(int* button_event_type, int* button_event_count);
+void hal_change_switch_a_state(int switch_state);
+void hal_change_switch_b_state(int switch_state);
+void hal_led_blink(int switch_state, int delay, int count);
+void hal_change_led_mode(int noti_led_mode);
+void hal_gpio_init(void);
+void hal_restart();

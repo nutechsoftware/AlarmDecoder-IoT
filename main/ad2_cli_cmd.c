@@ -53,16 +53,23 @@ static const char *TAG = "AD2CLICMD";
 // specific includes
 #include "ad2_cli_cmd.h"
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * Set the USER code for a given slot.
+ * @brief Set the USER code for a given slot.
  *
- * command: code <slot> <code>
+ * @param [in]string command buffer pointer.
  *
- * Valid slots are from 0 to AD2_MAX_CODE
- * where slot 0 is the default user.
+ * @note command: code <slot> <code>
+ *   Valid slots are from 0 to AD2_MAX_CODE
+ *   where slot 0 is the default user.
  *
- * ex.
- *   STDK # code 1 1234
+ *    example.
+ *      AD2IOT # code 1 1234
+ *
  */
 static void _cli_cmd_code_event(char *string)
 {
@@ -96,17 +103,18 @@ static void _cli_cmd_code_event(char *string)
 }
 
 /**
- * Set the Virtual Partition address code for a given slot.
+ * @brief Set the Virtual Partition address code for a given slot.
  *
- * command: vpaddr <slot> <code>
+ * @param [in]string command buffer pointer.
  *
- * Valid slots are from 0 to AD2_MAX_VPARTITION
- * where slot 0 is the default.
+ * @note command: vpaddr <slot> <address>
+ *   Valid slots are from 0 to AD2_MAX_VPARTITION
+ *   where slot 0 is the default.
  *
- * ex. Set virtual parition 0 to use address 18 for TX/RX
- *   and address 16 for TX/RX on virtual partition 1.
- *   STDK # vpaddr 0 18
- *   STDK # vpaddr 1 16
+ *   example.
+ *     AD2IOT # vpaddr c 2
+ *     AD2IOT # vpaddr s 192.168.1.2:10000
+ *
  */
 static void _cli_cmd_vpaddr_event(char *string)
 {
@@ -140,12 +148,15 @@ static void _cli_cmd_vpaddr_event(char *string)
 }
 
 /**
- * Configure the AD2IoT connection to the AlarmDecoder device
+ * @brief Configure the AD2IoT connection to the AlarmDecoder device
  *
- *  command: ad2source <mode> <arg>
- * ex.
- *   ad2source c 2
- *   ad2source s 192.168.1.2:10000
+ * @param [in]string command buffer pointer.
+ *
+ * @note command: ad2source <mode> <arg>
+ *   examples.
+ *     AD2IOT # ad2source c 2
+ *     AD2IOT # ad2source s 192.168.1.2:10000
+ *
  */
 static void _cli_cmd_ad2source_event(char *string)
 {
@@ -182,13 +193,25 @@ static void _cli_cmd_ad2source_event(char *string)
     }
 }
 
+/**
+ * @brief event handler for reboot command
+ *
+ * @param [in]string command buffer pointer.
+ *
+ */
 static void _cli_cmd_reboot_event(char *string)
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
     printf("Restarting now\n");
-    esp_restart();
+    hal_restart();
 }
 
+/**
+ * @brief virtual button press event.
+ *
+ * @param [in]string command buffer pointer.
+ *
+ */
 static void _cli_cmd_butten_event(char *string)
 {
     char buf[10];
@@ -253,9 +276,14 @@ static struct cli_command cmd_list[] = {
 };
 
 /**
- * @brief register ad2 CLI commands
+ * @brief Register ad2 CLI commands.
+ *
  */
 void register_ad2_cli_cmd(void) {
     for (int i = 0; i < ARRAY_SIZE(cmd_list); i++)
         cli_register_command(&cmd_list[i]);
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

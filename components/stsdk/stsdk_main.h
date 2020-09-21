@@ -43,6 +43,8 @@
 #define STSDK_PUBKEY   "stpublickey"
 #define STSDK_PRIVKEY  "stprivatekey"
 
+//#define SET_PIN_NUMBER_CONFRIM
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -60,13 +62,11 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *
 
 extern iot_status_t g_iot_status;
 extern iot_stat_lv_t g_iot_stat_lv;
-
-extern caps_switch_data_t *cap_switch_data;
+extern caps_switch_data_t *cap_switch_a_data;
+extern caps_switch_data_t *cap_switch_b_data;
 extern caps_contactSensor_data_t *cap_contactSensor_data_chime;
 extern caps_momentary_data_t *cap_momentary_data_chime;
-
 extern caps_securitySystem_data_t *cap_securitySystem_data;
-
 extern caps_smokeDetector_data_t *cap_smokeDetector_data;
 extern caps_momentary_data_t *cap_momentary_data_fire;
 

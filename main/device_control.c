@@ -28,9 +28,17 @@
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-static const char *TAG = "DEVC";
+static const char *TAG = "HAL";
 
-void change_switch_state(int switch_state)
+/**
+ * @brief Change SWITCH/RELAY state.
+ *   In some designs this may be a virtual SWITCH visible via the
+ *   CLI or remotely via some API.
+ *
+ * @param [in]switch_state int [SWITCH_ON|SWITCH_OFF]
+ *
+ */
+void hal_change_switch_a_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
         gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_OFF);
@@ -39,7 +47,37 @@ void change_switch_state(int switch_state)
     }
 }
 
-int get_button_event(int* button_event_type, int* button_event_count)
+/**
+ * @brief Change SWITCH/RELAY state.
+ *   In some designs this may be a virtual SWITCH visible via the
+ *   CLI or remotely via some API.
+ *
+ * @param [in]switch_state int [SWITCH_ON|SWITCH_OFF]
+ *
+ */
+void hal_change_switch_b_state(int switch_state)
+{
+    if (switch_state == SWITCH_OFF) {
+        gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_OFF);
+    } else {
+        gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+    }
+}
+
+/**
+ * @brief Button state tracking call periodically.
+ * 
+ * @details State machine called frequently to watch for physical
+ * button state changes. If changes are detected it will return
+ * true and place the details about the event into the provided
+ * int pointers.
+ *
+ * @param [in]button_event_type int pointer to event_type.
+ * @param [in]button_event_count int pointer to event_count.
+ *
+ * @return int [true|false]
+ */
+int hal_get_button_event(int* button_event_type, int* button_event_count)
 {
     static uint32_t button_count = 0;
     static uint32_t button_last_state = BUTTON_GPIO_RELEASED;
@@ -83,37 +121,50 @@ int get_button_event(int* button_event_type, int* button_event_count)
     return false;
 }
 
-void led_blink(int switch_state, int delay, int count)
+/**
+ * @brief blocking call flashes the LED at a given delay for
+ * a given count.
+ *
+ * @param [in]switch_state int starting SWITCH_OFF/ON
+ */
+void hal_led_blink(int switch_state, int delay, int count)
 {
     for (int i = 0; i < count; i++) {
         vTaskDelay(delay / portTICK_PERIOD_MS);
-        change_switch_state(1 - switch_state);
+        hal_change_switch_a_state(1 - switch_state);
         vTaskDelay(delay / portTICK_PERIOD_MS);
-        change_switch_state(switch_state);
+        hal_change_switch_a_state(switch_state);
     }
 }
 
-void change_led_mode(int noti_led_mode)
+/**
+ * @brief change the LED mode
+ *
+ * @param [in]mode sets the mode for the indicator LED.
+ *   In some designs this may be a virtual LED visible via the
+ *   CLI or remotely via some API.
+ */
+void hal_change_led_mode(int mode)
 {
     static TimeOut_t led_timeout;
     static TickType_t led_tick = -1;
     static int last_led_mode = -1;
     static int led_state = SWITCH_OFF;
 
-    if (last_led_mode != noti_led_mode) {
-        last_led_mode = noti_led_mode;
+    if (last_led_mode != mode) {
+        last_led_mode = mode;
         vTaskSetTimeOutState(&led_timeout);
         led_tick = 0;
     }
 
-    switch (noti_led_mode)
+    switch (mode)
     {
         case LED_ANIMATION_MODE_IDLE:
             break;
         case LED_ANIMATION_MODE_SLOW:
             if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
                 led_state = 1 - led_state;
-                change_switch_state(led_state);
+                hal_change_switch_a_state(led_state);
                 vTaskSetTimeOutState(&led_timeout);
                 if (led_state == SWITCH_ON) {
                     led_tick = pdMS_TO_TICKS(200);
@@ -125,7 +176,7 @@ void change_led_mode(int noti_led_mode)
         case LED_ANIMATION_MODE_FAST:
             if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
                 led_state = 1 - led_state;
-                change_switch_state(led_state);
+                hal_change_switch_a_state(led_state);
                 vTaskSetTimeOutState(&led_timeout);
                 led_tick = pdMS_TO_TICKS(100);
             }
@@ -135,7 +186,10 @@ void change_led_mode(int noti_led_mode)
     }
 }
 
-void gpio_init(void)
+/**
+ * @brief Initialize the hardware.
+ */
+void hal_gpio_init(void)
 {
 	gpio_config_t io_conf;
 
@@ -169,4 +223,9 @@ void gpio_init(void)
 	gpio_set_level(GPIO_OUTPUT_MAINLED_0, 0);
 }
 
-
+/**
+ * @brief restart the hardware
+ */
+void hal_restart() {
+    esp_restart();
+}
