@@ -23,9 +23,14 @@
 #ifndef ad2_utils_h
 #define ad2_utils_h
 
+#define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+void ad2_arm_away();
+void ad2_arm_stay();
+void ad2_send(char *buf);
 int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
 void ad2_get_nv_arg(const char *key, char *arg, size_t size);
 void ad2_set_nv_arg(const char *key, char *arg);

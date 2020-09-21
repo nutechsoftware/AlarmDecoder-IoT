@@ -20,18 +20,28 @@
  *  limitations under the License.
  *
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+// esp includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "nvs.h"
-
-#include "ad2_utils.h"
-
+#include <lwip/netdb.h>
+#include "driver/uart.h"
 #include "esp_log.h"
 static const char *TAG = "AD2UTIL";
+
+// AlarmDecoder includes
+#include "alarmdecoder_main.h"
+#include "ad2_utils.h"
+#include "ad2_settings.h"
+
+#include "ad2_utils.h"
 
 /**
  * Generic get NV int value by key and slot(0-99)
@@ -200,4 +210,47 @@ int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
     dest[len] = '\0';
     return 0;
 
+}
+
+void ad2_arm_away() {
+// TODO: uint32_t amask = 0xffffff7f;
+    // TODO: AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&amask);
+
+    // send back our current state
+    //cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, AD2_DEFAULT_CODE_SLOT, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
+    ESP_LOGI(TAG ,"Sending ARM AWAY command");
+    ad2_send(msg);
+}
+
+
+/**
+ * send a string to the AD2
+ */
+void ad2_send(char *buf)
+{
+  if(g_ad2_client_handle>-1) {
+    if (g_ad2_mode == 'C') {
+      uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
+    } else
+    if (g_ad2_mode == 'S') {
+      // the handle is a socket fd use send()
+      send(g_ad2_client_handle, buf, strlen(buf), 0);
+    } else {
+
+    }
+  } else {
+        ESP_LOGE(TAG, "invalid handle in send_to_ad2");
+        return;
+  }
 }

@@ -22,29 +22,35 @@
  *
  */
 
-#include <stdbool.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-
-#include "nvs.h"
-#include "nvs_flash.h"
-
-#include "cJSON.h"
-#include "string.h"
-#include "ota_util.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+// esp includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include <lwip/netdb.h>
+#include "driver/uart.h"
+#include "esp_log.h"
+static const char *TAG = "OTA_UTIL";
+
+// AlarmDecoder includes
+#include "alarmdecoder_main.h"
+#include "ad2_utils.h"
+#include "ad2_settings.h"
+
+#include "ota_util.h"
+
+#include "cJSON.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/rsa.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/ssl.h"
 
-#include "esp_log.h"
-static const char *TAG = "OTA_UTIL";
 
 extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
 extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
@@ -631,8 +637,55 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	return ESP_OK;
 }
 
+static void ota_polling_task_func(void *arg)
+{
+	while (1) {
 
-void do_ota_update() {
+		vTaskDelay(30000 / portTICK_PERIOD_MS);
+
+		ESP_LOGI(TAG, "Starting check new version");
+
+		if (ota_task_handle != NULL) {
+			ESP_LOGI(TAG, "Device is updating");
+			continue;
+		}
+
+		if (g_ad2_network_state != AD2_CONNECTED) {
+			ESP_LOGI(TAG, "Device is not connected to cloud");
+			continue;
+		}
+
+		char *read_data = NULL;
+		unsigned int read_data_len = 0;
+
+		esp_err_t ret = ota_https_read_version_info(&read_data, &read_data_len);
+		if (ret == ESP_OK) {
+			char *available_version = NULL;
+
+			esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
+			if (err != ESP_OK) {
+				ESP_LOGE(TAG, "ota_api_get_available_version is failed : %d", err);
+				continue;
+			}
+
+			//FIXME: cap_available_version_set(available_version);
+
+			if (available_version)
+				free(available_version);
+		}
+
+		/* Set polling period */
+		unsigned int polling_day = ota_get_polling_period_day();
+		unsigned int task_delay_sec = polling_day * 24 * 3600;
+		vTaskDelay(task_delay_sec * 1000 / portTICK_PERIOD_MS);
+	}
+}
+
+void ota_init() {
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
+}
+
+void ota_do_update() {
 	ota_nvs_flash_init();
 	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
 }

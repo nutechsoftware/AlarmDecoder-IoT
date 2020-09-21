@@ -38,6 +38,11 @@
 #include "caps_contactSensor.h"
 #include "caps_carbonMonoxideDetector.h"
 
+#define STSDK_CLEANUP  "stcleanup"
+#define STSDK_SERIAL   "stserial"
+#define STSDK_PUBKEY   "stpublickey"
+#define STSDK_PRIVKEY  "stprivatekey"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

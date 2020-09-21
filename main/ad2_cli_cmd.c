@@ -1,5 +1,5 @@
 /**
- *  @file    iot_cli_cmd.c
+ *  @file    ad2_cli_cmd.c
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *
@@ -20,29 +20,31 @@
  *  limitations under the License.
  *
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
 
-#include "iot_uart_cli.h"
-#include "iot_bsp_system.h"
-#include "device_control.h"
-
-#include "st_dev.h"
-
+// esp includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include <lwip/netdb.h>
+#include "driver/uart.h"
+#include "esp_log.h"
+static const char *TAG = "AD2CLICMD";
 
+// AlarmDecoder includes
+#include "alarmdecoder_main.h"
 #include "ad2_utils.h"
 #include "ad2_settings.h"
-#include "esp_log.h"
-static const char *TAG = "CLI_CMD";
+#include "device_control.h"
 
-extern IOT_CTX *ctx;
-
+#include "ad2_uart_cli.h"
 
 /**
  * Set the USER code for a given slot.
@@ -173,104 +175,11 @@ static void _cli_cmd_ad2source_event(char *string)
     }
 }
 
-#if defined(CONFIG_STDK_IOT_CORE_SUPPORT_STNV_PARTITION)
-/**
- * Configure the AD2IoT SmartThings device_info.json
- *  field stored in NV
- *
- *  command: stserial <serialNumber>
- * ex.
- *   stserial AaBbCcDdEeFf...
- */
-static void _cli_cmd_stserial_event(char *string)
-{
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
-        nvs_handle my_handle;
-        esp_err_t err;
-        err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK)
-            ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
-        err = nvs_set_str(my_handle, "SerialNum", arg);
-        if ( err != ESP_OK)
-            ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    } else {
-        printf("Missing <serialNumber>\n");
-    }
-}
-
-/**
- * Configure the AD2IoT SmartThings device_info.json
- *  field stored in NV
- *
- *  command: stpublickey <publicKey>
- * ex.
- *   stpublickey AaBbCcDdEeFf...
- */
-static void _cli_cmd_stpublickey_event(char *string)
-{
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
-        nvs_handle my_handle;
-        esp_err_t err;
-        err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK)
-            ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
-        err = nvs_set_str(my_handle, "PublicKey", arg);
-        if ( err != ESP_OK)
-            ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    } else {
-        printf("Missing <publicKey>\n");
-    }
-}
-
-/**
- * Configure the AD2IoT SmartThings device_info.json
- *  field stored in NV
- *
- *  command: stprivatekey <privateKey>
- * ex.
- *   stprivatekey AaBbCcDdEeFf...
- */
-static void _cli_cmd_stprivatekey_event(char *string)
-{
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
-        nvs_handle my_handle;
-        esp_err_t err;
-        err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK)
-            ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
-        err = nvs_set_str(my_handle, "PrivateKey", arg);
-        if ( err != ESP_OK)
-            ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    } else {
-        printf("Missing <privateKey>\n");
-    }
-}
-#endif
-
-
-
 static void _cli_cmd_reboot_event(char *string)
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
-    iot_bsp_system_reboot(ctx, true);
 }
 
-static void _cli_cmd_cleanup_event(char *string)
-{
-    ESP_LOGI(TAG, "%s: clean-up data with reboot option", __func__);
-    st_conn_cleanup(ctx, true);
-}
-
-extern void button_event(IOT_CAP_HANDLE *handle, int type, int count);
 static void _cli_cmd_butten_event(char *string)
 {
     char buf[10];
@@ -287,15 +196,12 @@ static void _cli_cmd_butten_event(char *string)
     }
 
     ESP_LOGI(TAG, "%s: button_event : count %d, type %d", __func__, count, type);
-    button_event(ctx, type, count);
+    //FIXME: button_event(ctx, type, count);
 }
 
 static struct cli_command cmd_list[] = {
     {"reboot",
         "reboot this microcontroller\n", _cli_cmd_reboot_event},
-    {"cleanup",
-        "Cleanup NV data with reboot option\n"
-        "  Syntax: cleanup\n", _cli_cmd_cleanup_event},
     {"button",
         "Simulate a button press event\n"
         "  Syntax: button <count> <type>\n"
@@ -334,20 +240,6 @@ static struct cli_command cmd_list[] = {
         "      ad2source SOCK 192.168.1.2:10000\n"
         "    Set source to local attached uart #2\n"
         "      ad2source COM 2\n", _cli_cmd_ad2source_event},
-#if defined(CONFIG_STDK_IOT_CORE_SUPPORT_STNV_PARTITION)
-    {"stserial",
-        "Sets the SmartThings device_info serialNumber.\n"
-        "  Syntax: stserial <serialNumber>\n"
-        "  Example: stserial AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event},
-    {"stpublickey",
-        "Sets the SmartThings device_info publicKey.\n"
-        "  Syntax: stpublickey <publicKey>\n"
-        "  Example: stpublickey AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event},
-    {"stprivatekey",
-        "Sets the SmartThings device_info privateKey.\n"
-        "  Syntax: stprivatekey <privateKey>\n"
-        "  Example: stprivatekey AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event},
-#endif
 };
 
 void register_iot_cli_cmd(void) {

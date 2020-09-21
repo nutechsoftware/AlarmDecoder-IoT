@@ -43,11 +43,11 @@ extern "C" {
 // OTA updates
 #include "ota_util.h"
 
-// CLI interface
-#include "iot_uart_cli.h"
-#include "iot_cli_cmd.h"
+// UART CLI
+#include "ad2_uart_cli.h"
+#include "ad2_cli_cmd.h"
 
-// common settings
+// Common settings
 #include "ad2_settings.h"
 
 // AD2IoT include
@@ -74,9 +74,14 @@ static const char *TAG = "AD2_IoT";
 // global AlarmDecoder parser class instance
 static AlarmDecoderParser AD2Parse;
 
-// AD2 device connection settings
+// global AD2 device connection fd/id <socket or uart id>
 int g_ad2_client_handle = -1;
+
+// global ad2 connection mode ['S'ocket | 'C'om port]
 uint8_t g_ad2_mode = 0;
+
+// global network connection state
+int g_ad2_network_state = AD2_OFFLINE;
 
 // Device LED mode
 int noti_led_mode = LED_ANIMATION_MODE_IDLE;
@@ -346,26 +351,6 @@ static void ser2sock_client_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-/**
- * send a string to the AD2
- */
-void send_to_ad2(char *buf)
-{
-  if(g_ad2_client_handle>-1) {
-    if (g_ad2_mode == 'C') {
-      uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
-    } else
-    if (g_ad2_mode == 'S') {
-      // the handle is a socket fd use send()
-      send(g_ad2_client_handle, buf, strlen(buf), 0);
-    } else {
-
-    }
-  } else {
-        ESP_LOGE(TAG, "invalid handle in send_to_ad2");
-        return;
-  }
-}
 
 /**
  * do_retransmit for ser2sock_server_task
@@ -641,8 +626,8 @@ void app_main()
     // Start main AlarmDecoder IoT app task
     xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, tskIDLE_PRIORITY+1, NULL);
 
-    // Firmware update task
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
+    // Start firmware update task
+    ota_init();
 
     // connect to SmartThings server
     connection_start();
@@ -743,53 +728,8 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
 			iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-  do_ota_update();
+  ota_do_update();
 }
-
-static void ota_polling_task_func(void *arg)
-{
-	while (1) {
-
-		vTaskDelay(30000 / portTICK_PERIOD_MS);
-
-		ESP_LOGI(TAG, "Starting check new version");
-
-		if (ota_task_handle != NULL) {
-			ESP_LOGI(TAG, "Device is updating");
-			continue;
-		}
-
-		if (g_iot_status != IOT_STATUS_CONNECTING) {
-			ESP_LOGI(TAG, "Device is not connected to cloud");
-			continue;
-		}
-
-		char *read_data = NULL;
-		unsigned int read_data_len = 0;
-
-		esp_err_t ret = ota_https_read_version_info(&read_data, &read_data_len);
-		if (ret == ESP_OK) {
-			char *available_version = NULL;
-
-			esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
-			if (err != ESP_OK) {
-				ESP_LOGE(TAG, "ota_api_get_available_version is failed : %d", err);
-				continue;
-			}
-
-			cap_available_version_set(available_version);
-
-			if (available_version)
-				free(available_version);
-		}
-
-		/* Set polling period */
-		unsigned int polling_day = ota_get_polling_period_day();
-		unsigned int task_delay_sec = polling_day * 24 * 3600;
-		vTaskDelay(task_delay_sec * 1000 / portTICK_PERIOD_MS);
-	}
-}
-
 
 #ifdef __cplusplus
 } // extern "C"

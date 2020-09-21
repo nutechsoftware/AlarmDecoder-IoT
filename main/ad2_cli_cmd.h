@@ -1,5 +1,5 @@
 /**
- *  @file    iot_cli_cmd.h
+ *  @file    ad2_cli_cmd.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *
@@ -21,4 +21,9 @@
  *
  */
 
+#ifndef _AD2_CLI_CMD_H_
+#define _AD2_CLI_CMD_H_
+
 void register_iot_cli_cmd(void);
+
+#endif /* _AD2_CLI_CMD_H_ */

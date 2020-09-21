@@ -1,9 +1,9 @@
 /**
- *  @file    alarmdecoder_main.h
+ *  @file    ad2_uart_cli.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
  *
- *  @brief AlarmDecoder IoT embedded network appliance
+ *  @brief UART command line interface for direct access configuration
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
@@ -20,31 +20,30 @@
  *  limitations under the License.
  *
  */
-#ifndef AlarmDecoder_app_h
-#define AlarmDecoder_app_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef _AD2_UART_CLI_H_
+#define _AD2_UART_CLI_H_
 
-// global AD2 device connection fd/id <socket or uart id>
-extern int g_ad2_client_handle;
+#define UART_BUF_SIZE (20)
+#define PROMPT_STRING "AD2IOT # "
 
-// global ad2 connection mode ['S'ocket | 'C'om port]
-extern uint8_t g_ad2_mode;
+#define CLI_TASK_PRIORITY (tskIDLE_PRIORITY+2)
+#define CLI_TASK_SIZE    (8192)
+#define MAX_UART_LINE_SIZE    (1024)
+typedef void (* command_function_t)(char *string);
 
-// global network connection state
-extern int g_ad2_network_state;
+typedef struct cli_command {
+    char *command;
+    char *help_string;
+    command_function_t command_fn;
+} cli_cmd_t;
 
-// No active network IP layer
-#define AD2_OFFLINE (1 << 0)
+typedef struct cli_command_list {
+    cli_cmd_t* cmd;
+    struct cli_command_list* next;
+} cli_cmd_list_t;
 
-// Active network IP layer
-#define AD2_CONNECTED (1 << 1)
+void uart_cli_main();
+void cli_register_command(cli_cmd_t* cmd);
 
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif /* _AD2_UART_CLI_H_ */

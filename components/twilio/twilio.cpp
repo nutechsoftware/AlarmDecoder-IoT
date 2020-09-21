@@ -59,8 +59,8 @@
 
 extern "C" {
 #include "ad2_utils.h"
-#include "iot_uart_cli.h"
-#include "iot_cli_cmd.h"
+#include "ad2_uart_cli.h"
+#include "ad2_cli_cmd.h"
 #include "twilio.h"
 }
 
@@ -492,6 +492,10 @@ static struct cli_command twilio_cmd_list[] = {
  */
 void twilio_init() {
 
+    // Register twilio CLI commands
+    for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++)
+        cli_register_command(&twilio_cmd_list[i]);
+
     // init server_fd
     mbedtls_net_init(&server_fd);
     // init ssl
@@ -567,18 +571,12 @@ void twilio_init() {
         return;
     }
 
-
     if ((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0)
     {
         ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -ret);
         twilio_free();
         return;
     }
-
-
-    // register twilio CLI commands
-    for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++)
-        cli_register_command(&twilio_cmd_list[i]);
 
     ESP_LOGI(TAG, "Starting twilio queue consumer task");
     sendQ = xQueueCreate(TWILIO_QUEUE_SIZE,sizeof(struct twilio_message_data *));

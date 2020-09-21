@@ -53,8 +53,8 @@ void ota_nvs_flash_init();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
 esp_err_t ota_https_update_device();
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
-void do_ota_update();
-
+void ota_do_update();
+void ota_init();
 #ifdef __cplusplus
 }
 #endif
