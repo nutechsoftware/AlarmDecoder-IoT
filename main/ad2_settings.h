@@ -21,15 +21,29 @@
  *
  */
 
-// configuration
-
+// @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
+
+// @brief MAX virtual partition slots
 #define AD2_MAX_VPARTITION    9
+
+// @brief MAX code slots
 #define AD2_MAX_CODE          99
+
+// @brief Default code to use if none specified
 #define AD2_DEFAULT_CODE_SLOT 0
+
+// @brief Default Address to use if none specified
 #define AD2_DEFAULT_VPA_SLOT  0
+
+// @brief Max connection mode string argument size(host:port|UART#)
 #define AD2_MAX_MODE_ARG_SIZE 80
 
+// @brief Parent Key to store virtual partition slots
 #define VPADDR_CONFIG_KEY     "vpa"
+
+// @brief Parent Key to store code slots
 #define CODES_CONFIG_KEY      "codes"
+
+// @brief Parent Key to store ad2 source configuration values
 #define AD2MODE_CONFIG_KEY    "ad2source"
