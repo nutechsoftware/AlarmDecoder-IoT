@@ -22,11 +22,15 @@
  *
  */
 
+// common includes
+// stdc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 // esp includes
 #include "freertos/FreeRTOS.h"
@@ -46,6 +50,7 @@ static const char *TAG = "STSDK";
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
 
+// specific includes
 #include "stsdk_main.h"
 
 #ifdef __cplusplus
@@ -79,11 +84,6 @@ caps_momentary_data_t *cap_momentary_data_fire;
 IOT_CAP_HANDLE *ota_cap_handle = NULL;
 IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
 IOT_CAP_HANDLE *refresh_cap_handle = NULL;
-
-
-#ifdef __cplusplus
-}
-#endif
 
 /**
  * Forget all STSDK state revert back to adoption mode.
@@ -186,19 +186,19 @@ char * STSDK_SETTINGS [] = {
 static struct cli_command stsdk_cmd_list[] = {
     {STSDK_CLEANUP,
         "Cleanup NV data with reboot option\n"
-        "  Syntax: '" STSDK_CLEANUP "'\n", _cli_cmd_cleanup_event},
+        "  Syntax: " STSDK_CLEANUP "\n", _cli_cmd_cleanup_event},
     {STSDK_SERIAL,
         "Sets the SmartThings device_info serialNumber.\n"
-        "  Syntax: '" STSDK_SERIAL "' <serialNumber>\n"
-        "  Example: '" STSDK_SERIAL "' AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event},
+        "  Syntax: " STSDK_SERIAL " <serialNumber>\n"
+        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event},
     {STSDK_PUBKEY,
         "Sets the SmartThings device_info publicKey.\n"
-        "  Syntax: '" STSDK_PUBKEY "' <publicKey>\n"
-        "  Example: '" STSDK_PUBKEY "' AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event},
+        "  Syntax: " STSDK_PUBKEY " <publicKey>\n"
+        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event},
     {STSDK_PRIVKEY,
         "Sets the SmartThings device_info privateKey.\n"
-        "  Syntax: '" STSDK_PRIVKEY "' <privateKey>\n"
-        "  Example: '" STSDK_PRIVKEY "' AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event},
+        "  Syntax: " STSDK_PRIVKEY " <privateKey>\n"
+        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event},
 };
 
 
@@ -228,7 +228,7 @@ void cap_securitySystem_arm_away_cmd_cb(struct caps_securitySystem_data *caps_da
 {
     const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
     cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
-    ad2_arm_away();
+    ad2_arm_away(AD2_DEFAULT_VPA_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
 void cap_securitySystem_arm_stay_cmd_cb(struct caps_securitySystem_data *caps_data)
@@ -257,7 +257,6 @@ void cap_switch_cmd_cb(struct caps_switch_data *caps_data)
     int switch_state = get_switch_state();
     change_switch_state(switch_state);
 }
-
 
 void stsdk_init(void) {
     unsigned char *onboarding_config = (unsigned char *) onboarding_config_start;
@@ -369,6 +368,14 @@ void iot_status_cb(iot_status_t status,
 
     ESP_LOGI(TAG, "iot_status_cb %d, stat: %d", g_iot_status, g_iot_stat_lv);
 
+    // Because ST takes control of the WiFi
+    // let everyone know it is up and connected.
+    if (status == IOT_STATUS_CONNECTING) {
+        g_ad2_network_state = AD2_CONNECTED;
+    } else {
+        g_ad2_network_state = AD2_OFFLINE;
+    }
+
     switch(status)
     {
         case IOT_STATUS_NEED_INTERACT:
@@ -476,3 +483,7 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
         xTaskCreate(connection_start_task, "connection_task", 2048, NULL, tskIDLE_PRIORITY+2, NULL);
     }
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

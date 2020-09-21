@@ -21,15 +21,20 @@
  *
  */
 
+// common includes
+// stdc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <ctype.h>
 
 // esp includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -42,9 +47,11 @@ static const char *TAG = "AD2CLICMD";
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
 #include "ad2_settings.h"
+#include "ad2_uart_cli.h"
 #include "device_control.h"
 
-#include "ad2_uart_cli.h"
+// specific includes
+#include "ad2_cli_cmd.h"
 
 /**
  * Set the USER code for a given slot.
@@ -128,7 +135,7 @@ static void _cli_cmd_vpaddr_event(char *string)
             printf("The vpaddr in slot %i is %i\n", slot, address);
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_ADDRESS);
+        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
     }
 }
 
@@ -178,6 +185,8 @@ static void _cli_cmd_ad2source_event(char *string)
 static void _cli_cmd_reboot_event(char *string)
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
+    printf("Restarting now\n");
+    esp_restart();
 }
 
 static void _cli_cmd_butten_event(char *string)
@@ -199,50 +208,54 @@ static void _cli_cmd_butten_event(char *string)
     //FIXME: button_event(ctx, type, count);
 }
 
+// @brief AD2IoT base CLI commands
 static struct cli_command cmd_list[] = {
-    {"reboot",
+    {AD2_REBOOT,
         "reboot this microcontroller\n", _cli_cmd_reboot_event},
-    {"button",
+    {AD2_BUTTON,
         "Simulate a button press event\n"
-        "  Syntax: button <count> <type>\n"
-        "  Example: button 5 / button 1 long\n", _cli_cmd_butten_event},
-    {"code",
+        "  Syntax: " AD2_BUTTON " <count> <type>\n"
+        "  Example: " AD2_BUTTON " 5 / " AD2_BUTTON " 1 long\n", _cli_cmd_butten_event},
+    {AD2_CODE,
         "Manage user codes\n"
-        "  Syntax: code <id> <value>\n"
+        "  Syntax: " AD2_CODE " <id> <value>\n"
         "  Examples:\n"
         "    Set default code to 1234\n"
-        "      code 0 1234\n"
+        "      " AD2_CODE " 0 1234\n"
         "    Set alarm code for slot 1\n"
-        "      code 1 1234\n"
+        "      " AD2_CODE " 1 1234\n"
         "    Show code in slot #3\n"
-        "      code 3\n"
+        "      " AD2_CODE " 3\n"
         "    Remove code for slot 2\n"
-        "      code 2 -1\n"
+        "      " AD2_CODE " 2 -1\n"
         "    Note: value -1 will remove an entry.\n", _cli_cmd_code_event},
-    {"vpaddr",
+    {AD2_VPADDR,
         "Manage virtual partitions\n"
-        "  Syntax: vpaddr <partition> <address>\n"
+        "  Syntax: " AD2_VPADDR " <partition> <address>\n"
         "  Examples:\n"
         "    Set default send address to 18\n"
-        "      vpaddr 0 18\n"
+        "      " AD2_VPADDR " 0 18\n"
         "    Show address for partition 2\n"
-        "      vpaddr 2\n"
+        "      " AD2_VPADDR " 2\n"
         "    Remove virtual partition in slot 2\n"
-        "      vpaddr 2 -1\n"
+        "      " AD2_VPADDR " 2 -1\n"
         "  Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr_event},
-    {"ad2source",
+    {AD2_SOURCE,
         "Manage AlarmDecoder protocol source.\n"
-        "  Syntax: ad2source <[S]OCK|[C]OM> <AUTHORITY|UART#>\n"
+        "  Syntax: " AD2_SOURCE " <[S]OCK|[C]OM> <AUTHORITY|UART#>\n"
         "  Examples:\n"
         "    Show current mode\n"
-        "      ad2source"
+        "      " AD2_SOURCE "\n"
         "    Set source to ser2sock client at address and port\n"
-        "      ad2source SOCK 192.168.1.2:10000\n"
+        "      " AD2_SOURCE " SOCK 192.168.1.2:10000\n"
         "    Set source to local attached uart #2\n"
-        "      ad2source COM 2\n", _cli_cmd_ad2source_event},
+        "      " AD2_SOURCE " COM 2\n", _cli_cmd_ad2source_event},
 };
 
-void register_iot_cli_cmd(void) {
+/**
+ * @brief register ad2 CLI commands
+ */
+void register_ad2_cli_cmd(void) {
     for (int i = 0; i < ARRAY_SIZE(cmd_list); i++)
         cli_register_command(&cmd_list[i]);
 }

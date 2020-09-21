@@ -24,6 +24,12 @@
 #ifndef _AD2_CLI_CMD_H_
 #define _AD2_CLI_CMD_H_
 
-void register_iot_cli_cmd(void);
+#define AD2_REBOOT   "reboot"
+#define AD2_BUTTON   "button"
+#define AD2_CODE     "code"
+#define AD2_VPADDR   "vpaddr"
+#define AD2_SOURCE   "ad2source"
+
+void register_ad2_cli_cmd(void);
 
 #endif /* _AD2_CLI_CMD_H_ */

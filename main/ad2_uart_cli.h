@@ -30,6 +30,11 @@
 #define CLI_TASK_PRIORITY (tskIDLE_PRIORITY+2)
 #define CLI_TASK_SIZE    (8192)
 #define MAX_UART_LINE_SIZE    (1024)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void (* command_function_t)(char *string);
 
 typedef struct cli_command {
@@ -46,4 +51,7 @@ typedef struct cli_command_list {
 void uart_cli_main();
 void cli_register_command(cli_cmd_t* cmd);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* _AD2_UART_CLI_H_ */

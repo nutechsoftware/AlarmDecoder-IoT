@@ -269,7 +269,7 @@ static void ser2sock_client_task(void *pvParameters)
             ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, host, sizeof(host));
 
             char tokens[] = ": ";
-	        char *hostptr = strtok(host, tokens);
+            char *hostptr = strtok(host, tokens);
             char *portptr = NULL;
             bool connectok = true;
             if (hostptr != NULL) {
@@ -515,13 +515,6 @@ void init_ad2_uart_client() {
 }
 
 /**
- * init_ad2_gpio
- */
-void init_ad2_gpio()
-{
-}
-
-/**
  * app_main()
  */
 void app_main()
@@ -529,20 +522,8 @@ void app_main()
 
     //// AlarmDecoder App main
 
-    // Initialize nvs partition for key value storage.
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // NVS partition was truncated and needs to be erased
-        // Retry nvs_flash_init
-        ESP_LOGI(TAG, "truncating nvs partition");
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-        ESP_LOGI(TAG, "nvs_flash_init done");
-    }
-    ESP_ERROR_CHECK( err );
-
-    // init the AlarmDecoder IoT host uP GPIO
-    init_ad2_gpio();
+    // init the AD2IoT gpio
+    gpio_init();
 
     // Dump hardware info
     esp_chip_info_t chip_info;
@@ -556,6 +537,18 @@ void app_main()
 
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+
+    // Initialize nvs partition for key value storage.
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_LOGI(TAG, "truncating nvs partition");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+        ESP_LOGI(TAG, "nvs_flash_init done");
+    }
+    ESP_ERROR_CHECK( err );
 
     // init the virtual partition database from NV storage
     // see iot_cli_cmd::vpaddr
@@ -571,8 +564,16 @@ void app_main()
         }
     }
 
-    // Load AD2IoT operating mode [Socket|UART] and argument
+    // AlarmDecoder callback wiring.
+    AD2Parse.setCB_ON_MESSAGE(my_ON_MESSAGE_CB);
+    AD2Parse.setCB_ON_LRR(my_ON_LRR_CB);
+    AD2Parse.setCB_ON_ARM(my_ON_ARM_CB);
+    AD2Parse.setCB_ON_DISARM(my_ON_DISARM_CB);
+    AD2Parse.setCB_ON_READY_CHANGE(my_ON_READY_CHANGE_CB);
+    AD2Parse.setCB_ON_CHIME_CHANGE(my_ON_CHIME_CHANGE_CB);
+    AD2Parse.setCB_ON_FIRE(my_ON_FIRE_CB);
 
+    // Load AD2IoT operating mode [Socket|UART] and argument
     // get the mode
     char mode[2];
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, mode, sizeof(mode));
@@ -604,23 +605,13 @@ void app_main()
     twilio_init();
 #endif
 
-    // AlarmDecoder callback wiring.
-    AD2Parse.setCB_ON_MESSAGE(my_ON_MESSAGE_CB);
-    AD2Parse.setCB_ON_LRR(my_ON_LRR_CB);
-    AD2Parse.setCB_ON_ARM(my_ON_ARM_CB);
-    AD2Parse.setCB_ON_DISARM(my_ON_DISARM_CB);
-    AD2Parse.setCB_ON_READY_CHANGE(my_ON_READY_CHANGE_CB);
-    AD2Parse.setCB_ON_CHIME_CHANGE(my_ON_CHIME_CHANGE_CB);
-    AD2Parse.setCB_ON_FIRE(my_ON_FIRE_CB);
-
+#if CONFIG_STDK_IOT_CORE
     //// SmartThings setup
     stsdk_init();
-
-    // Init onboarding button and LED
-    iot_gpio_init();
+#endif
 
     // Register and start the STSDK cli
-    register_iot_cli_cmd();
+    register_ad2_cli_cmd();
     uart_cli_main();
 
     // Start main AlarmDecoder IoT app task

@@ -22,29 +22,43 @@
  *
  */
 
+// common includes
+// stdc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <ctype.h>
+
+// stdc++
 #include <string>
 #include <sstream>
-#include "mbedtls/base64.h"
+
+// esp includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
-#include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "nvs.h"
+#include <lwip/netdb.h>
+#include "driver/uart.h"
+#include "esp_log.h"
+static const char *TAG = "TWILIO";
 
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "lwip/netdb.h"
-#include "lwip/dns.h"
+// AlarmDecoder includes
+#include "alarmdecoder_main.h"
+#include "ad2_utils.h"
+#include "ad2_settings.h"
+#include "ad2_uart_cli.h"
 
+// specific includes
+#include "twilio.h"
+
+// mbedtls
+#include "mbedtls/base64.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/net_sockets.h"
 #include "mbedtls/esp_debug.h"
@@ -56,13 +70,6 @@
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
 #include "mbedtls/ssl_cache.h"
 #endif
-
-extern "C" {
-#include "ad2_utils.h"
-#include "ad2_uart_cli.h"
-#include "ad2_cli_cmd.h"
-#include "twilio.h"
-}
 
 #if CONFIG_TWILIO_CLIENT
 
@@ -77,7 +84,6 @@ mbedtls_net_context server_fd;
 mbedtls_ssl_cache_context cache;
 #endif
 
-static const char *TAG = "TWILIO";
 
 /* Root cert for api.twilio.com
    The PEM file was extracted from the output of this command:
@@ -181,10 +187,15 @@ std::string build_request_string(std::string sid,
     return http_request;
 }
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * twilio_add_queue()
  */
-void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg) {
+extern "C" void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg) {
     if (sendQ) {
         twilio_message_data_t *message_data = NULL;
         message_data = (twilio_message_data_t *)malloc(sizeof(twilio_message_data_t));
@@ -406,8 +417,6 @@ exit:
     vTaskDelete(NULL);
 }
 
-extern "C" {
-
 char * TWILIO_SETTINGS [] = {
   TWILIO_SID,
   TWILIO_TOKEN,
@@ -417,7 +426,6 @@ char * TWILIO_SETTINGS [] = {
   TWILIO_BODY,
   0 // EOF
 };
-
 
 /**
  * Twilio generic command event processing
@@ -467,24 +475,24 @@ static void _cli_cmd_twilio_event(char *string)
 static struct cli_command twilio_cmd_list[] = {
     {TWILIO_TOKEN,
         "Sets the 'User Auth Token' for notification <slot>.\n"
-        "  Syntax: '" TWILIO_TOKEN "' <slot> <hash>\n"
-        "  Example: '" TWILIO_TOKEN "' 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
+        "  Syntax: " TWILIO_TOKEN " <slot> <hash>\n"
+        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
     {TWILIO_SID,
         "Sets the 'Account SID' for notification <slot>.\n"
-        "  Syntax: '" TWILIO_SID "' <slot> <hash>\n"
-        "  Example: '" TWILIO_SID "' 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
+        "  Syntax: " TWILIO_SID " <slot> <hash>\n"
+        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
     {TWILIO_FROM,
         "Sets the 'From' address for notification <slot>\n"
-        "  Syntax: '" TWILIO_FROM "' <slot> <phone#>\n"
-        "  Example: '" TWILIO_FROM "' 0 13115552368\n", _cli_cmd_twilio_event},
+        "  Syntax: " TWILIO_FROM " <slot> <phone#>\n"
+        "  Example: " TWILIO_FROM " 0 13115552368\n", _cli_cmd_twilio_event},
     {TWILIO_TO,
         "Sets the 'To' address for notification <slot>\n"
-        "  Syntax: '" TWILIO_TO "' <slot> <phone#>\n"
-        "  Example: '" TWILIO_TO "' 0 13115552368\n", _cli_cmd_twilio_event},
+        "  Syntax: " TWILIO_TO " <slot> <phone#>\n"
+        "  Example: " TWILIO_TO " 0 13115552368\n", _cli_cmd_twilio_event},
     {TWILIO_TYPE,
         "Sets the 'Type' [M]essages|[R]edirect|[T]wilio for notification <slot>\n"
-        "  Syntax: '" TWILIO_TYPE "' <slot> <type>\n"
-        "  Example: '" TWILIO_TYPE "' 0 M\n", _cli_cmd_twilio_event},
+        "  Syntax: " TWILIO_TYPE " <slot> <type>\n"
+        "  Example: " TWILIO_TYPE " 0 M\n", _cli_cmd_twilio_event},
 };
 
 /**
@@ -587,7 +595,8 @@ void twilio_init() {
     }
 }
 
+#ifdef __cplusplus
 } // extern "C"
-
+#endif
 #endif /*  CONFIG_TWILIO_CLIENT */
 

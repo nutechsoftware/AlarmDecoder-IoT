@@ -22,9 +22,15 @@
  *
  */
 
+// common includes
+// stdc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 // esp includes
 #include "freertos/FreeRTOS.h"
@@ -36,13 +42,15 @@
 #include <lwip/netdb.h>
 #include "driver/uart.h"
 #include "esp_log.h"
-static const char *TAG = "OTA_UTIL";
+static const char *TAG = "AD2OTA";
 
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
 #include "ad2_settings.h"
+#include "ad2_uart_cli.h"
 
+// specific includes
 #include "ota_util.h"
 
 #include "cJSON.h"
@@ -51,6 +59,9 @@ static const char *TAG = "OTA_UTIL";
 #include "mbedtls/pk.h"
 #include "mbedtls/ssl.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
 extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
@@ -651,7 +662,7 @@ static void ota_polling_task_func(void *arg)
 		}
 
 		if (g_ad2_network_state != AD2_CONNECTED) {
-			ESP_LOGI(TAG, "Device is not connected to cloud");
+			ESP_LOGI(TAG, "Device update check aborted. No internet connection.");
 			continue;
 		}
 
@@ -689,3 +700,7 @@ void ota_do_update() {
 	ota_nvs_flash_init();
 	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
