@@ -65,7 +65,14 @@ static struct cli_command help_cmd = {
     "help", "print command list", cli_cmd_help
 };
 
-
+/**
+ * @brief Check if a command is registered.
+ *
+ * @param [in]input_string string containing the command to check.
+ *
+ * @return cli_cmd_t * the command structure pointer or NULL
+ * if not found
+ */
 static cli_cmd_t* cli_find_command (char* input_string) {
     cli_cmd_list_t* now = cli_cmd_list;
 
@@ -88,6 +95,11 @@ static cli_cmd_t* cli_find_command (char* input_string) {
     return NULL;
 }
 
+/**
+ * @brief process a command line event.
+ *
+ * @param [in]input_string command string to test for.
+ */
 static void cli_process_command(char* input_string)
 {
     cli_cmd_t *command;
@@ -102,6 +114,11 @@ static void cli_process_command(char* input_string)
     command->command_fn(input_string);
 }
 
+/**
+ * @brief Register cli commands with the CLI engine.
+ *
+ * @param [in]cli_cmd_t * pointer to command structure to register.
+ */
 void cli_register_command(cli_cmd_t* cmd)
 {
     cli_cmd_list_t* now;
@@ -132,6 +149,11 @@ void cli_register_command(cli_cmd_t* cmd)
     }
 }
 
+/**
+ * @brief command event processor for the 'help' command.
+ *
+ * @param [in]cmd char * command string with args if any.
+ */
 static void cli_cmd_help(char *cmd) {
     bool showhelp = true;
     cli_cmd_list_t* now = cli_cmd_list;
@@ -163,9 +185,12 @@ static void cli_cmd_help(char *cmd) {
 }
 
 /**
-* If there is user input("\n") within a given timeout, the main function will be suspended.
-*
-*/
+ * @brief If there is user input("\n") within a given timeout,
+ * the main function will be suspended.
+ *
+ *  @param [in]timeout_ms int timeout in ms to wait for input before
+ * continuing. If no \n is received it will allow main task to resume.
+ */
 static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
 {
     TickType_t cur = xTaskGetTickCount();
@@ -201,14 +226,7 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
 }
 
 /**
- * This is an example which echos any data it receives on UART0 back to the sender,
- * with hardware flow control turned off. It does not use UART driver event queue.
- *
- * - Port: UART0
- * - Receive (Rx) buffer: on
- * - Transmit (Tx) buffer: off
- * - Flow control: off
- * - Event queue: off
+ * @brief UART0 settings
  */
 static void esp_uart_init() {
     // Configure parameters of an UART driver,
@@ -224,6 +242,18 @@ static void esp_uart_init() {
     uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
 }
 
+/**
+ * @brief UART CLI task
+ * Echo back valid data and allow for simple left/right cursor navigation.
+ *   Port: UART0
+ *   Receive (Rx) buffer: on
+ *   Receive (tx) buffer: off
+ *   Flow control: off
+ *   Event queue: off
+ *
+ * @param [in]pvParameters void * to parameters.
+ *
+ */
 static void esp_uart_cli_task(void *pvParameters)
 {
 
@@ -333,6 +363,10 @@ static void esp_uart_cli_task(void *pvParameters)
 
 }
 
+/**
+ * @brief Start the CLI task after a few second pause to allow the user
+ * to halt any further processing and stay in CLI mode.
+ */
 void uart_cli_main()
 {
     /* to decide whether the main function is running or not by user action... */
@@ -341,7 +375,8 @@ void uart_cli_main()
     esp_uart_init();
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
 
-    _cli_util_wait_for_user_input(2000);
+    // Press \n to halt further processing and just enable CLI processing.
+    _cli_util_wait_for_user_input(5000);
 }
 
 #ifdef __cplusplus

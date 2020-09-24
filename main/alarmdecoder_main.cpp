@@ -549,6 +549,19 @@ void app_main()
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, mode, sizeof(mode));
     g_ad2_mode = mode[0];
 
+    /**
+     * FIXME: SmartThings needs to manage the Wifi during adopting.
+     * FIXME: For now just one interface more is much more complex.
+     */
+#if 0
+    // Init the hardware ethernet module
+    init_eth();
+#endif
+#if 0
+    // Init the wifi module
+    init_wifi();
+#endif
+
     // init the AlarmDecoder UART
     if (g_ad2_mode == 'C') {
       init_ad2_uart_client();
@@ -565,11 +578,6 @@ void app_main()
     init_ser2sock_server();
 #endif
 
-#if 0
-    // init the hardware ethernet module
-    init_eth();
-#endif
-
 #if CONFIG_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
@@ -580,8 +588,11 @@ void app_main()
     stsdk_init();
 #endif
 
-    // Register and start the AD2IOT cli
+    // Register and start the AD2IOT cli.
     register_ad2_cli_cmd();
+
+    // Start the CLI.
+    // Press ENTER to halt and stay in CLI only.
     uart_cli_main();
 
     // Start main AlarmDecoder IoT app task
