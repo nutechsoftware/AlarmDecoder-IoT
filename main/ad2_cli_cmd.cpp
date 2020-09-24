@@ -233,13 +233,13 @@ static void _cli_cmd_butten_event(char *string)
 
 // @brief AD2IoT base CLI commands
 static struct cli_command cmd_list[] = {
-    {AD2_REBOOT,
+    {(char*)AD2_REBOOT,(char*)
         "reboot this microcontroller\n", _cli_cmd_reboot_event},
-    {AD2_BUTTON,
+    {(char*)AD2_BUTTON,(char*)
         "Simulate a button press event\n"
         "  Syntax: " AD2_BUTTON " <count> <type>\n"
         "  Example: " AD2_BUTTON " 5 / " AD2_BUTTON " 1 long\n", _cli_cmd_butten_event},
-    {AD2_CODE,
+    {(char*)AD2_CODE,(char*)
         "Manage user codes\n"
         "  Syntax: " AD2_CODE " <id> <value>\n"
         "  Examples:\n"
@@ -252,7 +252,7 @@ static struct cli_command cmd_list[] = {
         "    Remove code for slot 2\n"
         "      " AD2_CODE " 2 -1\n"
         "    Note: value -1 will remove an entry.\n", _cli_cmd_code_event},
-    {AD2_VPADDR,
+    {(char*)AD2_VPADDR,(char*)
         "Manage virtual partitions\n"
         "  Syntax: " AD2_VPADDR " <partition> <address>\n"
         "  Examples:\n"
@@ -263,7 +263,7 @@ static struct cli_command cmd_list[] = {
         "    Remove virtual partition in slot 2\n"
         "      " AD2_VPADDR " 2 -1\n"
         "  Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr_event},
-    {AD2_SOURCE,
+    {(char*)AD2_SOURCE,(char*)
         "Manage AlarmDecoder protocol source.\n"
         "  Syntax: " AD2_SOURCE " <[S]OCK|[C]OM> <AUTHORITY|UART#>\n"
         "  Examples:\n"

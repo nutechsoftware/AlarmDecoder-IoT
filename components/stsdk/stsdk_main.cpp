@@ -199,26 +199,26 @@ static void _cli_cmd_stprivatekey_event(char *string)
 }
 
 char * STSDK_SETTINGS [] = {
-  STSDK_CLEANUP,
-  STSDK_SERIAL,
-  STSDK_PUBKEY,
-  STSDK_PRIVKEY,
+  (char*)STSDK_CLEANUP,
+  (char*)STSDK_SERIAL,
+  (char*)STSDK_PUBKEY,
+  (char*)STSDK_PRIVKEY,
   0 // EOF
 };
 
 static struct cli_command stsdk_cmd_list[] = {
-    {STSDK_CLEANUP,
+    {(char*)STSDK_CLEANUP,(char*)
         "Cleanup NV data with reboot option\n"
         "  Syntax: " STSDK_CLEANUP "\n", _cli_cmd_cleanup_event},
-    {STSDK_SERIAL,
+    {(char*)STSDK_SERIAL,(char*)
         "Sets the SmartThings device_info serialNumber.\n"
         "  Syntax: " STSDK_SERIAL " <serialNumber>\n"
         "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event},
-    {STSDK_PUBKEY,
+    {(char*)STSDK_PUBKEY,(char*)
         "Sets the SmartThings device_info publicKey.\n"
         "  Syntax: " STSDK_PUBKEY " <publicKey>\n"
         "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event},
-    {STSDK_PRIVKEY,
+    {(char*)STSDK_PRIVKEY,(char*)
         "Sets the SmartThings device_info privateKey.\n"
         "  Syntax: " STSDK_PRIVKEY " <privateKey>\n"
         "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event},
@@ -603,17 +603,19 @@ void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 			iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
+    ESP_LOGI(TAG, "refresh_cmd_cb");
+
+// FIXME
+#if 0
     int address = -1;
     uint32_t mask = 1;
-    ESP_LOGI(TAG, "refresh_cmd_cb");
 
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
     if (address == -1) {
         ESP_LOGE(TAG, "default virtual partition defined. see 'vpaddr' command");
         return;
     }
-// FIXME
-#if 0
+
     mask <<= address-1;
     AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&mask);
     if (s != nullptr) {

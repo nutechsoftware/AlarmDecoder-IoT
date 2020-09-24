@@ -62,7 +62,7 @@ static struct cli_command_list *cli_cmd_list;
 static void cli_cmd_help(char *string);
 
 static struct cli_command help_cmd = {
-    "help", "print command list", cli_cmd_help
+    (char*)"help", (char*)"print command list", cli_cmd_help
 };
 
 /**
@@ -229,17 +229,20 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
  * @brief UART0 settings
  */
 static void esp_uart_init() {
+
     // Configure parameters of an UART driver,
-    // communication pins and install the driver
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity    = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
-    };
-    uart_param_config(UART_NUM_0, &uart_config);
+    uart_config_t* uart_config = (uart_config_t*)calloc(sizeof(uart_config_t), 1);
+
+    uart_config->baud_rate = 115200;
+    uart_config->data_bits = UART_DATA_8_BITS;
+    uart_config->parity    = UART_PARITY_DISABLE;
+    uart_config->stop_bits = UART_STOP_BITS_1;
+    uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+
+    uart_param_config(UART_NUM_0, uart_config);
     uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+
+    free(uart_config);
 }
 
 /**

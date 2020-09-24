@@ -422,12 +422,12 @@ exit:
 }
 
 char * TWILIO_SETTINGS [] = {
-  TWILIO_SID,
-  TWILIO_TOKEN,
-  TWILIO_TYPE,
-  TWILIO_TO,
-  TWILIO_FROM,
-  TWILIO_BODY,
+  (char*)TWILIO_SID,
+  (char*)TWILIO_TOKEN,
+  (char*)TWILIO_TYPE,
+  (char*)TWILIO_TO,
+  (char*)TWILIO_FROM,
+  (char*)TWILIO_BODY,
   0 // EOF
 };
 
@@ -526,23 +526,23 @@ static void _cli_cmd_twilio_event(char *string)
 }
 
 static struct cli_command twilio_cmd_list[] = {
-    {TWILIO_TOKEN,
+    {(char*)TWILIO_TOKEN,(char*)
         "Sets the 'User Auth Token' for notification <slot>.\n"
         "  Syntax: " TWILIO_TOKEN " <slot> <hash>\n"
         "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
-    {TWILIO_SID,
+    {(char*)TWILIO_SID,(char*)
         "Sets the 'Account SID' for notification <slot>.\n"
         "  Syntax: " TWILIO_SID " <slot> <hash>\n"
         "  Example: " TWILIO_SID " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
-    {TWILIO_FROM,
+    {(char*)TWILIO_FROM,(char*)
         "Sets the 'From' address for notification <slot>\n"
         "  Syntax: " TWILIO_FROM " <slot> <phone#>\n"
         "  Example: " TWILIO_FROM " 0 13115552368\n", _cli_cmd_twilio_event},
-    {TWILIO_TO,
+    {(char*)TWILIO_TO,(char*)
         "Sets the 'To' address for notification <slot>\n"
         "  Syntax: " TWILIO_TO " <slot> <phone#>\n"
         "  Example: " TWILIO_TO " 0 13115552368\n", _cli_cmd_twilio_event},
-    {TWILIO_TYPE,
+    {(char*)TWILIO_TYPE,(char*)
         "Sets the 'Type' [M]essages|[R]edirect|[T]wilio for notification <slot>\n"
         "  Syntax: " TWILIO_TYPE " <slot> <type>\n"
         "  Example: " TWILIO_TYPE " 0 M\n", _cli_cmd_twilio_event},

@@ -1,4 +1,4 @@
-idf_component_register(SRCS "alarmdecoder_main.cpp"
+idf_component_register(SRCS "ad2_cli_cmd.cpp" "alarmdecoder_main.cpp"
                             "ad2_uart_cli.cpp"
                             "device_control.cpp"
                             "iot_cli_cmd.cpp"

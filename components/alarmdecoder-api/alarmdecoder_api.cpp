@@ -26,8 +26,12 @@
 
 static const char *TAG = "AD2API";
 
+// nostate
 AD2VirtualPartitionState *nostate = 0;
 
+/**
+ * @brief constructor
+ */
 AlarmDecoderParser::AlarmDecoderParser() {
 
   // Reset the parser on init.
@@ -35,6 +39,9 @@ AlarmDecoderParser::AlarmDecoderParser() {
 
 }
 
+/**
+ * @brief Reset parser processing state.
+ */
 void AlarmDecoderParser::reset_parser() {
   // Initialize parser state machine state.
   AD2_Parser_State = AD2_PARSER_RESET;
@@ -67,7 +74,11 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
 }
 
 /**
- * return a partition state structure by 32bit keypad/partition mask.
+ * @brief Return a partition state structure by 32bit keypad/partition mask.
+ *
+ * @param [in]amask pointer to 32bit mask to search for.
+ * @param [in]update if true update mask adding new bits.
+ *
  */
 AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, bool update) {
   // Create or return a pointer to our partition storage class.
@@ -116,10 +127,13 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, boo
 }
 
 /**
- * Consume bytes from an AlarmDecoder stream into a small ring buffer
- * for processing.
+ * @brief Consume bytes from an AlarmDecoder stream into a small ring
+ * buffer for processing.
  *
- * 1) Parse all of the data firing off events upon parsing a full message.
+ * @param [in]buff byte buffer to process.
+ * @param [in]len length of data in buff
+ *
+ * @note Parse all of the data firing off events upon parsing a full message.
  *   Continue parsing data until all is consumed.
  */
 bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
@@ -513,6 +527,9 @@ void AlarmDecoderParser::test() {
 /**
  * @brief parse AlarmDecoder section #1 protocol "bits".
  * each byte position has will contain [0, 1, -].
+ *
+ * @param [in]pos position to look at in buffer.
+ * @param [in]bitStr char * to test
  *
  * @note Typical section # string '[00100001100000003A--]'
  *
