@@ -20,6 +20,8 @@
  *  limitations under the License.
  *
  */
+#ifndef _DEVICE_CONTROL_H
+#define _DEVICE_CONTROL_H
 
 // Defaults to ESP32 DEVKIT V4
 //#define CONFIG_TARGET_OLIMEX_ESP32_EVB
@@ -42,6 +44,10 @@
  #define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
  #define GPIO_OUTPUT_NOUSE1 14
  #define GPIO_OUTPUT_NOUSE2 27
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 enum switch_onoff_state {
@@ -81,3 +87,9 @@ void hal_led_blink(int switch_state, int delay, int count);
 void hal_change_led_mode(int noti_led_mode);
 void hal_gpio_init(void);
 void hal_restart();
+
+#ifdef __cplusplus
+}
+#endif
+#endif /* _DEVICE_CONTROL_H */
+

@@ -20,10 +20,17 @@
  *  limitations under the License.
  *
  */
-#ifndef ad2_utils_h
-#define ad2_utils_h
+#ifndef _AD2_UTILS_H
+#define _AD2_UTILS_H
 
+// Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
+
+// No active network IP layer
+#define AD2_OFFLINE (1 << 0)
+
+// Active network IP layer
+#define AD2_CONNECTED (1 << 1)
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +40,7 @@ extern "C" {
 
 void ad2_arm_away(int codeId, int addressId);
 void ad2_arm_stay(int codeId, int addressId);
+void ad2_chime_toggle(int codeId, int addressId);
 void ad2_send(char *buf);
 
 // string utils
@@ -52,4 +60,5 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t s
 }
 #endif
 
-#endif
+#endif /* _AD2_UTILS_H */
+

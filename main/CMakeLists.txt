@@ -1,9 +1,10 @@
 idf_component_register(SRCS "alarmdecoder_main.cpp"
-                            "device_control.c"
-                            "iot_cli_cmd.c"
-                            "iot_uart_cli.c"
-                            "ota_util.c"
-                            "ad2_utils.c"
+                            "ad2_uart_cli.cpp"
+                            "device_control.cpp"
+                            "iot_cli_cmd.cpp"
+                            "iot_uart_cli.cpp"
+                            "ota_util.ppc"
+                            "ad2_utils.cpp"
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::twilio
 		    REQUIRES idf::stsdk

@@ -41,9 +41,9 @@ static const char *TAG = "HAL";
 void hal_change_switch_a_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
-        gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_OFF);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED,MAINLED_GPIO_OFF);
     } else {
-        gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
     }
 }
 
@@ -58,9 +58,9 @@ void hal_change_switch_a_state(int switch_state)
 void hal_change_switch_b_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
-        gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_OFF);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_OFF);
     } else {
-        gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
     }
 }
 
@@ -87,11 +87,11 @@ int hal_get_button_event(int* button_event_type, int* button_event_count)
 
     uint32_t gpio_level = 0;
 
-    gpio_level = gpio_get_level(GPIO_INPUT_BUTTON);
+    gpio_level = gpio_get_level((gpio_num_t)GPIO_INPUT_BUTTON);
     if (button_last_state != gpio_level) {
         /* wait debounce time to ignore small ripple of currunt */
         vTaskDelay( pdMS_TO_TICKS(BUTTON_DEBOUNCE_TIME_MS) );
-        gpio_level = gpio_get_level(GPIO_INPUT_BUTTON);
+        gpio_level = gpio_get_level((gpio_num_t)GPIO_INPUT_BUTTON);
         if (button_last_state != gpio_level) {
             ESP_LOGI(TAG, "%s: Button event, val: %d, tick: %u", __func__, gpio_level, (uint32_t)xTaskGetTickCount());
             button_last_state = gpio_level;
@@ -195,32 +195,32 @@ void hal_gpio_init(void)
 
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
-	io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_MAINLED;
-	io_conf.pull_down_en = 1;
-	io_conf.pull_up_en = 0;
+	io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED;
+	io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
 	gpio_config(&io_conf);
-	io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_MAINLED_0;
+	io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED_0;
 	gpio_config(&io_conf);
 
 	io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_NOUSE1;
 	gpio_config(&io_conf);
-	io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_NOUSE2;
+	io_conf.pin_bit_mask = (gpio_num_t)1 <<GPIO_OUTPUT_NOUSE2;
 	gpio_config(&io_conf);
 
 
 	io_conf.intr_type = GPIO_INTR_ANYEDGE;
 	io_conf.mode = GPIO_MODE_INPUT;
 	io_conf.pin_bit_mask = 1 << GPIO_INPUT_BUTTON;
-	io_conf.pull_down_en = (BUTTON_GPIO_RELEASED == 0);
-	io_conf.pull_up_en = (BUTTON_GPIO_RELEASED == 1);
+	io_conf.pull_down_en = (BUTTON_GPIO_RELEASED == 0 ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE);
+	io_conf.pull_up_en = (BUTTON_GPIO_RELEASED == 1 ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE);
 	gpio_config(&io_conf);
 
-	gpio_set_intr_type(GPIO_INPUT_BUTTON, GPIO_INTR_ANYEDGE);
+	gpio_set_intr_type((gpio_num_t)GPIO_INPUT_BUTTON, GPIO_INTR_ANYEDGE);
 
 	gpio_install_isr_service(0);
 
-	gpio_set_level(GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
-	gpio_set_level(GPIO_OUTPUT_MAINLED_0, 0);
+	gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+	gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED_0, 0);
 }
 
 /**

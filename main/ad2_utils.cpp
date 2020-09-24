@@ -65,7 +65,7 @@ void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = malloc(tlen);
+        char *tkey = (char*)malloc(tlen);
         snprintf(tkey, tlen, "%02i", slot);
         err = nvs_get_i32(my_handle, tkey, valueout);
         free(tkey);
@@ -92,7 +92,7 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, int value) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = malloc(tlen);
+        char *tkey = (char*)malloc(tlen);
         snprintf(tkey, tlen, "%02i", slot);
         if (value == -1) {
             err = nvs_erase_key(my_handle, tkey);
@@ -123,7 +123,7 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = malloc(tlen);
+        char *tkey = (char*)malloc(tlen);
         snprintf(tkey, tlen, "%02i", slot);
         err = nvs_get_str(my_handle, tkey, valueout, &size);
         free(tkey);
@@ -150,7 +150,7 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, char *value) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = malloc(tlen);
+        char *tkey = (char*)malloc(tlen);
         snprintf(tkey, tlen, "%02i", slot); // MAX XX(99)
         if (value == NULL) {
             err = nvs_erase_key(my_handle, tkey);
@@ -279,6 +279,35 @@ void ad2_arm_away(int codeId, int vpartId) {
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
     ESP_LOGI(TAG ,"Sending ARM AWAY command");
+    ad2_send(msg);
+}
+
+/**
+ * @brief Toggle Chime mode.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_chime_toggle(int codeId, int vpartId) {
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    // FIXME DSC panel switch
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "6");
+    ESP_LOGI(TAG ,"Sending CHIME toggle command");
     ad2_send(msg);
 }
 

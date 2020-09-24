@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "esp_log.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+
 #include "st_dev.h"
 #include "caps_tamperAlert.h"
-#include "esp_log.h"
+
 static const char *TAG = "CAPS_TAMP";
 
 static int caps_tamperAlert_attr_tamper_str2idx(const char *value)
@@ -122,3 +127,6 @@ caps_tamperAlert_data_t *caps_tamperAlert_initialize(IOT_CTX *ctx, const char *c
 
     return caps_data;
 }
+
+#endif /* CONFIG_STDK_IOT_CORE */
+

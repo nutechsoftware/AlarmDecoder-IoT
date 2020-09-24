@@ -21,8 +21,8 @@
  *
  */
 
-#ifndef stsdk_main_h
-#define stsdk_main_h
+#ifndef _STSDK_MAIN_H
+#define _STSDK_MAIN_H
 
 
 #include "st_dev.h"
@@ -79,4 +79,5 @@ extern int noti_led_mode;
 #ifdef __cplusplus
 }
 #endif
-#endif // stsdk_main_h
+#endif /* _STSDK_MAIN_H */
+

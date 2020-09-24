@@ -33,10 +33,10 @@
 #include <ctype.h>
 
 // esp includes
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 #include <lwip/netdb.h>
@@ -49,6 +49,10 @@ static const char *TAG = "STSDK";
 #include "ad2_utils.h"
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
+#include "ota_util.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
 
 // specific includes
 #include "stsdk_main.h"
@@ -264,7 +268,7 @@ void cap_securitySystem_arm_away_cmd_cb(struct caps_securitySystem_data *caps_da
 {
     const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
     cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
-    ad2_arm_away(AD2_DEFAULT_VPA_SLOT, AD2_DEFAULT_VPA_SLOT);
+    ad2_arm_away(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
 void cap_securitySystem_arm_stay_cmd_cb(struct caps_securitySystem_data *caps_data)
@@ -277,13 +281,17 @@ void cap_securitySystem_disarm_cmd_cb(struct caps_securitySystem_data *caps_data
 {
     const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
     cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
-
 }
 
 void cap_securitySystem_chime_cmd_cb(struct caps_momentary_data *caps_data)
 {
+    ad2_chime_toggle(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+/**
+ * @brief ST Clould app fire alarm panic button pushed
+ * trigger a fire alarm! Are you sure?
+ */
 void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
 {
 }
@@ -533,6 +541,111 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
     }
 }
 
+/*
+ * OTA update support
+ */
+void cap_available_version_set(char *available_version)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+	if (!available_version) {
+		ESP_LOGE(TAG, "invalid parameter");
+		return;
+	}
+
+	/* Setup switch on state */
+	init_evt = st_cap_attr_create_string("availableVersion", available_version, NULL);
+
+	/* Send avail version to ota cap handler */
+	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		ESP_LOGE(TAG, "fail to send init_data");
+
+	st_cap_attr_free(init_evt);
+}
+
+void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+    init_evt = st_cap_attr_create_int("checkInterval", 60, NULL);
+	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		ESP_LOGE(TAG, "fail to send init_data");
+
+	st_cap_attr_free(init_evt);
+
+}
+
+void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+	/* Setup switch on state */
+    // FIXME: get from device_info ctx->device_info->firmware_version
+    // that is loaded from device_info.json
+    init_evt = st_cap_attr_create_string("currentVersion", (char *)FIRMWARE_VERSION, NULL);
+
+	/* Send current version attribute */
+	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		ESP_LOGE(TAG, "fail to send init_data");
+
+	st_cap_attr_free(init_evt);
+}
+
+void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
+			iot_cap_cmd_data_t *cmd_data, void *usr_data)
+{
+    int address = -1;
+    uint32_t mask = 1;
+    ESP_LOGI(TAG, "refresh_cmd_cb");
+
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
+    if (address == -1) {
+        ESP_LOGE(TAG, "default virtual partition defined. see 'vpaddr' command");
+        return;
+    }
+// FIXME
+#if 0
+    mask <<= address-1;
+    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&mask);
+    if (s != nullptr) {
+      if (s->armed_home || s->armed_away) {
+        my_ON_ARM_CB(nullptr, s);
+      } else {
+        my_ON_DISARM_CB(nullptr, s);
+      }
+      my_ON_CHIME_CHANGE_CB(nullptr, s);
+      my_ON_READY_CHANGE_CB(nullptr, s);
+    } else {
+      ESP_LOGE(TAG, "vpaddr[%u] not found", address);
+    }
+
+  if (s->armed_home)
+    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
+  else
+    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
+
+  cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+
+#endif
+}
+
+void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
+			iot_cap_cmd_data_t *cmd_data, void *usr_data)
+{
+  ota_do_update();
+}
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
+#endif /*  CONFIG_STDK_IOT_CORE */
+

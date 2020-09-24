@@ -54,6 +54,9 @@ static const char *TAG = "TWILIO";
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
 
+// Disable via sdkconfig
+#if CONFIG_TWILIO_CLIENT
+
 // specific includes
 #include "twilio.h"
 
@@ -70,8 +73,6 @@ static const char *TAG = "TWILIO";
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
 #include "mbedtls/ssl_cache.h"
 #endif
-
-#if CONFIG_TWILIO_CLIENT
 
 QueueHandle_t  sendQ=NULL;
 mbedtls_ssl_config conf;
@@ -195,7 +196,7 @@ extern "C" {
 /**
  * twilio_add_queue()
  */
-extern "C" void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg) {
+void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg) {
     if (sendQ) {
         twilio_message_data_t *message_data = NULL;
         message_data = (twilio_message_data_t *)malloc(sizeof(twilio_message_data_t));
@@ -398,6 +399,7 @@ void twilio_send_task(void *pvParameters) {
             ESP_LOGI(TAG, "connection closed");
             break;
         }
+        // FIXME: parse response error logging for easier debugging.
 
         len = ret;
         ESP_LOGD(TAG, "%d bytes read", len);
@@ -428,6 +430,56 @@ char * TWILIO_SETTINGS [] = {
 };
 
 /**
+ * @brief Build and queue a twilio request.
+ *
+ * @param [in]msg raw panel message that caused event.
+ * @param [in]s virtual partition state.
+ * @param [in]arg string pointer event class string.
+ *
+ */
+void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
+  ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
+
+  if (g_ad2_network_state == AD2_CONNECTED) {
+    // load our settings for this event type.
+    char buf[80];
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string sid = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string token = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string from = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string to = buf;
+
+    buf[0] = 'M'; // default to Messages
+    ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    char type = buf[0];
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+
+    // build the body of the message
+    std::string body = "TEST 123";
+
+    // add to the queue
+    ESP_LOGI(TAG, "Adding task to twilio send queue");
+    twilio_add_queue(sid.c_str(), 
+                     token.c_str(), from.c_str(),
+                     to.c_str(), type, body.c_str());
+
+  }
+}
+
+/**
  * Twilio generic command event processing
  *  command: [COMMAND] <id> <arg>
  * ex.
@@ -447,7 +499,7 @@ static void _cli_cmd_twilio_event(char *string)
     for(i = 0;; ++i)
     {
         if (TWILIO_SETTINGS[i] == 0) {
-            printf("What?\n"); // FIXME: Impossible ish.
+            printf("What?\n");
             break;
         }
         if(!strcmp(key, TWILIO_SETTINGS[i]) == 0)
@@ -459,7 +511,6 @@ static void _cli_cmd_twilio_event(char *string)
                 if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
                     ad2_set_nv_slot_key_string(key, slot, buf);
                 } else {
-                    // FIXME: block get in production
                     ad2_get_nv_slot_key_string(key, slot, buf, sizeof(buf));
                     printf("Current slot #%02i '%s' value '%s'\n", slot, key, buf);
                 }
@@ -593,6 +644,17 @@ void twilio_init() {
     } else {
         xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 2048, NULL, tskIDLE_PRIORITY+1, NULL);
     }
+
+    // FIXME configure to all selection on events to notify on.
+    // FIXME add templates to each event class with formatting args from state.
+    // Register callbacks for a few static events for testing.
+    AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
+    AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
+    AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
+    AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
+#if 1 /* TESTING FIXME */
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb, (void*)ON_CHIME_CHANGE);
+#endif
 }
 
 #ifdef __cplusplus

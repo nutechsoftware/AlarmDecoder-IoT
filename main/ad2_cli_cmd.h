@@ -30,6 +30,15 @@
 #define AD2_VPADDR   "vpaddr"
 #define AD2_SOURCE   "ad2source"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void register_ad2_cli_cmd(void);
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 #endif /* _AD2_CLI_CMD_H_ */
+

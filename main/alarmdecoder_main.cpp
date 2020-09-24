@@ -29,10 +29,6 @@
  */
 #include <alarmdecoder_api.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // esp includes
 #include "driver/uart.h"
 #include <lwip/netdb.h>
@@ -50,6 +46,9 @@ extern "C" {
 // Common settings
 #include "ad2_settings.h"
 
+// HAL
+#include "device_control.h"
+
 // AD2IoT include
 #include "alarmdecoder_main.h"
 
@@ -57,7 +56,7 @@ extern "C" {
 #include "ad2_utils.h"
 
 // SmartThings direct attached device support
-#ifdef CONFIG_STDK_IOT_CORE
+#if CONFIG_STDK_IOT_CORE
 #include "stsdk_main.h"
 #endif
 
@@ -66,13 +65,17 @@ extern "C" {
 #include "twilio.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Constants / Static / Extern
  */
 static const char *TAG = "AD2_IoT";
 
 // global AlarmDecoder parser class instance
-static AlarmDecoderParser AD2Parse;
+AlarmDecoderParser AD2Parse;
 
 // global AD2 device connection fd/id <socket or uart id>
 int g_ad2_client_handle = -1;
@@ -94,149 +97,111 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  */
 
 /**
- * ON_MESSAGE
- * When a full standard alarm state message is received before it is parsed.
- * WARNING: It may be invalid.
+ * @brief ON_MESSAGE
+ * Called when a full standard alarm state message is received
+ * but before it is parsed so the virtual state will be based upon
+ * the last message parsed.
+ *
+ * @note WARNING the message may be invalid.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
   ESP_LOGI(TAG, "RAM left %d", esp_get_free_heap_size());
 }
 
 /**
- * ON_LRR
- * When a LRR message is received.
- * WARNING: It may be invalid.
+ * @brief ON_LRR
+ * Called when a LRR message is received.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "LRR_CB: %s",msg->c_str());
 }
 
 /**
- * ON_READY_CHANGE
- * When the READY state change event is triggered.
+ * @brief ON_READY_CHANGE
+ * Called when the READY state change event is triggered.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "ON_READY_CHANGE: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
 }
 
 /**
- * ON_ARM
- * When a ARM event is triggered.
+ * @brief ON_ARM
+ * Called when a ARM event is triggered.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "ON_ARM: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
-
-#ifdef CONFIG_STDK_IOT_CORE
-  if (s->armed_home)
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
-  else
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
-
-  cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
-#endif
 }
 
 /**
- * ON_DISARM
- * When a DISARM event is triggered.
+ * @brief ON_DISARM
+ * Called when a DISARM event is triggered.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "ON_DISARM: READY(%i)", s->ready);
-
-#ifdef CONFIG_STDK_IOT_CORE
-  const char *new_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
-  cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, new_value);
-  cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
-#endif
 }
 
 /**
- * ON_CHIME_CHANGE
- * When CHIME state change event is triggered.
+ * @brief ON_CHIME_CHANGE
+ * Called when CHIME state change event is triggered.
  * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
  * to make it clear Chime ON = Contact LED ON
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "ON_CHIME_CHANGE: CHIME(%i)", s->chime_on);
-#ifdef CONFIG_STDK_IOT_CORE
-  if ( s->chime_on)
-    cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
-  else
-    cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
-
-  cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
-#endif
-
-// FIXME: Testing.. todo: cleanup compress simplify
-#if CONFIG_TWILIO_CLIENT
-  if (g_iot_status == IOT_STATUS_CONNECTING) {
-    // load our settings for this event type.
-    char buf[80];
-
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string sid = buf;
-
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string token = buf;
-
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string from = buf;
-
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string to = buf;
-
-    buf[0] = 'M'; // default to Messages
-    ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    char type = buf[0];
-
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string body = "TEST 123";
-
-    // add to the queue
-    twilio_add_queue(sid.c_str(), token.c_str(), from.c_str(), to.c_str(), type, body.c_str());
-    ESP_LOGI(TAG, "Adding task to twilio send queue");
-  }
-#endif
 }
 
 /**
- * ON_FIRE
- * When FIRE state change event is triggered.
+ * @brief ON_FIRE
+ * Called when FIRE state change event is triggered.
  * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
  * to make it clear FIRE ON = Contact LED ON
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
  */
-void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s) {
+void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "ON_FIRE_CB: FIRE(%i)", s->fire_alarm);
-#ifdef CONFIG_STDK_IOT_CORE
-  if ( s->fire_alarm ) {
-    cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
-  } else {
-    cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_clear);
-  }
-
-  cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
-#endif
 }
 
 /**
- * Main app task to monitor physical button(s) and update state led(s)
+ * @brief Main task to monitor physical button(s) and update state led(s).
+ *
+ * @param [in]pvParameters currently not used NULL.
  */
-static void ad2_app_main_task(void *arg)
+static void ad2_app_main_task(void *pvParameters)
 {
-    IOT_CAP_HANDLE *handle = (IOT_CAP_HANDLE *)arg;
-
     int button_event_type;
     int button_event_count;
 
     for (;;) {
         if (hal_get_button_event(&button_event_type, &button_event_count)) {
-            button_event(handle, button_event_type, button_event_count);
+          // FIXME: update stsdk virtual button state
         }
         if (noti_led_mode != LED_ANIMATION_MODE_IDLE) {
             hal_change_led_mode(noti_led_mode);
@@ -250,8 +215,11 @@ static void ad2_app_main_task(void *arg)
 
 
 /**
- * ser2sock client task
- *  Read from AD2* socket and process.
+ * @brief ser2sock client task
+ * Connects and stays connected to ser2sock server to receive
+ * AD2* protocol messages from an alarm system.
+ *
+ * @param [in]pvParameters currently not used NULL.
  */
 static void ser2sock_client_task(void *pvParameters)
 {
@@ -262,7 +230,7 @@ static void ser2sock_client_task(void *pvParameters)
     int ip_protocol = 0;
 
     while (1) {
-        if (g_iot_status == IOT_STATUS_CONNECTING) {
+        if (g_ad2_network_state == AD2_CONNECTED) {
 
             // load settings from NVS
             // host stored in slot 1
@@ -334,7 +302,7 @@ static void ser2sock_client_task(void *pvParameters)
                     AD2Parse.put(rx_buffer, len);
                 }
 
-                if (g_iot_status != IOT_STATUS_CONNECTING)
+                if (g_ad2_network_state != AD2_CONNECTED)
                     break;
             }
 
@@ -351,9 +319,10 @@ static void ser2sock_client_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-
 /**
- * do_retransmit for ser2sock_server_task
+ * @brief helper do_retransmit for ser2sock_server_task
+ *
+ * @param [in]sock socket fd
  */
 inline void do_retransmit(const int sock)
 {
@@ -385,7 +354,9 @@ inline void do_retransmit(const int sock)
 }
 
 /**
- * ser2sock server task
+ * @brief ser2sock server task
+ *
+ * @param [in]pvParameters currently not used NULL.
  */
 #ifdef SER2SOCK_SERVER
 static void ser2sock_server_task(void *pvParameters)
@@ -400,7 +371,7 @@ static void ser2sock_server_task(void *pvParameters)
 
     for (;;)
     {
-        if (g_iot_status == IOT_STATUS_CONNECTING) {
+        if (g_ad2_network_state == AD2_CONNECTED) {
             ESP_LOGI(TAG, "ser2sock server starting.");
             if (addr_family == AF_INET) {
                 struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
@@ -481,14 +452,14 @@ static void ser2sock_server_task(void *pvParameters)
 #endif
 
 /**
- * Initialize ser2sock client on port 10000
+ * @brief Start ser2sock client task
  */
 void init_ser2sock_client() {
     xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
 
 /**
- * Initialize ser2sock server on port 10000
+ * @brief Start ser2sock server task
  */
 #if defined(AD2_SER2SOCK_SERVER)
 void init_ser2sock_server() {
@@ -496,9 +467,8 @@ void init_ser2sock_server() {
 }
 #endif
 
-
 /**
- *  Initialize the uart connected to the AD2 device
+ *  @brief Initialize the uart connected to the AD2 device
  */
 void init_ad2_uart_client() {
     uart_config_t uart_config = {
@@ -515,7 +485,7 @@ void init_ad2_uart_client() {
 }
 
 /**
- * app_main()
+ * @brief main() app main entrypoint
  */
 void app_main()
 {
@@ -565,13 +535,13 @@ void app_main()
     }
 
     // AlarmDecoder callback wiring.
-    AD2Parse.setCB_ON_MESSAGE(my_ON_MESSAGE_CB);
-    AD2Parse.setCB_ON_LRR(my_ON_LRR_CB);
-    AD2Parse.setCB_ON_ARM(my_ON_ARM_CB);
-    AD2Parse.setCB_ON_DISARM(my_ON_DISARM_CB);
-    AD2Parse.setCB_ON_READY_CHANGE(my_ON_READY_CHANGE_CB);
-    AD2Parse.setCB_ON_CHIME_CHANGE(my_ON_CHIME_CHANGE_CB);
-    AD2Parse.setCB_ON_FIRE(my_ON_FIRE_CB);
+    AD2Parse.subscribeTo(ON_MESSAGE, my_ON_MESSAGE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
+    AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
+    AD2Parse.subscribeTo(ON_DISARM, my_ON_DISARM_CB, nullptr);
+    AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_FIRE, my_ON_FIRE_CB, nullptr);
 
     // Load AD2IoT operating mode [Socket|UART] and argument
     // get the mode
@@ -601,16 +571,16 @@ void app_main()
 #endif
 
 #if CONFIG_TWILIO_CLIENT
-    // Initialize twilio
+    // Initialize twilio client
     twilio_init();
 #endif
 
 #if CONFIG_STDK_IOT_CORE
-    //// SmartThings setup
+    // Initialize SmartThings SDK
     stsdk_init();
 #endif
 
-    // Register and start the STSDK cli
+    // Register and start the AD2IOT cli
     register_ad2_cli_cmd();
     uart_cli_main();
 
@@ -620,108 +590,13 @@ void app_main()
     // Start firmware update task
     ota_init();
 
+#if CONFIG_STDK_IOT_CORE
     // connect to SmartThings server
     connection_start();
-}
-
-
-
-
-/*
- * OTA update support
- */
-void cap_available_version_set(char *available_version)
-{
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
-
-	if (!available_version) {
-		ESP_LOGE(TAG, "invalid parameter");
-		return;
-	}
-
-	/* Setup switch on state */
-	init_evt = st_cap_attr_create_string("availableVersion", available_version, NULL);
-
-	/* Send avail version to ota cap handler */
-	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
-
-	st_cap_attr_free(init_evt);
-}
-
-void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
-{
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
-
-    init_evt = st_cap_attr_create_int("checkInterval", 60, NULL);
-	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
-
-	st_cap_attr_free(init_evt);
-
-}
-
-void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
-{
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
-
-	/* Setup switch on state */
-    // FIXME: get from device_info ctx->device_info->firmware_version
-    // that is loaded from device_info.json
-    init_evt = st_cap_attr_create_string("currentVersion", (char *)OTA_FIRMWARE_VERSION, NULL);
-
-	/* Send current version attribute */
-	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
-
-	st_cap_attr_free(init_evt);
-}
-
-void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
-			iot_cap_cmd_data_t *cmd_data, void *usr_data)
-{
-    int address = -1;
-    uint32_t mask = 1;
-    ESP_LOGI(TAG, "refresh_cmd_cb");
-
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
-    if (address == -1) {
-        ESP_LOGE(TAG, "default virtual partition defined. see 'vpaddr' command");
-        return;
-    }
-
-    mask <<= address-1;
-    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&mask);
-
-    if (s != nullptr) {
-      if (s->armed_home || s->armed_away) {
-        my_ON_ARM_CB(nullptr, s);
-      } else {
-        my_ON_DISARM_CB(nullptr, s);
-      }
-
-      my_ON_CHIME_CHANGE_CB(nullptr, s);
-      my_ON_READY_CHANGE_CB(nullptr, s);
-    } else {
-      ESP_LOGE(TAG, "vpaddr[%u] not found", address);
-    }
-}
-
-void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
-			iot_cap_cmd_data_t *cmd_data, void *usr_data)
-{
-  ota_do_update();
+#endif
 }
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
+

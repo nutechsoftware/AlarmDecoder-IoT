@@ -133,6 +133,7 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 	cJSON *root = NULL;
 	cJSON *profile = NULL;
 	cJSON *item = NULL;
+	cJSON *array = NULL;
 	char *latest_version = NULL;
 	char *data = NULL;
 	size_t str_len = 0;
@@ -146,7 +147,7 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		return ESP_ERR_INVALID_ARG;
 	}
 
-	data = malloc((size_t) update_info_len + 1);
+	data = (char*)malloc((size_t) update_info_len + 1);
 	if (!data) {
 		ESP_LOGE(TAG, "%s: Couldn't allocate memory to add version info", __func__);
 		return ESP_ERR_NO_MEM;
@@ -171,13 +172,13 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 
 	_set_polling_period_day((unsigned int)polling_day);
 
-	cJSON * array = cJSON_GetObjectItem(profile, name_upgrade);
+	array = cJSON_GetObjectItem(profile, name_upgrade);
 
 	for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++)
 	{
 		char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
 
-		if (strcmp(upgrade, OTA_FIRMWARE_VERSION) == 0) {
+		if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
 			is_new_version = true;
 			break;
 		}
@@ -196,7 +197,7 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		}
 
 		str_len = strlen(cJSON_GetStringValue(item));
-		latest_version = malloc(str_len + 1);
+		latest_version = (char*)malloc(str_len + 1);
 		if (!latest_version) {
 			ESP_LOGE(TAG, "%s: Couldn't allocate memory to add latest version", __func__);
 			ret = ESP_ERR_NO_MEM;
@@ -322,7 +323,7 @@ clean_up:
 static bool _check_firmware_validation(const unsigned char *sha256, unsigned char *sig_data, unsigned int sig_len)
 {
 	bool ret = false;
-
+	unsigned char sig[OTA_SIGNATURE_SIZE] = {0,};
 	unsigned char hash[OTA_CRYPTO_SHA256_LEN] = {0,};
 
 	// Get the message digest info structure for SHA256
@@ -359,7 +360,6 @@ static bool _check_firmware_validation(const unsigned char *sha256, unsigned cha
 		goto clean_up;
 	}
 
-	unsigned char sig[OTA_SIGNATURE_SIZE] = {0,};
 	memcpy(sig, sig_data + OTA_SIGNATURE_PREFACE_SIZE, OTA_SIGNATURE_SIZE);
 
 	if (_pk_verify((const unsigned char *)sig, hash) != 0) {
@@ -382,11 +382,10 @@ esp_err_t ota_https_update_device()
 	unsigned int content_len;
 	unsigned int firmware_len;
 
-	esp_http_client_config_t config = {
-		.url = CONFIG_FIRMWARE_UPGRADE_URL,
-		.cert_pem = (char *)root_pem_start,
-		.event_handler = _http_event_handler,
-	};
+    esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
+    config->url = CONFIG_FIRMWARE_UPGRADE_URL;
+    config->cert_pem = (char *)root_pem_start;
+    config->event_handler = _http_event_handler;
 
 	mbedtls_sha256_context ctx;
 	mbedtls_sha256_init( &ctx );
@@ -395,7 +394,7 @@ esp_err_t ota_https_update_device()
 		return ESP_FAIL;
 	}
 
-	esp_http_client_handle_t client = esp_http_client_init(&config);
+	esp_http_client_handle_t client = esp_http_client_init(config);
 	if (client == NULL) {
 		ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
 		return ESP_FAIL;
@@ -564,13 +563,13 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 {
 	esp_err_t ret = ESP_FAIL;
 
-	esp_http_client_config_t config = {
-		.url = CONFIG_FIRMWARE_VERSOIN_INFO_URL,
-		.cert_pem = (char *)root_pem_start,
-		.event_handler = _http_event_handler,
-	};
+    esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
+    config->url = CONFIG_FIRMWARE_VERSOIN_INFO_URL;
+    config->cert_pem = (char *)root_pem_start;
+    config->event_handler = _http_event_handler;
 
-	esp_http_client_handle_t client = esp_http_client_init(&config);
+	esp_http_client_handle_t client = esp_http_client_init(config);
+	free(config);
 	if (client == NULL) {
 		ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
 		return ESP_FAIL;

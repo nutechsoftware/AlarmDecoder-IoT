@@ -26,38 +26,9 @@
 
 static const char *TAG = "AD2API";
 
-AlarmDecoderParser::AlarmDecoderParser() {
+AD2VirtualPartitionState *nostate = 0;
 
-  // clear all callback pointers.
-  ON_RAW_MESSAGE_CB = 0;
-  ON_MESSAGE_CB = 0;
-  ON_ARM_CB = 0;
-  ON_DISARM_CB = 0;
-  ON_POWER_CHANGE_CB = 0;
-  ON_READY_CHANGE_CB = 0;
-  ON_ALARM_CB = 0;
-  ON_ALARM_RESTORED_CB = 0;
-  ON_FIRE_CB = 0;
-  ON_BYPASS_CB = 0;
-  ON_BOOT_CB = 0;
-  ON_CONFIG_RECEIVED_CB = 0;
-  ON_ZONE_FAULT_CB = 0;
-  ON_ZONE_RESTORE_CB = 0;
-  ON_LOW_BATTERY_CB = 0;
-  ON_PANIC_CB = 0;
-  ON_RELAY_CHANGE_CB = 0;
-  ON_CHIME_CHANGE_CB = 0;
-  ON_MESSAGE_CB = 0;
-  ON_EXPANDER_MESSAGE_CB = 0;
-  ON_LRR_CB = 0;
-  ON_RFX_CB = 0;
-  ON_SENDING_RECEIVED_CB = 0;
-  ON_AUI_CB = 0;
-  ON_KPM_CB = 0;
-  ON_KPE_CB = 0;
-  ON_CRC_CB = 0;
-  ON_VER_CB = 0;
-  ON_ERR_CB = 0;
+AlarmDecoderParser::AlarmDecoderParser() {
 
   // Reset the parser on init.
   reset_parser();
@@ -67,6 +38,32 @@ AlarmDecoderParser::AlarmDecoderParser() {
 void AlarmDecoderParser::reset_parser() {
   // Initialize parser state machine state.
   AD2_Parser_State = AD2_PARSER_RESET;
+}
+
+/**
+ * @brief Subscribe to a EVENT type.
+ *
+ * @param [in]ev ad2_event_t event TYPE
+ *   ex. ON_MESSAGE
+ * @param [in]arg pointer to argument to pass to subscriber on event.
+ */
+void AlarmDecoderParser::subscribeTo(ad2_event_t ev, AD2ParserCallback_sub_t fn, void *arg) {
+  subscribers_t& v = AD2Subscribers[ev];
+  v.push_back(AD2SubScriber(fn, arg));
+}
+
+/**
+ * @brief Sequentially call each subscriber function in the list.
+ *
+ * @param [in]ev event class.
+ * @param [in]msg message that generated event.
+ * @param [in]pstate virtual partition state
+ *
+ */
+void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate) {
+  for ( subscribers_t::iterator i = AD2Subscribers[ev].begin(); i != AD2Subscribers[ev].end(); ++i ) {
+    (i->fn)(&msg, pstate, i->arg);
+  }
 }
 
 /**
@@ -232,9 +229,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
           }
 
           // call ON_RAW_MESSAGE callback if enabled.
-          if (ON_RAW_MESSAGE_CB) {
-            ON_RAW_MESSAGE_CB(&msg, nullptr);
-          }
+          notifySubscribers(ON_RAW_MESSAGE, msg, nostate);
 
           // Detect message type or error.
           // 1) Starts with !
@@ -246,59 +241,41 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
           if (msg[0] == '!') {
             if (msg.find("!LRR:") == 0) {
               // call ON_LRR callback if enabled.
-              if (ON_LRR_CB) {
-                ON_LRR_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_LRR, msg, nostate);
             } else
             if (msg.find("!REL:") == 0 || msg.find("!EXP:") == 0) {
               // call ON_EXPANDER_MESSAGE callback if enabled.
-              if (ON_EXPANDER_MESSAGE_CB) {
-                ON_EXPANDER_MESSAGE_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_EXP, msg, nostate);
             } else
             if (msg.find("!RFX:") == 0) {
               // call ON_RFX callback if enabled.
-              if (ON_RFX_CB) {
-                ON_RFX_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_RFX, msg, nostate);
             } else
             if (msg.find("!AUI:") == 0) {
               // call ON_AUI callback if enabled.
-              if (ON_AUI_CB) {
-                ON_AUI_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_AUI, msg, nostate);
             } else
             if (msg.find("!KPM:") == 0) {
               // FIXME: move parser below to function so it can be called here.
               // call ON_KPM callback if enabled.
-              if (ON_KPM_CB) {
-                ON_KPM_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_KPM, msg, nostate);
             } else
             if (msg.find("!KPE:") == 0) {
               // call ON_KPE callback if enabled.
-              if (ON_KPE_CB) {
-                ON_KPE_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_KPE, msg, nostate);
             } else
             if (msg.find("!CRC:") == 0) {
               // call ON_CRC callback if enabled.
-              if (ON_CRC_CB) {
-                ON_CRC_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_CRC, msg, nostate);
             } else
             if (msg.find("!VER:") == 0) {
               // Parse the version string.
               // call ON_VER callback if enabled.
-              if (ON_VER_CB) {
-                ON_VER_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_VER, msg, nostate);
             } else
             if (msg.find("!ERR:") == 0) {
               // call ON_ERR callback if enabled.
-              if (ON_ERR_CB) {
-                ON_ERR_CB(&msg, nullptr);
-              }
+              notifySubscribers(ON_ERR, msg, nostate);
             }
           } else {
             // http://www.alarmdecoder.com/wiki/index.php/Protocol#Keypad
@@ -456,34 +433,27 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
                  AD2PStates.size(),ad2ps->partition,amask,ad2ps->ready,ad2ps->armed_away,ad2ps->armed_home,ad2ps->zone_bypassed,ad2ps->exit_now);
 
                 // Call ON_MESSAGE callback if enabled.
-                if (ON_MESSAGE_CB) {
-                  ON_MESSAGE_CB(&msg, ad2ps);
-                }
+                notifySubscribers(ON_MESSAGE, msg, ad2ps);
 
                 // Send event if ready state changed
-                if ( SEND_READY_CHANGE && ON_READY_CHANGE_CB ) {
-                  ON_READY_CHANGE_CB(&msg, ad2ps);
-                }
+                if ( SEND_READY_CHANGE )
+                  notifySubscribers(ON_READY_CHANGE, msg, ad2ps);
 
                 // Send armed/disarm event
                 if ( SEND_ARMED_CHANGE ) {
                   if ( ad2ps->armed_home || ad2ps->armed_away)
                   {
-                    if (ON_ARM_CB) {
-                      ON_ARM_CB(&msg, ad2ps);
-                    }
+                    notifySubscribers(ON_ARM, msg, ad2ps);
                   }
                   else
                   {
-                    if (ON_DISARM_CB) {
-                      ON_DISARM_CB(&msg, ad2ps);
-                    }
+                    notifySubscribers(ON_DISARM, msg, ad2ps);
                   }
                 }
 
                 // Send event if chime_on state changed
-                if ( SEND_CHIME_CHANGE && ON_CHIME_CHANGE_CB ) {
-                  ON_CHIME_CHANGE_CB(&msg, ad2ps);
+                if ( SEND_CHIME_CHANGE ) {
+                  notifySubscribers(ON_CHIME_CHANGE, msg, ad2ps);
                 }
 
               }
@@ -530,7 +500,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len) {
 }
 
 /**
- * FIXME: test code
+ * @brief FIXME test code
  */
 void AlarmDecoderParser::test() {
   for (int x = 0; x < 10000; x++) {
@@ -541,215 +511,13 @@ void AlarmDecoderParser::test() {
 }
 
 /**
- * setCB_ON_RAW_MESSAGE
- */
-void AlarmDecoderParser::setCB_ON_RAW_MESSAGE(AD2ParserCallback_msg_t cb) {
-  ON_RAW_MESSAGE_CB = cb;
-}
-
-/**
- * setCB_ON_ARM
- */
-void AlarmDecoderParser::setCB_ON_ARM(AD2ParserCallback_msg_t cb) {
-  ON_ARM_CB = cb;
-}
-
-/**
- * setCB_ON_DISARM
- */
-void AlarmDecoderParser::setCB_ON_DISARM(AD2ParserCallback_msg_t cb) {
-  ON_DISARM_CB = cb;
-}
-
-/**
- * setCB_POWER_CHANGE
- */
-void AlarmDecoderParser::setCB_ON_POWER_CHANGE(AD2ParserCallback_msg_t cb) {
-  ON_POWER_CHANGE_CB = cb;
-}
-
-/**
- * setCB_ON_READY_CHANGE
- */
-void AlarmDecoderParser::setCB_ON_READY_CHANGE(AD2ParserCallback_msg_t cb) {
-  ON_READY_CHANGE_CB = cb;
-}
-
-/**
- * setCB_ON_ALARM
- */
-void AlarmDecoderParser::setCB_ON_ALARM(AD2ParserCallback_msg_t cb) {
-  ON_ALARM_CB = cb;
-}
-
-/**
- * setCB_ON_ALARM_RESTORED
- */
-void AlarmDecoderParser::setCB_ON_ALARM_RESTORED(AD2ParserCallback_msg_t cb) {
-  ON_ALARM_RESTORED_CB = cb;
-}
-
-/**
- * setCB_ON_FIRE
- */
-void AlarmDecoderParser::setCB_ON_FIRE(AD2ParserCallback_msg_t cb) {
-  ON_FIRE_CB = cb;
-}
-
-/**
- * setCB_ON_BYPASS
- */
-void AlarmDecoderParser::setCB_ON_BYPASS(AD2ParserCallback_msg_t cb) {
-  ON_BYPASS_CB = cb;
-}
-
-/**
- * setCB_ON_BOOT
- */
-void AlarmDecoderParser::setCB_ON_BOOT(AD2ParserCallback_msg_t cb) {
-  ON_BOOT_CB = cb;
-}
-
-/**
- * setCB_ON_CONFIG_RECEIVED
- */
-void AlarmDecoderParser::setCB_ON_CONFIG_RECEIVED(AD2ParserCallback_msg_t cb) {
-  ON_CONFIG_RECEIVED_CB = cb;
-}
-
-
-/**
- * setCB_ON_ZONE_FAULT
- */
-void AlarmDecoderParser::setCB_ON_ZONE_FAULT(AD2ParserCallback_msg_t cb) {
-  ON_ZONE_FAULT_CB = cb;
-}
-
-/**
- * setCB_ON_ZONE_RESTORE
- */
-void AlarmDecoderParser::setCB_ON_ZONE_RESTORE(AD2ParserCallback_msg_t cb) {
-  ON_ZONE_RESTORE_CB = cb;
-}
-
-/**
- * setCB_ON_LOW_BATTERY
- */
-void AlarmDecoderParser::setCB_ON_LOW_BATTERY(AD2ParserCallback_msg_t cb) {
-  ON_LOW_BATTERY_CB = cb;
-}
-
-/**
- * setCB_ON_PANIC
- */
-void AlarmDecoderParser::setCB_ON_PANIC(AD2ParserCallback_msg_t cb) {
-  ON_PANIC_CB = cb;
-}
-
-/**
- * setCB_ON_RELAY_CHANGED
- */
-void AlarmDecoderParser::setCB_ON_RELAY_CHANGE(AD2ParserCallback_msg_t cb) {
-  ON_RELAY_CHANGE_CB = cb;
-}
-
-/**
- * setCB_ON_CHIME_CHANGED
- */
-void AlarmDecoderParser::setCB_ON_CHIME_CHANGE(AD2ParserCallback_msg_t cb) {
-  ON_CHIME_CHANGE_CB = cb;
-}
-
-/**
- * setCB_ON_MESSAGE
- */
-void AlarmDecoderParser::setCB_ON_MESSAGE(AD2ParserCallback_msg_t cb) {
-  ON_MESSAGE_CB = cb;
-}
-
-/**
- * setCB_ON_EXPANDER_MESSAGE
- */
-void AlarmDecoderParser::setCB_ON_EXPANDER_MESSAGE(AD2ParserCallback_msg_t cb) {
-  ON_EXPANDER_MESSAGE_CB = cb;
-}
-
-/**
- * setCB_ON_LRR
- */
-void AlarmDecoderParser::setCB_ON_LRR(AD2ParserCallback_msg_t cb) {
-  ON_LRR_CB = cb;
-}
-
-/**
- * setCB_ON_RFX
- */
-void AlarmDecoderParser::setCB_ON_RFX(AD2ParserCallback_msg_t cb) {
-  ON_RFX_CB = cb;
-}
-
-/**
- * setCB_ON_SENDING_RECEIVED
- */
-void AlarmDecoderParser::setCB_ON_SENDING_RECEIVED(AD2ParserCallback_msg_t cb) {
-  ON_SENDING_RECEIVED_CB = cb;
-}
-
-/**
- * setCB_ON_AUI
- */
-void AlarmDecoderParser::setCB_ON_AUI(AD2ParserCallback_msg_t cb) {
-  ON_AUI_CB = cb;
-}
-
-/**
- * setCB_ON_KPM
- */
-void AlarmDecoderParser::setCB_ON_KPM(AD2ParserCallback_msg_t cb) {
-  ON_KPM_CB = cb;
-}
-
-/**
- * setCB_ON_KPE
- */
-void AlarmDecoderParser::setCB_ON_KPE(AD2ParserCallback_msg_t cb) {
-  ON_KPE_CB = cb;
-}
-
-/**
- * setCB_ON_CRC
- */
-void AlarmDecoderParser::setCB_ON_CRC(AD2ParserCallback_msg_t cb) {
-  ON_CRC_CB = cb;
-}
-
-/**
- * setCB_ON_VER
- */
-void AlarmDecoderParser::setCB_ON_VER(AD2ParserCallback_msg_t cb) {
-  ON_VER_CB = cb;
-}
-
-/**
- * setCB_ON_ERR
- */
-void AlarmDecoderParser::setCB_ON_ERR(AD2ParserCallback_msg_t cb) {
-  ON_ERR_CB = cb;
-}
-
-
-
-/**
-* function: is_bit_set
-* check to see if bits are enabled in status field
-*
-* in: int
-* description: position in buffer to check
-*
-* in: char *
-* description: complete status field buffer
+ * @brief parse AlarmDecoder section #1 protocol "bits".
+ * each byte position has will contain [0, 1, -].
  *
-*/
+ * @note Typical section # string '[00100001100000003A--]'
+ *
+ * @return int 0 or 1
+ */
 bool is_bit_set(int pos, const char * bitStr)
 {
       int set;

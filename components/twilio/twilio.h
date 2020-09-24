@@ -20,8 +20,8 @@
  *  limitations under the License.
  *
  */
-#ifndef twilio_h
-#define twilio_h
+#ifndef _TWILIO_H
+#define _TWILIO_H
 #if CONFIG_TWILIO_CLIENT
 
 //#define DEBUG_TWILIO
@@ -60,5 +60,6 @@ void twilio_add_queue(const char *sid, const char *token, const char *from, cons
 #ifdef __cplusplus
 }
 #endif
-#endif // CONFIG_TWILIO_CLIENT
-#endif // twilio_h
+#endif /* CONFIG_TWILIO_CLIENT */
+#endif /* _TWILIO_H */
+

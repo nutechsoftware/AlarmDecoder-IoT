@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "esp_log.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+
 #include "st_dev.h"
 #include "caps_momentary.h"
-#include "esp_log.h"
+
 static const char *TAG = "CAPS_MOME";
 
 static void caps_momentary_cmd_push_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data)
@@ -72,3 +77,6 @@ caps_momentary_data_t *caps_momentary_initialize(IOT_CTX *ctx, const char *compo
 
     return caps_data;
 }
+
+#endif /* CONFIG_STDK_IOT_CORE */
+

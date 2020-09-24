@@ -20,6 +20,8 @@
  *  limitations under the License.
  *
  */
+// @brief Firmware version string.
+#define FIRMWARE_VERSION      "AD2IOT-100B"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99

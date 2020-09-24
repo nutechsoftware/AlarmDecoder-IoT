@@ -43,12 +43,15 @@ static const char *TAG = "AD2UTIL";
 
 #include "ad2_uart_cli.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
-* to decide whether the main function is running or not by user action...
+* Control main CLI task processing
 *  0 : running the main function
 *  1 : stop for a timeout
 *  2 : stop before selecting the go_main function.
-
 */
 int g_StopMainTask = 0;
 
@@ -207,7 +210,6 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
  * - Flow control: off
  * - Event queue: off
  */
-
 static void esp_uart_init() {
     // Configure parameters of an UART driver,
     // communication pins and install the driver
@@ -222,7 +224,7 @@ static void esp_uart_init() {
     uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
 }
 
-static void esp_uart_cli_task()
+static void esp_uart_cli_task(void *pvParameters)
 {
 
     // Configure a temporary buffer for the incoming data
@@ -341,4 +343,8 @@ void uart_cli_main()
 
     _cli_util_wait_for_user_input(2000);
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 

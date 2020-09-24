@@ -21,18 +21,12 @@
  *
  */
 
-#ifndef ota_util_h
-#define ota_util_h
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef _OTA_UTIL_H
+#define _OTA_UTIL_H
 
 #include <esp_https_ota.h>
 #include <esp_ota_ops.h>
 #include <esp_log.h>
-
-#define OTA_FIRMWARE_VERSION "AD2IOT-100A"
 
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
 #define CONFIG_FIRMWARE_VERSOIN_INFO_URL CONFIG_OTA_SERVER_URL"ad2iotv10_version_info.json"
@@ -46,6 +40,10 @@ extern "C" {
 #define OTA_DEFAULT_BUF_SIZE 256
 #define OTA_CRYPTO_SHA256_LEN 32
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern TaskHandle_t ota_task_handle;
 
 int ota_get_polling_period_day();
@@ -58,4 +56,5 @@ void ota_init();
 #ifdef __cplusplus
 }
 #endif
-#endif // ota_util_h
+#endif /* _OTA_UTIL_H */
+

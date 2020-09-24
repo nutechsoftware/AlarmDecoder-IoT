@@ -20,12 +20,16 @@
  *  limitations under the License.
  *
  */
-#ifndef AlarmDecoder_app_h
-#define AlarmDecoder_app_h
+#ifndef _ALARMDECODER_MAIN_H
+#define _ALARMDECODER_MAIN_H
+
+#include "alarmdecoder_api.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+// global AlarmDecoder parser class instance
+extern AlarmDecoderParser AD2Parse;
 
 // global AD2 device connection fd/id <socket or uart id>
 extern int g_ad2_client_handle;
@@ -36,15 +40,9 @@ extern uint8_t g_ad2_mode;
 // global network connection state
 extern int g_ad2_network_state;
 
-// No active network IP layer
-#define AD2_OFFLINE (1 << 0)
-
-// Active network IP layer
-#define AD2_CONNECTED (1 << 1)
-
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* _ALARMDECODER_MAIN_H */
+
