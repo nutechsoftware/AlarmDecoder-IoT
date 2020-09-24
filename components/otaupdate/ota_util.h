@@ -40,6 +40,8 @@
 #define OTA_DEFAULT_BUF_SIZE 256
 #define OTA_CRYPTO_SHA256_LEN 32
 
+#define OTA_VERSION_INFO_BUF_SIZE 1024
+
 #ifdef __cplusplus
 extern "C" {
 #endif

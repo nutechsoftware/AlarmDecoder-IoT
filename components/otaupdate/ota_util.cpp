@@ -114,6 +114,11 @@ static void _task_fatal_error()
 	}
 }
 
+/**
+ * @brief OTA task that preforms the update to the flash
+ * from a verified signed firmware from an https server with
+ * known keys.
+ */
 static void ota_task_func(void * pvParameter)
 {
 	ESP_LOGI(TAG, "Starting OTA");
@@ -128,6 +133,9 @@ static void ota_task_func(void * pvParameter)
 	esp_restart();
 }
 
+/**
+ * @brief Parse the json available version info.
+ */
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version)
 {
 	cJSON *root = NULL;
@@ -219,6 +227,12 @@ clean_up:
 	return ret;
 }
 
+/**
+ * @brief HTTP request event handler.
+ *
+ * @param [in]evt http event pointer.
+ *
+ */
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
 	switch(evt->event_id) {
@@ -247,6 +261,11 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 	return ESP_OK;
 }
 
+/**
+ * @brief cleanup client memory.
+ *
+ * @param [in]client handle for the client.
+ */
 static void _http_cleanup(esp_http_client_handle_t client)
 {
 	esp_http_client_close(client);
@@ -278,6 +297,12 @@ static int _crypto_sha256(const unsigned char *src, size_t src_len, unsigned cha
 	return 0;
 }
 
+/**
+ * @brief Verify the signature matches the key.
+ *
+ * @param [in]sig char * to the signature to check.
+ * @param [in]hash char * to the hash for the check.
+ */
 static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
 {
 	int ret;
@@ -320,6 +345,15 @@ clean_up:
 	return ret;
 }
 
+/**
+ * @brief Check firmware signature is valid
+ *
+ * @param [in]sha256 hash for server cert the firmware is signed with.
+ * @param [in]sig_data signature for cert teh firmware is signed with.
+ * @param [in]sig_len length of signature.
+ *
+ * @return bool true on success false on fail.
+ */
 static bool _check_firmware_validation(const unsigned char *sha256, unsigned char *sig_data, unsigned int sig_len)
 {
 	bool ret = false;
@@ -373,6 +407,11 @@ clean_up:
 	return ret;
 }
 
+/**
+ * @brief Fetch check and flash firmware from remote server.
+ *
+ * @return esp_err_t results.
+ */
 esp_err_t ota_https_update_device()
 {
 	ESP_LOGI(TAG, "%s: ota_https_update_device", __func__);
@@ -557,8 +596,14 @@ clean_up:
 	return ret;
 }
 
-#define OTA_VERSION_INFO_BUF_SIZE 1024
-
+/**
+ * @brief Fetch the current version info from remote server json file.
+ *
+ * @param [in]version_info pointer to pointer to place version info.
+ * @param [in]version_info_len pointer to int length of version buffer.
+ *
+ * @return esp_err_t ret
+ */
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len)
 {
 	esp_err_t ret = ESP_FAIL;
@@ -647,6 +692,11 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	return ESP_OK;
 }
 
+/**
+ * @brief Check if an update is available then sleep a long time.
+ *
+ * @param [in]arg void * passed in on init
+ */
 static void ota_polling_task_func(void *arg)
 {
 	while (1) {
@@ -691,10 +741,16 @@ static void ota_polling_task_func(void *arg)
 	}
 }
 
+/**
+ * @brief Start the OTA check task.
+ */
 void ota_init() {
     xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
+/**
+ * @brief Initiate and OTA updatee
+ */
 void ota_do_update() {
 	ota_nvs_flash_init();
 	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
