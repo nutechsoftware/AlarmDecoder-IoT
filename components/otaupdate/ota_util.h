@@ -42,6 +42,9 @@
 
 #define OTA_VERSION_INFO_BUF_SIZE 1024
 
+#define OTA_UPGRADE_CMD   "upgrade"
+#define OTA_VERSION_CMD   "version"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,7 +56,8 @@ void ota_nvs_flash_init();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
 esp_err_t ota_https_update_device();
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
-void ota_do_update();
+void ota_do_update(char *arg);
+void ota_do_version(char *arg);
 void ota_init();
 #ifdef __cplusplus
 }

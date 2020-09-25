@@ -40,11 +40,13 @@ extern "C" {
 
 void ad2_arm_away(int codeId, int addressId);
 void ad2_arm_stay(int codeId, int addressId);
+void ad2_disarm(int codeId, int addressId);
 void ad2_chime_toggle(int codeId, int addressId);
+void ad2_fire_alarm(int codeId, int addressId);
 void ad2_send(char *buf);
 
 // string utils
-
+std::string ad2_string_format(const std::string fmt, ...);
 int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
 
 // NV Storage utilities

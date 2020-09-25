@@ -224,7 +224,9 @@ static struct cli_command stsdk_cmd_list[] = {
         "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event},
 };
 
-
+/**
+ * @brief switch state A
+ */
 int get_switch_a_state(void)
 {
     const char* switch_value = cap_switch_a_data->get_switch_value(cap_switch_a_data);
@@ -242,6 +244,9 @@ int get_switch_a_state(void)
     return switch_state;
 }
 
+/**
+ * @brief get switch state B
+ */
 int get_switch_b_state(void)
 {
     const char* switch_value = cap_switch_b_data->get_switch_value(cap_switch_b_data);
@@ -260,54 +265,181 @@ int get_switch_b_state(void)
 }
 
 /**
- * callback from cloud to arm away. We modify to report back to the
- * cloud our current state not an armed away state. If/when arm away state
- * changes it will be sent.
+ * @brief ST Cloud app arm away momentary button pushed
+ * send panel disarm command.
  */
 void cap_securitySystem_arm_away_cmd_cb(struct caps_securitySystem_data *caps_data)
 {
-    const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+    // send ARM AWAY commands to the panel
     ad2_arm_away(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+/**
+ * @brief ST Cloud app arm stay momentary button pushed
+ * send panel disarm command.
+ */
 void cap_securitySystem_arm_stay_cmd_cb(struct caps_securitySystem_data *caps_data)
 {
-    const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+    // send ARM STAY commands to the panel
+    ad2_arm_stay(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+/**
+ * @brief ST Cloud app disarm momentary button pushed
+ * send panel disarm command.
+ */
 void cap_securitySystem_disarm_cmd_cb(struct caps_securitySystem_data *caps_data)
 {
-    const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, init_value);
+    // send DISARM command to the panel
+    ad2_disarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+/**
+ * @brief ST Cloud app chime momentary button pushed
+ * send panel toggle chime commands.
+ */
 void cap_securitySystem_chime_cmd_cb(struct caps_momentary_data *caps_data)
 {
+    // send CHIME toggle command to the panel.
     ad2_chime_toggle(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
 /**
- * @brief ST Clould app fire alarm panic button pushed
+ * @brief ST Cloud app fire alarm panic button pushed
  * trigger a fire alarm! Are you sure?
  */
 void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
 {
+    // send a fire panic F1 button to the panel.
+    ad2_fire_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+
+/**
+ * @brief callback for cloud update to switch A
+ */
 void cap_switch_a_cmd_cb(struct caps_switch_data *caps_data)
 {
     int switch_state = get_switch_a_state();
     hal_change_switch_a_state(switch_state);
 }
 
+/**
+ * @brief callback for cloud update to switch B
+ */
 void cap_switch_b_cmd_cb(struct caps_switch_data *caps_data)
 {
     int switch_state = get_switch_b_state();
     hal_change_switch_b_state(switch_state);
 }
 
+/**
+ * @brief set available version ota capabilty.
+ */
+void cap_available_version_set(char *available_version)
+{
+	IOT_EVENT *init_evt;
+	uint8_t evt_num = 1;
+	int32_t sequence_no;
+
+	if (!available_version) {
+		ESP_LOGE(TAG, "invalid parameter");
+		return;
+	}
+
+	/* Setup switch on state */
+	init_evt = st_cap_attr_create_string((char*)"availableVersion", available_version, NULL);
+
+	/* Send avail version to ota cap handler */
+	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
+	if (sequence_no < 0)
+		ESP_LOGE(TAG, "fail to send init_data");
+
+	st_cap_attr_free(init_evt);
+}
+
+
+/**
+ * AlarmDecoder API subscriber callback functions.
+ */
+
+/**
+ * @brief ON_FIRMWARE_VERSION
+ * Called when a new firmware version is available.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
+  ESP_LOGI(TAG, "NEW FIRMWARE: '%s'", msg->c_str());
+  cap_available_version_set((char*)msg->c_str());
+}
+
+/**
+ * @brief ON_ARM.
+ * Called when the alarm panel is armed.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
+  ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
+  if (s) {
+    if (s->armed_home)
+        cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
+    else
+        cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
+
+    cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+  }
+}
+
+/**
+ * @brief ON_DISARM.
+ * Called when the alarm panel is disarmed.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
+  ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
+  if (s) {
+    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed);
+    cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+  }
+}
+
+/**
+ * @brief ON_CHIME_CHANGE.
+ * Called when the alarm panel CHIME state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
+  ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
+  if (s) {
+    if ( s->chime_on)
+        cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
+    else
+        cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
+
+    cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
+  }
+}
+
+
+/**
+ * @brief Initialize the STSDK engine
+ */
 void stsdk_init(void) {
     unsigned char *onboarding_config = (unsigned char *) onboarding_config_start;
     unsigned int onboarding_config_len = onboarding_config_end - onboarding_config_start;
@@ -331,8 +463,20 @@ void stsdk_init(void) {
 
     // Add AD2 capabilies
     capability_init();
-}
 
+    // subscribe to firmware updates available events.
+    AD2Parse.subscribeTo(ON_FIRMWARE_VERSION, on_new_firmware_cb, nullptr);
+
+    // Subscribe to ARM/DISARM events to update cap_securitySystem
+    AD2Parse.subscribeTo(ON_ARM, on_arm_cb, nullptr);
+
+    // Subscribe to DISARM events to update cap_securitySystem
+    AD2Parse.subscribeTo(ON_DISARM, on_disarm_cb, nullptr);
+
+    // Subscribe to CHIME events to update the chime contact capability.
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, on_chime_change_cb, nullptr);
+
+}
 
 /**
  * Initialize all SmartThings capabilities.
@@ -417,6 +561,9 @@ void capability_init()
     }
 }
 
+/**
+ * @brief status callback for STSDK api.
+ */
 void iot_status_cb(iot_status_t status,
                           iot_stat_lv_t stat_lv, void *usr_data)
 {
@@ -459,6 +606,9 @@ void* pin_num_memcpy(void *dest, const void *src, unsigned int count)
 }
 #endif
 
+/**
+ * @brief start connection to SmartThings MQTT server
+ */
 void connection_start(void)
 {
     iot_pin_t *pin_num = NULL;
@@ -484,12 +634,18 @@ void connection_start(void)
     }
 }
 
+/**
+ * @brief actual stsdk connection task.
+ */
 void connection_start_task(void *arg)
 {
     connection_start();
     vTaskDelete(NULL);
 }
 
+/**
+ * @brief STSDK notifications callback.
+ */
 void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data)
 {
     ESP_LOGI(TAG, "Notification message received");
@@ -502,6 +658,9 @@ void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data)
     }
 }
 
+/**
+ * @brief FIXME
+ */
 void button_event(IOT_CAP_HANDLE *handle, int type, int count)
 {
     if (type == BUTTON_SHORT_PRESS) {
@@ -541,31 +700,6 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
     }
 }
 
-/*
- * OTA update support
- */
-void cap_available_version_set(char *available_version)
-{
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
-
-	if (!available_version) {
-		ESP_LOGE(TAG, "invalid parameter");
-		return;
-	}
-
-	/* Setup switch on state */
-	init_evt = st_cap_attr_create_string("availableVersion", available_version, NULL);
-
-	/* Send avail version to ota cap handler */
-	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
-
-	st_cap_attr_free(init_evt);
-}
-
 void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
 	IOT_EVENT *init_evt;
@@ -600,50 +734,37 @@ void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 	st_cap_attr_free(init_evt);
 }
 
+/**
+ * @brief refresh callback from ST refresh capability on app.
+ * Will be called on refresh(swipe) on main device screen.
+ */
 void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 			iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
     ESP_LOGI(TAG, "refresh_cmd_cb");
 
-// FIXME
-#if 0
-    int address = -1;
-    uint32_t mask = 1;
+#if 0 //FIXME
+    // get the default partition state.
+    AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
 
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, AD2_DEFAULT_VPA_SLOT, &address);
-    if (address == -1) {
-        ESP_LOGE(TAG, "default virtual partition defined. see 'vpaddr' command");
-        return;
-    }
-
-    mask <<= address-1;
-    AD2VirtualPartitionState * s = AD2Parse.getAD2PState(&mask);
     if (s != nullptr) {
       if (s->armed_home || s->armed_away) {
-        my_ON_ARM_CB(nullptr, s);
+        //my_ON_ARM_CB(nullptr, s);
       } else {
-        my_ON_DISARM_CB(nullptr, s);
+        //my_ON_DISARM_CB(nullptr, s);
       }
-      my_ON_CHIME_CHANGE_CB(nullptr, s);
-      my_ON_READY_CHANGE_CB(nullptr, s);
+      //my_ON_CHIME_CHANGE_CB(nullptr, s);
+      //my_ON_READY_CHANGE_CB(nullptr, s);
     } else {
       ESP_LOGE(TAG, "vpaddr[%u] not found", address);
     }
-
-  if (s->armed_home)
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
-  else
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
-
-  cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
-
 #endif
 }
 
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
 			iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-  ota_do_update();
+  ota_do_update(nullptr);
 }
 
 #ifdef __cplusplus

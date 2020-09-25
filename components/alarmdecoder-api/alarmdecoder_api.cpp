@@ -48,6 +48,18 @@ void AlarmDecoderParser::reset_parser() {
 }
 
 /**
+ * @brief Update the available version and trigger any
+ * subscribers that are watching.
+ *
+ * @param [in]arg char * version string
+ */
+void AlarmDecoderParser::updateVersion(char *arg) {
+  std::string version = arg;
+  ESP_LOGI(TAG, "updateVersion %s",arg);
+  notifySubscribers(ON_FIRMWARE_VERSION, version, nullptr);
+}
+
+/**
  * @brief Subscribe to a EVENT type.
  *
  * @param [in]ev ad2_event_t event TYPE

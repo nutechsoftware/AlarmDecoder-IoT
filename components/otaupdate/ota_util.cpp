@@ -79,6 +79,8 @@ static const char name_latest[] = "latest";
 static const char name_upgrade[] = "upgrade";
 static const char name_polling[] = "polling";
 
+static std::string ota_available_version = "N/A";
+
 int ota_get_polling_period_day()
 {
 	return polling_day;
@@ -171,7 +173,6 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 	for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++)
 	{
 		char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
-
 		if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
 			is_new_version = true;
 			break;
@@ -199,7 +200,6 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		}
 		strncpy(latest_version, cJSON_GetStringValue(item), str_len);
 		latest_version[str_len] = '\0';
-
 		*new_version = latest_version;
 	}
 
@@ -714,10 +714,15 @@ static void ota_polling_task_func(void *arg)
 				continue;
 			}
 
-			//FIXME: cap_available_version_set(available_version);
-
-			if (available_version)
+			// Update and notify subscribers of a new version
+			if (available_version) {
+				ota_available_version = available_version;
+				AD2Parse.updateVersion(available_version);
 				free(available_version);
+			} else {
+				// if nothing available then it must be the same we have installed.
+				ota_available_version = FIRMWARE_VERSION;
+			}
 		}
 
 		/* Set polling period */
@@ -727,18 +732,36 @@ static void ota_polling_task_func(void *arg)
 	}
 }
 
+static struct cli_command ota_cmd_list[] = {
+    {(char*)OTA_UPGRADE_CMD,(char*)
+        "Preform an OTA upgrade now download and install new flash.\n", ota_do_update},
+    {(char*)OTA_VERSION_CMD,(char*)
+        "Report the current and available version.\n", ota_do_version}
+};
+
 /**
  * @brief Start the OTA check task.
  */
 void ota_init() {
+    // Register twilio CLI commands
+    for (int i = 0; i < ARRAY_SIZE(ota_cmd_list); i++)
+        cli_register_command(&ota_cmd_list[i]);
+
     xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**
- * @brief Initiate and OTA updatee
+ * @brief Initiate and OTA update
  */
-void ota_do_update() {
+void ota_do_update(char *arg) {
 	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
+}
+
+/**
+ * @brief Show installed and available version
+ */
+void ota_do_version(char *arg) {
+	printf("Installed version(" FIRMWARE_VERSION  ") available version(%s)\n", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus

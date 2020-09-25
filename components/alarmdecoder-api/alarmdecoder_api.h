@@ -220,6 +220,7 @@ typedef enum {
         ON_CRC,             ///< !CRC event message
         ON_VER,             ///< !VER message received
         ON_ERR,
+        ON_FIRMWARE_VERSION ///< new firmware available event
 } ad2_event_t;
 
 /**
@@ -274,7 +275,18 @@ class AlarmDecoderParser
     // get AD2PPState by mask create if flag is set and no match found.
     AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
+    // update firmware version trigger events to any subscribers
+    void updateVersion(char *newversion);
+
     void test();
+
+    std::map<int, const std::string> event_str = {
+        {ON_FIRE,         "FIRE ALARM"},
+        {ON_CHIME_CHANGE, "CHIME"},
+        {ON_LRR,          "CID EVENT"},
+        {ON_ARM,          "ARMED"},
+        {ON_DISARM,       "DISARMED"},
+    };
 
   protected:
     // Track all panel states in separate class.

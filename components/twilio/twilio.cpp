@@ -442,6 +442,13 @@ char * TWILIO_SETTINGS [] = {
 void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
   ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
 
+  std::string outmsg;
+  if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
+    outmsg = ad2_string_format("EVENT ID %d",(int)arg);
+  } else {
+    outmsg = AD2Parse.event_str[(int)arg];
+  }
+
   if (g_ad2_network_state == AD2_CONNECTED) {
     // load our settings for this event type.
     char buf[80];
@@ -470,7 +477,7 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
     ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
 
     // build the body of the message
-    std::string body = "TEST 123";
+    std::string body = outmsg;
 
     // add to the queue
     ESP_LOGI(TAG, "Adding task to twilio send queue");

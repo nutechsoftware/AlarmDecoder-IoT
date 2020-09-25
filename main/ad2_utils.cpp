@@ -48,6 +48,34 @@ extern "C" {
 #endif
 
 /**
+ * @brief printf formatting for std::string.
+ *
+ * @param [in]fmt std::string format.
+ * @param ... variable args.
+ *
+ */
+std::string ad2_string_format(const std::string fmt, ...) {
+    int size = ((int)fmt.size()) * 2 + 50;   // Use a rubric appropriate for your code
+    std::string str;
+    va_list ap;
+    while (1) {     // Maximum two passes on a POSIX system...
+        str.resize(size);
+        va_start(ap, fmt);
+        int n = vsnprintf((char *)str.data(), size, fmt.c_str(), ap);
+        va_end(ap);
+        if (n > -1 && n < size) {  // Everything worked
+            str.resize(n);
+            return str;
+        }
+        if (n > -1)  // Needed size returned
+            size = n + 1;   // For null char
+        else
+            size *= 2;      // Guess at a larger size (OS specific)
+    }
+    return str;
+}
+
+/**
  * @brief Generic get NV string value by key and slot(0-99).
  *
  * @param [in]key to search for.
@@ -271,7 +299,7 @@ void ad2_arm_away(int codeId, int vpartId) {
     // Get user code
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
-
+    // FIXME: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
@@ -279,35 +307,6 @@ void ad2_arm_away(int codeId, int vpartId) {
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
     ESP_LOGI(TAG ,"Sending ARM AWAY command");
-    ad2_send(msg);
-}
-
-/**
- * @brief Toggle Chime mode.
- *
- * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
- * based upon the alarm type. Slots 0 are used as defaults.
- * The message will be sent using the AlarmDecoder 'K' protocol.
- *
- * @param [in]codeId int [0 - AD2_MAX_CODE]
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
- *
- */
-void ad2_chime_toggle(int codeId, int vpartId) {
-
-    // Get user code
-    char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
-
-    // Get the address/partition mask
-    // Message format KXXYYYYZ
-    char msg[9] = {0};
-    int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
-    // FIXME DSC panel switch
-    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "6");
-    ESP_LOGI(TAG ,"Sending CHIME toggle command");
     ad2_send(msg);
 }
 
@@ -329,15 +328,104 @@ void ad2_arm_stay(int codeId, int vpartId) {
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
 
+    // FIXME: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "2");
-    ESP_LOGI(TAG ,"Sending ARM AWAY command");
+    ESP_LOGI(TAG ,"Sending ARM STAY command");
     ad2_send(msg);
 }
+
+/**
+ * @brief Send the DISARM command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_disarm(int codeId, int vpartId) {
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+
+    // FIXME: DSC support
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "1");
+    ESP_LOGI(TAG ,"Sending DISARM command");
+    ad2_send(msg);
+}
+
+/**
+ * @brief Toggle Chime mode.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_chime_toggle(int codeId, int vpartId) {
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+
+    // FIXME: DSC support
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "9");
+    ESP_LOGI(TAG ,"Sending CHIME toggle command");
+    ad2_send(msg);
+}
+
+/**
+ * @brief Send the FIRE PANIC command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_fire_alarm(int codeId, int vpartId) {
+
+    // Get user code
+    char code[7];
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+
+    // FIXME: DSC support
+    // Get the address/partition mask
+    // Message format KXXYYYYZ
+    char msg[9] = {0};
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "\001\001\001");
+    ESP_LOGI(TAG ,"Sending FIRE PANIC button command");
+    ad2_send(msg);
+}
+
 
 /**
  * @brief send RAW string to the AD2 devices.

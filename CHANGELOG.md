@@ -9,17 +9,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 Refactor to take all dev work and clean it up into components that can be turned off / on as needed for a given project.
 
-- [X] Move files into component folders and start fixing stuff.
-- [X] Refactor API to allow multiple subscribers.
-- [X] Ability to disable Twilio
-- [X] Abiiity to disable STSDK
-  [ ] Networking needs to be added if STSDK disabled.
-- [X] Switching everything to C++
-- [X] Reconnect AD2 events to Twilio
-- [ ] User configurable report format and event selection.
-- [ ] Reconnect AD2 events to STSDK
-- [ ] OTA over ST test
-- [ ] Disarm over ST test
+- [X] REFACTOR: Move files into component folders and start fixing stuff.
+- [X] REFACTOR: Refactor API to allow multiple subscribers.
+- [X] REFACTOR: Ability to disable Twilio
+- [X] REFACTOR: Abiiity to disable STSDK
+  [ ] TODO: Networking needs to be added if STSDK disabled.
+- [X] REFACTOR: Switching everything to C++
+- [X] TWILIO: Reconnect AD2 events
+- [X] TWILIO: Add more event and beging message formatting work.
+- [ ] TODO: User configurable report format and event selection.
+- [X] STSDK: Reconnect AD2 events to STSDK
+- [X] TEST: OTA over ST
+- [X] TEST: Disarm over ST
+- [X] TEST: Chime toggle of ST
+- [X] OTA: Add version report
+- [X] OTA: Add update command
+- [X] TEST: CLI OTA update
+- [X] OTA: Add subscriber callback for ON_FIRMWARE_VERSION
+- [X] REFACTOR: Started adding event id string formats for human readable.
+
 ## [1.0.0] - 2020-09-18
 
 Initial project release for testing.
