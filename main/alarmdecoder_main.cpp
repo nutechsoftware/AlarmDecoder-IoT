@@ -520,6 +520,19 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
+    /**
+     * FIXME: SmartThings needs to manage the Wifi during adopting.
+     * FIXME: For now just one interface more is much more complex.
+     */
+#if 0
+    // Init the hardware ethernet module
+    init_eth();
+#endif
+#if 0
+    // Init the wifi module
+    init_wifi();
+#endif
+
     // init the virtual partition database from NV storage
     // see iot_cli_cmd::vpaddr
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
@@ -534,7 +547,8 @@ void app_main()
         }
     }
 
-    // AlarmDecoder callback wiring.
+#if 1
+    // AlarmDecoder callback wire up for testing.
     AD2Parse.subscribeTo(ON_MESSAGE, my_ON_MESSAGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
     AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
@@ -542,25 +556,13 @@ void app_main()
     AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_FIRE, my_ON_FIRE_CB, nullptr);
+#endif
 
     // Load AD2IoT operating mode [Socket|UART] and argument
     // get the mode
     char mode[2];
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, mode, sizeof(mode));
     g_ad2_mode = mode[0];
-
-    /**
-     * FIXME: SmartThings needs to manage the Wifi during adopting.
-     * FIXME: For now just one interface more is much more complex.
-     */
-#if 0
-    // Init the hardware ethernet module
-    init_eth();
-#endif
-#if 0
-    // Init the wifi module
-    init_wifi();
-#endif
 
     // init the AlarmDecoder UART
     if (g_ad2_mode == 'C') {

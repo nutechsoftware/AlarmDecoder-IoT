@@ -89,20 +89,6 @@ void _set_polling_period_day(unsigned int value)
 	polling_day = value;
 }
 
-void ota_nvs_flash_init()
-{
-	// Initialize NVS.
-	esp_err_t err = nvs_flash_init();
-	if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-		// OTA app partition table has a smaller NVS partition size than the non-OTA
-		// partition table. This size mismatch may cause NVS initialization to fail.
-		// If this happens, we erase NVS partition and initialize NVS again.
-		ESP_ERROR_CHECK(nvs_flash_erase());
-		err = nvs_flash_init();
-	}
-	ESP_ERROR_CHECK( err );
-}
-
 static void _task_fatal_error()
 {
 	ota_task_handle = NULL;
@@ -752,7 +738,6 @@ void ota_init() {
  * @brief Initiate and OTA updatee
  */
 void ota_do_update() {
-	ota_nvs_flash_init();
 	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
