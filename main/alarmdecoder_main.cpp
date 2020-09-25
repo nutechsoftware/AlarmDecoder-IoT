@@ -524,11 +524,11 @@ void app_main()
      * FIXME: SmartThings needs to manage the Wifi during adopting.
      * FIXME: For now just one interface more is much more complex.
      */
-#if 0
+#if CONFIG_AD2IOT_ETHERNET
     // Init the hardware ethernet module
     init_eth();
 #endif
-#if 0
+#if CONFIG_AD2IOT_WIFI
     // Init the wifi module
     init_wifi();
 #endif
