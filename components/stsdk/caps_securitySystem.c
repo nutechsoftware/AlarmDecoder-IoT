@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "esp_log.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+
 #include "st_dev.h"
 #include "caps_securitySystem.h"
-#include "esp_log.h"
+
 static const char *TAG = "CAPS_SECS";
 
 static const char *caps_securitySystem_get_alarm_value(caps_securitySystem_data_t *caps_data)
@@ -227,3 +232,6 @@ caps_securitySystem_data_t *caps_securitySystem_initialize(IOT_CTX *ctx, const c
 
     return caps_data;
 }
+
+#endif /* CONFIG_STDK_IOT_CORE */
+

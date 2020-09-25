@@ -1,56 +1,67 @@
-/* ***************************************************************************
+/**
+ *  @file    ota_util.c
+ *  @author  Sean Mathews <coder@f34r.com>
+ *  @date    09/18/2020
+ *  @version 1.0
  *
- * Copyright (c) 2020 Samsung Electronics All Rights Reserved.
+ *  @brief OTA update support
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific
- * language governing permissions and limitations under the License.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- ****************************************************************************/
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
 
-//for implementing main features of IoT device
-#include <stdbool.h>
-
-#include "freertos/FreeRTOS.h"
-
-#include "nvs.h"
-#include "nvs_flash.h"
-
-#include "cJSON.h"
-#include "string.h"
-#include "ota_util.h"
-
+// common includes
+// stdc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stdarg.h>
+#include <ctype.h>
 
+// esp includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include <lwip/netdb.h>
+#include "driver/uart.h"
+#include "esp_log.h"
+static const char *TAG = "AD2OTA";
+
+// AlarmDecoder includes
+#include "alarmdecoder_main.h"
+#include "ad2_utils.h"
+#include "ad2_settings.h"
+#include "ad2_uart_cli.h"
+
+// specific includes
+#include "ota_util.h"
+
+#include "cJSON.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/rsa.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/ssl.h"
 
-#include "esp_log.h"
-static const char *TAG = "OTA_UTIL";
-
-#define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
-#define CONFIG_FIRMWARE_VERSOIN_INFO_URL CONFIG_OTA_SERVER_URL"ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_URL CONFIG_OTA_SERVER_URL"signed_alarmdecoder_stsdk_esp32.bin"
-
-#define OTA_SIGNATURE_SIZE 256
-#define OTA_SIGNATURE_FOOTER_SIZE 6
-#define OTA_SIGNATURE_PREFACE_SIZE 6
-#define OTA_DEFAULT_SIGNATURE_BUF_SIZE OTA_SIGNATURE_PREFACE_SIZE + OTA_SIGNATURE_SIZE + OTA_SIGNATURE_FOOTER_SIZE
-
-#define OTA_DEFAULT_BUF_SIZE 256
-#define OTA_CRYPTO_SHA256_LEN 32
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
 extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
@@ -58,8 +69,17 @@ extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
 extern const uint8_t root_pem_start[]	asm("_binary_update_root_pem_start");
 extern const uint8_t root_pem_end[]		asm("_binary_update_root_pem_end");
 
+// OTA Update task
+TaskHandle_t ota_task_handle = NULL;
 
 static unsigned int polling_day = 1;
+
+static const char name_versioninfo[] = "versioninfo";
+static const char name_latest[] = "latest";
+static const char name_upgrade[] = "upgrade";
+static const char name_polling[] = "polling";
+
+static std::string ota_available_version = "N/A";
 
 int ota_get_polling_period_day()
 {
@@ -71,30 +91,45 @@ void _set_polling_period_day(unsigned int value)
 	polling_day = value;
 }
 
-void ota_nvs_flash_init()
+static void _task_fatal_error()
 {
-	// Initialize NVS.
-	esp_err_t err = nvs_flash_init();
-	if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-		// OTA app partition table has a smaller NVS partition size than the non-OTA
-		// partition table. This size mismatch may cause NVS initialization to fail.
-		// If this happens, we erase NVS partition and initialize NVS again.
-		ESP_ERROR_CHECK(nvs_flash_erase());
-		err = nvs_flash_init();
+	ota_task_handle = NULL;
+	ESP_LOGE(TAG, "Exiting task due to fatal error...");
+	(void)vTaskDelete(NULL);
+
+	while (1) {
+		;
 	}
-	ESP_ERROR_CHECK( err );
 }
 
-static const char name_versioninfo[] = "versioninfo";
-static const char name_latest[] = "latest";
-static const char name_upgrade[] = "upgrade";
-static const char name_polling[] = "polling";
+/**
+ * @brief OTA task that preforms the update to the flash
+ * from a verified signed firmware from an https server with
+ * known keys.
+ */
+static void ota_task_func(void * pvParameter)
+{
+	ESP_LOGI(TAG, "Starting OTA");
 
+	esp_err_t ret = ota_https_update_device();
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Firmware Upgrades Failed (%d)", ret);
+		_task_fatal_error();
+	}
+
+	ESP_LOGI(TAG, "Prepare to restart system!");
+	esp_restart();
+}
+
+/**
+ * @brief Parse the json available version info.
+ */
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version)
 {
 	cJSON *root = NULL;
 	cJSON *profile = NULL;
 	cJSON *item = NULL;
+	cJSON *array = NULL;
 	char *latest_version = NULL;
 	char *data = NULL;
 	size_t str_len = 0;
@@ -108,7 +143,7 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		return ESP_ERR_INVALID_ARG;
 	}
 
-	data = malloc((size_t) update_info_len + 1);
+	data = (char*)malloc((size_t) update_info_len + 1);
 	if (!data) {
 		ESP_LOGE(TAG, "%s: Couldn't allocate memory to add version info", __func__);
 		return ESP_ERR_NO_MEM;
@@ -133,13 +168,12 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 
 	_set_polling_period_day((unsigned int)polling_day);
 
-	cJSON * array = cJSON_GetObjectItem(profile, name_upgrade);
+	array = cJSON_GetObjectItem(profile, name_upgrade);
 
 	for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++)
 	{
 		char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
-
-		if (strcmp(upgrade, OTA_FIRMWARE_VERSION) == 0) {
+		if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
 			is_new_version = true;
 			break;
 		}
@@ -158,7 +192,7 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		}
 
 		str_len = strlen(cJSON_GetStringValue(item));
-		latest_version = malloc(str_len + 1);
+		latest_version = (char*)malloc(str_len + 1);
 		if (!latest_version) {
 			ESP_LOGE(TAG, "%s: Couldn't allocate memory to add latest version", __func__);
 			ret = ESP_ERR_NO_MEM;
@@ -166,7 +200,6 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 		}
 		strncpy(latest_version, cJSON_GetStringValue(item), str_len);
 		latest_version[str_len] = '\0';
-
 		*new_version = latest_version;
 	}
 
@@ -180,6 +213,12 @@ clean_up:
 	return ret;
 }
 
+/**
+ * @brief HTTP request event handler.
+ *
+ * @param [in]evt http event pointer.
+ *
+ */
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
 	switch(evt->event_id) {
@@ -208,6 +247,11 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 	return ESP_OK;
 }
 
+/**
+ * @brief cleanup client memory.
+ *
+ * @param [in]client handle for the client.
+ */
 static void _http_cleanup(esp_http_client_handle_t client)
 {
 	esp_http_client_close(client);
@@ -239,6 +283,12 @@ static int _crypto_sha256(const unsigned char *src, size_t src_len, unsigned cha
 	return 0;
 }
 
+/**
+ * @brief Verify the signature matches the key.
+ *
+ * @param [in]sig char * to the signature to check.
+ * @param [in]hash char * to the hash for the check.
+ */
 static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
 {
 	int ret;
@@ -281,10 +331,19 @@ clean_up:
 	return ret;
 }
 
+/**
+ * @brief Check firmware signature is valid
+ *
+ * @param [in]sha256 hash for server cert the firmware is signed with.
+ * @param [in]sig_data signature for cert teh firmware is signed with.
+ * @param [in]sig_len length of signature.
+ *
+ * @return bool true on success false on fail.
+ */
 static bool _check_firmware_validation(const unsigned char *sha256, unsigned char *sig_data, unsigned int sig_len)
 {
 	bool ret = false;
-
+	unsigned char sig[OTA_SIGNATURE_SIZE] = {0,};
 	unsigned char hash[OTA_CRYPTO_SHA256_LEN] = {0,};
 
 	// Get the message digest info structure for SHA256
@@ -321,7 +380,6 @@ static bool _check_firmware_validation(const unsigned char *sha256, unsigned cha
 		goto clean_up;
 	}
 
-	unsigned char sig[OTA_SIGNATURE_SIZE] = {0,};
 	memcpy(sig, sig_data + OTA_SIGNATURE_PREFACE_SIZE, OTA_SIGNATURE_SIZE);
 
 	if (_pk_verify((const unsigned char *)sig, hash) != 0) {
@@ -335,6 +393,11 @@ clean_up:
 	return ret;
 }
 
+/**
+ * @brief Fetch check and flash firmware from remote server.
+ *
+ * @return esp_err_t results.
+ */
 esp_err_t ota_https_update_device()
 {
 	ESP_LOGI(TAG, "%s: ota_https_update_device", __func__);
@@ -344,11 +407,10 @@ esp_err_t ota_https_update_device()
 	unsigned int content_len;
 	unsigned int firmware_len;
 
-	esp_http_client_config_t config = {
-		.url = CONFIG_FIRMWARE_UPGRADE_URL,
-		.cert_pem = (char *)root_pem_start,
-		.event_handler = _http_event_handler,
-	};
+    esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
+    config->url = CONFIG_FIRMWARE_UPGRADE_URL;
+    config->cert_pem = (char *)root_pem_start;
+    config->event_handler = _http_event_handler;
 
 	mbedtls_sha256_context ctx;
 	mbedtls_sha256_init( &ctx );
@@ -357,7 +419,7 @@ esp_err_t ota_https_update_device()
 		return ESP_FAIL;
 	}
 
-	esp_http_client_handle_t client = esp_http_client_init(&config);
+	esp_http_client_handle_t client = esp_http_client_init(config);
 	if (client == NULL) {
 		ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
 		return ESP_FAIL;
@@ -520,19 +582,25 @@ clean_up:
 	return ret;
 }
 
-#define OTA_VERSION_INFO_BUF_SIZE 1024
-
+/**
+ * @brief Fetch the current version info from remote server json file.
+ *
+ * @param [in]version_info pointer to pointer to place version info.
+ * @param [in]version_info_len pointer to int length of version buffer.
+ *
+ * @return esp_err_t ret
+ */
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len)
 {
 	esp_err_t ret = ESP_FAIL;
 
-	esp_http_client_config_t config = {
-		.url = CONFIG_FIRMWARE_VERSOIN_INFO_URL,
-		.cert_pem = (char *)root_pem_start,
-		.event_handler = _http_event_handler,
-	};
+    esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
+    config->url = CONFIG_FIRMWARE_VERSOIN_INFO_URL;
+    config->cert_pem = (char *)root_pem_start;
+    config->event_handler = _http_event_handler;
 
-	esp_http_client_handle_t client = esp_http_client_init(&config);
+	esp_http_client_handle_t client = esp_http_client_init(config);
+	free(config);
 	if (client == NULL) {
 		ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
 		return ESP_FAIL;
@@ -609,3 +677,93 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 	*version_info_len = total_read_len;
 	return ESP_OK;
 }
+
+/**
+ * @brief Check if an update is available then sleep a long time.
+ *
+ * @param [in]arg void * passed in on init
+ */
+static void ota_polling_task_func(void *arg)
+{
+	while (1) {
+
+		vTaskDelay(30000 / portTICK_PERIOD_MS);
+
+		ESP_LOGI(TAG, "Starting check new version");
+
+		if (ota_task_handle != NULL) {
+			ESP_LOGI(TAG, "Device is updating");
+			continue;
+		}
+
+		if (g_ad2_network_state != AD2_CONNECTED) {
+			ESP_LOGI(TAG, "Device update check aborted. No internet connection.");
+			continue;
+		}
+
+		char *read_data = NULL;
+		unsigned int read_data_len = 0;
+
+		esp_err_t ret = ota_https_read_version_info(&read_data, &read_data_len);
+		if (ret == ESP_OK) {
+			char *available_version = NULL;
+
+			esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
+			if (err != ESP_OK) {
+				ESP_LOGE(TAG, "ota_api_get_available_version is failed : %d", err);
+				continue;
+			}
+
+			// Update and notify subscribers of a new version
+			if (available_version) {
+				ota_available_version = available_version;
+				AD2Parse.updateVersion(available_version);
+				free(available_version);
+			} else {
+				// if nothing available then it must be the same we have installed.
+				ota_available_version = FIRMWARE_VERSION;
+			}
+		}
+
+		/* Set polling period */
+		unsigned int polling_day = ota_get_polling_period_day();
+		unsigned int task_delay_sec = polling_day * 24 * 3600;
+		vTaskDelay(task_delay_sec * 1000 / portTICK_PERIOD_MS);
+	}
+}
+
+static struct cli_command ota_cmd_list[] = {
+    {(char*)OTA_UPGRADE_CMD,(char*)
+        "Preform an OTA upgrade now download and install new flash.\n", ota_do_update},
+    {(char*)OTA_VERSION_CMD,(char*)
+        "Report the current and available version.\n", ota_do_version}
+};
+
+/**
+ * @brief Start the OTA check task.
+ */
+void ota_init() {
+    // Register twilio CLI commands
+    for (int i = 0; i < ARRAY_SIZE(ota_cmd_list); i++)
+        cli_register_command(&ota_cmd_list[i]);
+
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
+}
+
+/**
+ * @brief Initiate and OTA update
+ */
+void ota_do_update(char *arg) {
+	xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
+}
+
+/**
+ * @brief Show installed and available version
+ */
+void ota_do_version(char *arg) {
+	printf("Installed version(" FIRMWARE_VERSION  ") available version(%s)\n", ota_available_version.c_str());
+}
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

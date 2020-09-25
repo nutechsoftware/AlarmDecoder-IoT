@@ -1,8 +1,7 @@
 /**
- *  @file    ArduinoAlarmDecoder.h
+ *  @file    alarmdecoder_api.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    01/15/2020
- *  @version 1.0
  *
  *  @brief AlarmDecoder embedded state machine and parser
  *
@@ -21,8 +20,8 @@
  *  limitations under the License.
  *
  */
-#ifndef AlarmDecoder_h
-#define AlarmDecoder_h
+#ifndef _ALARMDECODER_API_H
+#define _ALARMDECODER_API_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -133,6 +132,7 @@ enum AD2_PARSER_STATES {
  * necessary to have a translation between keypad address and partition.
  *
  */
+
 class AD2VirtualPartitionState
 {
   public:
@@ -177,16 +177,84 @@ class AD2VirtualPartitionState
 
 };
 
+/**
+ * Virtual partition states.
+ * The key is a mask that groups all partitions messages together.
+ */
 typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
-typedef void (*AD2ParserCallback_msg_t)(std::string*, AD2VirtualPartitionState*);
 
 /**
- * AlarmDecoder protocol parser.
- * 1) Able to receive partial messages with subsequent calls to complete full
- *   messages.
- * 2) consume all data received and if not complete preserve for sub.
- * 2) upon receiving a full message parse and call any events that trigger.
- * 3) continue processing data
+ * API Subscriber callback function pointer type
+ */
+typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
+
+/**
+ * Callback event classes
+ */
+typedef enum {
+        ON_RAW_MESSAGE = 1, ///< RAW panel message before parsing.
+        ON_ARM,             ///< ARMED
+        ON_DISARM,          ///< DISARMED
+        ON_POWER_CHANGE,    ///< AC POWER STATE CHANGE
+        ON_READY_CHANGE,    ///< READY STATE CHANGE
+        ON_ALARM,           ///< ALARM
+        ON_ALARM_RESTORE,   ///< ALARM RESTORED
+        ON_FIRE,            ///< FIRE ALARM
+        ON_BYPASS,          ///< BYPASS STATE CHANGE
+        ON_BOOT,            ///< AD2 Firmware boot
+        ON_CONFIG_RECEIVED, ///< AD2 CONFIG RECEIVED
+        ON_ZONE_FAULT,      ///< ZONE FAULT EVENT
+        ON_ZONE_RESTORE,    ///< ZONE RESTORE EVENT
+        ON_LOW_BATTERY,     ///< LOW BATTERY EVENT
+        ON_PANIC,           ///< PANIC EVENT
+        ON_RELAY_CHANGE,    ///< !REL RELAY EVENT
+        ON_CHIME_CHANGE,    ///< Chime state change
+        ON_MESSAGE,         ///< ALPHA MESSAGE After parsing
+        ON_EXP,             ///< !EXP Zone Expander message
+        ON_LRR,             ///< !LRR Long Range Contact ID message
+        ON_RFX,             ///< !RFX 5800 RFX event with serial #
+        ON_SENDING_RECEIVED,///< SEND finished ".done"
+        ON_AUI,             ///< !AUI message received
+        ON_KPM,             ///< !KPM message normal alpha with header.
+        ON_KPE,             ///< !KPE Keypad event message
+        ON_CRC,             ///< !CRC event message
+        ON_VER,             ///< !VER message received
+        ON_ERR,
+        ON_FIRMWARE_VERSION ///< new firmware available event
+} ad2_event_t;
+
+/**
+ * Subscriber callback container
+ */
+class AD2SubScriber {
+public:
+    AD2ParserCallback_sub_t fn;
+    void *arg;
+
+    AD2SubScriber(AD2ParserCallback_sub_t infn, void *inarg)
+    {
+        fn = infn;
+        arg = inarg;
+    }
+};
+
+/**
+ * Vector of subscribers type.
+ */
+typedef std::vector<AD2SubScriber> subscribers_t;
+
+/**
+ * Map by EVENT CLASS of lists of subscribers type.
+ */
+typedef std::map<ad2_event_t, subscribers_t> ad2subs_t;
+
+/**
+ * AlarmDecoder protocol parser class.
+ *
+ * Processes message fragments from AD2* protocol stream parsing
+ * complete messages and update the internal state values. Allow
+ * subscriptions for events to be called when specific state values
+ * change.
  */
 class AlarmDecoderParser
 {
@@ -194,66 +262,8 @@ class AlarmDecoderParser
 
     AlarmDecoderParser();
 
-    // Subscribe to callbacks.
-    void setCB_ON_RAW_MESSAGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_ARM(AD2ParserCallback_msg_t cb);
-    void setCB_ON_DISARM(AD2ParserCallback_msg_t cb);
-    void setCB_ON_POWER_CHANGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_READY_CHANGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_ALARM(AD2ParserCallback_msg_t cb);
-    void setCB_ON_ALARM_RESTORED(AD2ParserCallback_msg_t cb);
-    void setCB_ON_FIRE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_BYPASS(AD2ParserCallback_msg_t cb);
-    void setCB_ON_BOOT(AD2ParserCallback_msg_t cb);
-    void setCB_ON_CONFIG_RECEIVED(AD2ParserCallback_msg_t cb);
-    void setCB_ON_ZONE_FAULT(AD2ParserCallback_msg_t cb);
-    void setCB_ON_ZONE_RESTORE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_LOW_BATTERY(AD2ParserCallback_msg_t cb);
-    void setCB_ON_PANIC(AD2ParserCallback_msg_t cb);
-    void setCB_ON_RELAY_CHANGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_CHIME_CHANGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_MESSAGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_EXPANDER_MESSAGE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_LRR(AD2ParserCallback_msg_t cb);
-    void setCB_ON_RFX(AD2ParserCallback_msg_t cb);
-    void setCB_ON_SENDING_RECEIVED(AD2ParserCallback_msg_t cb);
-    void setCB_ON_AUI(AD2ParserCallback_msg_t cb);
-    void setCB_ON_KPM(AD2ParserCallback_msg_t cb);
-    void setCB_ON_KPE(AD2ParserCallback_msg_t cb);
-    void setCB_ON_CRC(AD2ParserCallback_msg_t cb);
-    void setCB_ON_VER(AD2ParserCallback_msg_t cb);
-    void setCB_ON_ERR(AD2ParserCallback_msg_t cb);
-
-    // Callback functino pointers.
-    AD2ParserCallback_msg_t ON_RAW_MESSAGE_CB;
-    AD2ParserCallback_msg_t ON_ARM_CB;
-    AD2ParserCallback_msg_t ON_DISARM_CB;
-    AD2ParserCallback_msg_t ON_POWER_CHANGE_CB;
-    AD2ParserCallback_msg_t ON_READY_CHANGE_CB;
-    AD2ParserCallback_msg_t ON_ALARM_CB;
-    AD2ParserCallback_msg_t ON_ALARM_RESTORED_CB;
-    AD2ParserCallback_msg_t ON_FIRE_CB;
-    AD2ParserCallback_msg_t ON_BYPASS_CB;
-    AD2ParserCallback_msg_t ON_BOOT_CB;
-    AD2ParserCallback_msg_t ON_CONFIG_RECEIVED_CB;
-    AD2ParserCallback_msg_t ON_ZONE_FAULT_CB;
-    AD2ParserCallback_msg_t ON_ZONE_RESTORE_CB;
-    AD2ParserCallback_msg_t ON_LOW_BATTERY_CB;
-    AD2ParserCallback_msg_t ON_PANIC_CB;
-    AD2ParserCallback_msg_t ON_RELAY_CHANGE_CB;
-    AD2ParserCallback_msg_t ON_CHIME_CHANGE_CB;
-    AD2ParserCallback_msg_t ON_MESSAGE_CB;
-    AD2ParserCallback_msg_t ON_EXPANDER_MESSAGE_CB;
-    AD2ParserCallback_msg_t ON_LRR_CB;
-    AD2ParserCallback_msg_t ON_RFX_CB;
-    AD2ParserCallback_msg_t ON_SENDING_RECEIVED_CB;
-    AD2ParserCallback_msg_t ON_AUI_CB;
-    AD2ParserCallback_msg_t ON_KPM_CB;
-    AD2ParserCallback_msg_t ON_KPE_CB;
-    AD2ParserCallback_msg_t ON_CRC_CB;
-    AD2ParserCallback_msg_t ON_VER_CB;
-    AD2ParserCallback_msg_t ON_ERR_CB;
-
+    // Subscribe to events by type.
+    void subscribeTo(ad2_event_t evt, AD2ParserCallback_sub_t sub, void *arg);
 
     // Push data into state machine. Events fire if a complete message is
     // received.
@@ -265,14 +275,28 @@ class AlarmDecoderParser
     // get AD2PPState by mask create if flag is set and no match found.
     AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
+    // update firmware version trigger events to any subscribers
+    void updateVersion(char *newversion);
+
     void test();
 
-
-
+    std::map<int, const std::string> event_str = {
+        {ON_FIRE,         "FIRE ALARM"},
+        {ON_CHIME_CHANGE, "CHIME"},
+        {ON_LRR,          "CID EVENT"},
+        {ON_ARM,          "ARMED"},
+        {ON_DISARM,       "DISARMED"},
+    };
 
   protected:
     // Track all panel states in separate class.
     ad2pstates_t AD2PStates;
+
+    // Track all subscribers by subscription class.
+    ad2subs_t AD2Subscribers;
+
+    // @brief Notify a given subscriber group.
+    void notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate);
 
     // Parser state control starts out as AD2_PARSER_RESET.
     int AD2_Parser_State;
@@ -292,4 +316,5 @@ void ad2test(void);
 // Utility functions.
 bool is_bit_set(int pos, const char * bitStr);
 
-#endif
+#endif /* _ALARMDECODER_API_H */
+

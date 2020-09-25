@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "esp_log.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+
 #include "st_dev.h"
 #include "caps_smokeDetector.h"
-#include "esp_log.h"
+
 static const char *TAG = "CAPS_SMOK";
 
 static int caps_smokeDetector_attr_smoke_str2idx(const char *value)
@@ -122,3 +127,6 @@ caps_smokeDetector_data_t *caps_smokeDetector_initialize(IOT_CTX *ctx, const cha
 
     return caps_data;
 }
+
+#endif /* CONFIG_STDK_IOT_CORE */
+

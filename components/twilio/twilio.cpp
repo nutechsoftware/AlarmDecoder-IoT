@@ -22,29 +22,46 @@
  *
  */
 
+// common includes
+// stdc
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <ctype.h>
+
+// stdc++
 #include <string>
 #include <sstream>
-#include "mbedtls/base64.h"
+
+// esp includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
-#include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "nvs.h"
+#include <lwip/netdb.h>
+#include "driver/uart.h"
+#include "esp_log.h"
+static const char *TAG = "TWILIO";
 
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "lwip/netdb.h"
-#include "lwip/dns.h"
+// AlarmDecoder includes
+#include "alarmdecoder_main.h"
+#include "ad2_utils.h"
+#include "ad2_settings.h"
+#include "ad2_uart_cli.h"
 
+// Disable via sdkconfig
+#if CONFIG_TWILIO_CLIENT
+
+// specific includes
+#include "twilio.h"
+
+// mbedtls
+#include "mbedtls/base64.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/net_sockets.h"
 #include "mbedtls/esp_debug.h"
@@ -57,15 +74,6 @@
 #include "mbedtls/ssl_cache.h"
 #endif
 
-extern "C" {
-#include "ad2_utils.h"
-#include "iot_uart_cli.h"
-#include "iot_cli_cmd.h"
-#include "twilio.h"
-}
-
-#if CONFIG_TWILIO_CLIENT
-
 QueueHandle_t  sendQ=NULL;
 mbedtls_ssl_config conf;
 mbedtls_entropy_context entropy;
@@ -77,7 +85,6 @@ mbedtls_net_context server_fd;
 mbedtls_ssl_cache_context cache;
 #endif
 
-static const char *TAG = "TWILIO";
 
 /* Root cert for api.twilio.com
    The PEM file was extracted from the output of this command:
@@ -181,6 +188,11 @@ std::string build_request_string(std::string sid,
     return http_request;
 }
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * twilio_add_queue()
  */
@@ -240,7 +252,9 @@ void twilio_free() {
 }
 
 /**
- * Background task to send a message to twilio
+ * @brief Background task to send a message to twilio.
+ *
+ * @param [in] pvParameters void * argment from task creation.
  */
 void twilio_send_task(void *pvParameters) {
     ESP_LOGI(TAG, "twilio send task start stack free %d", esp_get_free_heap_size());
@@ -387,6 +401,7 @@ void twilio_send_task(void *pvParameters) {
             ESP_LOGI(TAG, "connection closed");
             break;
         }
+        // FIXME: parse response error logging for easier debugging.
 
         len = ret;
         ESP_LOGD(TAG, "%d bytes read", len);
@@ -406,18 +421,72 @@ exit:
     vTaskDelete(NULL);
 }
 
-extern "C" {
-
 char * TWILIO_SETTINGS [] = {
-  TWILIO_SID,
-  TWILIO_TOKEN,
-  TWILIO_TYPE,
-  TWILIO_TO,
-  TWILIO_FROM,
-  TWILIO_BODY,
+  (char*)TWILIO_SID,
+  (char*)TWILIO_TOKEN,
+  (char*)TWILIO_TYPE,
+  (char*)TWILIO_TO,
+  (char*)TWILIO_FROM,
+  (char*)TWILIO_BODY,
   0 // EOF
 };
 
+/**
+ * @brief Build and queue a twilio request.
+ *
+ * @param [in]msg raw panel message that caused event.
+ * @param [in]s virtual partition state.
+ * @param [in]arg string pointer event class string.
+ *
+ */
+void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
+  ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
+
+  std::string outmsg;
+  if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
+    outmsg = ad2_string_format("EVENT ID %d",(int)arg);
+  } else {
+    outmsg = AD2Parse.event_str[(int)arg];
+  }
+
+  if (g_ad2_network_state == AD2_CONNECTED) {
+    // load our settings for this event type.
+    char buf[80];
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string sid = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string token = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string from = buf;
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    std::string to = buf;
+
+    buf[0] = 'M'; // default to Messages
+    ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+    char type = buf[0];
+
+    buf[0]=0;
+    ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+
+    // build the body of the message
+    std::string body = outmsg;
+
+    // add to the queue
+    ESP_LOGI(TAG, "Adding task to twilio send queue");
+    twilio_add_queue(sid.c_str(), 
+                     token.c_str(), from.c_str(),
+                     to.c_str(), type, body.c_str());
+
+  }
+}
 
 /**
  * Twilio generic command event processing
@@ -439,7 +508,7 @@ static void _cli_cmd_twilio_event(char *string)
     for(i = 0;; ++i)
     {
         if (TWILIO_SETTINGS[i] == 0) {
-            printf("What?\n"); // FIXME: Impossible ish.
+            printf("What?\n");
             break;
         }
         if(!strcmp(key, TWILIO_SETTINGS[i]) == 0)
@@ -451,7 +520,6 @@ static void _cli_cmd_twilio_event(char *string)
                 if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
                     ad2_set_nv_slot_key_string(key, slot, buf);
                 } else {
-                    // FIXME: block get in production
                     ad2_get_nv_slot_key_string(key, slot, buf, sizeof(buf));
                     printf("Current slot #%02i '%s' value '%s'\n", slot, key, buf);
                 }
@@ -465,32 +533,36 @@ static void _cli_cmd_twilio_event(char *string)
 }
 
 static struct cli_command twilio_cmd_list[] = {
-    {TWILIO_TOKEN,
+    {(char*)TWILIO_TOKEN,(char*)
         "Sets the 'User Auth Token' for notification <slot>.\n"
-        "  Syntax: '" TWILIO_TOKEN "' <slot> <hash>\n"
-        "  Example: '" TWILIO_TOKEN "' 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
-    {TWILIO_SID,
+        "  Syntax: " TWILIO_TOKEN " <slot> <hash>\n"
+        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
+    {(char*)TWILIO_SID,(char*)
         "Sets the 'Account SID' for notification <slot>.\n"
-        "  Syntax: '" TWILIO_SID "' <slot> <hash>\n"
-        "  Example: '" TWILIO_SID "' 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
-    {TWILIO_FROM,
+        "  Syntax: " TWILIO_SID " <slot> <hash>\n"
+        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
+    {(char*)TWILIO_FROM,(char*)
         "Sets the 'From' address for notification <slot>\n"
-        "  Syntax: '" TWILIO_FROM "' <slot> <phone#>\n"
-        "  Example: '" TWILIO_FROM "' 0 13115552368\n", _cli_cmd_twilio_event},
-    {TWILIO_TO,
+        "  Syntax: " TWILIO_FROM " <slot> <phone#>\n"
+        "  Example: " TWILIO_FROM " 0 13115552368\n", _cli_cmd_twilio_event},
+    {(char*)TWILIO_TO,(char*)
         "Sets the 'To' address for notification <slot>\n"
-        "  Syntax: '" TWILIO_TO "' <slot> <phone#>\n"
-        "  Example: '" TWILIO_TO "' 0 13115552368\n", _cli_cmd_twilio_event},
-    {TWILIO_TYPE,
+        "  Syntax: " TWILIO_TO " <slot> <phone#>\n"
+        "  Example: " TWILIO_TO " 0 13115552368\n", _cli_cmd_twilio_event},
+    {(char*)TWILIO_TYPE,(char*)
         "Sets the 'Type' [M]essages|[R]edirect|[T]wilio for notification <slot>\n"
-        "  Syntax: '" TWILIO_TYPE "' <slot> <type>\n"
-        "  Example: '" TWILIO_TYPE "' 0 M\n", _cli_cmd_twilio_event},
+        "  Syntax: " TWILIO_TYPE " <slot> <type>\n"
+        "  Example: " TWILIO_TYPE " 0 M\n", _cli_cmd_twilio_event},
 };
 
 /**
  * Initialize queue and SSL
  */
 void twilio_init() {
+
+    // Register twilio CLI commands
+    for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++)
+        cli_register_command(&twilio_cmd_list[i]);
 
     // init server_fd
     mbedtls_net_init(&server_fd);
@@ -567,18 +639,12 @@ void twilio_init() {
         return;
     }
 
-
     if ((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0)
     {
         ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -ret);
         twilio_free();
         return;
     }
-
-
-    // register twilio CLI commands
-    for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++)
-        cli_register_command(&twilio_cmd_list[i]);
 
     ESP_LOGI(TAG, "Starting twilio queue consumer task");
     sendQ = xQueueCreate(TWILIO_QUEUE_SIZE,sizeof(struct twilio_message_data *));
@@ -587,9 +653,21 @@ void twilio_init() {
     } else {
         xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 2048, NULL, tskIDLE_PRIORITY+1, NULL);
     }
+
+    // FIXME configure to all selection on events to notify on.
+    // FIXME add templates to each event class with formatting args from state.
+    // Register callbacks for a few static events for testing.
+    AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
+    AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
+    AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
+    AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
+#if 1 /* TESTING FIXME */
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb, (void*)ON_CHIME_CHANGE);
+#endif
 }
 
+#ifdef __cplusplus
 } // extern "C"
-
+#endif
 #endif /*  CONFIG_TWILIO_CLIENT */
 
