@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "esp_log.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+
 #include "st_dev.h"
 #include "caps_contactSensor.h"
-#include "esp_log.h"
+
 static const char *TAG = "CAPS_CONT";
 
 static int caps_contactSensor_attr_contact_str2idx(const char *value)
@@ -122,3 +127,6 @@ caps_contactSensor_data_t *caps_contactSensor_initialize(IOT_CTX *ctx, const cha
 
     return caps_data;
 }
+
+#endif /* CONFIG_STDK_IOT_CORE */
+

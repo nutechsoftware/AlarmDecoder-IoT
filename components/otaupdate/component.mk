@@ -7,4 +7,5 @@
 # please read the SDK documents if you need to do this.
 #
 
-COMPONENT_ADD_INCLUDEDIRS := .
+COMPONENT_ADD_INCLUDEDIRS := . ../../main/
+COMPONENT_EMBED_TXTFILES := update_root.pem update_public_key.pem

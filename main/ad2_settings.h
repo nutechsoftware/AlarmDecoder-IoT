@@ -2,7 +2,6 @@
  *  @file    ad2_settings.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    02/20/2020
- *  @version 1.0
  *
  *  @brief Settings common to everyone
  *
@@ -21,16 +20,32 @@
  *  limitations under the License.
  *
  */
+// @brief Firmware version string.
+#define FIRMWARE_VERSION      "AD2IOT-100B"
 
-// configuration
-
+// @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
+
+// @brief MAX virtual partition slots
 #define AD2_MAX_VPARTITION    9
+
+// @brief MAX code slots
 #define AD2_MAX_CODE          99
+
+// @brief Default code to use if none specified
 #define AD2_DEFAULT_CODE_SLOT 0
+
+// @brief Default Address to use if none specified
 #define AD2_DEFAULT_VPA_SLOT  0
+
+// @brief Max connection mode string argument size(host:port|UART#)
 #define AD2_MAX_MODE_ARG_SIZE 80
 
+// @brief Parent Key to store virtual partition slots
 #define VPADDR_CONFIG_KEY     "vpa"
+
+// @brief Parent Key to store code slots
 #define CODES_CONFIG_KEY      "codes"
+
+// @brief Parent Key to store ad2 source configuration values
 #define AD2MODE_CONFIG_KEY    "ad2source"

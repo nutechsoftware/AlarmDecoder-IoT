@@ -20,9 +20,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "esp_log.h"
+
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+
 #include "st_dev.h"
 #include "caps_carbonMonoxideDetector.h"
-#include "esp_log.h"
+
 static const char *TAG = "CAPS_CMOX";
 
 static int caps_carbonMonoxideDetector_attr_carbonMonoxide_str2idx(const char *value)
@@ -121,3 +126,6 @@ caps_carbonMonoxideDetector_data_t *caps_carbonMonoxideDetector_initialize(IOT_C
 
     return caps_data;
 }
+
+#endif /* CONFIG_STDK_IOT_CORE */
+
