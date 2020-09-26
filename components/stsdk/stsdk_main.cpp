@@ -2,7 +2,7 @@
  *  @file    stsdk_main.c
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
- *  @version 1.0
+ *  @version 1.0.1
  *
  *  @brief SmartThings Direct Attached Device using STSDK
  *
@@ -132,11 +132,13 @@ static void _cli_cmd_stserial_event(char *string)
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK)
+        if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
+        }
         err = nvs_set_str(my_handle, "SerialNum", arg);
-        if ( err != ESP_OK)
+        if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+        }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
@@ -159,11 +161,13 @@ static void _cli_cmd_stpublickey_event(char *string)
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK)
+        if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
+        }
         err = nvs_set_str(my_handle, "PublicKey", arg);
-        if ( err != ESP_OK)
+        if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+        }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
@@ -186,11 +190,13 @@ static void _cli_cmd_stprivatekey_event(char *string)
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK)
+        if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
+        }
         err = nvs_set_str(my_handle, "PrivateKey", arg);
-        if ( err != ESP_OK)
+        if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+        }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
@@ -199,29 +205,37 @@ static void _cli_cmd_stprivatekey_event(char *string)
 }
 
 char * STSDK_SETTINGS [] = {
-  (char*)STSDK_CLEANUP,
-  (char*)STSDK_SERIAL,
-  (char*)STSDK_PUBKEY,
-  (char*)STSDK_PRIVKEY,
-  0 // EOF
+    (char*)STSDK_CLEANUP,
+    (char*)STSDK_SERIAL,
+    (char*)STSDK_PUBKEY,
+    (char*)STSDK_PRIVKEY,
+    0 // EOF
 };
 
 static struct cli_command stsdk_cmd_list[] = {
-    {(char*)STSDK_CLEANUP,(char*)
+    {
+        (char*)STSDK_CLEANUP,(char*)
         "Cleanup NV data with reboot option\n"
-        "  Syntax: " STSDK_CLEANUP "\n", _cli_cmd_cleanup_event},
-    {(char*)STSDK_SERIAL,(char*)
+        "  Syntax: " STSDK_CLEANUP "\n", _cli_cmd_cleanup_event
+    },
+    {
+        (char*)STSDK_SERIAL,(char*)
         "Sets the SmartThings device_info serialNumber.\n"
         "  Syntax: " STSDK_SERIAL " <serialNumber>\n"
-        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event},
-    {(char*)STSDK_PUBKEY,(char*)
+        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event
+    },
+    {
+        (char*)STSDK_PUBKEY,(char*)
         "Sets the SmartThings device_info publicKey.\n"
         "  Syntax: " STSDK_PUBKEY " <publicKey>\n"
-        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event},
-    {(char*)STSDK_PRIVKEY,(char*)
+        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event
+    },
+    {
+        (char*)STSDK_PRIVKEY,(char*)
         "Sets the SmartThings device_info privateKey.\n"
         "  Syntax: " STSDK_PRIVKEY " <privateKey>\n"
-        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event},
+        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event
+    },
 };
 
 /**
@@ -338,24 +352,25 @@ void cap_switch_b_cmd_cb(struct caps_switch_data *caps_data)
  */
 void cap_available_version_set(char *available_version)
 {
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
+    IOT_EVENT *init_evt;
+    uint8_t evt_num = 1;
+    int32_t sequence_no;
 
-	if (!available_version) {
-		ESP_LOGE(TAG, "invalid parameter");
-		return;
-	}
+    if (!available_version) {
+        ESP_LOGE(TAG, "invalid parameter");
+        return;
+    }
 
-	/* Setup switch on state */
-	init_evt = st_cap_attr_create_string((char*)"availableVersion", available_version, NULL);
+    /* Setup switch on state */
+    init_evt = st_cap_attr_create_string((char*)"availableVersion", available_version, NULL);
 
-	/* Send avail version to ota cap handler */
-	sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
+    /* Send avail version to ota cap handler */
+    sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
+    if (sequence_no < 0) {
+        ESP_LOGE(TAG, "fail to send init_data");
+    }
 
-	st_cap_attr_free(init_evt);
+    st_cap_attr_free(init_evt);
 }
 
 
@@ -372,9 +387,10 @@ void cap_available_version_set(char *available_version)
  * @param [in]arg nullptr.
  *
  */
-void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "NEW FIRMWARE: '%s'", msg->c_str());
-  cap_available_version_set((char*)msg->c_str());
+void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "NEW FIRMWARE: '%s'", msg->c_str());
+    cap_available_version_set((char*)msg->c_str());
 }
 
 /**
@@ -386,16 +402,18 @@ void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  * @param [in]arg nullptr.
  *
  */
-void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
-  if (s) {
-    if (s->armed_home)
-        cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
-    else
-        cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
+void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
+    if (s) {
+        if (s->armed_home) {
+            cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
+        } else {
+            cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
+        }
 
-    cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
-  }
+        cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+    }
 }
 
 /**
@@ -407,12 +425,13 @@ void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
  * @param [in]arg nullptr.
  *
  */
-void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
-  if (s) {
-    cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed);
-    cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
-  }
+void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
+    if (s) {
+        cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed);
+        cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+    }
 }
 
 /**
@@ -424,23 +443,26 @@ void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
  * @param [in]arg nullptr.
  *
  */
-void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
-  if (s) {
-    if ( s->chime_on)
-        cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
-    else
-        cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
+void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
+    if (s) {
+        if ( s->chime_on) {
+            cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
+        }
 
-    cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
-  }
+        cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
+    }
 }
 
 
 /**
  * @brief Initialize the STSDK engine
  */
-void stsdk_init(void) {
+void stsdk_init(void)
+{
     unsigned char *onboarding_config = (unsigned char *) onboarding_config_start;
     unsigned int onboarding_config_len = onboarding_config_end - onboarding_config_start;
     unsigned char *device_info = (unsigned char *) device_info_start;
@@ -448,15 +470,17 @@ void stsdk_init(void) {
     int iot_err;
 
     // register STSDK CLI commands
-    for (int i = 0; i < ARRAY_SIZE(stsdk_cmd_list); i++)
+    for (int i = 0; i < ARRAY_SIZE(stsdk_cmd_list); i++) {
         cli_register_command(&stsdk_cmd_list[i]);
+    }
 
     // create a iot context
     ctx = st_conn_init(onboarding_config, onboarding_config_len, device_info, device_info_len);
     if (ctx != NULL) {
         iot_err = st_conn_set_noti_cb(ctx, iot_noti_cb, NULL);
-        if (iot_err)
+        if (iot_err) {
             ESP_LOGE(TAG, "fail to set notification callback function");
+        }
     } else {
         ESP_LOGE(TAG, "fail to create the iot_context");
     }
@@ -504,25 +528,28 @@ void capability_init()
     // refresh device type init
     refresh_cap_handle = st_cap_handle_init(ctx, "main", "refresh", NULL, NULL);
     if (refresh_cap_handle) {
-		iot_err = st_cap_cmd_set_cb(refresh_cap_handle, "refresh", refresh_cmd_cb, NULL);
-		if (iot_err)
+        iot_err = st_cap_cmd_set_cb(refresh_cap_handle, "refresh", refresh_cmd_cb, NULL);
+        if (iot_err) {
             ESP_LOGE(TAG, "fail to set cmd_cb for refresh");
+        }
     }
 
     // healthCheck capabilities init
-	healthCheck_cap_handle = st_cap_handle_init(ctx, "main", "healthCheck", cap_health_check_init_cb, NULL);
+    healthCheck_cap_handle = st_cap_handle_init(ctx, "main", "healthCheck", cap_health_check_init_cb, NULL);
     if (healthCheck_cap_handle) {
-		iot_err = st_cap_cmd_set_cb(healthCheck_cap_handle, "ping", refresh_cmd_cb, NULL);
-		if (iot_err)
+        iot_err = st_cap_cmd_set_cb(healthCheck_cap_handle, "ping", refresh_cmd_cb, NULL);
+        if (iot_err) {
             ESP_LOGE(TAG, "fail to set cmd_cb for healthCheck");
+        }
     }
 
     // firmwareUpdate capabilities init
-	ota_cap_handle = st_cap_handle_init(ctx, "main", "firmwareUpdate", cap_current_version_init_cb, NULL);
+    ota_cap_handle = st_cap_handle_init(ctx, "main", "firmwareUpdate", cap_current_version_init_cb, NULL);
     if (ota_cap_handle) {
-		iot_err = st_cap_cmd_set_cb(ota_cap_handle, "updateFirmware", update_firmware_cmd_cb, NULL);
-		if (iot_err)
-			ESP_LOGE(TAG, "fail to set cmd_cb for updateFirmware");
+        iot_err = st_cap_cmd_set_cb(ota_cap_handle, "updateFirmware", update_firmware_cmd_cb, NULL);
+        if (iot_err) {
+            ESP_LOGE(TAG, "fail to set cmd_cb for updateFirmware");
+        }
     }
 
     // securitySystem device type init
@@ -565,7 +592,7 @@ void capability_init()
  * @brief status callback for STSDK api.
  */
 void iot_status_cb(iot_status_t status,
-                          iot_stat_lv_t stat_lv, void *usr_data)
+                   iot_stat_lv_t stat_lv, void *usr_data)
 {
     g_iot_status = status;
     g_iot_stat_lv = stat_lv;
@@ -580,19 +607,18 @@ void iot_status_cb(iot_status_t status,
         g_ad2_network_state = AD2_OFFLINE;
     }
 
-    switch(status)
-    {
-        case IOT_STATUS_NEED_INTERACT:
-            noti_led_mode = LED_ANIMATION_MODE_FAST;
-            break;
-        case IOT_STATUS_IDLE:
-        case IOT_STATUS_CONNECTING:
-            noti_led_mode = LED_ANIMATION_MODE_IDLE;
-            // FIXME: send update on all caps to cloud
-            hal_change_switch_a_state(get_switch_a_state());
-            break;
-        default:
-            break;
+    switch(status) {
+    case IOT_STATUS_NEED_INTERACT:
+        noti_led_mode = LED_ANIMATION_MODE_FAST;
+        break;
+    case IOT_STATUS_IDLE:
+    case IOT_STATUS_CONNECTING:
+        noti_led_mode = LED_ANIMATION_MODE_IDLE;
+        // FIXME: send update on all caps to cloud
+        hal_change_switch_a_state(get_switch_a_state());
+        break;
+    default:
+        break;
     }
 }
 
@@ -600,8 +626,9 @@ void iot_status_cb(iot_status_t status,
 void* pin_num_memcpy(void *dest, const void *src, unsigned int count)
 {
     unsigned int i;
-    for (i = 0; i < count; i++)
+    for (i = 0; i < count; i++) {
         *((char*)dest + i) = *((char*)src + i);
+    }
     return dest;
 }
 #endif
@@ -616,8 +643,9 @@ void connection_start(void)
 
 #if defined(SET_PIN_NUMBER_CONFRIM)
     pin_num = (iot_pin_t *) malloc(sizeof(iot_pin_t));
-    if (!pin_num)
+    if (!pin_num) {
         ESP_LOGE(TAG, "failed to malloc for iot_pin_t");
+    }
 
     // to decide the pin confirmation number(ex. "12345678"). It will use for easysetup.
     //    pin confirmation number must be 8 digit number.
@@ -654,7 +682,7 @@ void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data)
         ESP_LOGI(TAG, "[device deleted]");
     } else if (noti_data->type == IOT_NOTI_TYPE_RATE_LIMIT) {
         ESP_LOGI(TAG, "[rate limit] Remaining time:%d, sequence number:%d",
-               noti_data->raw.rate_limit.remainingTime, noti_data->raw.rate_limit.sequenceNumber);
+                 noti_data->raw.rate_limit.remainingTime, noti_data->raw.rate_limit.sequenceNumber);
     }
 }
 
@@ -666,31 +694,31 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
     if (type == BUTTON_SHORT_PRESS) {
         ESP_LOGI(TAG, "Button short press, count: %d", count);
         switch(count) {
-            case 1:
-                if (g_iot_status == IOT_STATUS_NEED_INTERACT) {
-                    st_conn_ownership_confirm(ctx, true);
-                    noti_led_mode = LED_ANIMATION_MODE_IDLE;
-                    hal_change_switch_a_state(get_switch_a_state());
+        case 1:
+            if (g_iot_status == IOT_STATUS_NEED_INTERACT) {
+                st_conn_ownership_confirm(ctx, true);
+                noti_led_mode = LED_ANIMATION_MODE_IDLE;
+                hal_change_switch_a_state(get_switch_a_state());
+            } else {
+                if (get_switch_a_state() == SWITCH_ON) {
+                    hal_change_switch_a_state(SWITCH_OFF);
+                    cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_off);
+                    cap_switch_a_data->attr_switch_send(cap_switch_a_data);
                 } else {
-                    if (get_switch_a_state() == SWITCH_ON) {
-                        hal_change_switch_a_state(SWITCH_OFF);
-                        cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_off);
-                        cap_switch_a_data->attr_switch_send(cap_switch_a_data);
-                    } else {
-                        hal_change_switch_a_state(SWITCH_ON);
-                        cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_on);
-                        cap_switch_a_data->attr_switch_send(cap_switch_a_data);
-                    }
+                    hal_change_switch_a_state(SWITCH_ON);
+                    cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_on);
+                    cap_switch_a_data->attr_switch_send(cap_switch_a_data);
                 }
-                break;
-            case 5:
-                /* clean-up provisioning & registered data with reboot option*/
-                st_conn_cleanup(ctx, true);
+            }
+            break;
+        case 5:
+            /* clean-up provisioning & registered data with reboot option*/
+            st_conn_cleanup(ctx, true);
 
-                break;
-            default:
-                hal_led_blink(get_switch_a_state(), 100, count);
-                break;
+            break;
+        default:
+            hal_led_blink(get_switch_a_state(), 100, count);
+            break;
         }
     } else if (type == BUTTON_LONG_PRESS) {
         ESP_LOGI(TAG, "Button long press, iot_status: %d", g_iot_status);
@@ -702,36 +730,38 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
 
 void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
+    IOT_EVENT *init_evt;
+    uint8_t evt_num = 1;
+    int32_t sequence_no;
 
     init_evt = st_cap_attr_create_int("checkInterval", 60, NULL);
-	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
+    sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+    if (sequence_no < 0) {
+        ESP_LOGE(TAG, "fail to send init_data");
+    }
 
-	st_cap_attr_free(init_evt);
+    st_cap_attr_free(init_evt);
 
 }
 
 void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-	IOT_EVENT *init_evt;
-	uint8_t evt_num = 1;
-	int32_t sequence_no;
+    IOT_EVENT *init_evt;
+    uint8_t evt_num = 1;
+    int32_t sequence_no;
 
-	/* Setup switch on state */
+    /* Setup switch on state */
     // FIXME: get from device_info ctx->device_info->firmware_version
     // that is loaded from device_info.json
     init_evt = st_cap_attr_create_string("currentVersion", (char *)FIRMWARE_VERSION, NULL);
 
-	/* Send current version attribute */
-	sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
-	if (sequence_no < 0)
-		ESP_LOGE(TAG, "fail to send init_data");
+    /* Send current version attribute */
+    sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+    if (sequence_no < 0) {
+        ESP_LOGE(TAG, "fail to send init_data");
+    }
 
-	st_cap_attr_free(init_evt);
+    st_cap_attr_free(init_evt);
 }
 
 /**
@@ -739,7 +769,7 @@ void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
  * Will be called on refresh(swipe) on main device screen.
  */
 void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
-			iot_cap_cmd_data_t *cmd_data, void *usr_data)
+                    iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
     ESP_LOGI(TAG, "refresh_cmd_cb");
 
@@ -748,23 +778,23 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
     AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
 
     if (s != nullptr) {
-      if (s->armed_home || s->armed_away) {
-        //my_ON_ARM_CB(nullptr, s);
-      } else {
-        //my_ON_DISARM_CB(nullptr, s);
-      }
-      //my_ON_CHIME_CHANGE_CB(nullptr, s);
-      //my_ON_READY_CHANGE_CB(nullptr, s);
+        if (s->armed_home || s->armed_away) {
+            //my_ON_ARM_CB(nullptr, s);
+        } else {
+            //my_ON_DISARM_CB(nullptr, s);
+        }
+        //my_ON_CHIME_CHANGE_CB(nullptr, s);
+        //my_ON_READY_CHANGE_CB(nullptr, s);
     } else {
-      ESP_LOGE(TAG, "vpaddr[%u] not found", address);
+        ESP_LOGE(TAG, "vpaddr[%u] not found", address);
     }
 #endif
 }
 
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
-			iot_cap_cmd_data_t *cmd_data, void *usr_data)
+                            iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-  ota_do_update(nullptr);
+    ota_do_update(nullptr);
 }
 
 #ifdef __cplusplus

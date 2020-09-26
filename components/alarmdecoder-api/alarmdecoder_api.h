@@ -36,10 +36,10 @@ using namespace std;
 // types and defines
 
 enum AD2_PARSER_STATES {
-  AD2_PARSER_RESET            = 0,
-  AD2_PARSER_SCANNING_START   = 1,
-  AD2_PARSER_SCANNING_EOL     = 2,
-  AD2_PARSER_PROCESSING       = 3
+    AD2_PARSER_RESET            = 0,
+    AD2_PARSER_SCANNING_START   = 1,
+    AD2_PARSER_SCANNING_EOL     = 2,
+    AD2_PARSER_PROCESSING       = 3
 };
 
 // The actual max is ~90 but leave some room for future.
@@ -135,45 +135,45 @@ enum AD2_PARSER_STATES {
 
 class AD2VirtualPartitionState
 {
-  public:
+public:
 
-  // Address mask filter for this partition
-  uint32_t address_mask_filter;
+    // Address mask filter for this partition
+    uint32_t address_mask_filter;
 
-  // Partition number(external lookup required for Ademco)
-  uint8_t partition;
+    // Partition number(external lookup required for Ademco)
+    uint8_t partition;
 
-  // Calculated from section #3(Raw)
-  uint8_t display_cursor_type = 0;     // 0[OFF] 1[UNDERLINE] 2[INVERT]
-  uint8_t display_cursor_location = 0; // 1-32
+    // Calculated from section #3(Raw)
+    uint8_t display_cursor_type = 0;     // 0[OFF] 1[UNDERLINE] 2[INVERT]
+    uint8_t display_cursor_location = 0; // 1-32
 
-  // SECTION #1 data
-  //  https://www.alarmdecoder.com/wiki/index.php/Protocol#Bit_field
-  bool unknown_state = true;
-  bool ready = false;
-  bool armed_away = false;
-  bool armed_home = false;
-  bool backlight_on = false;
-  bool programming_mode = false;
-  bool zone_bypassed = false;
-  bool ac_power = false;
-  bool chime_on = false;
-  bool alarm_event_occurred = false;
-  bool alarm_sounding = false;
-  bool battery_low = false;
-  bool entry_delay_off = false;
-  bool fire_alarm = false;
-  bool system_issue = false;
-  bool perimeter_only = false;
-  bool exit_now = false;
-  bool system_specific = false;
-  uint8_t beeps = 0;
-  char panel_type = '?';
-  bool unused1 = false;
-  bool unused2 = false;
+    // SECTION #1 data
+    //  https://www.alarmdecoder.com/wiki/index.php/Protocol#Bit_field
+    bool unknown_state = true;
+    bool ready = false;
+    bool armed_away = false;
+    bool armed_home = false;
+    bool backlight_on = false;
+    bool programming_mode = false;
+    bool zone_bypassed = false;
+    bool ac_power = false;
+    bool chime_on = false;
+    bool alarm_event_occurred = false;
+    bool alarm_sounding = false;
+    bool battery_low = false;
+    bool entry_delay_off = false;
+    bool fire_alarm = false;
+    bool system_issue = false;
+    bool perimeter_only = false;
+    bool exit_now = false;
+    bool system_specific = false;
+    uint8_t beeps = 0;
+    char panel_type = '?';
+    bool unused1 = false;
+    bool unused2 = false;
 
-  std::string last_alpha_message = "";
-  std::string last_numeric_message = "";
+    std::string last_alpha_message = "";
+    std::string last_numeric_message = "";
 
 };
 
@@ -192,41 +192,42 @@ typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*,
  * Callback event classes
  */
 typedef enum {
-        ON_RAW_MESSAGE = 1, ///< RAW panel message before parsing.
-        ON_ARM,             ///< ARMED
-        ON_DISARM,          ///< DISARMED
-        ON_POWER_CHANGE,    ///< AC POWER STATE CHANGE
-        ON_READY_CHANGE,    ///< READY STATE CHANGE
-        ON_ALARM,           ///< ALARM
-        ON_ALARM_RESTORE,   ///< ALARM RESTORED
-        ON_FIRE,            ///< FIRE ALARM
-        ON_BYPASS,          ///< BYPASS STATE CHANGE
-        ON_BOOT,            ///< AD2 Firmware boot
-        ON_CONFIG_RECEIVED, ///< AD2 CONFIG RECEIVED
-        ON_ZONE_FAULT,      ///< ZONE FAULT EVENT
-        ON_ZONE_RESTORE,    ///< ZONE RESTORE EVENT
-        ON_LOW_BATTERY,     ///< LOW BATTERY EVENT
-        ON_PANIC,           ///< PANIC EVENT
-        ON_RELAY_CHANGE,    ///< !REL RELAY EVENT
-        ON_CHIME_CHANGE,    ///< Chime state change
-        ON_MESSAGE,         ///< ALPHA MESSAGE After parsing
-        ON_EXP,             ///< !EXP Zone Expander message
-        ON_LRR,             ///< !LRR Long Range Contact ID message
-        ON_RFX,             ///< !RFX 5800 RFX event with serial #
-        ON_SENDING_RECEIVED,///< SEND finished ".done"
-        ON_AUI,             ///< !AUI message received
-        ON_KPM,             ///< !KPM message normal alpha with header.
-        ON_KPE,             ///< !KPE Keypad event message
-        ON_CRC,             ///< !CRC event message
-        ON_VER,             ///< !VER message received
-        ON_ERR,
-        ON_FIRMWARE_VERSION ///< new firmware available event
+    ON_RAW_MESSAGE = 1, ///< RAW panel message before parsing.
+    ON_ARM,             ///< ARMED
+    ON_DISARM,          ///< DISARMED
+    ON_POWER_CHANGE,    ///< AC POWER STATE CHANGE
+    ON_READY_CHANGE,    ///< READY STATE CHANGE
+    ON_ALARM,           ///< ALARM
+    ON_ALARM_RESTORE,   ///< ALARM RESTORED
+    ON_FIRE,            ///< FIRE ALARM
+    ON_BYPASS,          ///< BYPASS STATE CHANGE
+    ON_BOOT,            ///< AD2 Firmware boot
+    ON_CONFIG_RECEIVED, ///< AD2 CONFIG RECEIVED
+    ON_ZONE_FAULT,      ///< ZONE FAULT EVENT
+    ON_ZONE_RESTORE,    ///< ZONE RESTORE EVENT
+    ON_LOW_BATTERY,     ///< LOW BATTERY EVENT
+    ON_PANIC,           ///< PANIC EVENT
+    ON_RELAY_CHANGE,    ///< !REL RELAY EVENT
+    ON_CHIME_CHANGE,    ///< Chime state change
+    ON_MESSAGE,         ///< ALPHA MESSAGE After parsing
+    ON_EXP,             ///< !EXP Zone Expander message
+    ON_LRR,             ///< !LRR Long Range Contact ID message
+    ON_RFX,             ///< !RFX 5800 RFX event with serial #
+    ON_SENDING_RECEIVED,///< SEND finished ".done"
+    ON_AUI,             ///< !AUI message received
+    ON_KPM,             ///< !KPM message normal alpha with header.
+    ON_KPE,             ///< !KPE Keypad event message
+    ON_CRC,             ///< !CRC event message
+    ON_VER,             ///< !VER message received
+    ON_ERR,
+    ON_FIRMWARE_VERSION ///< new firmware available event
 } ad2_event_t;
 
 /**
  * Subscriber callback container
  */
-class AD2SubScriber {
+class AD2SubScriber
+{
 public:
     AD2ParserCallback_sub_t fn;
     void *arg;
@@ -258,7 +259,7 @@ typedef std::map<ad2_event_t, subscribers_t> ad2subs_t;
  */
 class AlarmDecoderParser
 {
-  public:
+public:
 
     AlarmDecoderParser();
 
@@ -288,7 +289,7 @@ class AlarmDecoderParser
         {ON_DISARM,       "DISARMED"},
     };
 
-  protected:
+protected:
     // Track all panel states in separate class.
     ad2pstates_t AD2PStates;
 

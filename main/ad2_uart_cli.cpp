@@ -73,20 +73,22 @@ static struct cli_command help_cmd = {
  * @return cli_cmd_t * the command structure pointer or NULL
  * if not found
  */
-static cli_cmd_t* cli_find_command (char* input_string) {
+static cli_cmd_t* cli_find_command (char* input_string)
+{
     cli_cmd_list_t* now = cli_cmd_list;
 
     while (now) {
-        if (!now->cmd)
+        if (!now->cmd) {
             continue;
+        }
 
         if (strncmp(input_string, now->cmd->command, strlen(now->cmd->command)) == 0) {
             switch (input_string[strlen(now->cmd->command)]) {
-                case ' ':
-                case '\r':
-                case '\n':
-                case '\0':
-                    return now->cmd;
+            case ' ':
+            case '\r':
+            case '\n':
+            case '\0':
+                return now->cmd;
             }
         }
         now = now->next;
@@ -140,7 +142,9 @@ void cli_register_command(cli_cmd_t* cmd)
         cli_cmd_list->cmd = cmd;
     } else {
         now = cli_cmd_list;
-        while (now->next) now = now->next;
+        while (now->next) {
+            now = now->next;
+        }
         now->next = (cli_cmd_list_t*) malloc(sizeof(struct cli_command_list));
 
         now = now->next;
@@ -154,7 +158,8 @@ void cli_register_command(cli_cmd_t* cmd)
  *
  * @param [in]cmd char * command string with args if any.
  */
-static void cli_cmd_help(char *cmd) {
+static void cli_cmd_help(char *cmd)
+{
     bool showhelp = true;
     cli_cmd_list_t* now = cli_cmd_list;
     char buf[20]; // buffer to hold help argument
@@ -173,12 +178,14 @@ static void cli_cmd_help(char *cmd) {
     if (showhelp) {
         printf("Available AD2IoT terminal commands\n  [");
         while (now) {
-            if (!now->cmd)
+            if (!now->cmd) {
                 continue;
+            }
             printf("%s",now->cmd->command);
             now = now->next;
-            if (now)
+            if (now) {
                 printf(", ");
+            }
         }
         printf("]\n\nType help <command> for details on each command.\n");
     }
@@ -228,7 +235,8 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
 /**
  * @brief UART0 settings
  */
-static void esp_uart_init() {
+static void esp_uart_init()
+{
 
     // Configure parameters of an UART driver,
     uart_config_t* uart_config = (uart_config_t*)calloc(sizeof(uart_config_t), 1);
@@ -276,89 +284,89 @@ static void esp_uart_cli_task(void *pvParameters)
         // Read data from the UART
         int len = uart_read_bytes(UART_NUM_0, data, UART_BUF_SIZE, 20 / portTICK_RATE_MS);
         for (int i = 0; i < len; i++) {
-            switch(data[i])
-            {
-                case '\r':
-                case '\n':
-                    portENTER_CRITICAL(&spinlock);
-                    if (g_StopMainTask == 1) {
-                        // when there is a user input("\n") within a given timeout, this value will be chaned into 2.
-                        // but, if there is no user input within a given timeout, this value will be changed into 0 in order to run the main function
-                        g_StopMainTask = 2;
-                    }
-                    portEXIT_CRITICAL(&spinlock);
+            switch(data[i]) {
+            case '\r':
+            case '\n':
+                portENTER_CRITICAL(&spinlock);
+                if (g_StopMainTask == 1) {
+                    // when there is a user input("\n") within a given timeout, this value will be chaned into 2.
+                    // but, if there is no user input within a given timeout, this value will be changed into 0 in order to run the main function
+                    g_StopMainTask = 2;
+                }
+                portEXIT_CRITICAL(&spinlock);
 
-                    uart_write_bytes(UART_NUM_0, "\r\n", 2);
-                    if (line_len) {
-                        cli_process_command((char *)line);
-                        memcpy(prev_line, line, MAX_UART_LINE_SIZE);
-                        memset(line, 0, MAX_UART_LINE_SIZE);
-                        line_len = 0;
-                    }
-                    uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
-                    break;
-
-                case '\b':
-                    //backspace
-                    if (line_len > 0) {
-                        uart_write_bytes(UART_NUM_0, "\b \b", 3);
-                        line[--line_len] = '\0';
-                    }
-                    break;
-
-                case 0x03: //Ctrl + C
-                    uart_write_bytes(UART_NUM_0, "^C\n", 3);
+                uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                if (line_len) {
+                    cli_process_command((char *)line);
+                    memcpy(prev_line, line, MAX_UART_LINE_SIZE);
                     memset(line, 0, MAX_UART_LINE_SIZE);
                     line_len = 0;
-                    uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
-                    break;
+                }
+                uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
+                break;
 
-                case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
-                    if ( data[i+1] == 0x5B ) {
-                        switch (data[i+2]) {
-                            case 0x41: //UP
-                                memcpy(line, prev_line, MAX_UART_LINE_SIZE);
-                                line_len = strlen((char*)line);
-                                uart_write_bytes(UART_NUM_0, (const char *)&data[i+1], 2);
-                                uart_write_bytes(UART_NUM_0, "\r\n", 2);
-                                uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
-                                uart_write_bytes(UART_NUM_0, (const char *)line, line_len);
-                                i+=3;
-                                break;
-                            case 0x42: //DOWN - ignore
-                                i+=3;
-                                break;
-                            case 0x43: //right
-                                if (line[line_len+1] != '\0') {
-                                    line_len += 1;
-                                    uart_write_bytes(UART_NUM_0, (const char *)&data[i], 3);
-                                }
-                                i+=3;
-                                break;
-                            case 0x44: //left
-                                if (line_len > 0) {
-                                    line_len -= 1;
-                                    uart_write_bytes(UART_NUM_0, (const char *)&data[i], 3);
-                                }
-                                i+=3;
-                                break;
-                            default:
-                                break;
+            case '\b':
+                //backspace
+                if (line_len > 0) {
+                    uart_write_bytes(UART_NUM_0, "\b \b", 3);
+                    line[--line_len] = '\0';
+                }
+                break;
+
+            case 0x03: //Ctrl + C
+                uart_write_bytes(UART_NUM_0, "^C\n", 3);
+                memset(line, 0, MAX_UART_LINE_SIZE);
+                line_len = 0;
+                uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
+                break;
+
+            case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
+                if ( data[i+1] == 0x5B ) {
+                    switch (data[i+2]) {
+                    case 0x41: //UP
+                        memcpy(line, prev_line, MAX_UART_LINE_SIZE);
+                        line_len = strlen((char*)line);
+                        uart_write_bytes(UART_NUM_0, (const char *)&data[i+1], 2);
+                        uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                        uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
+                        uart_write_bytes(UART_NUM_0, (const char *)line, line_len);
+                        i+=3;
+                        break;
+                    case 0x42: //DOWN - ignore
+                        i+=3;
+                        break;
+                    case 0x43: //right
+                        if (line[line_len+1] != '\0') {
+                            line_len += 1;
+                            uart_write_bytes(UART_NUM_0, (const char *)&data[i], 3);
                         }
-                    }
-                    break;
-
+                        i+=3;
+                        break;
+                    case 0x44: //left
+                        if (line_len > 0) {
+                            line_len -= 1;
+                            uart_write_bytes(UART_NUM_0, (const char *)&data[i], 3);
+                        }
+                        i+=3;
+                        break;
                     default:
-                    //check whether character is valid
-                    if ((data[i] >= ' ') && (data[i] <= '~')) {
-                        if (line_len >= MAX_UART_LINE_SIZE - 2)
-                            break;
-
-                        // print character back
-                        uart_write_bytes(UART_NUM_0, (const char *) &data[i], 1);
-
-                        line[line_len++] = data[i];
+                        break;
                     }
+                }
+                break;
+
+            default:
+                //check whether character is valid
+                if ((data[i] >= ' ') && (data[i] <= '~')) {
+                    if (line_len >= MAX_UART_LINE_SIZE - 2) {
+                        break;
+                    }
+
+                    // print character back
+                    uart_write_bytes(UART_NUM_0, (const char *) &data[i], 1);
+
+                    line[line_len++] = data[i];
+                }
             } // switch data[i]
         } //buf while loop
     } //main loop

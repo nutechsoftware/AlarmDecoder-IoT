@@ -4,14 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased] - 2020-09-25 WIP
-  [ ] TODO: Build with espidf idf.py tool
+## [Unreleased] - 2020-09-27 WIP
+- [ ] - TODO: Build with espidf idf.py tool
+- [ ] ARM Stay/Away
+   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526).
+## [1.0.1] - 2020-09-25 WIP
+
+- [X] Code formatting and Travis CI setup on github. What a mess :)... "astyle --style=otbs"
 
 ## [1.0.0B] - 2020-09-18
 
 Refactor to take all dev work and clean it up into components that can be turned off / on as needed for a given project.
 Changes and tests.
-  [X] Add TODO: Add Networking needs to be added if STSDK disabled.
+- [X] Add TODO: Add Networking needs to be added if STSDK disabled.
 - [X] REFACTOR: Move files into component folders and start fixing stuff.
 - [X] REFACTOR: Refactor API to allow multiple subscribers.
 - [X] REFACTOR: Ability to disable Twilio
@@ -38,8 +43,6 @@ Test restults.
     - TODO: Add CLI trigger
  - [X] Toggle CHIME show CHIME state
  - [X] Disarm
- - [ ] ARM Stay/Away
-    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526).
  - [X] Onboarding adopting into SmartThings cloud.
  - [X] CLI command line interface for settings.
  - [X] Monitor alarm state from new SmartThings app.
