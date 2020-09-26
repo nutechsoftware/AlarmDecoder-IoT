@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - 2020-09-25 WIP
 
-- [X] Code formatting in prep for CI setup on github. What a mess :)... "astyle --style=otbs"
+- [X] Code formatting and Travis CI setup on github. What a mess :)... "astyle --style=otbs"
 - [ ] - TODO: Build with espidf idf.py tool
 
 ## [1.0.0B] - 2020-09-18
