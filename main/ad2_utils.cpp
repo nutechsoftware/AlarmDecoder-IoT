@@ -54,7 +54,7 @@ extern "C" {
  * @param ... variable args.
  *
  */
-std::string ad2_string_format(const std::string fmt, ...) 
+std::string ad2_string_format(const std::string fmt, ...)
 {
     int size = ((int)fmt.size()) * 2 + 50;   // Use a rubric appropriate for your code
     std::string str;
