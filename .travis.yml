@@ -3,6 +3,11 @@ sudo: require
 
 language: python
 
+branches:
+  only:
+  - master
+  - test
+
 python:
   - "3.7"
 
