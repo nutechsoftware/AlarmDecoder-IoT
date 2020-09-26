@@ -5,13 +5,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - 2020-09-25 WIP
-  [ ] TODO: Build with espidf idf.py tool
+
+- [X] Code formatting in prep for CI setup on github. What a mess :)... "astyle --style=otbs"
+- [ ] - TODO: Build with espidf idf.py tool
 
 ## [1.0.0B] - 2020-09-18
 
 Refactor to take all dev work and clean it up into components that can be turned off / on as needed for a given project.
 Changes and tests.
-  [X] Add TODO: Add Networking needs to be added if STSDK disabled.
+- [X] Add TODO: Add Networking needs to be added if STSDK disabled.
 - [X] REFACTOR: Move files into component folders and start fixing stuff.
 - [X] REFACTOR: Refactor API to allow multiple subscribers.
 - [X] REFACTOR: Ability to disable Twilio

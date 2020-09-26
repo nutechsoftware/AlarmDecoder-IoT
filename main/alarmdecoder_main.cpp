@@ -1,26 +1,26 @@
- /**
- *  @file    alarmdecoder_main.cpp
- *  @author  Sean Mathews <coder@f34r.com>
- *  @date    02/20/2020
- *  @version 1.0
- *
- *  @brief AlarmDecoder IoT embedded network appliance
- *
- *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- */
+/**
+*  @file    alarmdecoder_main.cpp
+*  @author  Sean Mathews <coder@f34r.com>
+*  @date    02/20/2020
+*  @version 1.0
+*
+*  @brief AlarmDecoder IoT embedded network appliance
+*
+*  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
+*
+*  Licensed under the Apache License, Version 2.0 (the "License");
+*  you may not use this file except in compliance with the License.
+*  You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software
+*  distributed under the License is distributed on an "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*  See the License for the specific language governing permissions and
+*  limitations under the License.
+*
+*/
 
 
 /**
@@ -108,9 +108,10 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-  ESP_LOGI(TAG, "RAM left %d", esp_get_free_heap_size());
+void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
+    ESP_LOGI(TAG, "RAM left %d", esp_get_free_heap_size());
 }
 
 /**
@@ -121,8 +122,9 @@ void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) 
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "LRR_CB: %s",msg->c_str());
+void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "LRR_CB: %s",msg->c_str());
 }
 
 /**
@@ -133,8 +135,9 @@ void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_READY_CHANGE: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
+void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_READY_CHANGE: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
 }
 
 /**
@@ -145,8 +148,9 @@ void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_ARM: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
+void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_ARM: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
 }
 
 /**
@@ -157,8 +161,9 @@ void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_DISARM: READY(%i)", s->ready);
+void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_DISARM: READY(%i)", s->ready);
 }
 
 /**
@@ -171,8 +176,9 @@ void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_CHIME_CHANGE: CHIME(%i)", s->chime_on);
+void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_CHIME_CHANGE: CHIME(%i)", s->chime_on);
 }
 
 /**
@@ -185,8 +191,9 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "ON_FIRE_CB: FIRE(%i)", s->fire_alarm);
+void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_FIRE_CB: FIRE(%i)", s->fire_alarm);
 }
 
 /**
@@ -201,7 +208,7 @@ static void ad2_app_main_task(void *pvParameters)
 
     for (;;) {
         if (hal_get_button_event(&button_event_type, &button_event_count)) {
-          // FIXME: update stsdk virtual button state
+            // FIXME: update stsdk virtual button state
         }
         if (noti_led_mode != LED_ANIMATION_MODE_IDLE) {
             hal_change_led_mode(noti_led_mode);
@@ -302,8 +309,9 @@ static void ser2sock_client_task(void *pvParameters)
                     AD2Parse.put(rx_buffer, len);
                 }
 
-                if (g_ad2_network_state != AD2_CONNECTED)
+                if (g_ad2_network_state != AD2_CONNECTED) {
                     break;
+                }
             }
 
             if (g_ad2_client_handle != -1) {
@@ -369,8 +377,7 @@ static void ser2sock_server_task(void *pvParameters)
 
     ESP_LOGI(TAG, "ser2sock server task starting.");
 
-    for (;;)
-    {
+    for (;;) {
         if (g_ad2_network_state == AD2_CONNECTED) {
             ESP_LOGI(TAG, "ser2sock server starting.");
             if (addr_family == AF_INET) {
@@ -442,8 +449,8 @@ static void ser2sock_server_task(void *pvParameters)
                 close(sock);
             }
 
-            CLEAN_UP:
-                close(listen_sock);
+CLEAN_UP:
+            close(listen_sock);
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -454,7 +461,8 @@ static void ser2sock_server_task(void *pvParameters)
 /**
  * @brief Start ser2sock client task
  */
-void init_ser2sock_client() {
+void init_ser2sock_client()
+{
     xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
 
@@ -462,7 +470,8 @@ void init_ser2sock_client() {
  * @brief Start ser2sock server task
  */
 #if defined(AD2_SER2SOCK_SERVER)
-void init_ser2sock_server() {
+void init_ser2sock_server()
+{
     xTaskCreate(ser2sock_server_task, "ser2sock_server", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
 #endif
@@ -470,7 +479,8 @@ void init_ser2sock_server() {
 /**
  *  @brief Initialize the uart connected to the AD2 device
  */
-void init_ad2_uart_client() {
+void init_ad2_uart_client()
+{
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -499,14 +509,14 @@ void app_main()
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
     printf("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
-            chip_info.cores,
-            (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-            (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+           chip_info.cores,
+           (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+           (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 
     printf("silicon revision %d, ", chip_info.revision);
 
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+           (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
     esp_err_t err = nvs_flash_init();
@@ -542,8 +552,8 @@ void app_main()
         if (x != -1) {
             uint32_t amask = 1;
             amask <<= x-1;
-           AD2Parse.getAD2PState(&amask, true);
-           ESP_LOGI(TAG, "init vpaddr slot %i mask %i", n, x);
+            AD2Parse.getAD2PState(&amask, true);
+            ESP_LOGI(TAG, "init vpaddr slot %i mask %i", n, x);
         }
     }
 
@@ -566,13 +576,12 @@ void app_main()
 
     // init the AlarmDecoder UART
     if (g_ad2_mode == 'C') {
-      init_ad2_uart_client();
-    } else
-    if (g_ad2_mode == 'S') {
-      init_ser2sock_client();
+        init_ad2_uart_client();
+    } else if (g_ad2_mode == 'S') {
+        init_ser2sock_client();
     } else {
-      ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-      printf("AD2IoT operating mode configured. Configure using ad2source command.\n");
+        ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+        printf("AD2IoT operating mode configured. Configure using ad2source command.\n");
     }
 
 #if defined(AD2_SER2SOCK_SERVER)

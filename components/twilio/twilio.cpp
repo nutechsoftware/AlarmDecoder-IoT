@@ -1,26 +1,26 @@
- /**
- *  @file    twilio.cpp
- *  @author  Sean Mathews <coder@f34r.com>
- *  @date    09/12/2020
- *  @version 1.0
- *
- *  @brief Simple commands to post to api.twilio.com
- *
- *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- */
+/**
+*  @file    twilio.cpp
+*  @author  Sean Mathews <coder@f34r.com>
+*  @date    09/12/2020
+*  @version 1.0
+*
+*  @brief Simple commands to post to api.twilio.com
+*
+*  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
+*
+*  Licensed under the Apache License, Version 2.0 (the "License");
+*  you may not use this file except in compliance with the License.
+*  You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software
+*  distributed under the License is distributed on an "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*  See the License for the specific language governing permissions and
+*  limitations under the License.
+*
+*/
 
 // common includes
 // stdc
@@ -99,33 +99,34 @@ extern const uint8_t twilio_root_pem_end[]   asm("_binary_twilio_root_pem_end");
 /**
  * url_encode
  */
-std::string urlencode(std::string str) {
-  std::string encoded = "";
-  char c;
-  char code0;
-  char code1;
-  for (int i = 0; i < str.length(); i++) {
-    c = str[i];
-    if (c == ' ') {
-      encoded += '+';
-    } else if (isalnum(c)) {
-      encoded += c;
-    } else {
-      code1 = (c & 0xf) + '0';
-      if ((c & 0xf) > 9) {
-        code1 = (c & 0xf) - 10 + 'A';
-      }
-      c = (c >> 4) & 0xf;
-      code0 = c + '0';
-      if (c > 9) {
-        code0 = c - 10 + 'A';
-      }
-      encoded += '%';
-      encoded += code0;
-      encoded += code1;
+std::string urlencode(std::string str)
+{
+    std::string encoded = "";
+    char c;
+    char code0;
+    char code1;
+    for (int i = 0; i < str.length(); i++) {
+        c = str[i];
+        if (c == ' ') {
+            encoded += '+';
+        } else if (isalnum(c)) {
+            encoded += c;
+        } else {
+            code1 = (c & 0xf) + '0';
+            if ((c & 0xf) > 9) {
+                code1 = (c & 0xf) - 10 + 'A';
+            }
+            c = (c >> 4) & 0xf;
+            code0 = c + '0';
+            if (c > 9) {
+                code0 = c - 10 + 'A';
+            }
+            encoded += '%';
+            encoded += code0;
+            encoded += code1;
+        }
     }
-  }
-  return encoded;
+    return encoded;
 }
 
 /**
@@ -141,35 +142,36 @@ std::string to_string(int n)
 /**
  * build auth string from user and pass
  */
-std::string get_auth_header(const std::string& user, const std::string& password) {
+std::string get_auth_header(const std::string& user, const std::string& password)
+{
 
-  size_t toencodeLen = user.length() + password.length() + 2;
-  size_t out_len = 0;
-  char toencode[toencodeLen];
-  unsigned char outbuffer[(toencodeLen + 2 - ((toencodeLen + 2) % 3)) / 3 * 4 + 1];
+    size_t toencodeLen = user.length() + password.length() + 2;
+    size_t out_len = 0;
+    char toencode[toencodeLen];
+    unsigned char outbuffer[(toencodeLen + 2 - ((toencodeLen + 2) % 3)) / 3 * 4 + 1];
 
-  memset(toencode, 0, toencodeLen);
+    memset(toencode, 0, toencodeLen);
 
-  snprintf(
-    toencode,
-    toencodeLen,
-    "%s:%s",
-    user.c_str(),
-    password.c_str()
-  );
+    snprintf(
+        toencode,
+        toencodeLen,
+        "%s:%s",
+        user.c_str(),
+        password.c_str()
+    );
 
-  mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
-  outbuffer[out_len] = '\0';
+    mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
+    outbuffer[out_len] = '\0';
 
-  std::string encoded_string = std::string((char *)outbuffer);
-  return "Authorization: Basic " + encoded_string;
+    std::string encoded_string = std::string((char *)outbuffer);
+    return "Authorization: Basic " + encoded_string;
 }
 
 /**
  * build_request_string()
  */
 std::string build_request_string(std::string sid,
-    std::string token, std::string body)
+                                 std::string token, std::string body)
 {
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
@@ -196,7 +198,8 @@ extern "C" {
 /**
  * twilio_add_queue()
  */
-void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg) {
+void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg)
+{
     if (sendQ) {
         twilio_message_data_t *message_data = NULL;
         message_data = (twilio_message_data_t *)malloc(sizeof(twilio_message_data_t));
@@ -218,7 +221,8 @@ void twilio_add_queue(const char * sid, const char * token, const char *from, co
  *   1) Only runs one task at a time.
  *   2) Monitor/limit max tasks in queue.
  */
-void twilio_consumer_task(void *pvParameter) {
+void twilio_consumer_task(void *pvParameter)
+{
     while(1) {
         ESP_LOGI(TAG,"queue consumer loop start");
         if(sendQ == NULL) {
@@ -243,7 +247,8 @@ void twilio_consumer_task(void *pvParameter) {
 /**
  * cleanup memory
  */
-void twilio_free() {
+void twilio_free()
+{
     mbedtls_ssl_free( &ssl );
     mbedtls_x509_crt_free( &cacert );
     mbedtls_ctr_drbg_free( &ctr_drbg);
@@ -256,7 +261,8 @@ void twilio_free() {
  *
  * @param [in] pvParameters void * argment from task creation.
  */
-void twilio_send_task(void *pvParameters) {
+void twilio_send_task(void *pvParameters)
+{
     ESP_LOGI(TAG, "twilio send task start stack free %d", esp_get_free_heap_size());
 
     twilio_message_data_t *message_data = (twilio_message_data_t *)pvParameters;
@@ -293,20 +299,20 @@ void twilio_send_task(void *pvParameters) {
 
     /* Build the HTTPS POST request. */
     switch(type) {
-        case 'M': // Messages
-            body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
-                     "&Body=" + urlencode(arg);
-            break;
-        case 'R': // Redirect
-            break;
-        case 'T': // Twiml URL
-            body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
-                     "&Url=" + urlencode(arg);
-            break;
-        default:
-            ESP_LOGW(TAG, "Unknown message type '%c' aborting task.", type);
-            vTaskDelete(NULL);
-            return;
+    case 'M': // Messages
+        body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
+               "&Body=" + urlencode(arg);
+        break;
+    case 'R': // Redirect
+        break;
+    case 'T': // Twiml URL
+        body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
+               "&Url=" + urlencode(arg);
+        break;
+    default:
+        ESP_LOGW(TAG, "Unknown message type '%c' aborting task.", type);
+        vTaskDelete(NULL);
+        return;
     }
 
     ESP_LOGI(TAG, "Connecting to %s:%s...", WEB_SERVER, WEB_PORT);
@@ -316,8 +322,7 @@ void twilio_send_task(void *pvParameters) {
     mbedtls_net_free(&server_fd);
 
     if ((ret = mbedtls_net_connect(&server_fd, WEB_SERVER,
-                                    WEB_PORT, MBEDTLS_NET_PROTO_TCP)) != 0)
-    {
+                                   WEB_PORT, MBEDTLS_NET_PROTO_TCP)) != 0) {
         ESP_LOGE(TAG, "mbedtls_net_connect returned -%x", -ret);
         goto exit;
     }
@@ -328,10 +333,8 @@ void twilio_send_task(void *pvParameters) {
 
     ESP_LOGI(TAG, "Performing the SSL/TLS handshake...");
 
-    while ((ret = mbedtls_ssl_handshake(&ssl)) != 0)
-    {
-        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
-        {
+    while ((ret = mbedtls_ssl_handshake(&ssl)) != 0) {
+        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
             ESP_LOGE(TAG, "mbedtls_ssl_handshake returned -0x%x", -ret);
             goto exit;
         }
@@ -339,15 +342,13 @@ void twilio_send_task(void *pvParameters) {
 
     ESP_LOGI(TAG, "Verifying peer X.509 certificate...");
 
-    if ((flags = mbedtls_ssl_get_verify_result(&ssl)) != 0)
-    {
+    if ((flags = mbedtls_ssl_get_verify_result(&ssl)) != 0) {
         /* In real life, we probably want to close connection if ret != 0 */
         ESP_LOGW(TAG, "Failed to verify peer certificate!");
         bzero(buf, sizeof(buf));
         mbedtls_x509_crt_verify_info(buf, sizeof(buf), "  ! ", flags);
         ESP_LOGW(TAG, "verification info: %s", buf);
-    }
-    else {
+    } else {
         ESP_LOGI(TAG, "Certificate verified.");
     }
 
@@ -376,28 +377,26 @@ void twilio_send_task(void *pvParameters) {
 
     ESP_LOGI(TAG, "Reading HTTP response...");
 
-    do
-    {
+    do {
         len = sizeof(buf) - 1;
         bzero(buf, sizeof(buf));
         ret = mbedtls_ssl_read(&ssl, (unsigned char *)buf, len);
 
-        if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)
+        if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
             continue;
+        }
 
         if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
             ret = 0;
             break;
         }
 
-        if(ret < 0)
-        {
+        if(ret < 0) {
             ESP_LOGE(TAG, "mbedtls_ssl_read returned -0x%x", -ret);
             break;
         }
 
-        if(ret == 0)
-        {
+        if(ret == 0) {
             ESP_LOGI(TAG, "connection closed");
             break;
         }
@@ -411,8 +410,7 @@ void twilio_send_task(void *pvParameters) {
 
 exit:
 
-    if(ret != 0)
-    {
+    if(ret != 0) {
         mbedtls_strerror(ret, buf, 100);
         ESP_LOGE(TAG, "Last error was: -0x%x - %s", -ret, buf);
     }
@@ -422,13 +420,13 @@ exit:
 }
 
 char * TWILIO_SETTINGS [] = {
-  (char*)TWILIO_SID,
-  (char*)TWILIO_TOKEN,
-  (char*)TWILIO_TYPE,
-  (char*)TWILIO_TO,
-  (char*)TWILIO_FROM,
-  (char*)TWILIO_BODY,
-  0 // EOF
+    (char*)TWILIO_SID,
+    (char*)TWILIO_TOKEN,
+    (char*)TWILIO_TYPE,
+    (char*)TWILIO_TO,
+    (char*)TWILIO_FROM,
+    (char*)TWILIO_BODY,
+    0 // EOF
 };
 
 /**
@@ -439,53 +437,54 @@ char * TWILIO_SETTINGS [] = {
  * @param [in]arg string pointer event class string.
  *
  */
-void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg) {
-  ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
+void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
 
-  std::string outmsg;
-  if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
-    outmsg = ad2_string_format("EVENT ID %d",(int)arg);
-  } else {
-    outmsg = AD2Parse.event_str[(int)arg];
-  }
+    std::string outmsg;
+    if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
+        outmsg = ad2_string_format("EVENT ID %d",(int)arg);
+    } else {
+        outmsg = AD2Parse.event_str[(int)arg];
+    }
 
-  if (g_ad2_network_state == AD2_CONNECTED) {
-    // load our settings for this event type.
-    char buf[80];
+    if (g_ad2_network_state == AD2_CONNECTED) {
+        // load our settings for this event type.
+        char buf[80];
 
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string sid = buf;
+        buf[0]=0;
+        ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+        std::string sid = buf;
 
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string token = buf;
+        buf[0]=0;
+        ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+        std::string token = buf;
 
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string from = buf;
+        buf[0]=0;
+        ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+        std::string from = buf;
 
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    std::string to = buf;
+        buf[0]=0;
+        ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+        std::string to = buf;
 
-    buf[0] = 'M'; // default to Messages
-    ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-    char type = buf[0];
+        buf[0] = 'M'; // default to Messages
+        ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+        char type = buf[0];
 
-    buf[0]=0;
-    ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+        buf[0]=0;
+        ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
 
-    // build the body of the message
-    std::string body = outmsg;
+        // build the body of the message
+        std::string body = outmsg;
 
-    // add to the queue
-    ESP_LOGI(TAG, "Adding task to twilio send queue");
-    twilio_add_queue(sid.c_str(), 
-                     token.c_str(), from.c_str(),
-                     to.c_str(), type, body.c_str());
+        // add to the queue
+        ESP_LOGI(TAG, "Adding task to twilio send queue");
+        twilio_add_queue(sid.c_str(),
+                         token.c_str(), from.c_str(),
+                         to.c_str(), type, body.c_str());
 
-  }
+    }
 }
 
 /**
@@ -505,14 +504,12 @@ static void _cli_cmd_twilio_event(char *string)
     strlwr(key);
 
     int i;
-    for(i = 0;; ++i)
-    {
+    for(i = 0;; ++i) {
         if (TWILIO_SETTINGS[i] == 0) {
             printf("What?\n");
             break;
         }
-        if(!strcmp(key, TWILIO_SETTINGS[i]) == 0)
-        {
+        if(!strcmp(key, TWILIO_SETTINGS[i]) == 0) {
             if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
                 slot = strtol(buf, NULL, 10);
             }
@@ -533,36 +530,48 @@ static void _cli_cmd_twilio_event(char *string)
 }
 
 static struct cli_command twilio_cmd_list[] = {
-    {(char*)TWILIO_TOKEN,(char*)
+    {
+        (char*)TWILIO_TOKEN,(char*)
         "Sets the 'User Auth Token' for notification <slot>.\n"
         "  Syntax: " TWILIO_TOKEN " <slot> <hash>\n"
-        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
-    {(char*)TWILIO_SID,(char*)
+        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n", _cli_cmd_twilio_event
+    },
+    {
+        (char*)TWILIO_SID,(char*)
         "Sets the 'Account SID' for notification <slot>.\n"
         "  Syntax: " TWILIO_SID " <slot> <hash>\n"
-        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n", _cli_cmd_twilio_event},
-    {(char*)TWILIO_FROM,(char*)
+        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n", _cli_cmd_twilio_event
+    },
+    {
+        (char*)TWILIO_FROM,(char*)
         "Sets the 'From' address for notification <slot>\n"
         "  Syntax: " TWILIO_FROM " <slot> <phone#>\n"
-        "  Example: " TWILIO_FROM " 0 13115552368\n", _cli_cmd_twilio_event},
-    {(char*)TWILIO_TO,(char*)
+        "  Example: " TWILIO_FROM " 0 13115552368\n", _cli_cmd_twilio_event
+    },
+    {
+        (char*)TWILIO_TO,(char*)
         "Sets the 'To' address for notification <slot>\n"
         "  Syntax: " TWILIO_TO " <slot> <phone#>\n"
-        "  Example: " TWILIO_TO " 0 13115552368\n", _cli_cmd_twilio_event},
-    {(char*)TWILIO_TYPE,(char*)
+        "  Example: " TWILIO_TO " 0 13115552368\n", _cli_cmd_twilio_event
+    },
+    {
+        (char*)TWILIO_TYPE,(char*)
         "Sets the 'Type' [M]essages|[R]edirect|[T]wilio for notification <slot>\n"
         "  Syntax: " TWILIO_TYPE " <slot> <type>\n"
-        "  Example: " TWILIO_TYPE " 0 M\n", _cli_cmd_twilio_event},
+        "  Example: " TWILIO_TYPE " 0 M\n", _cli_cmd_twilio_event
+    },
 };
 
 /**
  * Initialize queue and SSL
  */
-void twilio_init() {
+void twilio_init()
+{
 
     // Register twilio CLI commands
-    for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++)
+    for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++) {
         cli_register_command(&twilio_cmd_list[i]);
+    }
 
     // init server_fd
     mbedtls_net_init(&server_fd);
@@ -585,9 +594,8 @@ void twilio_init() {
 
     ESP_LOGI(TAG, "Loading the CA root certificate...");
     int ret = mbedtls_x509_crt_parse(&cacert, twilio_root_pem_start,
-                                 twilio_root_pem_end-twilio_root_pem_start);
-    if(ret < 0)
-    {
+                                     twilio_root_pem_end-twilio_root_pem_start);
+    if(ret < 0) {
         ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -ret);
         twilio_free();
         return;
@@ -595,8 +603,7 @@ void twilio_init() {
 
     ESP_LOGI(TAG, "Seeding the random number generator");
     if((ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                    NULL, 0)) != 0)
-    {
+                                    NULL, 0)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ctr_drbg_seed returned %d", ret);
         twilio_free();
         return;
@@ -615,14 +622,13 @@ void twilio_init() {
 
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
     mbedtls_ssl_conf_session_cache( &conf, &cache,
-                                   mbedtls_ssl_cache_get,
-                                   mbedtls_ssl_cache_set );
+                                    mbedtls_ssl_cache_get,
+                                    mbedtls_ssl_cache_set );
 #endif
 
     ESP_LOGI(TAG, "Setting hostname for TLS session...");
-     /* Hostname set here should match CN in server certificate */
-    if((ret = mbedtls_ssl_set_hostname(&ssl, WEB_SERVER)) != 0)
-    {
+    /* Hostname set here should match CN in server certificate */
+    if((ret = mbedtls_ssl_set_hostname(&ssl, WEB_SERVER)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -ret);
         twilio_free();
         return;
@@ -632,15 +638,13 @@ void twilio_init() {
     if((ret = mbedtls_ssl_config_defaults(&conf,
                                           MBEDTLS_SSL_IS_CLIENT,
                                           MBEDTLS_SSL_TRANSPORT_STREAM,
-                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
-    {
+                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ssl_config_defaults returned %d", ret);
         twilio_free();
         return;
     }
 
-    if ((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0)
-    {
+    if ((ret = mbedtls_ssl_setup(&ssl, &conf)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -ret);
         twilio_free();
         return;

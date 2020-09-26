@@ -83,13 +83,13 @@ static void _cli_cmd_code_event(char *string)
     if (slot >= 0 && slot <= AD2_MAX_CODE) {
         if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
             if (strlen(buf)) {
-                    if (atoi(buf) == -1) {
-                        printf("Removing code in slot %i...\n", slot);
-                        ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
-                    } else {
-                        printf("Setting code in slot %i to '%s'...\n", slot, buf);
-                        ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
-                    }
+                if (atoi(buf) == -1) {
+                    printf("Removing code in slot %i...\n", slot);
+                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
+                } else {
+                    printf("Setting code in slot %i to '%s'...\n", slot, buf);
+                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
+                }
             }
         } else {
             // show contents of this slot
@@ -130,12 +130,12 @@ static void _cli_cmd_vpaddr_event(char *string)
         if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
             int address = strtol(buf, NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                    printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
-                    ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
+                printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
+                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
             } else {
-                    // delete entry
-                    printf("Deleting vpaddr in slot %i...\n", slot);
-                    ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, -1);
+                // delete entry
+                printf("Deleting vpaddr in slot %i...\n", slot);
+                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, -1);
             }
         } else {
             // show contents of this slot
@@ -165,19 +165,20 @@ static void _cli_cmd_ad2source_event(char *string)
 
     if (ad2_copy_nth_arg(modesz, string, sizeof(modesz), 1) >= 0) {
         // upper case it all
-        uint8_t mode = toupper((int)modesz[0]); modesz[0] = mode; modesz[1] = 0;
+        uint8_t mode = toupper((int)modesz[0]);
+        modesz[0] = mode;
+        modesz[1] = 0;
         if (ad2_copy_nth_arg(arg, string, sizeof(arg), 2) >= 0) {
-            switch (mode)
-            {
-                case 'S':
-                case 'C':
-                    // save mode in slot 0
-                    ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, modesz);
-                    // save arg in slot 1
-                    ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, arg);
-                    break;
-                default:
-                    printf("Invalid mode selected must be [S]ocket or [C]OM\n");
+            switch (mode) {
+            case 'S':
+            case 'C':
+                // save mode in slot 0
+                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, modesz);
+                // save arg in slot 1
+                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, arg);
+                break;
+            default:
+                printf("Invalid mode selected must be [S]ocket or [C]OM\n");
             }
         } else {
             printf("Missing <arg>\n");
@@ -233,13 +234,18 @@ static void _cli_cmd_butten_event(char *string)
 
 // @brief AD2IoT base CLI commands
 static struct cli_command cmd_list[] = {
-    {(char*)AD2_REBOOT,(char*)
-        "reboot this microcontroller\n", _cli_cmd_reboot_event},
-    {(char*)AD2_BUTTON,(char*)
+    {
+        (char*)AD2_REBOOT,(char*)
+        "reboot this microcontroller\n", _cli_cmd_reboot_event
+    },
+    {
+        (char*)AD2_BUTTON,(char*)
         "Simulate a button press event\n"
         "  Syntax: " AD2_BUTTON " <count> <type>\n"
-        "  Example: " AD2_BUTTON " 5 / " AD2_BUTTON " 1 long\n", _cli_cmd_butten_event},
-    {(char*)AD2_CODE,(char*)
+        "  Example: " AD2_BUTTON " 5 / " AD2_BUTTON " 1 long\n", _cli_cmd_butten_event
+    },
+    {
+        (char*)AD2_CODE,(char*)
         "Manage user codes\n"
         "  Syntax: " AD2_CODE " <id> <value>\n"
         "  Examples:\n"
@@ -251,8 +257,10 @@ static struct cli_command cmd_list[] = {
         "      " AD2_CODE " 3\n"
         "    Remove code for slot 2\n"
         "      " AD2_CODE " 2 -1\n"
-        "    Note: value -1 will remove an entry.\n", _cli_cmd_code_event},
-    {(char*)AD2_VPADDR,(char*)
+        "    Note: value -1 will remove an entry.\n", _cli_cmd_code_event
+    },
+    {
+        (char*)AD2_VPADDR,(char*)
         "Manage virtual partitions\n"
         "  Syntax: " AD2_VPADDR " <partition> <address>\n"
         "  Examples:\n"
@@ -262,8 +270,10 @@ static struct cli_command cmd_list[] = {
         "      " AD2_VPADDR " 2\n"
         "    Remove virtual partition in slot 2\n"
         "      " AD2_VPADDR " 2 -1\n"
-        "  Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr_event},
-    {(char*)AD2_SOURCE,(char*)
+        "  Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr_event
+    },
+    {
+        (char*)AD2_SOURCE,(char*)
         "Manage AlarmDecoder protocol source.\n"
         "  Syntax: " AD2_SOURCE " <[S]OCK|[C]OM> <AUTHORITY|UART#>\n"
         "  Examples:\n"
@@ -272,16 +282,19 @@ static struct cli_command cmd_list[] = {
         "    Set source to ser2sock client at address and port\n"
         "      " AD2_SOURCE " SOCK 192.168.1.2:10000\n"
         "    Set source to local attached uart #2\n"
-        "      " AD2_SOURCE " COM 2\n", _cli_cmd_ad2source_event},
+        "      " AD2_SOURCE " COM 2\n", _cli_cmd_ad2source_event
+    },
 };
 
 /**
  * @brief Register ad2 CLI commands.
  *
  */
-void register_ad2_cli_cmd(void) {
-    for (int i = 0; i < ARRAY_SIZE(cmd_list); i++)
+void register_ad2_cli_cmd(void)
+{
+    for (int i = 0; i < ARRAY_SIZE(cmd_list); i++) {
         cli_register_command(&cmd_list[i]);
+    }
 }
 
 #ifdef __cplusplus

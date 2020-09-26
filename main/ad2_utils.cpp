@@ -54,7 +54,8 @@ extern "C" {
  * @param ... variable args.
  *
  */
-std::string ad2_string_format(const std::string fmt, ...) {
+std::string ad2_string_format(const std::string fmt, ...)
+{
     int size = ((int)fmt.size()) * 2 + 50;   // Use a rubric appropriate for your code
     std::string str;
     va_list ap;
@@ -67,10 +68,11 @@ std::string ad2_string_format(const std::string fmt, ...) {
             str.resize(n);
             return str;
         }
-        if (n > -1)  // Needed size returned
-            size = n + 1;   // For null char
-        else
-            size *= 2;      // Guess at a larger size (OS specific)
+        if (n > -1) { // Needed size returned
+            size = n + 1;    // For null char
+        } else {
+            size *= 2;    // Guess at a larger size (OS specific)
+        }
     }
     return str;
 }
@@ -83,7 +85,8 @@ std::string ad2_string_format(const std::string fmt, ...) {
  * @param [out]valueout int * to store search results.
  *
  */
-void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout) {
+void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout)
+{
     esp_err_t err;
 
     // Open NVS
@@ -110,7 +113,8 @@ void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout) {
  *
  * @note  value < 0 will remove entry
  */
-void ad2_set_nv_slot_key_int(const char *key, int slot, int value) {
+void ad2_set_nv_slot_key_int(const char *key, int slot, int value)
+{
     esp_err_t err;
 
     // Open NVS
@@ -141,7 +145,8 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, int value) {
  * @param [out]valueout pointer store search results.
  *
  */
-void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_t size) {
+void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_t size)
+{
     esp_err_t err;
 
     // Open NVS
@@ -168,7 +173,8 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_
  * @param [in]value pointer to string to store for search results.
  *
  */
-void ad2_set_nv_slot_key_string(const char *key, int slot, char *value) {
+void ad2_set_nv_slot_key_string(const char *key, int slot, char *value)
+{
     esp_err_t err;
 
     // Open NVS
@@ -294,7 +300,8 @@ int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_arm_away(int codeId, int vpartId) {
+void ad2_arm_away(int codeId, int vpartId)
+{
 
     // Get user code
     char code[7];
@@ -306,7 +313,7 @@ void ad2_arm_away(int codeId, int vpartId) {
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
-    ESP_LOGI(TAG ,"Sending ARM AWAY command");
+    ESP_LOGI(TAG,"Sending ARM AWAY command");
     ad2_send(msg);
 }
 
@@ -322,7 +329,8 @@ void ad2_arm_away(int codeId, int vpartId) {
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_arm_stay(int codeId, int vpartId) {
+void ad2_arm_stay(int codeId, int vpartId)
+{
 
     // Get user code
     char code[7];
@@ -335,7 +343,7 @@ void ad2_arm_stay(int codeId, int vpartId) {
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "2");
-    ESP_LOGI(TAG ,"Sending ARM STAY command");
+    ESP_LOGI(TAG,"Sending ARM STAY command");
     ad2_send(msg);
 }
 
@@ -351,7 +359,8 @@ void ad2_arm_stay(int codeId, int vpartId) {
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_disarm(int codeId, int vpartId) {
+void ad2_disarm(int codeId, int vpartId)
+{
 
     // Get user code
     char code[7];
@@ -364,7 +373,7 @@ void ad2_disarm(int codeId, int vpartId) {
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "1");
-    ESP_LOGI(TAG ,"Sending DISARM command");
+    ESP_LOGI(TAG,"Sending DISARM command");
     ad2_send(msg);
 }
 
@@ -380,7 +389,8 @@ void ad2_disarm(int codeId, int vpartId) {
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_chime_toggle(int codeId, int vpartId) {
+void ad2_chime_toggle(int codeId, int vpartId)
+{
 
     // Get user code
     char code[7];
@@ -393,7 +403,7 @@ void ad2_chime_toggle(int codeId, int vpartId) {
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "9");
-    ESP_LOGI(TAG ,"Sending CHIME toggle command");
+    ESP_LOGI(TAG,"Sending CHIME toggle command");
     ad2_send(msg);
 }
 
@@ -409,7 +419,8 @@ void ad2_chime_toggle(int codeId, int vpartId) {
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_fire_alarm(int codeId, int vpartId) {
+void ad2_fire_alarm(int codeId, int vpartId)
+{
 
     // Get user code
     char code[7];
@@ -422,7 +433,7 @@ void ad2_fire_alarm(int codeId, int vpartId) {
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "\001\001\001");
-    ESP_LOGI(TAG ,"Sending FIRE PANIC button command");
+    ESP_LOGI(TAG,"Sending FIRE PANIC button command");
     ad2_send(msg);
 }
 
@@ -435,20 +446,19 @@ void ad2_fire_alarm(int codeId, int vpartId) {
  */
 void ad2_send(char *buf)
 {
-  if(g_ad2_client_handle>-1) {
-    if (g_ad2_mode == 'C') {
-      uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
-    } else
-    if (g_ad2_mode == 'S') {
-      // the handle is a socket fd use send()
-      send(g_ad2_client_handle, buf, strlen(buf), 0);
+    if(g_ad2_client_handle>-1) {
+        if (g_ad2_mode == 'C') {
+            uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
+        } else if (g_ad2_mode == 'S') {
+            // the handle is a socket fd use send()
+            send(g_ad2_client_handle, buf, strlen(buf), 0);
+        } else {
+            ESP_LOGE(TAG, "invalid ad2 connection mode");
+        }
     } else {
-        ESP_LOGE(TAG, "invalid ad2 connection mode");
-    }
-  } else {
         ESP_LOGE(TAG, "invalid handle in send_to_ad2");
         return;
-  }
+    }
 }
 
 #ifdef __cplusplus

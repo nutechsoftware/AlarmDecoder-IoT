@@ -66,7 +66,7 @@ void hal_change_switch_b_state(int switch_state)
 
 /**
  * @brief Button state tracking call periodically.
- * 
+ *
  * @details State machine called frequently to watch for physical
  * button state changes. If changes are detected it will return
  * true and place the details about the event into the provided
@@ -110,7 +110,7 @@ int hal_get_button_event(int* button_event_type, int* button_event_count)
             button_count = 0;
             return true;
         } else if ((gpio_level == BUTTON_GPIO_RELEASED)
-                && (xTaskCheckForTimeOut(&button_timeout, &button_delay_tick ) != pdFALSE)) {
+                   && (xTaskCheckForTimeOut(&button_timeout, &button_delay_tick ) != pdFALSE)) {
             *button_event_type = BUTTON_SHORT_PRESS;
             *button_event_count = button_count;
             button_count = 0;
@@ -157,32 +157,31 @@ void hal_change_led_mode(int mode)
         led_tick = 0;
     }
 
-    switch (mode)
-    {
-        case LED_ANIMATION_MODE_IDLE:
-            break;
-        case LED_ANIMATION_MODE_SLOW:
-            if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
-                led_state = 1 - led_state;
-                hal_change_switch_a_state(led_state);
-                vTaskSetTimeOutState(&led_timeout);
-                if (led_state == SWITCH_ON) {
-                    led_tick = pdMS_TO_TICKS(200);
-                } else {
-                    led_tick = pdMS_TO_TICKS(800);
-                }
+    switch (mode) {
+    case LED_ANIMATION_MODE_IDLE:
+        break;
+    case LED_ANIMATION_MODE_SLOW:
+        if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
+            led_state = 1 - led_state;
+            hal_change_switch_a_state(led_state);
+            vTaskSetTimeOutState(&led_timeout);
+            if (led_state == SWITCH_ON) {
+                led_tick = pdMS_TO_TICKS(200);
+            } else {
+                led_tick = pdMS_TO_TICKS(800);
             }
-            break;
-        case LED_ANIMATION_MODE_FAST:
-            if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
-                led_state = 1 - led_state;
-                hal_change_switch_a_state(led_state);
-                vTaskSetTimeOutState(&led_timeout);
-                led_tick = pdMS_TO_TICKS(100);
-            }
-            break;
-        default:
-            break;
+        }
+        break;
+    case LED_ANIMATION_MODE_FAST:
+        if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
+            led_state = 1 - led_state;
+            hal_change_switch_a_state(led_state);
+            vTaskSetTimeOutState(&led_timeout);
+            led_tick = pdMS_TO_TICKS(100);
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -191,41 +190,42 @@ void hal_change_led_mode(int mode)
  */
 void hal_gpio_init(void)
 {
-	gpio_config_t io_conf;
+    gpio_config_t io_conf;
 
-	io_conf.intr_type = GPIO_INTR_DISABLE;
-	io_conf.mode = GPIO_MODE_OUTPUT;
-	io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED;
-	io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
-	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-	gpio_config(&io_conf);
-	io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED_0;
-	gpio_config(&io_conf);
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED;
+    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED_0;
+    gpio_config(&io_conf);
 
-	io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_NOUSE1;
-	gpio_config(&io_conf);
-	io_conf.pin_bit_mask = (gpio_num_t)1 <<GPIO_OUTPUT_NOUSE2;
-	gpio_config(&io_conf);
+    io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_NOUSE1;
+    gpio_config(&io_conf);
+    io_conf.pin_bit_mask = (gpio_num_t)1 <<GPIO_OUTPUT_NOUSE2;
+    gpio_config(&io_conf);
 
 
-	io_conf.intr_type = GPIO_INTR_ANYEDGE;
-	io_conf.mode = GPIO_MODE_INPUT;
-	io_conf.pin_bit_mask = 1 << GPIO_INPUT_BUTTON;
-	io_conf.pull_down_en = (BUTTON_GPIO_RELEASED == 0 ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE);
-	io_conf.pull_up_en = (BUTTON_GPIO_RELEASED == 1 ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE);
-	gpio_config(&io_conf);
+    io_conf.intr_type = GPIO_INTR_ANYEDGE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = 1 << GPIO_INPUT_BUTTON;
+    io_conf.pull_down_en = (BUTTON_GPIO_RELEASED == 0 ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE);
+    io_conf.pull_up_en = (BUTTON_GPIO_RELEASED == 1 ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE);
+    gpio_config(&io_conf);
 
-	gpio_set_intr_type((gpio_num_t)GPIO_INPUT_BUTTON, GPIO_INTR_ANYEDGE);
+    gpio_set_intr_type((gpio_num_t)GPIO_INPUT_BUTTON, GPIO_INTR_ANYEDGE);
 
-	gpio_install_isr_service(0);
+    gpio_install_isr_service(0);
 
-	gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
-	gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED_0, 0);
+    gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+    gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED_0, 0);
 }
 
 /**
  * @brief restart the hardware
  */
-void hal_restart() {
+void hal_restart()
+{
     esp_restart();
 }
