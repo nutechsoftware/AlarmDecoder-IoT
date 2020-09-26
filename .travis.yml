@@ -3,11 +3,6 @@ sudo: require
 
 language: python
 
-branches:
-  only:
-  - master
-  - test
-
 python:
   - "3.7"
 
@@ -20,7 +15,7 @@ cache:
   - "~/.platformio"
   - $HOME/astyle
 
- install:
+install:
   - pip install -U platformio
 
 before_script:
