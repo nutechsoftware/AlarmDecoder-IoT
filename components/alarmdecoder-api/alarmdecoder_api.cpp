@@ -2,7 +2,7 @@
  *  @file    alarmdecoder_api.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    01/15/2020
- *  @version 1.0
+ *  @version 1.0.1
  *
  *  @brief AlarmDecoder embedded state machine and parser
  *
