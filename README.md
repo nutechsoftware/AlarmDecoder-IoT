@@ -81,6 +81,10 @@ https://smartthings.developer.samsung.com/partner/enroll
    - Set Twilio To
 
 ## Building firmware
+### Setup build environment
+- Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
+- Place the contents of this his project in ```st-device-sdk-c-ref/apps/esp32/```
+
 ### Configure the project
 
 ```
@@ -161,3 +165,7 @@ I (266972) AD2_IoT: MESSAGE_CB: '[10010001000000003A--],008,[f72600ff1008001c080
 ```
 
 ## Troubleshooting
+- Pressing ENTER early in the ESP32 boot will prevent any startup tasks. This can help if the ESP32 is in a REBOOT CRASH LOOP. To exit this mode ```'reboot'```
+- If the AD2* is not communicating it may be stuck in a configuration mode or its configuration may have been corrupted during firmware update of the ESP32. If this happens you can directly connect to the AD2* over the UART or Socket by using the command ```'ad2term'```.
+
+  Note) If the connection is a Socket it is currently necessary to have the ESP32 running and not halted at boot and connected with SmartThings for Wifi and networking to be active.
