@@ -4,12 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased] - 2020-09-27 WIP
+## [Unreleased] WIP
 - [ ] - TODO: Build with espidf idf.py tool
 - [ ] ARM Stay/Away
    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526).
-## [1.0.1] - 2020-09-25 WIP
 
+## [1.0.1 p1] - 2020-09-27
+- [X] - Added support code for 'C' mode connection.
+- [X] - Refactor 'ad2source' command to allow selecting GPIO UARTS TX/RX pins.
+- [X] - New command 'ad2term' to connect directly to AD2* and stop processing.
+- [X] - Adding a ad2_* string util for splitting strings. Still needs const char * override.
+
+## [1.0.1] - 2020-09-25
 - [X] Code formatting and Travis CI setup on github. What a mess :)... "astyle --style=otbs"
 
 ## [1.0.0B] - 2020-09-18

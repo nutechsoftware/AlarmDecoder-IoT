@@ -74,6 +74,16 @@ extern "C" {
  */
 static const char *TAG = "AD2_IoT";
 
+/**
+* Control main task processing
+*  0 : running the main function
+*  1 : stop for a timeout
+*  2 : stop before selecting the go_main function.
+*/
+int g_StopMainTask = 0;
+
+portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
+
 // global AlarmDecoder parser class instance
 AlarmDecoderParser AD2Parse;
 
@@ -207,19 +217,59 @@ static void ad2_app_main_task(void *pvParameters)
     int button_event_count;
 
     for (;;) {
-        if (hal_get_button_event(&button_event_type, &button_event_count)) {
-            // FIXME: update stsdk virtual button state
+        // do not process if main halted.
+        if (!g_StopMainTask) {
+            if (hal_get_button_event(&button_event_type, &button_event_count)) {
+                // FIXME: update stsdk virtual button state
+            }
+            if (noti_led_mode != LED_ANIMATION_MODE_IDLE) {
+                hal_change_led_mode(noti_led_mode);
+            }
         }
-        if (noti_led_mode != LED_ANIMATION_MODE_IDLE) {
-            hal_change_led_mode(noti_led_mode);
-        }
-
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
     vTaskDelete(NULL);
 }
 
+/**
+ * @brief ad2uart client task
+ * process messages from local UART connected to the AD2*
+ * device.
+ *
+ * @note Hardware uart may have noise during flashing or rebooting.
+ * To help we will send down a bunch of line breaks to force the AD2*
+ * into run mode. This is not necessary with socket connected AD2*.
+ *
+ * @param [in]pvParameters currently not used NULL.
+ */
+static void ad2uart_client_task(void *pvParameters)
+{
+    uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
+
+    // send break to AD2* be sure we are in run mode.
+    std::string breakline = "\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n";
+    uart_write_bytes((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length());
+
+    while (1) {
+        // do not process if main halted.
+        if (!g_StopMainTask) {
+            memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
+
+            // Read data from the UART
+            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 10 / portTICK_RATE_MS);
+            if (len == -1) {
+                // An error happend. Sleep for a bit and try again?
+                vTaskDelay(5000 / portTICK_PERIOD_MS);
+            }
+            if (len>0) {
+                AD2Parse.put(rx_buffer, len);
+            }
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+    vTaskDelete(NULL);
+}
 
 /**
  * @brief ser2sock client task
@@ -230,48 +280,49 @@ static void ad2_app_main_task(void *pvParameters)
  */
 static void ser2sock_client_task(void *pvParameters)
 {
-    uint8_t rx_buffer[128];
-    char host[AD2_MAX_MODE_ARG_SIZE] = {0};
-    int port = 0;
-    int addr_family = 0;
-    int ip_protocol = 0;
 
     while (1) {
         if (g_ad2_network_state == AD2_CONNECTED) {
-
             // load settings from NVS
             // host stored in slot 1
-            ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, host, sizeof(host));
+            char buf[AD2_MAX_MODE_ARG_SIZE] = {0};
+            ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                                       AD2MODE_CONFIG_ARG_SLOT, buf, sizeof(buf));
 
-            char tokens[] = ": ";
-            char *hostptr = strtok(host, tokens);
-            char *portptr = NULL;
-            bool connectok = true;
-            if (hostptr != NULL) {
-                portptr = strtok(NULL, tokens);
-                if (portptr != NULL) {
-                    connectok = true;
-                }
+            std::vector<std::string> out;
+            ad2_tokenize(std::string(buf), ':', out);
+
+            // data sanity tests
+            bool connectok = false;
+            if (out[0].length() > 0) {
+                connectok = true;
             }
+            int port = atoi(out[1].c_str());
+            if (port > 0) {
+                connectok = true;
+            }
+            std::string host = out[0];
 
+            // looks good. connect.
             if (connectok) {
-                port = atoi(portptr);
+                ESP_LOGI(TAG, "Connecting to ser2sock host %s:%i", host.c_str(), port);
             } else {
-                ESP_LOGE(TAG, "Error parsing host:port from settings");
+                ESP_LOGE(TAG, "Error parsing host:port from settings '%s'", buf);
             }
 
-            ESP_LOGI(TAG, "Connecting to ser2sock host %s:%i", hostptr, port);
+            int addr_family = 0;
+            int ip_protocol = 0;
 
 #if defined(CONFIG_AD2IOT_SER2SOCK_IPV4)
             struct sockaddr_in dest_addr;
-            dest_addr.sin_addr.s_addr = inet_addr(host);
+            dest_addr.sin_addr.s_addr = inet_addr(host.c_str());
             dest_addr.sin_family = AF_INET;
             dest_addr.sin_port = htons(port);
             addr_family = AF_INET;
             ip_protocol = IPPROTO_IP;
 #elif defined(CONFIG_AD2IOT_SER2SOCK_IPV6)
             struct sockaddr_in6 dest_addr = { 0 };
-            inet6_aton(host, &dest_addr.sin6_addr);
+            inet6_aton(host.c_str(), &dest_addr.sin6_addr);
             dest_addr.sin6_family = AF_INET6;
             dest_addr.sin6_port = htons(port);
             dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(EXAMPLE_INTERFACE);
@@ -286,7 +337,7 @@ static void ser2sock_client_task(void *pvParameters)
                 ESP_LOGE(TAG, "ser2sock client unable to create socket: errno %d", errno);
                 break;
             }
-            ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host, port);
+            ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host.c_str(), port);
 
             int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
             if (err != 0) {
@@ -295,23 +346,32 @@ static void ser2sock_client_task(void *pvParameters)
             }
             ESP_LOGI(TAG, "ser2sock client successfully connected");
 
-            while (1) {
-                int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
-                // Error occurred during receiving
-                if (len < 0) {
-                    ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
-                    break;
-                }
-                // Data received
-                else {
-                    // Parse data from AD2* and report back to host.
-                    rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                    AD2Parse.put(rx_buffer, len);
-                }
+            // set socket non blocking.
+            fcntl(g_ad2_client_handle, F_SETFL, O_NONBLOCK);
 
+            while (1) {
+                // do not process if main halted.
+                if (!g_StopMainTask) {
+                    uint8_t rx_buffer[128];
+                    int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
+                    // test if error occurred
+                    if (len < 0) {
+                        if ( errno != EAGAIN && errno == EWOULDBLOCK ) {
+                            ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
+                            break;
+                        }
+                    }
+                    // Data received
+                    else {
+                        // Parse data from AD2* and report back to host.
+                        rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                        AD2Parse.put(rx_buffer, len);
+                    }
+                }
                 if (g_ad2_network_state != AD2_CONNECTED) {
                     break;
                 }
+                vTaskDelay(10 / portTICK_PERIOD_MS);
             }
 
             if (g_ad2_client_handle != -1) {
@@ -481,17 +541,41 @@ void init_ser2sock_server()
  */
 void init_ad2_uart_client()
 {
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity    = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .rx_flow_ctrl_thresh = 0,
-        .use_ref_tick = false
-    };
-    uart_param_config((uart_port_t)g_ad2_client_handle, &uart_config);
-    uart_driver_install((uart_port_t)g_ad2_client_handle, 2048, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    // load settings from NVS
+    // host stored in slot 1
+    char port_pins[20];
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_ARG_SLOT, port_pins, sizeof(port_pins));
+    g_ad2_client_handle = UART_NUM_2;
+    std::vector<std::string> out;
+    ad2_tokenize(std::string(port_pins), ':', out);
+    ESP_LOGI(TAG, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
+    int tx_pin = atoi(out[0].c_str());
+    int rx_pin = atoi(out[1].c_str());
+
+    // Configure parameters of an UART driver,
+    uart_config_t* uart_config = (uart_config_t*)calloc(sizeof(uart_config_t), 1);
+
+    uart_config->baud_rate = 115200;
+    uart_config->data_bits = UART_DATA_8_BITS;
+    uart_config->parity    = UART_PARITY_DISABLE;
+    uart_config->stop_bits = UART_STOP_BITS_1;
+    uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    uart_config->rx_flow_ctrl_thresh = 1;
+
+    uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
+
+    uart_set_pin((uart_port_t)g_ad2_client_handle,
+                 tx_pin,   // TX
+                 rx_pin,   // RX
+                 UART_PIN_NO_CHANGE, // RTS
+                 UART_PIN_NO_CHANGE);// CTS
+
+    uart_driver_install((uart_port_t)g_ad2_client_handle, AD2_UART_RX_BUFF_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    free(uart_config);
+
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 4096, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
+
 }
 
 /**
@@ -529,6 +613,9 @@ void app_main()
         ESP_LOGI(TAG, "nvs_flash_init done");
     }
     ESP_ERROR_CHECK( err );
+
+    // Register and start the AD2IOT cli early so we can stop init by hitting enter.
+    register_ad2_cli_cmd();
 
     /**
      * FIXME: SmartThings needs to manage the Wifi during adopting.
@@ -571,7 +658,8 @@ void app_main()
     // Load AD2IoT operating mode [Socket|UART] and argument
     // get the mode
     char mode[2];
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, mode, sizeof(mode));
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_MODE_SLOT, mode, sizeof(mode));
     g_ad2_mode = mode[0];
 
     // init the AlarmDecoder UART
@@ -598,9 +686,6 @@ void app_main()
     // Initialize SmartThings SDK
     stsdk_init();
 #endif
-
-    // Register and start the AD2IOT cli.
-    register_ad2_cli_cmd();
 
     // Start the CLI.
     // Press ENTER to halt and stay in CLI only.

@@ -28,6 +28,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// global thread control
+extern int g_StopMainTask;
+extern portMUX_TYPE spinlock;
+
 // global AlarmDecoder parser class instance
 extern AlarmDecoderParser AD2Parse;
 

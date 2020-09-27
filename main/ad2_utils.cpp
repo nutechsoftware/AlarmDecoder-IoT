@@ -48,6 +48,26 @@ extern "C" {
 #endif
 
 /**
+ * @brief split string to vector on token
+ *
+ * @param [in]str std::string input string
+ * @param [in]delim const char delimeter
+ * @param [in]out pointer to output std::vector of std:strings
+ *
+ */
+void ad2_tokenize(std::string const &str, const char delim,
+                  std::vector<std::string> &out)
+{
+    // construct a stream from the string
+    std::stringstream ss(str);
+
+    std::string s;
+    while (std::getline(ss, s, delim)) {
+        out.push_back(s);
+    }
+}
+
+/**
  * @brief printf formatting for std::string.
  *
  * @param [in]fmt std::string format.

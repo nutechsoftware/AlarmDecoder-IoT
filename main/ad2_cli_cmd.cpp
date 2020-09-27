@@ -154,9 +154,10 @@ static void _cli_cmd_vpaddr_event(char *string)
  *
  * @note command: ad2source <mode> <arg>
  *   examples.
- *     AD2IOT # ad2source c 2
+ *     AD2IOT # ad2source c 17:16
+ *                          [TX PIN:RX PIN]
  *     AD2IOT # ad2source s 192.168.1.2:10000
- *
+ *                          [HOST:PORT]
  */
 static void _cli_cmd_ad2source_event(char *string)
 {
@@ -173,9 +174,11 @@ static void _cli_cmd_ad2source_event(char *string)
             case 'S':
             case 'C':
                 // save mode in slot 0
-                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, modesz);
+                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                                           AD2MODE_CONFIG_MODE_SLOT, modesz);
                 // save arg in slot 1
-                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, arg);
+                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                                           AD2MODE_CONFIG_ARG_SLOT, arg);
                 break;
             default:
                 printf("Invalid mode selected must be [S]ocket or [C]OM\n");
@@ -185,13 +188,115 @@ static void _cli_cmd_ad2source_event(char *string)
         }
     } else {
         // get mode in slot 0
-        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 0, modesz, sizeof(modesz));
+        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                                   AD2MODE_CONFIG_MODE_SLOT, modesz, sizeof(modesz));
 
         // get arg in slot 1
-        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY, 1, arg, sizeof(arg));
+        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                                   AD2MODE_CONFIG_ARG_SLOT, arg, sizeof(arg));
 
-        printf("Current %s '%s'\n", (modesz[0]=='C'?"UART#":"AUTHORITY"), arg);
+        printf("Current %s '%s'\n", (modesz[0]=='C'?"COM TXPIN:RXPIN":"SOCKET AUTHORITY"), arg);
     }
+}
+
+/**
+ * @brief Configure the AD2IoT connection to the AlarmDecoder device
+ *
+ * @param [in]string command buffer pointer.
+ *
+ * @note command: ad2term
+ *   Note) To exit press '.' three times fast.
+ *
+ */
+static void _cli_cmd_ad2term_event(char *string)
+{
+    printf("Locking main threads. Send '.' 3 times to break out and return.\n");
+    portENTER_CRITICAL(&spinlock);
+    g_StopMainTask = 2;
+    portEXIT_CRITICAL(&spinlock);
+
+    // proccess data from AD2* and send to UART0
+    // any data on UART0 send to AD2*
+    uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
+
+    while (1) {
+
+        // UART source to host
+        if (g_ad2_mode == 'C') {
+            // Read data from the UART
+            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_PERIOD_MS);
+            if (len == -1) {
+                // An error happend. Sleep for a bit and try again?
+                ESP_LOGE(TAG, "Error reading for UART aborting task.");
+                break;
+            }
+            if (len>0) {
+                rx_buffer[len] = 0;
+                printf((char*)rx_buffer);
+                fflush(stdout);
+            }
+
+            // Socket source
+        } else if (g_ad2_mode == 'S') {
+            if (g_ad2_network_state == AD2_CONNECTED) {
+                int len = recv(g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 0);
+
+                // test if error occurred
+                if (len < 0) {
+                    if ( errno != EAGAIN && errno == EWOULDBLOCK ) {
+                        ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
+                        break;
+                    }
+                }
+                // Data received
+                else {
+                    // Parse data from AD2* and report back to host.
+                    rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                    printf((char*)rx_buffer);
+                    fflush(stdout);
+                }
+            }
+
+            // should not happen
+        } else {
+            ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+            printf("AD2IoT operating mode configured. Configure using ad2source command.\n");
+            break;
+        }
+
+        // Host to AD2*
+        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_PERIOD_MS);
+        if (len == -1) {
+            // An error happend. Sleep for a bit and try again?
+            ESP_LOGE(TAG, "Error reading for UART aborting task.");
+            break;
+        }
+        if (len>0) {
+
+            // Detect "..." break sequence.
+            static uint8_t break_count = 0;
+            if (rx_buffer[0] == '.') { // note perfect peek at first byte.
+                break_count++;
+                if (break_count > 2) {
+                    break_count = 0;
+                    break;
+                }
+            } else {
+                break_count = 0;
+            }
+
+            // null terminate and send the message to the AD2*
+            rx_buffer[len] = 0;
+            ad2_send((char*)rx_buffer);
+        }
+
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+    }
+
+    printf("Resuming main threads.\n");
+    portENTER_CRITICAL(&spinlock);
+    g_StopMainTask = 0;
+    portEXIT_CRITICAL(&spinlock);
 }
 
 /**
@@ -275,15 +380,20 @@ static struct cli_command cmd_list[] = {
     {
         (char*)AD2_SOURCE,(char*)
         "Manage AlarmDecoder protocol source.\n"
-        "  Syntax: " AD2_SOURCE " <[S]OCK|[C]OM> <AUTHORITY|UART#>\n"
+        "  Syntax: " AD2_SOURCE " <[S]OCK|[C]OM> <AUTHORITY|TXPIN:RXPIN]>\n"
         "  Examples:\n"
         "    Show current mode\n"
         "      " AD2_SOURCE "\n"
         "    Set source to ser2sock client at address and port\n"
         "      " AD2_SOURCE " SOCK 192.168.1.2:10000\n"
-        "    Set source to local attached uart #2\n"
-        "      " AD2_SOURCE " COM 2\n", _cli_cmd_ad2source_event
+        "    Set source to local attached uart with TX pin 17 and RX pin 16\n"
+        "      " AD2_SOURCE " COM 17:16\n", _cli_cmd_ad2source_event
     },
+    {
+        (char*)AD2_TERM,(char*)
+        "Connect directly to the AD2* source and halt processing.\n"
+        "To exit press ... three times fast.", _cli_cmd_ad2term_event
+    }
 };
 
 /**

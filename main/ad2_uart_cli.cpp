@@ -47,16 +47,6 @@ static const char *TAG = "AD2UTIL";
 extern "C" {
 #endif
 
-/**
-* Control main CLI task processing
-*  0 : running the main function
-*  1 : stop for a timeout
-*  2 : stop before selecting the go_main function.
-*/
-int g_StopMainTask = 0;
-
-static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
-
 static struct cli_command_list *cli_cmd_list;
 
 static void cli_cmd_help(char *string);
@@ -269,7 +259,7 @@ static void esp_uart_cli_task(void *pvParameters)
 {
 
     // Configure a temporary buffer for the incoming data
-    uint8_t data[UART_BUF_SIZE];
+    uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
     uint8_t line[MAX_UART_LINE_SIZE];
     uint8_t prev_line[MAX_UART_LINE_SIZE];
     memset(line, 0, MAX_UART_LINE_SIZE);
@@ -279,12 +269,12 @@ static void esp_uart_cli_task(void *pvParameters)
     cli_register_command(&help_cmd);
 
     while (1) {
-        memset(data, 0, UART_BUF_SIZE);
+        memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
         // Read data from the UART
-        int len = uart_read_bytes(UART_NUM_0, data, UART_BUF_SIZE, 20 / portTICK_RATE_MS);
+        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_RATE_MS);
         for (int i = 0; i < len; i++) {
-            switch(data[i]) {
+            switch(rx_buffer[i]) {
             case '\r':
             case '\n':
                 portENTER_CRITICAL(&spinlock);
@@ -321,12 +311,12 @@ static void esp_uart_cli_task(void *pvParameters)
                 break;
 
             case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
-                if ( data[i+1] == 0x5B ) {
-                    switch (data[i+2]) {
+                if ( rx_buffer[i+1] == 0x5B ) {
+                    switch (rx_buffer[i+2]) {
                     case 0x41: //UP
                         memcpy(line, prev_line, MAX_UART_LINE_SIZE);
                         line_len = strlen((char*)line);
-                        uart_write_bytes(UART_NUM_0, (const char *)&data[i+1], 2);
+                        uart_write_bytes(UART_NUM_0, (const char *)&rx_buffer[i+1], 2);
                         uart_write_bytes(UART_NUM_0, "\r\n", 2);
                         uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
                         uart_write_bytes(UART_NUM_0, (const char *)line, line_len);
@@ -338,14 +328,14 @@ static void esp_uart_cli_task(void *pvParameters)
                     case 0x43: //right
                         if (line[line_len+1] != '\0') {
                             line_len += 1;
-                            uart_write_bytes(UART_NUM_0, (const char *)&data[i], 3);
+                            uart_write_bytes(UART_NUM_0, (const char *)&rx_buffer[i], 3);
                         }
                         i+=3;
                         break;
                     case 0x44: //left
                         if (line_len > 0) {
                             line_len -= 1;
-                            uart_write_bytes(UART_NUM_0, (const char *)&data[i], 3);
+                            uart_write_bytes(UART_NUM_0, (const char *)&rx_buffer[i], 3);
                         }
                         i+=3;
                         break;
@@ -357,17 +347,17 @@ static void esp_uart_cli_task(void *pvParameters)
 
             default:
                 //check whether character is valid
-                if ((data[i] >= ' ') && (data[i] <= '~')) {
+                if ((rx_buffer[i] >= ' ') && (rx_buffer[i] <= '~')) {
                     if (line_len >= MAX_UART_LINE_SIZE - 2) {
                         break;
                     }
 
                     // print character back
-                    uart_write_bytes(UART_NUM_0, (const char *) &data[i], 1);
+                    uart_write_bytes(UART_NUM_0, (const char *) &rx_buffer[i], 1);
 
-                    line[line_len++] = data[i];
+                    line[line_len++] = rx_buffer[i];
                 }
-            } // switch data[i]
+            } // switch rx_buffer[i]
         } //buf while loop
     } //main loop
 
@@ -384,10 +374,14 @@ void uart_cli_main()
     g_StopMainTask = 1;    //default value is 1;  stop for a timeout
 
     esp_uart_init();
+
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
+    printf("Press enter to stop init.");
+    fflush(stdout);
     _cli_util_wait_for_user_input(5000);
+    printf(" Starting main task.\n");
 }
 
 #ifdef __cplusplus

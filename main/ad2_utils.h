@@ -48,6 +48,7 @@ void ad2_send(char *buf);
 // string utils
 std::string ad2_string_format(const std::string fmt, ...);
 int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
+void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
 
 // NV Storage utilities
 

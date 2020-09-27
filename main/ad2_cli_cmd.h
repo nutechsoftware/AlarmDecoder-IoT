@@ -29,6 +29,8 @@
 #define AD2_CODE     "code"
 #define AD2_VPADDR   "vpaddr"
 #define AD2_SOURCE   "ad2source"
+#define AD2_TERM     "ad2term"
+#define AD2_UNLOCKER "teaser :c)"
 
 #ifdef __cplusplus
 extern "C" {

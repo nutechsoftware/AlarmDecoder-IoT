@@ -24,12 +24,10 @@
 #ifndef _AD2_UART_CLI_H_
 #define _AD2_UART_CLI_H_
 
-#define UART_BUF_SIZE (20)
 #define PROMPT_STRING "AD2IOT # "
 
 #define CLI_TASK_PRIORITY (tskIDLE_PRIORITY+2)
 #define CLI_TASK_SIZE    (8192)
-#define MAX_UART_LINE_SIZE    (1024)
 
 #ifdef __cplusplus
 extern "C" {
