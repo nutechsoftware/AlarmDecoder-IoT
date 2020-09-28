@@ -239,7 +239,7 @@ static struct cli_command stsdk_cmd_list[] = {
 };
 
 /**
- * @brief switch state A
+ * @brief switch/relay state A
  */
 int get_switch_a_state(void)
 {
@@ -259,7 +259,7 @@ int get_switch_a_state(void)
 }
 
 /**
- * @brief get switch state B
+ * @brief get switch/relay state B
  */
 int get_switch_b_state(void)
 {
@@ -447,7 +447,7 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
 {
     ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
     if (s) {
-        if ( s->chime_on) {
+        if ( s->chime_on ) {
             cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
         } else {
             cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
@@ -457,6 +457,28 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
     }
 }
 
+/**
+ * @brief ON_FIRE.
+ * Called when the alarm panel FIRE alarm state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_FIRE: '%s'", msg->c_str());
+    if (s) {
+        if ( s->fire_alarm ) {
+            cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
+        } else {
+            cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_clear);
+        }
+
+        cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
+    }
+}
 
 /**
  * @brief Initialize the STSDK engine
@@ -499,6 +521,9 @@ void stsdk_init(void)
 
     // Subscribe to CHIME events to update the chime contact capability.
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, on_chime_change_cb, nullptr);
+
+    // Subscribe to FIRE events to update cap_smokeDetector capability.
+    AD2Parse.subscribeTo(ON_FIRE, on_fire_cb, nullptr);
 
 }
 
@@ -773,22 +798,22 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 {
     ESP_LOGI(TAG, "refresh_cmd_cb");
 
-#if 0 //FIXME
     // get the default partition state.
+    // FIXME: using DEFAULT slot for now. Needs to be configurable
+    // and if possible selectable from ST App so partition can be
+    // selected from a list.
     AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-
     if (s != nullptr) {
+        std::string statestr = "REFRESH";
         if (s->armed_home || s->armed_away) {
-            //my_ON_ARM_CB(nullptr, s);
+            on_arm_cb(&statestr, s, nullptr);
         } else {
-            //my_ON_DISARM_CB(nullptr, s);
+            on_disarm_cb(&statestr, s, nullptr);
         }
-        //my_ON_CHIME_CHANGE_CB(nullptr, s);
-        //my_ON_READY_CHANGE_CB(nullptr, s);
+        on_chime_change_cb(&statestr, s, nullptr);
     } else {
-        ESP_LOGE(TAG, "vpaddr[%u] not found", address);
+        ESP_LOGE(TAG, "vpaddr[%u] not found", AD2_DEFAULT_VPA_SLOT);
     }
-#endif
 }
 
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,

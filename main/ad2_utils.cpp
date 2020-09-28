@@ -48,6 +48,21 @@ extern "C" {
 #endif
 
 /**
+ * @brief fix missing std::to_string()
+ *
+ * @param [in]n int value to convert to string.
+ *
+ * @return std::string
+ *
+ */
+std::string ad2_to_string(int n)
+{
+    std::ostringstream stm;
+    stm << n;
+    return stm.str();
+}
+
+/**
  * @brief split string to vector on token
  *
  * @param [in]str std::string input string
@@ -457,7 +472,6 @@ void ad2_fire_alarm(int codeId, int vpartId)
     ad2_send(msg);
 }
 
-
 /**
  * @brief send RAW string to the AD2 devices.
  *
@@ -479,6 +493,31 @@ void ad2_send(char *buf)
         ESP_LOGE(TAG, "invalid handle in send_to_ad2");
         return;
     }
+}
+
+/**
+ * @brief send RAW string to the AD2 devices.
+ *
+ * @param [in]address_slot Address slot for address to use for
+ * returning partition info. The AlarmDecoderParser class tracks
+ * every message and parses each into a status by virtual partition.
+ * Each state is stored by an address mask. To fetch the state of
+ * a partition all that is needed is an address that is known to
+ * be on that partition. For DSC panels the address is the partition.
+ *
+ */
+AD2VirtualPartitionState *ad2_get_partition_state(int address_slot)
+{
+    AD2VirtualPartitionState * s = nullptr;
+    int x = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, address_slot, &x);
+    // if we found a NV record then initialize the AD2PState for the mask.
+    if (x != -1) {
+        uint32_t amask = 1;
+        amask <<= x-1;
+        s = AD2Parse.getAD2PState(&amask, false);
+    }
+    return s;
 }
 
 #ifdef __cplusplus

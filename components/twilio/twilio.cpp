@@ -130,16 +130,6 @@ std::string urlencode(std::string str)
 }
 
 /**
- * missing std::to_string()
- */
-std::string to_string(int n)
-{
-    std::ostringstream stm;
-    stm << n;
-    return stm.str();
-}
-
-/**
  * build auth string from user and pass
  */
 std::string get_auth_header(const std::string& user, const std::string& password)
@@ -179,12 +169,12 @@ std::string build_request_string(std::string sid,
     std::string auth_header = get_auth_header(sid, token);
     std::string http_request =
         "POST /" + std::string(API_VERSION) + "/Accounts/" + sid + "/Messages HTTP/1.0\r\n" +
-        "User-Agent: esp-idf/1.0 esp32(v" + std::to_string(chip_info.revision) + ")\r\n" +
+        "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
         auth_header + "\r\n" +
         "Host: " + WEB_SERVER + "\r\n" +
         "Cache-control: no-cache\r\n" +
         "Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n" +
-        "Content-Length: " + to_string(body.length()) + "\r\n" +
+        "Content-Length: " + ad2_to_string(body.length()) + "\r\n" +
         "Connection: close\r\n" +
         "\r\n" + body + "\r\n";
     return http_request;
