@@ -179,7 +179,7 @@ std::string build_request_string(std::string sid,
     std::string auth_header = get_auth_header(sid, token);
     std::string http_request =
         "POST /" + std::string(API_VERSION) + "/Accounts/" + sid + "/Messages HTTP/1.0\r\n" +
-        "User-Agent: esp-idf/1.0 esp32(v" + to_string(chip_info.revision) + ")\r\n" +
+        "User-Agent: esp-idf/1.0 esp32(v" + std::to_string(chip_info.revision) + ")\r\n" +
         auth_header + "\r\n" +
         "Host: " + WEB_SERVER + "\r\n" +
         "Cache-control: no-cache\r\n" +

@@ -329,7 +329,7 @@ void ad2_arm_away(int codeId, int vpartId)
     // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
-    char msg[9] = {0};
+    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
@@ -359,7 +359,7 @@ void ad2_arm_stay(int codeId, int vpartId)
     // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
-    char msg[9] = {0};
+    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "2");
@@ -389,7 +389,7 @@ void ad2_disarm(int codeId, int vpartId)
     // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
-    char msg[9] = {0};
+    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "1");
@@ -419,7 +419,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
     // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
-    char msg[9] = {0};
+    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "9");
@@ -449,7 +449,7 @@ void ad2_fire_alarm(int codeId, int vpartId)
     // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
-    char msg[9] = {0};
+    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
     snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "\001\001\001");

@@ -7,5 +7,6 @@ idf_component_register(SRCS "stsdk_main.cpp"
                             "caps_smokeDetector.c"
                             "caps_switch.c"
                             "caps_tamperAlert.c"
-                    INCLUDE_DIRS .)
+                    REQUIRES idf::otaupdate
+                    INCLUDE_DIRS . ../../main/)
 project(stsdk)

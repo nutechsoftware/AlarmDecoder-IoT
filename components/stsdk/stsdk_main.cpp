@@ -42,7 +42,6 @@
 #include <lwip/netdb.h>
 #include "driver/uart.h"
 #include "esp_log.h"
-static const char *TAG = "STSDK";
 
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
@@ -53,6 +52,7 @@ static const char *TAG = "STSDK";
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "STSDK";
 
 // specific includes
 #include "stsdk_main.h"

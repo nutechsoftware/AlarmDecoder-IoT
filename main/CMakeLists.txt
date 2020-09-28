@@ -6,6 +6,7 @@ idf_component_register(SRCS "alarmdecoder_main.cpp"
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::twilio
 		    REQUIRES idf::stsdk
+                    REQUIRES idf::otaupdate
                     )
 
 set(STDK_IOT_CORE_USE_DEFINED_CONFIG "y")
@@ -22,5 +23,7 @@ set(STDK_INCLUDE_PATH
         "$ENV{IDF_PATH}/components/bootloader_support/include"
     )
 
-#add_subdirectory($ENV{STDK_CORE_PATH} iotcore)
-target_link_libraries(${COMPONENT_LIB} PUBLIC iotcore)
+if(CONFIG_STDK_IOT_CORE)
+        add_subdirectory($ENV{STDK_CORE_PATH} iotcore)
+        target_link_libraries(${COMPONENT_LIB} PUBLIC iotcore)
+endif()
