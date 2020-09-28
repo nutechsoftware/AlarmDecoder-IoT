@@ -1,9 +1,7 @@
-idf_component_register(SRCS "ad2_cli_cmd.cpp" "alarmdecoder_main.cpp"
-                            "ad2_uart_cli.cpp"
+idf_component_register(SRCS "alarmdecoder_main.cpp"
                             "device_control.cpp"
-                            "iot_cli_cmd.cpp"
-                            "iot_uart_cli.cpp"
-                            "ota_util.ppc"
+                            "ad2_cli_cmd.cpp"
+                            "ad2_uart_cli.cpp"
                             "ad2_utils.cpp"
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::twilio
@@ -24,5 +22,5 @@ set(STDK_INCLUDE_PATH
         "$ENV{IDF_PATH}/components/bootloader_support/include"
     )
 
-add_subdirectory($ENV{STDK_CORE_PATH} iotcore)
+#add_subdirectory($ENV{STDK_CORE_PATH} iotcore)
 target_link_libraries(${COMPONENT_LIB} PUBLIC iotcore)

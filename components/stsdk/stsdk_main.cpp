@@ -1,5 +1,5 @@
 /**
- *  @file    stsdk_main.c
+ *  @file    stsdk_main.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
  *  @version 1.0.1

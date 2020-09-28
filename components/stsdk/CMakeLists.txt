@@ -1,4 +1,4 @@
-idf_component_register(SRCS "stsdk_main.cpp" "stsdk_main.c"
+idf_component_register(SRCS "stsdk_main.cpp"
                             "caps_carbonMonoxideDetector.c"
                             "caps_contactSensor.c"
                             "caps_momentary.c"
