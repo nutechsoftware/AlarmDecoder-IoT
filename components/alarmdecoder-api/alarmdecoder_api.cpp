@@ -366,6 +366,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                         // QUIRK: system etc message ignore state change restore current
                                         EXIT_NOW = ad2ps->exit_now;
                                     }
+                                    break;
                                 case DSC_PANEL:
                                     if (ALPHAMSG.find("QUICK EXIT") != string::npos ||
                                             ALPHAMSG.find("EXIT DELAY") != string::npos) {
