@@ -326,7 +326,7 @@ void ad2_arm_away(int codeId, int vpartId)
     // Get user code
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
-    // FIXME: DSC support
+    // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
@@ -356,7 +356,7 @@ void ad2_arm_stay(int codeId, int vpartId)
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
 
-    // FIXME: DSC support
+    // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
@@ -386,7 +386,7 @@ void ad2_disarm(int codeId, int vpartId)
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
 
-    // FIXME: DSC support
+    // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
@@ -416,7 +416,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
 
-    // FIXME: DSC support
+    // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};
@@ -446,7 +446,7 @@ void ad2_fire_alarm(int codeId, int vpartId)
     char code[7];
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
 
-    // FIXME: DSC support
+    // TODO: DSC support
     // Get the address/partition mask
     // Message format KXXYYYYZ
     char msg[9] = {0};

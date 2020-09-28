@@ -400,7 +400,7 @@ void twilio_send_task(void *pvParameters)
             ESP_LOGI(TAG, "connection closed");
             break;
         }
-        // FIXME: parse response error logging for easier debugging.
+        // TODO: parse response error logging for easier debugging.
 
         len = ret;
         ESP_LOGD(TAG, "%d bytes read", len);
@@ -658,8 +658,8 @@ void twilio_init()
         xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 2048, NULL, tskIDLE_PRIORITY+1, NULL);
     }
 
-    // FIXME configure to all selection on events to notify on.
-    // FIXME add templates to each event class with formatting args from state.
+    // TODO configure to all selection on events to notify on.
+    // TODO add templates to each event class with formatting args from state.
     // Register callbacks for a few static events for testing.
     AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
     AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);

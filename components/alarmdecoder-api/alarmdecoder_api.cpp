@@ -331,8 +331,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->address_mask_filter = amask;
 
                             // Update the partition state based upon the new status message.
-                            // FIXME: Next.
-
                             // get the panel type first
                             ad2ps->panel_type = msg[PANEL_TYPE_BYTE];
 
@@ -454,7 +452,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->display_cursor_location = (uint8_t) strtol(msg.substr(CURSOR_POS, CURSOR_POS+2).c_str(), 0, 16);
 
 
-                            // FIXME: debugging / testing
+                            // Debugging / testing output
                             ESP_LOGD(TAG, "!DBG: SSIZE(%i) PID(%i) MASK(%08X) Ready(%i) Armed[Away(%i) Home(%i)] Bypassed(%i) Exit(%i)",
                                      AD2PStates.size(),ad2ps->partition,amask,ad2ps->ready,ad2ps->armed_away,ad2ps->armed_home,ad2ps->zone_bypassed,ad2ps->exit_now);
 
@@ -482,14 +480,15 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                         }
                     } else {
-                        //FIXME: Error
+                        //TODO: Error statistics tracking
                         ESP_LOGE(TAG, "!ERR: BAD PROTOCOL PREFIX.");
                     }
                 }
 
                 // Do not save EOL into the ring. We are done for now.
                 break;
-            }
+
+            } // switch(AD2_Parser_State)
 
             // Still receiving a message.
             // Save this byte to our ring buffer and parse and keep waiting for EOL.
@@ -508,14 +507,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                 }
             }
 
-            break;
-
-        case AD2_PARSER_PROCESSING:
-            // FIXME: TBD
-            break;
-
-        default:
-            // FIXME: TBD
             break;
         }
     }
