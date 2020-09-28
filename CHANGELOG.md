@@ -5,9 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] TODO: network settings commands Wifi, Ethernet MODE select and settings.
+- [ ] TODO: ````ping``` command could come in handy.
 - [X] TODO: Build with espidf idf.py tool
 - [ ] ARM Stay/Away
-   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526).
+   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
 
 ## [1.0.1 p1] - 2020-09-27
 - [X] - Added support code for 'C' mode connection.
