@@ -23,12 +23,38 @@
 
 #include "device_control.h"
 
+#include <string.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "esp_wifi.h"
+#include "esp_system.h"
+#include "esp_event_loop.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+
+#include "alarmdecoder_main.h"
+#include "ad2_utils.h"
+#include "ad2_settings.h"
+
 static const char *TAG = "HAL";
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+const int WIFI_STA_START_BIT 		= BIT0;
+const int WIFI_STA_CONNECT_BIT		= BIT1;
+const int WIFI_STA_DISCONNECT_BIT	= BIT2;
+const int WIFI_AP_START_BIT 		= BIT3;
+const int WIFI_AP_STOP_BIT 			= BIT4;
+
+const int WIFI_EVENT_BIT_ALL = BIT0|BIT1|BIT2|BIT3|BIT4;
+
+static int HAL_WIFI_INITIALIZED = false;
+static EventGroupHandle_t wifi_event_group;
+
 
 /**
  * @brief Change SWITCH/RELAY state.
@@ -229,3 +255,149 @@ void hal_restart()
 {
     esp_restart();
 }
+
+/**
+ * @brief event handler for WiFi and Ethernet
+ */
+static esp_err_t hal_event_handler(void *dummy, system_event_t *event)
+{
+    wifi_ap_record_t ap_info;
+    memset(&ap_info, 0x0, sizeof(wifi_ap_record_t));
+
+    switch(event->event_id) {
+    case SYSTEM_EVENT_STA_START:
+        xEventGroupSetBits(wifi_event_group, WIFI_STA_START_BIT);
+        esp_wifi_connect();
+        g_ad2_network_state = AD2_OFFLINE;
+        break;
+
+    case SYSTEM_EVENT_STA_STOP:
+        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_STOP");
+        xEventGroupClearBits(wifi_event_group, WIFI_EVENT_BIT_ALL);
+        g_ad2_network_state = AD2_OFFLINE;
+        break;
+
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        ESP_LOGI(TAG, "Disconnect reason : %d", event->event_info.disconnected.reason);
+        xEventGroupSetBits(wifi_event_group, WIFI_STA_DISCONNECT_BIT);
+        esp_wifi_connect();
+        xEventGroupClearBits(wifi_event_group, WIFI_STA_CONNECT_BIT);
+        g_ad2_network_state = AD2_OFFLINE;
+        break;
+
+    case SYSTEM_EVENT_STA_GOT_IP:
+        esp_wifi_sta_get_ap_info(&ap_info);
+        ESP_LOGI(TAG, "got ip:%s rssi:%ddBm",
+                 ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip), ap_info.rssi);
+        xEventGroupSetBits(wifi_event_group, WIFI_STA_CONNECT_BIT);
+        xEventGroupClearBits(wifi_event_group, WIFI_STA_DISCONNECT_BIT);
+        g_ad2_network_state = AD2_CONNECTED;
+        break;
+
+    case SYSTEM_EVENT_AP_START:
+        xEventGroupClearBits(wifi_event_group, WIFI_EVENT_BIT_ALL);
+        ESP_LOGI(TAG, "SYSTEM_EVENT_AP_START");
+        xEventGroupSetBits(wifi_event_group, WIFI_AP_START_BIT);
+        break;
+
+    case SYSTEM_EVENT_AP_STOP:
+        ESP_LOGI(TAG, "SYSTEM_EVENT_AP_STOP");
+        xEventGroupSetBits(wifi_event_group, WIFI_AP_STOP_BIT);
+        break;
+
+    case SYSTEM_EVENT_AP_STACONNECTED:
+        ESP_LOGI(TAG, "station:" MACSTR " join, AID=%d",
+                 MAC2STR(event->event_info.sta_connected.mac),
+                 event->event_info.sta_connected.aid);
+        break;
+
+    case SYSTEM_EVENT_AP_STADISCONNECTED:
+        ESP_LOGI(TAG, "station:" MACSTR " leave, AID=%d",
+                 MAC2STR(event->event_info.sta_disconnected.mac),
+                 event->event_info.sta_disconnected.aid);
+
+        xEventGroupSetBits(wifi_event_group, WIFI_AP_STOP_BIT);
+        break;
+
+    default:
+        ESP_LOGI(TAG, "hal_event_handler = %d", event->event_id);
+        break;
+    }
+
+    return ESP_OK;
+}
+
+/**
+ * @brief initialize wifi driver
+ */
+void hal_init_wifi()
+{
+    ESP_LOGI(TAG, "Wifi hardware init");
+
+    esp_err_t esp_ret;
+    if(HAL_WIFI_INITIALIZED) {
+        return;
+    }
+
+    wifi_event_group = xEventGroupCreate();
+
+    tcpip_adapter_init();
+    esp_ret = esp_event_loop_init(hal_event_handler, NULL);
+    if(esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_event_loop_init failed err=[%d]", esp_ret);
+        return;
+    }
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_ret = esp_wifi_init(&cfg);
+    if(esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_init failed err=[%d]", esp_ret);
+        return;
+    }
+
+    esp_ret = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    if(esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_set_storage failed err=[%d]", esp_ret);
+        return;
+    }
+
+    esp_ret = esp_wifi_set_mode(WIFI_MODE_STA);
+    if(esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "esp_wifi_set_mode failed err=[%d]", esp_ret);
+        return;
+    }
+
+    int res = 0;
+    std::string value;
+    std::string args;
+    ad2_network_mode(args);
+
+    wifi_config_t sta_config = { };
+
+    res = ad2_query_key_value(args, "SID", value);
+    if (res <= 0) {
+        ESP_LOGE(TAG, "Error loading SID value from netmode arg");
+    }
+    strcpy((char*)sta_config.sta.ssid, value.c_str());
+
+    res = ad2_query_key_value(args, "PASSWORD", value);
+    if (res <= 0) {
+        ESP_LOGE(TAG, "Error loading PASSWORD value from netmode arg");
+    }
+    strcpy((char*)sta_config.sta.password, value.c_str());
+
+    sta_config.sta.bssid_set = false;
+
+    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
+    ESP_ERROR_CHECK( esp_wifi_start() );
+
+    HAL_WIFI_INITIALIZED = true;
+    ESP_LOGI(TAG, "[esp32] iot_bsp_wifi_init done");
+
+    return;
+
+}
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

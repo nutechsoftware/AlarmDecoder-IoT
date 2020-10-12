@@ -2,7 +2,7 @@
 *  @file    twilio.cpp
 *  @author  Sean Mathews <coder@f34r.com>
 *  @date    09/12/2020
-*  @version 1.0.1
+*  @version 1.0.2
 *
 *  @brief Simple commands to post to api.twilio.com
 *
@@ -130,16 +130,6 @@ std::string urlencode(std::string str)
 }
 
 /**
- * missing std::to_string()
- */
-std::string to_string(int n)
-{
-    std::ostringstream stm;
-    stm << n;
-    return stm.str();
-}
-
-/**
  * build auth string from user and pass
  */
 std::string get_auth_header(const std::string& user, const std::string& password)
@@ -179,12 +169,12 @@ std::string build_request_string(std::string sid,
     std::string auth_header = get_auth_header(sid, token);
     std::string http_request =
         "POST /" + std::string(API_VERSION) + "/Accounts/" + sid + "/Messages HTTP/1.0\r\n" +
-        "User-Agent: esp-idf/1.0 esp32(v" + to_string(chip_info.revision) + ")\r\n" +
+        "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
         auth_header + "\r\n" +
         "Host: " + WEB_SERVER + "\r\n" +
         "Cache-control: no-cache\r\n" +
         "Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n" +
-        "Content-Length: " + to_string(body.length()) + "\r\n" +
+        "Content-Length: " + ad2_to_string(body.length()) + "\r\n" +
         "Connection: close\r\n" +
         "\r\n" + body + "\r\n";
     return http_request;
@@ -238,7 +228,7 @@ void twilio_consumer_task(void *pvParameter)
                 ESP_LOGE(TAG, "failed to create twilio task.");
             }
             // Sleep after spawingin a task.
-            vTaskDelay(500/portTICK_PERIOD_MS); //wait for 500 ms
+            vTaskDelay(TWILIO_RATE_LIMIT/portTICK_PERIOD_MS); //wait for 500 ms
         }
     }
     vTaskDelete(NULL);
@@ -400,7 +390,7 @@ void twilio_send_task(void *pvParameters)
             ESP_LOGI(TAG, "connection closed");
             break;
         }
-        // FIXME: parse response error logging for easier debugging.
+        // TODO: parse response error logging for easier debugging.
 
         len = ret;
         ESP_LOGD(TAG, "%d bytes read", len);
@@ -439,51 +429,55 @@ char * TWILIO_SETTINGS [] = {
  */
 void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if (!s || (defs && s->partition == defs->partition)) {
+        ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
 
-    std::string outmsg;
-    if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
-        outmsg = ad2_string_format("EVENT ID %d",(int)arg);
-    } else {
-        outmsg = AD2Parse.event_str[(int)arg];
-    }
+        std::string outmsg;
+        if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
+            outmsg = ad2_string_format("EVENT ID %d",(int)arg);
+        } else {
+            outmsg = AD2Parse.event_str[(int)arg];
+        }
 
-    if (g_ad2_network_state == AD2_CONNECTED) {
-        // load our settings for this event type.
-        char buf[80];
+        if (g_ad2_network_state == AD2_CONNECTED) {
+            // load our settings for this event type.
+            char buf[80];
 
-        buf[0]=0;
-        ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-        std::string sid = buf;
+            buf[0]=0;
+            ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+            std::string sid = buf;
 
-        buf[0]=0;
-        ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-        std::string token = buf;
+            buf[0]=0;
+            ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+            std::string token = buf;
 
-        buf[0]=0;
-        ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-        std::string from = buf;
+            buf[0]=0;
+            ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+            std::string from = buf;
 
-        buf[0]=0;
-        ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-        std::string to = buf;
+            buf[0]=0;
+            ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+            std::string to = buf;
 
-        buf[0] = 'M'; // default to Messages
-        ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-        char type = buf[0];
+            buf[0] = 'M'; // default to Messages
+            ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+            char type = buf[0];
 
-        buf[0]=0;
-        ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
+            buf[0]=0;
+            ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
 
-        // build the body of the message
-        std::string body = outmsg;
+            // build the body of the message
+            std::string body = outmsg;
 
-        // add to the queue
-        ESP_LOGI(TAG, "Adding task to twilio send queue");
-        twilio_add_queue(sid.c_str(),
-                         token.c_str(), from.c_str(),
-                         to.c_str(), type, body.c_str());
+            // add to the queue
+            ESP_LOGI(TAG, "Adding task to twilio send queue");
+            twilio_add_queue(sid.c_str(),
+                             token.c_str(), from.c_str(),
+                             to.c_str(), type, body.c_str());
 
+        }
     }
 }
 
@@ -516,6 +510,7 @@ static void _cli_cmd_twilio_event(char *string)
             if (slot >= 0) {
                 if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
                     ad2_set_nv_slot_key_string(key, slot, buf);
+                    printf("Setting %s value finished.\n", key);
                 } else {
                     ad2_get_nv_slot_key_string(key, slot, buf, sizeof(buf));
                     printf("Current slot #%02i '%s' value '%s'\n", slot, key, buf);
@@ -529,36 +524,57 @@ static void _cli_cmd_twilio_event(char *string)
     }
 }
 
+/**
+ * @brief command list for module
+ */
 static struct cli_command twilio_cmd_list[] = {
     {
         (char*)TWILIO_TOKEN,(char*)
-        "Sets the 'User Auth Token' for notification <slot>.\n"
-        "  Syntax: " TWILIO_TOKEN " <slot> <hash>\n"
-        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n", _cli_cmd_twilio_event
+        "- Sets the 'User Auth Token' for notifications.\n\n"
+        "  ```" TWILIO_TOKEN " {slot} {hash}```\n\n"
+        "  - {slot}: [N]\n"
+        "    - For default use 0. Support multiple Twilio accounts.\n"
+        "  - {hash}: Twilio 'User Auth Token'\n\n"
+        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_SID,(char*)
-        "Sets the 'Account SID' for notification <slot>.\n"
-        "  Syntax: " TWILIO_SID " <slot> <hash>\n"
-        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n", _cli_cmd_twilio_event
+        "- Sets the 'Account SID' for notification.\n\n"
+        "  ```" TWILIO_SID " {slot} {hash}```\n\n"
+        "  - {slot}: [N]\n"
+        "    - For default use 0. Support multiple Twilio accounts.\n"
+        "  - {hash}: Twilio 'Account SID'\n\n"
+        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_FROM,(char*)
-        "Sets the 'From' address for notification <slot>\n"
-        "  Syntax: " TWILIO_FROM " <slot> <phone#>\n"
-        "  Example: " TWILIO_FROM " 0 13115552368\n", _cli_cmd_twilio_event
+        "- Sets the 'From' address for notification.\n\n"
+        "  ```" TWILIO_FROM " {slot} {phone} ```\n\n"
+        "  - {slot}: [N]\n"
+        "    - For default use 0. Support multiple Twilio accounts.\n"
+        "  - {phone}: [NXXXYYYZZZZ]\n"
+        "    - From phone #\n\n"
+        "  Example: " TWILIO_FROM " 0 13115552368\n\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_TO,(char*)
-        "Sets the 'To' address for notification <slot>\n"
-        "  Syntax: " TWILIO_TO " <slot> <phone#>\n"
-        "  Example: " TWILIO_TO " 0 13115552368\n", _cli_cmd_twilio_event
+        "- Sets the 'To' address for notification.\n\n"
+        "  ```" TWILIO_TO " {slot} {phone}```\n\n"
+        "  - {slot}: [N]\n"
+        "    - For default use 0. Support multiple Twilio accounts.\n"
+        "  - {phone}: [NXXXYYYZZZZ]\n"
+        "    - To phone #\n\n"
+        "  Example: " TWILIO_TO " 0 13115552368\n\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_TYPE,(char*)
-        "Sets the 'Type' [M]essages|[R]edirect|[T]wilio for notification <slot>\n"
-        "  Syntax: " TWILIO_TYPE " <slot> <type>\n"
-        "  Example: " TWILIO_TYPE " 0 M\n", _cli_cmd_twilio_event
+        "- Sets the 'Type' for notification.\n\n"
+        "  ```" TWILIO_TYPE " {slot} {type}```\n\n"
+        "  - {slot}\n"
+        "    - For default use 0. Support multiple Twilio accounts.\n"
+        "  - {type}: [M|T]\n"
+        "    - Notification type [M]essage or [T]wiml.\n\n"
+        "  Example: " TWILIO_TYPE " 0 M\n\n", _cli_cmd_twilio_event
     },
 };
 
@@ -658,13 +674,16 @@ void twilio_init()
         xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 2048, NULL, tskIDLE_PRIORITY+1, NULL);
     }
 
-    // FIXME configure to all selection on events to notify on.
-    // FIXME add templates to each event class with formatting args from state.
+    // TODO configure to all selection on events to notify on.
+    // TODO add templates to each event class with formatting args from state.
     // Register callbacks for a few static events for testing.
     AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
     AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
     AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
     AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
+    AD2Parse.subscribeTo(ON_ALARM, ad2_event_cb, (void*)ON_ALARM);
+    AD2Parse.subscribeTo(ON_ALARM_RESTORE, ad2_event_cb, (void*)ON_ALARM_RESTORE);
+
 #if 1 /* TESTING FIXME */
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb, (void*)ON_CHIME_CHANGE);
 #endif

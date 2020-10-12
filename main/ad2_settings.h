@@ -21,7 +21,7 @@
  *
  */
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1010"
+#define FIRMWARE_VERSION      "AD2IOT-1020"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -47,5 +47,14 @@
 // @brief Parent Key to store code slots
 #define CODES_CONFIG_KEY      "codes"
 
+// @brief Parent Key to store network settings
+#define NETMODE_CONFIG_KEY    "nmode"
+
 // @brief Parent Key to store ad2 source configuration values
 #define AD2MODE_CONFIG_KEY    "ad2source"
+#define AD2MODE_CONFIG_MODE_SLOT 0 // FIXED Slot #0 for the mode
+#define AD2MODE_CONFIG_ARG_SLOT  1 // FIXED SLot #1 for the argument
+
+// UART RX buffer size
+#define AD2_UART_RX_BUFF_SIZE  100
+#define MAX_UART_LINE_SIZE    (1024)

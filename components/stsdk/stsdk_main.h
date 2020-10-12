@@ -38,6 +38,7 @@
 #include "caps_contactSensor.h"
 #include "caps_carbonMonoxideDetector.h"
 
+#define STSDK_ENABLE   "stenable"
 #define STSDK_CLEANUP  "stcleanup"
 #define STSDK_SERIAL   "stserial"
 #define STSDK_PUBKEY   "stpublickey"
@@ -51,7 +52,7 @@ extern "C" {
 void stsdk_init(void);
 void button_event(IOT_CAP_HANDLE *handle, int type, int count);
 void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data);
-void connection_start(void);
+void stsdk_connection_start(void);
 void capability_init();
 void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data);
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
