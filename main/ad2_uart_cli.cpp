@@ -51,8 +51,12 @@ static struct cli_command_list *cli_cmd_list;
 
 static void cli_cmd_help(char *string);
 
+/**
+ * @brief command list for module
+ */
 static struct cli_command help_cmd = {
-    (char*)"help", (char*)"print command list", cli_cmd_help
+    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\n\n"
+    "  ```" AD2_HELP_CMD " [command]```\n\n", cli_cmd_help
 };
 
 /**
@@ -154,11 +158,12 @@ static void cli_cmd_help(char *cmd)
     cli_cmd_list_t* now = cli_cmd_list;
     char buf[20]; // buffer to hold help argument
 
+    printf("\n");
     if (ad2_copy_nth_arg(buf, cmd, sizeof(buf), 1) >= 0) {
         cli_cmd_t *command;
         command = cli_find_command(buf);
         if (command != NULL) {
-            printf("Help for command '%s'\n%s\n", command->command, command->help_string);
+            printf("Help for command '%s'\n\n%s\n", command->command, command->help_string);
             showhelp = false;
         } else {
             printf("Command not found '%s'\n", cmd);
@@ -166,18 +171,35 @@ static void cli_cmd_help(char *cmd)
     }
 
     if (showhelp) {
+        int x = 0;
+        bool sendpfx = false;
+        bool sendsfx = false;
         printf("Available AD2IoT terminal commands\n  [");
         while (now) {
             if (!now->cmd) {
                 continue;
             }
-            printf("%s",now->cmd->command);
-            now = now->next;
-            if (now) {
+            if (sendpfx && now->next) {
+                sendpfx = false;
+                printf(",\n   ");
+            }
+            if (sendsfx) {
+                sendsfx = false;
                 printf(", ");
             }
+            printf("%s",now->cmd->command);
+            x++;
+            now = now->next;
+            if (now) {
+                sendsfx = true;
+            }
+            if (x > 5) {
+                sendpfx = true;
+                sendsfx = false;
+                x = 0;
+            }
         }
-        printf("]\n\nType help <command> for details on each command.\n");
+        printf("]\n\nType help <command> for details on each command.\n\n");
     }
 }
 
@@ -378,7 +400,7 @@ void uart_cli_main()
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    printf("Press enter to stop init.");
+    printf("Press enter in the next 5 seconds to stop the init.\n");
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
     printf(" Starting main task.\n");

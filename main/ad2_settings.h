@@ -21,7 +21,7 @@
  *
  */
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1011"
+#define FIRMWARE_VERSION      "AD2IOT-1020"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -46,6 +46,9 @@
 
 // @brief Parent Key to store code slots
 #define CODES_CONFIG_KEY      "codes"
+
+// @brief Parent Key to store network settings
+#define NETMODE_CONFIG_KEY    "nmode"
 
 // @brief Parent Key to store ad2 source configuration values
 #define AD2MODE_CONFIG_KEY    "ad2source"

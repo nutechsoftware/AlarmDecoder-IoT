@@ -5,15 +5,32 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [ ] WISHLIST: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
-- [ ] TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
-- [ ] TODO: network settings commands Wifi, Ethernet MODE select and settings.
-- [ ] TODO: ````ping``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
-- [X] TODO: Build with espidf idf.py tool
-- [?] Wireup smokeDetector capability and test FIRE alarm to show if triggered.
-- [ ] Internal track FIRE panic momentary press events to track and count. If it is pressed 3 times in N seconds trigger a fire. TODO update user as to the "Trigger" level via a color ICON?
-- [ ] ARM Stay/Away
+- [ ] CORE: TODO: Ethernet hardware enable.
+- [ ] CORE: Tidy: Improve Kconfig menuconfig.
+- [ ] CORE: WISHLIST: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
+- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
+- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
+- [ ] STSDK: ARM Stay/Away
    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
+- [ ] Twilio: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
+- [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+## [1.0.2] - 2020-10-11
+- [X] CORE: New: Command: ```'netmode <[W,E,N]> <ARGS>'```. If SmartThings is disabled allow control of network settings.
+- [X] CORE: Improve: Add util function ```ad2_query_key_value``` for N/V parsing. Will be used to store settings in NV in a easy to use text only way.
+- [X] CORE: Improve: Filled in empty wifi init function and added ```hal_event_handler```.
+- [X] CORE: Fix: Build with espidf idf.py tool
+- [X] CORE: Tidy: Rename wifi and eth init functions to hal_ prefix.
+- [X] CORE: Tidy: Clean up command syntax and help to share in README.md
+- [X] API: Fix: ON_FIRE processing in API.
+- [X] API: Improve: getAD2PState override to AlarmDecoder parse class.
+- [X] Twilio: Improve: Add rate limiting to send queue.
+- [X] Twilio: Improve: Add ALARM and ALARM_RESTORE.
+- [X] STSDK: New: Command ```'stenable <[Y|N]>'``` Disable / Enable for STSDK module and let network be managed by main.
+- [X] STSDK: New: Prevent FALSE alarms like original ST app. Internal track FIRE panic momentary press events to track and count. If it is pressed 3 times in N seconds trigger a fire. TODO update user as to the "Trigger" level via a color ICON?
+- [X] STSDK: Improve: Only report on messages to the default partition for multi partition support.
+- [X] STSDK: Fix: Finish wiring smokeDetector capability and test FIRE alarm to show if smoke/clear events.
+- [X] STSDK: Tidy: Function name fix ```connection_start_task```.
 
 ## [1.0.1 p1] - 2020-09-27
 - [X] - Added support code for 'C' mode connection.

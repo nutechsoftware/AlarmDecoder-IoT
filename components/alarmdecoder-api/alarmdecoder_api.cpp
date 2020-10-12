@@ -2,7 +2,7 @@
  *  @file    alarmdecoder_api.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    01/15/2020
- *  @version 1.0.1
+ *  @version 1.0.2
  *
  *  @brief AlarmDecoder embedded state machine and parser
  *
@@ -27,7 +27,7 @@
 static const char *TAG = "AD2API";
 
 // nostate
-AD2VirtualPartitionState *nostate = 0;
+AD2VirtualPartitionState *nostate = nullptr;
 
 /**
  * @brief constructor
@@ -63,6 +63,31 @@ void AlarmDecoderParser::updateVersion(char *arg)
 }
 
 /**
+ * @brief build bit string from binary pointer
+ *
+ * @param [in]size size_t bytes to read
+ * @param [in]ptr pointer to buffer of bytes to read
+ *
+ * @return std::string
+ *
+ */
+std::string AlarmDecoderParser::bit_string(size_t const size, void const * const ptr)
+{
+    std::string out;
+    unsigned char *b = (unsigned char*) ptr;
+    unsigned char byte;
+    int i, j;
+    for (i = size-1; i >= 0; i--) {
+        for (j = 7; j >= 0; j--) {
+            byte = (b[i] >> j) & 1;
+            out += '0'+byte;
+        }
+    }
+    return out;
+}
+
+
+/**
  * @brief Subscribe to a EVENT type.
  *
  * @param [in]ev ad2_event_t event TYPE
@@ -88,6 +113,20 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
     for ( subscribers_t::iterator i = AD2Subscribers[ev].begin(); i != AD2Subscribers[ev].end(); ++i ) {
         (i->fn)(&msg, pstate, i->arg);
     }
+}
+
+/**
+ * @brief Return a partition state structure by 8bit keypad address 0-31(Ademco) or partition #(DSC).
+ *
+ * @param [in]address 8bit signed in partition or keypad address.
+ * @param [in]update if true update mask adding new bits.
+ *
+ */
+AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(int address, bool update)
+{
+    uint32_t amask = 1;
+    amask <<= address;
+    return getAD2PState(&amask, update);
 }
 
 /**
@@ -338,6 +377,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool SEND_READY_CHANGE = false;
                             bool SEND_ARMED_CHANGE = false;
                             bool SEND_CHIME_CHANGE = false;
+                            bool SEND_FIRE_CHANGE  = false;
 
                             // state change tracking
                             bool ARMED_HOME = is_bit_set(ARMED_HOME_BYTE, msg.c_str());
@@ -347,17 +387,31 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool READY = is_bit_set(READY_BYTE, msg.c_str());
                             bool CHIME_ON = is_bit_set(CHIME_BYTE, msg.c_str());
                             bool EXIT_NOW = false;
+                            bool FIRE_ALARM = is_bit_set(FIRE_BYTE, msg.c_str());
 
                             // Get section #4 alpha message and upper case for later searching
                             string ALPHAMSG = msg.substr(SECTION_4_START,32);
                             transform(ALPHAMSG.begin(), ALPHAMSG.end(), ALPHAMSG.begin(), ::toupper);
 
+                            // Ademco QUIRK system messages ignore some bits.
+                            bool ADEMCO_SYS_MESSAGE = false;
+                            if (ad2ps->panel_type == ADEMCO_PANEL) {
+                                if( ALPHAMSG.find("CHECK") != string::npos ||
+                                        ALPHAMSG.find("SYSTEM") != string::npos) {
+                                    ADEMCO_SYS_MESSAGE = true;
+                                }
+
+                                if ( ADEMCO_SYS_MESSAGE ) {
+                                    // Skip fire bit restore to current so we dont trip an event.
+                                    FIRE_ALARM = ad2ps->fire_alarm;
+                                }
+                            }
+
                             // If we are armed we may be in exit mode
                             if (ARMED_HOME || ARMED_AWAY) {
                                 switch (ad2ps->panel_type) {
                                 case ADEMCO_PANEL:
-                                    if( ALPHAMSG.find("CHECK") == string::npos &&
-                                            ALPHAMSG.find("SYSTEM") == string::npos) {
+                                    if ( !ADEMCO_SYS_MESSAGE ) {
                                         if( ALPHAMSG.find("MAY EXIT NOW") != string::npos ) {
                                             EXIT_NOW = true;
                                         }
@@ -379,17 +433,33 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             }
 
                             // if this is the first state update then send ARMED/READY states
-                            if (ad2ps->unknown_state ) {
-                                SEND_ARMED_CHANGE = true;
+                            if ( ad2ps->unknown_state ) {
+                                SEND_FIRE_CHANGE = true;
                                 SEND_READY_CHANGE = true;
+                                SEND_ARMED_CHANGE = true;
                                 SEND_CHIME_CHANGE = true;
                                 ad2ps->unknown_state = false;
-                            }
+                            } else {
+                                // fire state change
+                                if ( ad2ps->fire_alarm != FIRE_ALARM ) {
+                                    SEND_FIRE_CHANGE = true;
+                                }
 
-                            // armed_state change send notification
-                            if ( ad2ps->armed_home != ARMED_HOME ||
-                                    ad2ps->armed_away != ARMED_AWAY) {
-                                SEND_ARMED_CHANGE = true;
+                                // ready state change
+                                if ( ad2ps->ready != READY ) {
+                                    SEND_READY_CHANGE = true;
+                                }
+
+                                // armed_state change send notification
+                                if ( ad2ps->armed_home != ARMED_HOME ||
+                                        ad2ps->armed_away != ARMED_AWAY) {
+                                    SEND_ARMED_CHANGE = true;
+                                }
+
+                                // chime_on state change send
+                                if ( ad2ps->chime_on != CHIME_ON ) {
+                                    SEND_CHIME_CHANGE = true;
+                                }
                             }
 
                             // entry_delay bit is expected to change only when the ARMED bit changes.
@@ -405,19 +475,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_READY_CHANGE = true;
                             }
 
-                            // ready state change
-                            if ( ad2ps->ready != READY ) {
-                                SEND_READY_CHANGE = true;
-                            }
-
                             // exit_now state change send
                             if ( ad2ps->exit_now != EXIT_NOW ) {
                                 SEND_READY_CHANGE = true;
-                            }
-
-                            // chime_on state change send
-                            if ( ad2ps->chime_on != CHIME_ON ) {
-                                SEND_CHIME_CHANGE = true;
                             }
 
                             // Save states for event tracked changes
@@ -428,6 +488,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->ready = READY;
                             ad2ps->exit_now = EXIT_NOW;
                             ad2ps->chime_on = CHIME_ON;
+                            ad2ps->fire_alarm = FIRE_ALARM;
 
                             // Save states for non even tracked changes
                             ad2ps->backlight_on  = is_bit_set(BACKLIGHT_BYTE, msg.c_str());
@@ -437,7 +498,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->alarm_sounding = is_bit_set(ALARM_BYTE, msg.c_str());
                             ad2ps->battery_low = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
-                            ad2ps->fire_alarm = is_bit_set(FIRE_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = is_bit_set(SYSSPECIFIC_BYTE, msg.c_str());
                             ad2ps->beeps = msg[BEEPMODE_BYTE];
@@ -459,6 +519,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // Call ON_MESSAGE callback if enabled.
                             notifySubscribers(ON_MESSAGE, msg, ad2ps);
+
+                            // Send event if FIRE state changed
+                            if ( SEND_FIRE_CHANGE ) {
+                                notifySubscribers(ON_FIRE, msg, ad2ps);
+                            }
 
                             // Send event if ready state changed
                             if ( SEND_READY_CHANGE ) {

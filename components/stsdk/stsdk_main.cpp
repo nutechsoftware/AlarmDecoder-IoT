@@ -2,7 +2,7 @@
  *  @file    stsdk_main.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
- *  @version 1.0.1
+ *  @version 1.0.2
  *
  *  @brief SmartThings Direct Attached Device using STSDK
  *
@@ -109,6 +109,23 @@ IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
 IOT_CAP_HANDLE *refresh_cap_handle = NULL;
 
 /**
+ * Enable/Disable STSDK component.
+ */
+static void _cli_cmd_enable_event(char *string)
+{
+    ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
+    char arg[80];
+    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, (arg[0] == 'Y' || arg[0] ==  'y'));
+    }
+
+    // show contents of this slot
+    int i;
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &i);
+    printf("SmartThings SDK driver is '%s'\n", (i ? "Enabled" : "Disabled"));
+}
+
+/**
  * Forget all STSDK state revert back to adoption mode.
  */
 static void _cli_cmd_cleanup_event(char *string)
@@ -205,6 +222,7 @@ static void _cli_cmd_stprivatekey_event(char *string)
 }
 
 char * STSDK_SETTINGS [] = {
+    (char*)STSDK_ENABLE,
     (char*)STSDK_CLEANUP,
     (char*)STSDK_SERIAL,
     (char*)STSDK_PUBKEY,
@@ -212,29 +230,38 @@ char * STSDK_SETTINGS [] = {
     0 // EOF
 };
 
+/**
+ * @brief command list for module
+ */
 static struct cli_command stsdk_cmd_list[] = {
     {
+        (char*)STSDK_ENABLE,(char*)
+        "- Enable SmartThings component\n\n"
+        "  ```" STSDK_ENABLE " {bool}```\n\n"
+        "  - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
+    },
+    {
         (char*)STSDK_CLEANUP,(char*)
-        "Cleanup NV data with reboot option\n"
-        "  Syntax: " STSDK_CLEANUP "\n", _cli_cmd_cleanup_event
+        "- Cleanup NV data with reboot option\n\n"
+        "  ```" STSDK_CLEANUP "```\n\n", _cli_cmd_cleanup_event
     },
     {
         (char*)STSDK_SERIAL,(char*)
-        "Sets the SmartThings device_info serialNumber.\n"
-        "  Syntax: " STSDK_SERIAL " <serialNumber>\n"
-        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n", _cli_cmd_stserial_event
+        "- Sets the SmartThings device_info serialNumber.\n\n"
+        "  ```" STSDK_SERIAL " {serialNumber}```\n\n"
+        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stserial_event
     },
     {
         (char*)STSDK_PUBKEY,(char*)
-        "Sets the SmartThings device_info publicKey.\n"
-        "  Syntax: " STSDK_PUBKEY " <publicKey>\n"
-        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stpublickey_event
+        "- Sets the SmartThings device_info publicKey.\n\n"
+        "  ```" STSDK_PUBKEY " {publicKey}```\n\n"
+        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stpublickey_event
     },
     {
         (char*)STSDK_PRIVKEY,(char*)
-        "Sets the SmartThings device_info privateKey.\n"
-        "  Syntax: " STSDK_PRIVKEY " <privateKey>\n"
-        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n", _cli_cmd_stprivatekey_event
+        "- Sets the SmartThings device_info privateKey.\n\n"
+        "  ```" STSDK_PRIVKEY " {privateKey}```\n\n"
+        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stprivatekey_event
     },
 };
 
@@ -319,13 +346,48 @@ void cap_securitySystem_chime_cmd_cb(struct caps_momentary_data *caps_data)
 }
 
 /**
+ * @brief Clear the fire trigger counter
+ */
+static int fire_trigger_count = 0;
+static TimerHandle_t fire_trigger_timer = nullptr;
+void fire_trigger_clear(TimerHandle_t *arg)
+{
+    xTimerDelete(fire_trigger_timer, 1000 / portTICK_PERIOD_MS);
+    fire_trigger_count = 0;
+    fire_trigger_timer = nullptr;
+    ESP_LOGI(TAG, "Clearing fire panic counter.");
+}
+
+/**
  * @brief ST Cloud app fire alarm panic button pushed
  * trigger a fire alarm! Are you sure?
  */
 void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
 {
-    // send a fire panic F1 button to the panel.
-    ad2_fire_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+    fire_trigger_count++;
+    ESP_LOGI(TAG, "Fire trigger count %i", fire_trigger_count);
+    if (fire_trigger_count >= 3) {
+        ESP_LOGI(TAG, "Sending fire signal to panel.");
+        // send a fire panic F1 button to the panel.
+        ad2_fire_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+    } else {
+        if (fire_trigger_timer) {
+            xTimerReset(fire_trigger_timer, 1000 / portTICK_PERIOD_MS);
+        } else {
+            fire_trigger_timer = xTimerCreate( "FIRE_TRIG",
+                                               ( 5000 / portTICK_PERIOD_MS),
+                                               pdFALSE,
+                                               (void *) nullptr,
+                                               (TimerCallbackFunction_t) fire_trigger_clear
+                                             );
+            if (fire_trigger_timer == nullptr) {
+                ESP_LOGE(TAG, "Error creating fire trigger timer");
+            } else {
+                xTimerStart(fire_trigger_timer, 0);
+                ESP_LOGI(TAG, "Starting fire trigger timer");
+            }
+        }
+    }
 }
 
 
@@ -404,8 +466,10 @@ void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  */
 void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
-    if (s) {
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
         if (s->armed_home) {
             cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
         } else {
@@ -427,8 +491,10 @@ void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  */
 void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
-    if (s) {
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
         cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed);
         cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
     }
@@ -445,8 +511,10 @@ void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  */
 void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
-    if (s) {
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
         if ( s->chime_on ) {
             cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_open);
         } else {
@@ -468,8 +536,10 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  */
 void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_FIRE: '%s'", msg->c_str());
-    if (s) {
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_FIRE: '%s'", msg->c_str());
         if ( s->fire_alarm ) {
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
         } else {
@@ -494,6 +564,15 @@ void stsdk_init(void)
     // register STSDK CLI commands
     for (int i = 0; i < ARRAY_SIZE(stsdk_cmd_list); i++) {
         cli_register_command(&stsdk_cmd_list[i]);
+    }
+
+    int enabled = 0;
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &enabled);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!enabled) {
+        ESP_LOGI(TAG, "STSDK disabled");
+        return;
     }
 
     // create a iot context
@@ -661,7 +740,7 @@ void* pin_num_memcpy(void *dest, const void *src, unsigned int count)
 /**
  * @brief start connection to SmartThings MQTT server
  */
-void connection_start(void)
+void stsdk_connection_start(void)
 {
     iot_pin_t *pin_num = NULL;
     int err;
@@ -690,9 +769,9 @@ void connection_start(void)
 /**
  * @brief actual stsdk connection task.
  */
-void connection_start_task(void *arg)
+void stsdk_connection_start_task(void *arg)
 {
-    connection_start();
+    stsdk_connection_start();
     vTaskDelete(NULL);
 }
 
@@ -749,7 +828,7 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
         ESP_LOGI(TAG, "Button long press, iot_status: %d", g_iot_status);
         hal_led_blink(get_switch_a_state(), 100, 3);
         st_conn_cleanup(ctx, false);
-        xTaskCreate(connection_start_task, "connection_task", 2048, NULL, tskIDLE_PRIORITY+2, NULL);
+        xTaskCreate(stsdk_connection_start_task, "connection_task", 2048, NULL, tskIDLE_PRIORITY+2, NULL);
     }
 }
 

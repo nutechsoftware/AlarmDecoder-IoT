@@ -2,7 +2,7 @@
 *  @file    alarmdecoder_main.cpp
 *  @author  Sean Mathews <coder@f34r.com>
 *  @date    02/20/2020
-*  @version 1.0.1
+*  @version 1.0.2
 *
 *  @brief AlarmDecoder IoT embedded network appliance
 *
@@ -617,17 +617,25 @@ void app_main()
     // Register and start the AD2IOT cli early so we can stop init by hitting enter.
     register_ad2_cli_cmd();
 
+    // get the network mode.
+    std::string args;
+    char net_mode = ad2_network_mode(args);
+
     /**
      * FIXME: SmartThings needs to manage the Wifi during adopting.
      * FIXME: For now just one interface more is much more complex.
      */
-#if CONFIG_AD2IOT_ETHERNET
-    // Init the hardware ethernet module
-    init_eth();
+#if CONFIG_AD2IOT_USE_ETHERNET
+    if ( net_mode == 'E') {
+        // Init the hardware ethernet module
+        hal_init_eth();
+    }
 #endif
-#if CONFIG_AD2IOT_WIFI
-    // Init the wifi module
-    init_wifi();
+#if CONFIG_AD2IOT_USE_WIFI
+    if ( net_mode == 'W') {
+        // Init the wifi module
+        hal_init_wifi();
+    }
 #endif
 
     // init the virtual partition database from NV storage
@@ -657,10 +665,10 @@ void app_main()
 
     // Load AD2IoT operating mode [Socket|UART] and argument
     // get the mode
-    char mode[2];
+    char ad2_mode[2] = {0};
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, mode, sizeof(mode));
-    g_ad2_mode = mode[0];
+                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode, sizeof(ad2_mode));
+    g_ad2_mode = ad2_mode[0];
 
     // init the AlarmDecoder UART
     if (g_ad2_mode == 'C') {
@@ -683,7 +691,14 @@ void app_main()
 #endif
 
 #if CONFIG_STDK_IOT_CORE
-    // Initialize SmartThings SDK
+    /**
+     * Initialize SmartThings SDK
+     *
+     *  If enabled it will consume the esp_event_loop_init and only one task can create this.
+     * but if we dont call init our commands are not enabled so we can't disable/enable it.
+     *
+     * FIXME: Need to call all components with init in two parts register and init.
+     */
     stsdk_init();
 #endif
 
@@ -698,8 +713,11 @@ void app_main()
     ota_init();
 
 #if CONFIG_STDK_IOT_CORE
-    // connect to SmartThings server
-    connection_start();
+    // Disable stsdk if network mode is not N
+    if ( net_mode == 'N') {
+        // Kick off a connect to SmartThings server to get things started.
+        stsdk_connection_start();
+    }
 #endif
 }
 

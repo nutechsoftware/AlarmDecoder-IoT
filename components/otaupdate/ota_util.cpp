@@ -2,7 +2,7 @@
  *  @file    ota_util.c
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
- *  @version 1.0.1
+ *  @version 1.0.2
  *
  *  @brief OTA update support
  *
@@ -734,14 +734,19 @@ static void ota_polling_task_func(void *arg)
     }
 }
 
+/**
+ * @brief command list for module
+ */
 static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
-        "Preform an OTA upgrade now download and install new flash.\n", ota_do_update
+        "- Preform an OTA upgrade now download and install new flash.\n\n"
+        "  ```" OTA_UPGRADE_CMD "```\n\n", ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)
-        "Report the current and available version.\n", ota_do_version
+        "- Report the current and available version.\n\n"
+        "  ```" OTA_VERSION_CMD "```\n\n", ota_do_version
     }
 };
 

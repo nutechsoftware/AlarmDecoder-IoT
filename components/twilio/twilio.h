@@ -33,6 +33,8 @@
 #define WEB_PORT "443"
 #define API_VERSION "2010-04-01"
 
+#define TWILIO_RATE_LIMIT 2000
+
 #define TWILIO_SID   "twsid"
 #define TWILIO_TOKEN "twtoken"
 #define TWILIO_TYPE  "twtype"

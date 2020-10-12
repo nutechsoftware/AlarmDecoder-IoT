@@ -35,50 +35,219 @@ https://smartthings.developer.samsung.com/partner/enroll
 ## Configure the AD2IoT device.
  - Connect the ESP32 development board USB to a host computer and run a terminal program to connect to the virtual com port.
  - Configure the AD2* Source cli command **'ad2source'**
- - Configure the SmartThings security credentials
+
+Choose one of the following configurations.
+ - SmartThings STSDK mode
+   - Set ```'netmode'``` to N to allow STSDK to manage the network hardware.
+   - Enable the STSDK module **'stenable'**
+   - Configure the SmartThings security credentials
   **'stserial'** **'stpublickey'** **'stprivatekey'**
-  - Add the credentials to the SmartThings developer workspace.
+    - Add the credentials to the SmartThings developer workspace.
+ - Managed networking mode.
+   - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password as described in the ```netmode``` command help.
+
 
 ## AD2Iot CLI command reference
 ### Base commands
- - help
-   - Show the list of commands or give more detail on a command.
- - reboot
-   - Reboot the microcontroller
- - cleanup
-   - Erase adoption and other NV data and set the device back into adopt mode for SmartThings.
- - upgrade
-   - Fetch and install an upgrade if available.
- - version
-   - Show installed and available remote update server version.
- - button
-   - Simulate a button press event.
- - code
-   - Manage user codes.
- - ad2term
-   - Connect to the Socket or UART AD2* device directly stopping all processing until the mode is exited. Allow for diagnostics or configuration directly to the AD2* device.
- - vpaddr
-   - Manage virtual partitions.
- - ad2source
-   - Configure the source for AlarmDecoder signals. Local UART or remote using tcpip to a remote host and port.
-### SmartThings integration commands
- - stserial
-   - Sets the SmartThings device_info serialNumber
- - stprivatekey
-   - Sets the SmartThings device_info privateKey
- - stpublickey
-   - Sets the SmartThings device_info publicKey
+  - Show the list of commands or give more detail on a specific command.
+
+    ```help [command]```
+
+  - Reboot the device.
+
+    ```reboot```
+
+  - Preform an OTA upgrade now download and install new flash.
+
+    ```upgrade```
+
+  - Report the current and available version.
+
+    ```version```
+
+  - Manage network connection type.
+
+    ```netmode {mode} [args]```
+
+    - {mode}
+      - [N]one: (default) Do not enable any network let component(s) manage the networking.
+      - [W]iFi: Enable WiFi network driver.
+      - [E]thernet: Enable ethernet network driver.
+    - [arg]
+      - Argument string name value pairs sepearted by &.
+        - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD
+
+    Examples
+      - WiFi DHCP with SID and password.
+        - netmode W mode=d&sid=example&password=somethingsecret
+      - Ethernet DHCP DNS2 override.
+        - netmode E mode=d&dns2=4.2.2.2
+      - Ethernet Static IPv4 address
+        - netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8
+
+  - Simulate a button press event.
+
+    ```button {count} {type}```
+
+    - {count}
+      - Number of times the button was pushed.
+    - {type}
+      - The type of event 'short' or 'long'.
+
+    Examples
+      - Send a single LONG button press.
+        - button 1 long
+
+  - Manage user codes.
+
+    ```code {id} [value]```
+
+    - {id}
+      - Index of code to evaluate. 0 is default.
+    - [value]
+      - A valid alarm code or -1 to remove.
+
+    Examples
+      - Set default code to 1234
+        - code 0 1234
+      - Set alarm code for slot 1
+        - code 1 1234
+      - Show code in slot #3
+        - code 3
+      - Remove code for slot 2
+        - code 2 -1
+
+      Note: value -1 will remove an entry.
+
+  - Connect directly to the AD2* source and halt processing.
+
+    ```ad2term```
+
+    Note: To exit press ... three times fast.
+
+  - Manage virtual partitions
+
+    ```vpaddr {id} {value}```
+
+    - {id}
+      - The virtual partition ID. 0 is the default.
+    - [value]
+      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.
+
+    Examples
+      - Set default address mask to 18 for an Ademco system.
+        - vpaddr 0 18
+      - Set default send partition to 1 for a DSC system.
+        - vpaddr 0 1
+      - Show address for partition 2
+        - vpaddr 2
+      - Remove virtual partition in slot 2
+        - vpaddr 2 -1
+
+      Note: address -1 will remove an entry.
+
+  - Manage AlarmDecoder protocol source.
+
+    ```ad2source [{mode} {arg}]```
+
+    - {mode}
+      - [S]ocket: Use ser2sock server over tcp for AD2* messages.
+      - [C]om port: Use local UART for AD2* messages.
+    - {arg}
+      - [S]ocket arg: {HOST:PORT}
+      - [C]om arg: {TXPIN:RXPIN}.
+
+    Examples:
+      - Show current mode
+        - ad2source
+      - Set source to ser2sock client at address and port
+        - ad2source SOCK 192.168.1.2:10000
+      - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16
+        - ad2source COM 17:16
+
+### SmartThings STSDK IoT commands
+  - Enable SmartThings component
+
+    ```stenable {bool}```
+
+    - {bool}: [Y]es/[N]o
+
+  - Cleanup NV data with reboot option
+
+    ```stcleanup```
+
+  - Sets the SmartThings device_info serialNumber.
+
+    ```stserial {serialNumber}```
+
+    Example: stserial AaBbCcDdEeFfGg...
+
+  - Sets the SmartThings device_info privateKey.
+
+    ```stprivatekey {privateKey}```
+
+    Example: stprivatekey AaBbCcDdEeFfGg...
+
+  - Sets the SmartThings device_info publicKey.
+
+    ```stpublickey {publicKey}```
+
+    Example: stpublickey AaBbCcDdEeFfGg...
+
 ### Twilio notification commands
- - twsid
-   - Set Twilio SID.
- - twtoken
-   - Set Twilio TOKEN.
- - twtype
-   - Set Twilio notification type
- - twfrom
-   - Set Twilio From
- - twto
-   - Set Twilio To
+  - Sets the 'Account SID' for notification.
+
+    ```twsid {slot} {hash}```
+
+    - {slot}: [N]
+      - For default use 0. Support multiple Twilio accounts.
+    - {hash}: Twilio 'Account SID'
+
+    Example: twsid 0 aabbccdd112233..
+
+  - Sets the 'User Auth Token' for notifications.
+
+    ```twtoken {slot} {hash}```
+
+    - {slot}: [N]
+      - For default use 0. Support multiple Twilio accounts.
+    - {hash}: Twilio 'User Auth Token'
+
+    Example: twtoken 0 aabbccdd112233..
+
+  - Sets the 'Type' for notification.
+
+    ```twtype {slot} {type}```
+
+    - {slot}
+      - For default use 0. Support multiple Twilio accounts.
+    - {type}: [M|T]
+      - Notification type [M]essage or [T]wiml.
+
+    Example: twtype 0 M
+
+  - Sets the 'From' address for notification.
+
+    ```twfrom {slot} {phone} ```
+
+    - {slot}: [N]
+      - For default use 0. Support multiple Twilio accounts.
+    - {phone}: [NXXXYYYZZZZ]
+      - From phone #
+
+    Example: twfrom 0 13115552368
+
+  - Sets the 'To' address for notification.
+
+    ```twto {slot} {phone}```
+
+    - {slot}: [N]
+      - For default use 0. Support multiple Twilio accounts.
+    - {phone}: [NXXXYYYZZZZ]
+      - To phone #
+
+    Example: twto 0 13115552368
+
 
 ## Building firmware
 ### Setup build environment
@@ -169,3 +338,5 @@ I (266972) AD2_IoT: MESSAGE_CB: '[10010001000000003A--],008,[f72600ff1008001c080
 - If the AD2* is not communicating it may be stuck in a configuration mode or its configuration may have been corrupted during firmware update of the ESP32. If this happens you can directly connect to the AD2* over the UART or Socket by using the command ```'ad2term'```.
 
   Note) If the connection is a Socket it is currently necessary to have the ESP32 running and not halted at boot and connected with SmartThings for Wifi and networking to be active.
+
+- Flashing the ESP32 board fails with timeout. It seems many of the ESP32 boards need a 4-10uF cap as a buffer on the EN pin and ground. This seems to fix it very well. Repeated attempts to upload with timeouts usually works by pressing the EN button on the board a few times during upload.

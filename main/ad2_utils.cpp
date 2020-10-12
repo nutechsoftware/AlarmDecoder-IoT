@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
 
 // esp includes
 #include "freertos/FreeRTOS.h"
@@ -46,6 +47,96 @@ static const char *TAG = "AD2UTIL";
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief find value by name in query string config data
+ *    param1=val1&param2=val2
+ *
+ * @arg [in]qry_string std::string * to scan for NV data.
+ * @arg [in]key char * key to search for.
+ * @arg [in]val std::string &. Result buffer for value.
+ * @arg [in]val_size size of output buffer.
+ *
+ * @return int results. < -2 error, -1 not found, >= 0 result length
+ *
+ * @note val is cleared after param check.
+ */
+int ad2_query_key_value(std::string  &qry_str, const char *key, std::string &val)
+{
+
+    /* Test parmeters. */
+    if ( !qry_str.length() || key == NULL) {
+        return -2;
+    }
+
+    /* Clear val first. */
+    val = "";
+
+    /* Init state machine args and get raw pointer to our query string. */
+    int keylen = strlen(key);
+    const char * qry_ptr = qry_str.c_str();
+
+    /* Process until we reach null terminator on the query string. */
+    while ( *qry_ptr ) {
+        const char *tp = qry_ptr;
+        int len = 0;
+        static char chr;
+
+        /* Scan the KEY looking for the next terminator. */
+        while ( (chr = *tp) != 0 ) {
+            if (chr == '=' || chr == '&') {
+                break;
+            }
+            len++;
+            tp++;
+        }
+
+        /* Test key for a match. */
+        if ( len && len == keylen ) {
+            if ( strncasecmp (key, qry_ptr, keylen) == 0 ) {
+
+                /* move the index */
+                len++;
+                tp++;
+
+                /* Test for null value. Still valid just return empty string. */
+                if ( !chr || chr == '&' ) {
+                    return val.length();
+                }
+
+                /* Save the value. */
+                while ( ( chr = *tp ) != 0 ) {
+                    if ( chr == '=' || chr == '&' ) {
+                        break;
+                    }
+                    val += chr;
+                    tp++;
+                }
+                return val.length();
+            }
+        }
+
+        /* End of string and key not found. We are done. */
+        if ( !chr ) {
+            return -1;
+        }
+
+        /* Keep looking skip last terminator. */
+        len++;
+
+        /* Scan till we start the next set. */
+        qry_ptr += len;
+        while ( chr && chr != '&' ) {
+            chr = *qry_ptr++;
+        }
+
+        /* End of string and not found. We are done. */
+        if ( !chr ) {
+            return -1;
+        }
+    }
+    return -1;
+}
 
 /**
  * @brief fix missing std::to_string()
@@ -513,12 +604,38 @@ AD2VirtualPartitionState *ad2_get_partition_state(int address_slot)
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, address_slot, &x);
     // if we found a NV record then initialize the AD2PState for the mask.
     if (x != -1) {
-        uint32_t amask = 1;
-        amask <<= x-1;
-        s = AD2Parse.getAD2PState(&amask, false);
+        s = AD2Parse.getAD2PState(x, false);
     }
     return s;
 }
+
+/**
+ * @brief return the current network mode value
+ *
+ * @return char mode
+ */
+char ad2_network_mode(std::string &args)
+{
+    int mode = 0;
+    ad2_get_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, &mode);
+    switch(mode) {
+    case 'W':
+    case 'E':
+        char arg[200];
+        ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg, sizeof(arg));
+        args = (char *)arg;
+        break;
+    case 'N':
+    default:
+        args = "";
+        mode = 'N';
+        break;
+    }
+    return mode;
+}
+
+
+
 
 #ifdef __cplusplus
 } // extern "C"

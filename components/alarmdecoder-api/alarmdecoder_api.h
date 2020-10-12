@@ -273,7 +273,11 @@ public:
     // Reset the parser state machine.
     void reset_parser();
 
+    // Build a bitstring from a pointer
+    std::string bit_string(size_t const size, void const * const ptr);
+
     // get AD2PPState by mask create if flag is set and no match found.
+    AD2VirtualPartitionState * getAD2PState(int address, bool update=false);
     AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
     // update firmware version trigger events to any subscribers

@@ -25,6 +25,7 @@
 #define _AD2_CLI_CMD_H_
 
 #define AD2_REBOOT   "reboot"
+#define AD2_NETMODE  "netmode"
 #define AD2_BUTTON   "button"
 #define AD2_CODE     "code"
 #define AD2_VPADDR   "vpaddr"
