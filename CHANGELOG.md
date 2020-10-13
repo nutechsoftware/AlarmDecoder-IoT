@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [X] CORE: Fix building with espidf 4.x Currently testing only on 3.x branch but will switch to 4.x as soon as some warnings are sorted out.
 - [ ] CORE: TODO: Ethernet hardware enable.
 - [ ] CORE: Tidy: Improve Kconfig menuconfig.
 - [ ] CORE: WISHLIST: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
