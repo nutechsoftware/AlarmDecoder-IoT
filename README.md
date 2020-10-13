@@ -252,12 +252,17 @@ Choose one of the following configurations.
 ## Building firmware
 ### Setup build environment
 - Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
+- Select the esp32_v3.3 build environment.
+```
+./setup.py esp32_v3.3
+```
+
 - Place the contents of this his project in ```st-device-sdk-c-ref/apps/esp32/```
 
 ### Configure the project
 
 ```
-./build.sh esp32 AlarmDecoder-STSDK menuconfig
+./build.sh esp32_v3.3 AlarmDecoder-STSDK menuconfig
 ```
 
 ### Build, Flash, and Run
