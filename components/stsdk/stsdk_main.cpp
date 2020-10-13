@@ -414,25 +414,19 @@ void cap_switch_b_cmd_cb(struct caps_switch_data *caps_data)
  */
 void cap_available_version_set(char *available_version)
 {
-    IOT_EVENT *init_evt;
-    uint8_t evt_num = 1;
-    int32_t sequence_no;
+    int32_t sequence_no = 0;
 
     if (!available_version) {
         ESP_LOGE(TAG, "invalid parameter");
         return;
     }
 
-    /* Setup switch on state */
-    init_evt = st_cap_attr_create_string((char*)"availableVersion", available_version, NULL);
-
     /* Send avail version to ota cap handler */
-    sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
+    ST_CAP_SEND_ATTR_STRING(ota_cap_handle, (char*)"availableVersion", available_version, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
         ESP_LOGE(TAG, "fail to send init_data");
     }
 
-    st_cap_attr_free(init_evt);
 }
 
 
@@ -834,38 +828,29 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
 
 void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-    IOT_EVENT *init_evt;
-    uint8_t evt_num = 1;
-    int32_t sequence_no;
+    int32_t sequence_no = 0;
 
-    init_evt = st_cap_attr_create_int("checkInterval", 60, NULL);
-    sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+    ST_CAP_SEND_ATTR_NUMBER(handle, "checkInterval", 60, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
         ESP_LOGE(TAG, "fail to send init_data");
     }
-
-    st_cap_attr_free(init_evt);
 
 }
 
 void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-    IOT_EVENT *init_evt;
-    uint8_t evt_num = 1;
-    int32_t sequence_no;
+    int32_t sequence_no = 0;
 
     /* Setup switch on state */
     // FIXME: get from device_info ctx->device_info->firmware_version
     // that is loaded from device_info.json
-    init_evt = st_cap_attr_create_string("currentVersion", (char *)FIRMWARE_VERSION, NULL);
 
-    /* Send current version attribute */
-    sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+    /* Send avail version to ota cap handler */
+    ST_CAP_SEND_ATTR_STRING(handle, (char*)"availableVersion", (char *)FIRMWARE_VERSION, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
         ESP_LOGE(TAG, "fail to send init_data");
     }
 
-    st_cap_attr_free(init_evt);
 }
 
 /**

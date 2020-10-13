@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [X] CORE: Improve: Switching to espidf 4.x build.
+- [X] CORE: Fix deprecated stsdk api calls.
 - [X] CORE: Fix: building with espidf 4.x Currently testing only on 3.x branch but will switch to 4.x as soon as some warnings are sorted out.
 - [ ] CORE: TODO: Ethernet hardware enable.
 - [ ] CORE: Tidy: Improve Kconfig menuconfig.
