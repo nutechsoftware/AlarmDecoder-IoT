@@ -285,12 +285,12 @@ static void ser2sock_client_task(void *pvParameters)
         if (g_ad2_network_state == AD2_CONNECTED) {
             // load settings from NVS
             // host stored in slot 1
-            char buf[AD2_MAX_MODE_ARG_SIZE] = {0};
+            std::string buf;
             ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                       AD2MODE_CONFIG_ARG_SLOT, buf, sizeof(buf));
+                                       AD2MODE_CONFIG_ARG_SLOT, buf);
 
             std::vector<std::string> out;
-            ad2_tokenize(std::string(buf), ':', out);
+            ad2_tokenize(buf, ':', out);
 
             // data sanity tests
             bool connectok = false;
@@ -307,7 +307,7 @@ static void ser2sock_client_task(void *pvParameters)
             if (connectok) {
                 ESP_LOGI(TAG, "Connecting to ser2sock host %s:%i", host.c_str(), port);
             } else {
-                ESP_LOGE(TAG, "Error parsing host:port from settings '%s'", buf);
+                ESP_LOGE(TAG, "Error parsing host:port from settings '%s'", buf.c_str());
             }
 
             int addr_family = 0;
@@ -543,12 +543,12 @@ void init_ad2_uart_client()
 {
     // load settings from NVS
     // host stored in slot 1
-    char port_pins[20];
+    std::string port_pins;
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_ARG_SLOT, port_pins, sizeof(port_pins));
+                               AD2MODE_CONFIG_ARG_SLOT, port_pins);
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
-    ad2_tokenize(std::string(port_pins), ':', out);
+    ad2_tokenize(port_pins, ':', out);
     ESP_LOGI(TAG, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
     int tx_pin = atoi(out[0].c_str());
     int rx_pin = atoi(out[1].c_str());
@@ -665,9 +665,9 @@ void app_main()
 
     // Load AD2IoT operating mode [Socket|UART] and argument
     // get the mode
-    char ad2_mode[2] = {0};
+    std::string ad2_mode;
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode, sizeof(ad2_mode));
+                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode);
     g_ad2_mode = ad2_mode[0];
 
     // init the AlarmDecoder UART

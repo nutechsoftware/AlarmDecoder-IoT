@@ -173,8 +173,11 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
     for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++) {
         char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
         if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
+            ESP_LOGI(TAG, "Test supported version '%s' PASS", upgrade);
             is_new_version = true;
             break;
+        } else {
+            ESP_LOGI(TAG, "Test supported version '%s' FAIL", upgrade);
         }
     }
 
@@ -691,7 +694,7 @@ static void ota_polling_task_func(void *arg)
 
         vTaskDelay(30000 / portTICK_PERIOD_MS);
 
-        ESP_LOGI(TAG, "Starting check new version");
+        ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
 
         if (ota_task_handle != NULL) {
             ESP_LOGI(TAG, "Device is updating");
@@ -709,10 +712,9 @@ static void ota_polling_task_func(void *arg)
         esp_err_t ret = ota_https_read_version_info(&read_data, &read_data_len);
         if (ret == ESP_OK) {
             char *available_version = NULL;
-
             esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
             if (err != ESP_OK) {
-                ESP_LOGE(TAG, "ota_api_get_available_version is failed : %d", err);
+                ESP_LOGE(TAG, "ota_api_get_available_version failed : %d", err);
                 continue;
             }
 
@@ -721,9 +723,11 @@ static void ota_polling_task_func(void *arg)
                 ota_available_version = available_version;
                 AD2Parse.updateVersion(available_version);
                 free(available_version);
+                ESP_LOGI(TAG, "Get avail version found '%s' on the server.", available_version);
             } else {
                 // if nothing available then it must be the same we have installed.
                 ota_available_version = FIRMWARE_VERSION;
+                ESP_LOGI(TAG, "Get avail version found NO available version on the server.");
             }
         }
 

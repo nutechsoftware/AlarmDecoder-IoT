@@ -188,17 +188,17 @@ extern "C" {
 /**
  * twilio_add_queue()
  */
-void twilio_add_queue(const char * sid, const char * token, const char *from, const char *to, char type, const char *arg)
+void twilio_add_queue(std::string &sid, std::string &token, std::string &from, std::string &to, char type, std::string &arg)
 {
     if (sendQ) {
         twilio_message_data_t *message_data = NULL;
         message_data = (twilio_message_data_t *)malloc(sizeof(twilio_message_data_t));
-        message_data->sid = strdup(sid);
-        message_data->token = strdup(token);
-        message_data->from =  strdup(from);
-        message_data->to =  strdup(to);
+        message_data->sid = strdup(sid.c_str());
+        message_data->token = strdup(token.c_str());
+        message_data->from =  strdup(from.c_str());
+        message_data->to =  strdup(to.c_str());
         message_data->type = type;
-        message_data->arg = strdup(arg);
+        message_data->arg = strdup(arg.c_str());
         xQueueSend(sendQ,(void *)&message_data,(TickType_t )0);
     } else {
         ESP_LOGE(TAG, "Invalid queue handle");
@@ -434,48 +434,33 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
     if (!s || (defs && s->partition == defs->partition)) {
         ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
 
-        std::string outmsg;
+        std::string body;
         if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
-            outmsg = ad2_string_format("EVENT ID %d",(int)arg);
+            body = ad2_string_format("EVENT ID %d",(int)arg);
         } else {
-            outmsg = AD2Parse.event_str[(int)arg];
+            body = AD2Parse.event_str[(int)arg];
         }
 
         if (g_ad2_network_state == AD2_CONNECTED) {
             // load our settings for this event type.
-            char buf[80];
+            std::string sid;
+            ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, sid);
 
-            buf[0]=0;
-            ad2_get_nv_slot_key_string(TWILIO_SID, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-            std::string sid = buf;
+            std::string token;
+            ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, token);
 
-            buf[0]=0;
-            ad2_get_nv_slot_key_string(TWILIO_TOKEN, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-            std::string token = buf;
+            std::string from;
+            ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, from);
 
-            buf[0]=0;
-            ad2_get_nv_slot_key_string(TWILIO_FROM, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-            std::string from = buf;
+            std::string to;
+            ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, to);
 
-            buf[0]=0;
-            ad2_get_nv_slot_key_string(TWILIO_TO, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-            std::string to = buf;
-
-            buf[0] = 'M'; // default to Messages
-            ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-            char type = buf[0];
-
-            buf[0]=0;
-            ad2_get_nv_slot_key_string(TWILIO_BODY, AD2_DEFAULT_TWILIO_SLOT, buf, sizeof(buf));
-
-            // build the body of the message
-            std::string body = outmsg;
+            std::string type;
+            ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, type);
 
             // add to the queue
             ESP_LOGI(TAG, "Adding task to twilio send queue");
-            twilio_add_queue(sid.c_str(),
-                             token.c_str(), from.c_str(),
-                             to.c_str(), type, body.c_str());
+            twilio_add_queue(sid, token, from, to, type[0], body);
 
         }
     }
@@ -490,12 +475,12 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 static void _cli_cmd_twilio_event(char *string)
 {
     int slot = -1;
-    char buf[80];
-    char key[80];
+    std::string buf;
+    std::string key;
 
     // key value validation
-    ad2_copy_nth_arg(key, string, sizeof(key), 0);
-    strlwr(key);
+    ad2_copy_nth_arg(key, string, 0);
+    ad2_lcase(key);
 
     int i;
     for(i = 0;; ++i) {
@@ -503,17 +488,17 @@ static void _cli_cmd_twilio_event(char *string)
             printf("What?\n");
             break;
         }
-        if(!strcmp(key, TWILIO_SETTINGS[i]) == 0) {
-            if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
-                slot = strtol(buf, NULL, 10);
+        if(key.compare(TWILIO_SETTINGS[i]) == 0) {
+            if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
+                slot = strtol(buf.c_str(), NULL, 10);
             }
             if (slot >= 0) {
-                if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
-                    ad2_set_nv_slot_key_string(key, slot, buf);
-                    printf("Setting %s value finished.\n", key);
+                if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
+                    ad2_set_nv_slot_key_string(key.c_str(), slot, buf.c_str());
+                    printf("Setting %s value finished.\n", key.c_str());
                 } else {
-                    ad2_get_nv_slot_key_string(key, slot, buf, sizeof(buf));
-                    printf("Current slot #%02i '%s' value '%s'\n", slot, key, buf);
+                    ad2_get_nv_slot_key_string(key.c_str(), slot, buf);
+                    printf("Current slot #%02i '%s' value '%s'\n", slot, key.c_str(), buf.c_str());
                 }
             } else {
                 printf("Missing <slot>\n");

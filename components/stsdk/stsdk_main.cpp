@@ -114,8 +114,8 @@ IOT_CAP_HANDLE *refresh_cap_handle = NULL;
 static void _cli_cmd_enable_event(char *string)
 {
     ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, (arg[0] == 'Y' || arg[0] ==  'y'));
     }
 
@@ -144,15 +144,15 @@ static void _cli_cmd_cleanup_event(char *string)
  */
 static void _cli_cmd_stserial_event(char *string)
 {
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
         }
-        err = nvs_set_str(my_handle, "SerialNum", arg);
+        err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
         }
@@ -173,15 +173,15 @@ static void _cli_cmd_stserial_event(char *string)
  */
 static void _cli_cmd_stpublickey_event(char *string)
 {
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
         }
-        err = nvs_set_str(my_handle, "PublicKey", arg);
+        err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
         }
@@ -202,15 +202,15 @@ static void _cli_cmd_stpublickey_event(char *string)
  */
 static void _cli_cmd_stprivatekey_event(char *string)
 {
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
         }
-        err = nvs_set_str(my_handle, "PrivateKey", arg);
+        err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
         }

@@ -139,6 +139,30 @@ int ad2_query_key_value(std::string  &qry_str, const char *key, std::string &val
 }
 
 /**
+ * @brief conver bytes in a std::string to upper case.
+ *
+ * @param [in]str std::string & to modify
+ */
+void ad2_ucase(std::string &str)
+{
+    for (std::string::size_type i=0; i<str.length(); ++i) {
+        str[i] = std::toupper(str[i]);
+    }
+}
+
+/**
+ * @brief conver bytes in a std::string to lower case.
+ *
+ * @param [in]str std::string & to modify
+ */
+void ad2_lcase(std::string &str)
+{
+    for (std::string::size_type i=0; i<str.length(); ++i) {
+        str[i] = std::tolower(str[i]);
+    }
+}
+
+/**
  * @brief fix missing std::to_string()
  *
  * @param [in]n int value to convert to string.
@@ -201,6 +225,38 @@ std::string ad2_string_format(const std::string fmt, ...)
         }
     }
     return str;
+}
+
+/**
+ * @brief replace all occurrences of a string in another string.
+ *
+ * @param [in]inStr std::string source.
+ * @param [in]findStr std::string & what to look for.
+ * @param [in]replaceStr std::string & what to change it to.
+ *
+ * @return bool true|false
+ *
+ */
+bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replaceStr)
+{
+    int findLen = strlen(findStr);
+    if (!findLen) {
+        return false;
+    }
+
+    size_t i = inStr.find(findStr);
+    if (i == std::string::npos) {
+        return false;
+    }
+
+    int replaceLen = strlen(replaceStr);
+
+    while (i != std::string::npos) {
+        inStr.replace(i, findLen, replaceStr);
+        i = inStr.find(findStr, replaceLen + i);
+    }
+
+    return true;
 }
 
 /**
@@ -268,10 +324,10 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, int value)
  *
  * @param [in]key to search for.
  * @param [in]slot inter slot from 0 - 99.
- * @param [out]valueout pointer store search results.
+ * @param [out]valueout std::string * to store search results.
  *
  */
-void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_t size)
+void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &valueout)
 {
     esp_err_t err;
 
@@ -281,11 +337,21 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = (char*)malloc(tlen);
-        snprintf(tkey, tlen, "%02i", slot);
-        err = nvs_get_str(my_handle, tkey, valueout, &size);
-        free(tkey);
+        size_t size;
+        std::string tkey;
+        tkey = ad2_string_format("%02i", slot);
+        // get size including terminator.
+        err = nvs_get_str(my_handle, tkey.c_str(), NULL, &size);
+        if (err == ESP_OK && size) {
+            if (size > AD2_MAX_VALUE_SIZE) {
+                size = AD2_MAX_VALUE_SIZE;
+            }
+            // set size excluding terminator
+            valueout.resize(size-1);
+            // load the string to valueout.
+            err = nvs_get_str(my_handle, tkey.c_str(), (char*)valueout.c_str(), &size);
+        }
+
         nvs_close(my_handle);
     }
 }
@@ -299,7 +365,7 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, char *valueout, size_
  * @param [in]value pointer to string to store for search results.
  *
  */
-void ad2_set_nv_slot_key_string(const char *key, int slot, char *value)
+void ad2_set_nv_slot_key_string(const char *key, int slot, const char *value)
 {
     esp_err_t err;
 
@@ -309,15 +375,14 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, char *value)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = (char*)malloc(tlen);
-        snprintf(tkey, tlen, "%02i", slot); // MAX XX(99)
+        std::string tkey;
+        tkey = ad2_string_format("%02i", slot);
+
         if (value == NULL) {
-            err = nvs_erase_key(my_handle, tkey);
+            err = nvs_erase_key(my_handle, tkey.c_str());
         } else {
-            err = nvs_set_str(my_handle, tkey, value);
+            err = nvs_set_str(my_handle, tkey.c_str(), value);
         }
-        free(tkey);
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     }
@@ -327,21 +392,33 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, char *value)
  * @brief Generic get NV value by key.
  *
  * @param [in]key pointer to key for the value to find
- * @param [out]valueout pointer to store value string if found
- * @param [in]size size of results storage.
+ * @param [out]valueout pointer std::string value string if found
  *
  * @note string will be truncated if larger than size including
  * the null terminator.
  */
-void ad2_get_nv_arg(const char *key, char *valueout, size_t size)
+void ad2_get_nv_arg(const char *key, std::string &valueout)
 {
     esp_err_t err;
+
+    // Open NVS
     nvs_handle my_handle;
     err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        err = nvs_get_str(my_handle, key, valueout, &size);
+        size_t size;
+        // get size including terminator.
+        err = nvs_get_str(my_handle, key, NULL, &size);
+        if (err == ESP_OK && size) {
+            if (size > AD2_MAX_VALUE_SIZE) {
+                size = AD2_MAX_VALUE_SIZE;
+            }
+            // set size excluding terminator
+            valueout.resize(size-1);
+            // load the string to valueout.
+            err = nvs_get_str(my_handle, key, (char*)valueout.c_str(), &size);
+        }
         nvs_close(my_handle);
     }
 }
@@ -353,9 +430,11 @@ void ad2_get_nv_arg(const char *key, char *valueout, size_t size)
  * @param [in]value pointer to value string to store
  *
  */
-void ad2_set_nv_arg(const char *key, char *value)
+void ad2_set_nv_arg(const char *key, const char *value)
 {
     esp_err_t err;
+
+    // Open NVS
     nvs_handle my_handle;
     err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
@@ -371,14 +450,13 @@ void ad2_set_nv_arg(const char *key, char *value)
 /**
  * @brief Copy the Nth space seperated word from a string.
  *
- * @param dest pointer to output bytes
+ * @param dest pointer to std::string for output
  * @param [in]src pointer to input bytes
- * @param [in]size size of input buffer
- * @param [in]n argument number to return if possible
+] * @param [in]n argument number to return if possible
  *
  * @return 0 on success -1 on failure
  */
-int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
+int ad2_copy_nth_arg(std::string &dest, char* src, int n)
 {
     int start = 0, end = -1;
     int i = 0, word_index = 0;
@@ -404,12 +482,8 @@ int ad2_copy_nth_arg(char* dest, char* src, int size, int n)
     }
 
     len = end - start + 1;
-    if ( len > size - 1) {
-        len = size - 1;
-    }
 
-    strncpy(dest, &src[start], len);
-    dest[len] = '\0';
+    dest = std::string(&src[start], len);
     return 0;
 
 }
@@ -430,17 +504,29 @@ void ad2_arm_away(int codeId, int vpartId)
 {
 
     // Get user code
-    char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
-    // TODO: DSC support
-    // Get the address/partition mask
-    // Message format KXXYYYYZ
-    char msg[20] = {0};
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
+
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
-    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "3");
-    ESP_LOGI(TAG,"Sending ARM AWAY command");
-    ad2_send(msg);
+
+    std::string msg;
+
+    // @brief get the vpart state
+    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+
+    if (s) {
+        if (s->panel_type == ADEMCO_PANEL) {
+            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "2");
+        } else if (s->panel_type == DSC_PANEL) {
+            msg = "<S5>";
+        }
+
+        ESP_LOGI(TAG,"Sending ARM AWAY command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "Error decoding partition mask");
+    }
 }
 
 /**
@@ -459,18 +545,28 @@ void ad2_arm_stay(int codeId, int vpartId)
 {
 
     // Get user code
-    char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
 
-    // TODO: DSC support
-    // Get the address/partition mask
-    // Message format KXXYYYYZ
-    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
-    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "2");
-    ESP_LOGI(TAG,"Sending ARM STAY command");
-    ad2_send(msg);
+
+    std::string msg;
+
+    // @brief get the vpart state
+    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+
+    if (s) {
+        if (s->panel_type == ADEMCO_PANEL) {
+            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "3");
+        } else if (s->panel_type == DSC_PANEL) {
+            msg = "<S4>";
+        }
+        ESP_LOGI(TAG,"Sending ARM STAY command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "Error decoding partition mask");
+    }
 }
 
 /**
@@ -489,18 +585,29 @@ void ad2_disarm(int codeId, int vpartId)
 {
 
     // Get user code
-    char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
 
-    // TODO: DSC support
-    // Get the address/partition mask
-    // Message format KXXYYYYZ
-    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
-    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "1");
-    ESP_LOGI(TAG,"Sending DISARM command");
-    ad2_send(msg);
+
+    std::string msg;
+
+    // @brief get the vpart state
+    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+
+    if (s) {
+        if (s->panel_type == ADEMCO_PANEL) {
+            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "1");
+        } else if (s->panel_type == DSC_PANEL) {
+            msg = ad2_string_format("K%02i%s", address, code.c_str());
+        }
+
+        ESP_LOGI(TAG,"Sending DISARM command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "Error decoding partition mask");
+    }
 }
 
 /**
@@ -519,18 +626,29 @@ void ad2_chime_toggle(int codeId, int vpartId)
 {
 
     // Get user code
-    char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
 
-    // TODO: DSC support
-    // Get the address/partition mask
-    // Message format KXXYYYYZ
-    char msg[20] = {0};
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
-    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "9");
-    ESP_LOGI(TAG,"Sending CHIME toggle command");
-    ad2_send(msg);
+
+    std::string msg;
+
+    // @brief get the vpart state
+    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+
+    if (s) {
+        if (s->panel_type == ADEMCO_PANEL) {
+            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "9");
+        } else if (s->panel_type == DSC_PANEL) {
+            msg = "<S6>";
+        }
+
+        ESP_LOGI(TAG,"Sending CHIME toggle command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "Error decoding partition mask");
+    }
 }
 
 /**
@@ -548,35 +666,46 @@ void ad2_chime_toggle(int codeId, int vpartId)
 void ad2_fire_alarm(int codeId, int vpartId)
 {
 
-    // Get user code
-    char code[7];
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code, sizeof(code));
-
-    // TODO: DSC support
-    // Get the address/partition mask
-    // Message format KXXYYYYZ
-    char msg[20] = {0};
+    // Get the address/partition mask for multi partition support.
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
-    snprintf(msg, sizeof(msg), "K%02i%s%s", address, code, "\001\001\001");
+
+    std::string msg;
+    msg = ad2_string_format("K%02i<S1>", address);
+
     ESP_LOGI(TAG,"Sending FIRE PANIC button command");
     ad2_send(msg);
 }
 
 /**
- * @brief send RAW string to the AD2 devices.
+ * @brief Send string to the AD2 devices after macro translation.
  *
  * @param [in]buf Pointer to string to send to AD2 devices.
  *
+ * @note Macros <SX> for sending panel specific special keys.
+ *       http://www.alarmdecoder.com/wiki/index.php/Protocol#Special_Keys
+ * This makes it more simple to send complex sequences with a simple human
+ * readable macro.
  */
-void ad2_send(char *buf)
+void ad2_send(std::string &buf)
 {
     if(g_ad2_client_handle>-1) {
+
+        /* replace macros <S1>-<S8> with real values */
+        for (int x = 1; x < 9; x++) {
+            std::string key = ad2_string_format("<S%01i>", x);
+            std::string out;
+            out.append(3, (char)x);
+            ad2_replace_all( buf, key.c_str(), out.c_str());
+        }
+
+        ESP_LOGD(TAG, "sending '%s' to AD2*", buf.c_str());
+
         if (g_ad2_mode == 'C') {
-            uart_write_bytes((uart_port_t)g_ad2_client_handle, buf, strlen(buf));
+            uart_write_bytes((uart_port_t)g_ad2_client_handle, buf.c_str(), buf.length());
         } else if (g_ad2_mode == 'S') {
             // the handle is a socket fd use send()
-            send(g_ad2_client_handle, buf, strlen(buf), 0);
+            send(g_ad2_client_handle, buf.c_str(), buf.length(), 0);
         } else {
             ESP_LOGE(TAG, "invalid ad2 connection mode");
         }
@@ -621,9 +750,7 @@ char ad2_network_mode(std::string &args)
     switch(mode) {
     case 'W':
     case 'E':
-        char arg[200];
-        ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg, sizeof(arg));
-        args = (char *)arg;
+        ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, args);
         break;
     case 'N':
     default:

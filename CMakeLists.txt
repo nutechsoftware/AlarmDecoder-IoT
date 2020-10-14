@@ -4,5 +4,5 @@ cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
-project(alarmdecoder_stsdk_esp32 CXX)
+project(alarmdecoder_stsdk_esp32)
 

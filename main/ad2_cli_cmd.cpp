@@ -73,29 +73,29 @@ extern "C" {
  */
 static void _cli_cmd_code_event(char *string)
 {
-    char buf[7]; // MAX 6 digit code null terminated
+    std::string arg;
     int slot = 0;
 
-    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
-        slot = strtol(buf, NULL, 10);
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
+        slot = strtol(arg.c_str(), NULL, 10);
     }
 
     if (slot >= 0 && slot <= AD2_MAX_CODE) {
-        if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
-            if (strlen(buf)) {
-                if (atoi(buf) == -1) {
+        if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+            if (arg.length()) {
+                if (atoi(arg.c_str()) == -1) {
                     printf("Removing code in slot %i...\n", slot);
-                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
+                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
                 } else {
-                    printf("Setting code in slot %i to '%s'...\n", slot, buf);
-                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
+                    printf("Setting code in slot %i to '%s'...\n", slot, arg.c_str());
+                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
                 }
             }
         } else {
             // show contents of this slot
-            memset(buf, 0, sizeof(buf));
-            ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf, sizeof(buf));
-            printf("The code in slot %i is '%s'\n", slot, buf);
+            std::string buf;
+            ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
+            printf("The code in slot %i is '%s'\n", slot, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
@@ -118,17 +118,17 @@ static void _cli_cmd_code_event(char *string)
  */
 static void _cli_cmd_vpaddr_event(char *string)
 {
-    char buf[3]; // MAX 2 digit numbers
+    std::string buf;
     int slot = 0;
     int address = 0;
 
-    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
-        slot = strtol(buf, NULL, 10);
+    if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
+        slot = strtol(buf.c_str(), NULL, 10);
     }
 
     if (slot >= 0 && slot <= AD2_MAX_VPARTITION) {
-        if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
-            int address = strtol(buf, NULL, 10);
+        if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
+            int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
                 printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
                 ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
@@ -161,24 +161,23 @@ static void _cli_cmd_vpaddr_event(char *string)
  */
 static void _cli_cmd_ad2source_event(char *string)
 {
-    char modesz[2]; // just a single byte and null term
-    char arg[AD2_MAX_MODE_ARG_SIZE]; // Big enough for a long(ish) host name
+    std::string modesz;
+    std::string arg;
 
-    if (ad2_copy_nth_arg(modesz, string, sizeof(modesz), 1) >= 0) {
+    if (ad2_copy_nth_arg(modesz, string, 1) >= 0) {
         // upper case it all
-        uint8_t mode = toupper((int)modesz[0]);
-        modesz[0] = mode;
-        modesz[1] = 0;
-        if (ad2_copy_nth_arg(arg, string, sizeof(arg), 2) >= 0) {
-            switch (mode) {
+        ad2_ucase(modesz);
+
+        if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+            switch (modesz[0]) {
             case 'S':
             case 'C':
                 // save mode in slot 0
                 ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                           AD2MODE_CONFIG_MODE_SLOT, modesz);
+                                           AD2MODE_CONFIG_MODE_SLOT, modesz.c_str());
                 // save arg in slot 1
                 ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                           AD2MODE_CONFIG_ARG_SLOT, arg);
+                                           AD2MODE_CONFIG_ARG_SLOT, arg.c_str());
                 break;
             default:
                 printf("Invalid mode selected must be [S]ocket or [C]OM\n");
@@ -189,13 +188,13 @@ static void _cli_cmd_ad2source_event(char *string)
     } else {
         // get mode in slot 0
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                   AD2MODE_CONFIG_MODE_SLOT, modesz, sizeof(modesz));
+                                   AD2MODE_CONFIG_MODE_SLOT, modesz);
 
         // get arg in slot 1
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                   AD2MODE_CONFIG_ARG_SLOT, arg, sizeof(arg));
+                                   AD2MODE_CONFIG_ARG_SLOT, arg);
 
-        printf("Current %s '%s'\n", (modesz[0]=='C'?"COM TXPIN:RXPIN":"SOCKET AUTHORITY"), arg);
+        printf("Current %s '%s'\n", (modesz[0]=='C'?"COM TXPIN:RXPIN":"SOCKET AUTHORITY"), arg.c_str());
     }
 }
 
@@ -287,7 +286,8 @@ static void _cli_cmd_ad2term_event(char *string)
 
             // null terminate and send the message to the AD2*
             rx_buffer[len] = 0;
-            ad2_send((char*)rx_buffer);
+            std::string temp = (char *)rx_buffer;
+            ad2_send(temp);
         }
 
         vTaskDelay(20 / portTICK_PERIOD_MS);
@@ -321,26 +321,27 @@ static void _cli_cmd_reboot_event(char *string)
 static void _cli_cmd_netmode_event(char *string)
 {
     ESP_LOGI(TAG, "%s: Setting network mode (%s).", __func__, string);
-    char arg[200];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
-        char mode = toupper((int)arg[0]);
-        switch(mode) {
+    std::string mode;
+    std::string arg;
+    if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
+        ad2_ucase(mode);
+        switch(mode[0]) {
         case 'N':
         case 'W':
         case 'E':
-            ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, mode);
-            ad2_copy_nth_arg(arg, string, sizeof(arg), 2);
-            ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg);
+            ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, mode[0]);
+            ad2_copy_nth_arg(arg, string, 2);
+            ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg.c_str());
             break;
         default:
-            printf("Unknown network mode('%c') error.\n", mode);
+            printf("Unknown network mode('%c') error.\n", mode[0]);
             break;
         }
     }
     // show current mode.
-    ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg, sizeof(arg));
     std::string args;
-    printf("The current network mode is '%c' with args '%s'\n", ad2_network_mode(args), arg);
+    char cmode = ad2_network_mode(args);
+    printf("The current network mode is '%c' with args '%s'\n", cmode, arg.c_str());
 }
 
 /**
@@ -351,15 +352,15 @@ static void _cli_cmd_netmode_event(char *string)
  */
 static void _cli_cmd_butten_event(char *string)
 {
-    char buf[10];
+    std::string buf;
     int count = 1;
     int type = BUTTON_SHORT_PRESS;
 
-    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 1) >= 0) {
-        count = strtol(buf, NULL, 10);
+    if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
+        count = strtol(buf.c_str(), NULL, 10);
     }
-    if (ad2_copy_nth_arg(buf, string, sizeof(buf), 2) >= 0) {
-        if (strncmp(buf, "long", 4) == 0) {
+    if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
+        if (strncmp(buf.c_str(), "long", 4) == 0) {
             type = BUTTON_LONG_PRESS;
         }
     }

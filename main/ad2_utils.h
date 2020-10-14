@@ -43,25 +43,28 @@ void ad2_arm_stay(int codeId, int addressId);
 void ad2_disarm(int codeId, int addressId);
 void ad2_chime_toggle(int codeId, int addressId);
 void ad2_fire_alarm(int codeId, int addressId);
-void ad2_send(char *buf);
+void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int address_slot);
 
 // string utils
 
 std::string ad2_string_format(const std::string fmt, ...);
-int  ad2_copy_nth_arg(char* dest, char* src, int size, int n);
+int  ad2_copy_nth_arg(std::string &dest, char* src, int n);
 void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);
-int ad2_query_key_value(std::string &qry_str, const char * key, std::string &val);
+int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
+void ad2_lcase(std::string &str);
+void ad2_ucase(std::string &str);
+bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replaceStr);
 
 // NV Storage utilities
 
-void ad2_get_nv_arg(const char *key, char *value, size_t size);
-void ad2_set_nv_arg(const char *key, char *value);
+void ad2_get_nv_arg(const char *key, std::string &value);
+void ad2_set_nv_arg(const char *key, const char *value);
 void ad2_set_nv_slot_key_int(const char *key, int slot, int value);
 void ad2_get_nv_slot_key_int(const char *key, int slot, int *value);
-void ad2_set_nv_slot_key_string(const char *key, int slot, char *value);
-void ad2_get_nv_slot_key_string(const char *key, int slot, char *value, size_t size);
+void ad2_set_nv_slot_key_string(const char *key, int slot, const char *value);
+void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &value);
 
 // misc
 char ad2_network_mode(std::string &args);

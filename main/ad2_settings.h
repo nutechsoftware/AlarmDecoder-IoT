@@ -21,7 +21,7 @@
  *
  */
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1020"
+#define FIRMWARE_VERSION      "AD2IOT-1021"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -58,3 +58,6 @@
 // UART RX buffer size
 #define AD2_UART_RX_BUFF_SIZE  100
 #define MAX_UART_LINE_SIZE    (1024)
+
+// NV
+#define AD2_MAX_VALUE_SIZE 1024

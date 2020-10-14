@@ -67,7 +67,7 @@ static struct cli_command help_cmd = {
  * @return cli_cmd_t * the command structure pointer or NULL
  * if not found
  */
-static cli_cmd_t* cli_find_command (char* input_string)
+static cli_cmd_t* cli_find_command (const char* input_string)
 {
     cli_cmd_list_t* now = cli_cmd_list;
 
@@ -156,12 +156,12 @@ static void cli_cmd_help(char *cmd)
 {
     bool showhelp = true;
     cli_cmd_list_t* now = cli_cmd_list;
-    char buf[20]; // buffer to hold help argument
+    std::string buf; // buffer to hold help argument
 
     printf("\n");
-    if (ad2_copy_nth_arg(buf, cmd, sizeof(buf), 1) >= 0) {
+    if (ad2_copy_nth_arg(buf, cmd, 1) >= 0) {
         cli_cmd_t *command;
-        command = cli_find_command(buf);
+        command = cli_find_command(buf.c_str());
         if (command != NULL) {
             printf("Help for command '%s'\n\n%s\n", command->command, command->help_string);
             showhelp = false;
