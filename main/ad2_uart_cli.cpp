@@ -103,7 +103,7 @@ static void cli_process_command(char* input_string)
     command = cli_find_command(input_string);
 
     if (command == NULL) {
-        printf("command not found. please check 'help'\n");
+        ad2_printf_host("command not found. please check 'help'\n");
         return;
     }
 
@@ -158,15 +158,15 @@ static void cli_cmd_help(char *cmd)
     cli_cmd_list_t* now = cli_cmd_list;
     std::string buf; // buffer to hold help argument
 
-    printf("\n");
+    ad2_printf_host("\n");
     if (ad2_copy_nth_arg(buf, cmd, 1) >= 0) {
         cli_cmd_t *command;
         command = cli_find_command(buf.c_str());
         if (command != NULL) {
-            printf("Help for command '%s'\n\n%s\n", command->command, command->help_string);
+            ad2_printf_host("Help for command '%s'\n\n%s\n", command->command, command->help_string);
             showhelp = false;
         } else {
-            printf("Command not found '%s'\n", cmd);
+            ad2_printf_host(", Command not found '%s'\n", cmd);
         }
     }
 
@@ -174,20 +174,20 @@ static void cli_cmd_help(char *cmd)
         int x = 0;
         bool sendpfx = false;
         bool sendsfx = false;
-        printf("Available AD2IoT terminal commands\n  [");
+        ad2_printf_host("Available AD2IoT terminal commands\n  [");
         while (now) {
             if (!now->cmd) {
                 continue;
             }
             if (sendpfx && now->next) {
                 sendpfx = false;
-                printf(",\n   ");
+                ad2_printf_host(",\n   ");
             }
             if (sendsfx) {
                 sendsfx = false;
-                printf(", ");
+                ad2_printf_host(", ");
             }
-            printf("%s",now->cmd->command);
+            ad2_printf_host("%s",now->cmd->command);
             x++;
             now = now->next;
             if (now) {
@@ -199,7 +199,7 @@ static void cli_cmd_help(char *cmd)
                 x = 0;
             }
         }
-        printf("]\n\nType help <command> for details on each command.\n\n");
+        ad2_printf_host("]\n\nType help <command> for details on each command.\n\n");
     }
 }
 
@@ -307,29 +307,29 @@ static void esp_uart_cli_task(void *pvParameters)
                 }
                 portEXIT_CRITICAL(&spinlock);
 
-                uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                ad2_printf_host("\r\n", 2);
                 if (line_len) {
                     cli_process_command((char *)line);
                     memcpy(prev_line, line, MAX_UART_LINE_SIZE);
                     memset(line, 0, MAX_UART_LINE_SIZE);
                     line_len = 0;
                 }
-                uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
+                ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
                 break;
 
             case '\b':
                 //backspace
                 if (line_len > 0) {
-                    uart_write_bytes(UART_NUM_0, "\b \b", 3);
+                    ad2_printf_host("\b \b", 3);
                     line[--line_len] = '\0';
                 }
                 break;
 
             case 0x03: //Ctrl + C
-                uart_write_bytes(UART_NUM_0, "^C\n", 3);
+                ad2_printf_host("^C\n", 3);
                 memset(line, 0, MAX_UART_LINE_SIZE);
                 line_len = 0;
-                uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
+                ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
                 break;
 
             case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
@@ -338,10 +338,10 @@ static void esp_uart_cli_task(void *pvParameters)
                     case 0x41: //UP
                         memcpy(line, prev_line, MAX_UART_LINE_SIZE);
                         line_len = strlen((char*)line);
-                        uart_write_bytes(UART_NUM_0, (const char *)&rx_buffer[i+1], 2);
-                        uart_write_bytes(UART_NUM_0, "\r\n", 2);
-                        uart_write_bytes(UART_NUM_0, PROMPT_STRING, sizeof(PROMPT_STRING));
-                        uart_write_bytes(UART_NUM_0, (const char *)line, line_len);
+                        ad2_printf_host((const char *)&rx_buffer[i+1], 2);
+                        ad2_printf_host("\r\n", 2);
+                        ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
+                        ad2_printf_host((const char *)line, line_len);
                         i+=3;
                         break;
                     case 0x42: //DOWN - ignore
@@ -350,14 +350,14 @@ static void esp_uart_cli_task(void *pvParameters)
                     case 0x43: //right
                         if (line[line_len+1] != '\0') {
                             line_len += 1;
-                            uart_write_bytes(UART_NUM_0, (const char *)&rx_buffer[i], 3);
+                            ad2_printf_host((const char *)&rx_buffer[i], 3);
                         }
                         i+=3;
                         break;
                     case 0x44: //left
                         if (line_len > 0) {
                             line_len -= 1;
-                            uart_write_bytes(UART_NUM_0, (const char *)&rx_buffer[i], 3);
+                            ad2_printf_host((const char *)&rx_buffer[i], 3);
                         }
                         i+=3;
                         break;
@@ -375,7 +375,7 @@ static void esp_uart_cli_task(void *pvParameters)
                     }
 
                     // print character back
-                    uart_write_bytes(UART_NUM_0, (const char *) &rx_buffer[i], 1);
+                    ad2_printf_host((const char *) &rx_buffer[i], 1);
 
                     line[line_len++] = rx_buffer[i];
                 }
@@ -400,10 +400,12 @@ void uart_cli_main()
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    printf("Press enter in the next 5 seconds to stop the init.\n");
+    ad2_printf_host("Press enter in the next 5 seconds to stop the init.\n");
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
-    printf(" Starting main task.\n");
+    ad2_printf_host("Starting main task.\n");
+    ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
+
 }
 
 #ifdef __cplusplus

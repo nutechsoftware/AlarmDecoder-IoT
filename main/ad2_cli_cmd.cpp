@@ -84,10 +84,10 @@ static void _cli_cmd_code_event(char *string)
         if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
             if (arg.length()) {
                 if (atoi(arg.c_str()) == -1) {
-                    printf("Removing code in slot %i...\n", slot);
+                    ad2_printf_host("Removing code in slot %i...\n", slot);
                     ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
                 } else {
-                    printf("Setting code in slot %i to '%s'...\n", slot, arg.c_str());
+                    ad2_printf_host("Setting code in slot %i to '%s'...\n", slot, arg.c_str());
                     ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
                 }
             }
@@ -95,7 +95,7 @@ static void _cli_cmd_code_event(char *string)
             // show contents of this slot
             std::string buf;
             ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
-            printf("The code in slot %i is '%s'\n", slot, buf.c_str());
+            ad2_printf_host("The code in slot %i is '%s'\n", slot, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
@@ -130,17 +130,17 @@ static void _cli_cmd_vpaddr_event(char *string)
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                printf("Setting vpaddr in slot %i to '%i'...\n", slot, address);
+                ad2_printf_host("Setting vpaddr in slot %i to '%i'...\n", slot, address);
                 ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
             } else {
                 // delete entry
-                printf("Deleting vpaddr in slot %i...\n", slot);
+                ad2_printf_host("Deleting vpaddr in slot %i...\n", slot);
                 ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, -1);
             }
         } else {
             // show contents of this slot
             ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, &address);
-            printf("The vpaddr in slot %i is %i\n", slot, address);
+            ad2_printf_host("The vpaddr in slot %i is %i\n", slot, address);
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
@@ -180,10 +180,10 @@ static void _cli_cmd_ad2source_event(char *string)
                                            AD2MODE_CONFIG_ARG_SLOT, arg.c_str());
                 break;
             default:
-                printf("Invalid mode selected must be [S]ocket or [C]OM\n");
+                ad2_printf_host("Invalid mode selected must be [S]ocket or [C]OM\n");
             }
         } else {
-            printf("Missing <arg>\n");
+            ad2_printf_host("Missing <arg>\n");
         }
     } else {
         // get mode in slot 0
@@ -194,7 +194,7 @@ static void _cli_cmd_ad2source_event(char *string)
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
                                    AD2MODE_CONFIG_ARG_SLOT, arg);
 
-        printf("Current %s '%s'\n", (modesz[0]=='C'?"COM TXPIN:RXPIN":"SOCKET AUTHORITY"), arg.c_str());
+        ad2_printf_host("Current %s '%s'\n", (modesz[0]=='C'?"COM TXPIN:RXPIN":"SOCKET AUTHORITY"), arg.c_str());
     }
 }
 
@@ -209,7 +209,7 @@ static void _cli_cmd_ad2source_event(char *string)
  */
 static void _cli_cmd_ad2term_event(char *string)
 {
-    printf("Locking main threads. Send '.' 3 times to break out and return.\n");
+    ad2_printf_host("Locking main threads. Send '.' 3 times to break out and return.\n");
     portENTER_CRITICAL(&spinlock);
     g_StopMainTask = 2;
     portEXIT_CRITICAL(&spinlock);
@@ -231,7 +231,7 @@ static void _cli_cmd_ad2term_event(char *string)
             }
             if (len>0) {
                 rx_buffer[len] = 0;
-                printf((char*)rx_buffer);
+                ad2_printf_host((char*)rx_buffer);
                 fflush(stdout);
             }
 
@@ -251,7 +251,7 @@ static void _cli_cmd_ad2term_event(char *string)
                 else {
                     // Parse data from AD2* and report back to host.
                     rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                    printf((char*)rx_buffer);
+                    ad2_printf_host((char*)rx_buffer);
                     fflush(stdout);
                 }
             }
@@ -259,7 +259,7 @@ static void _cli_cmd_ad2term_event(char *string)
             // should not happen
         } else {
             ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-            printf("AD2IoT operating mode configured. Configure using ad2source command.\n");
+            ad2_printf_host("AD2IoT operating mode configured. Configure using ad2source command.\n");
             break;
         }
 
@@ -293,7 +293,7 @@ static void _cli_cmd_ad2term_event(char *string)
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 
-    printf("Resuming main threads.\n");
+    ad2_printf_host("Resuming main threads.\n");
     portENTER_CRITICAL(&spinlock);
     g_StopMainTask = 0;
     portEXIT_CRITICAL(&spinlock);
@@ -307,8 +307,6 @@ static void _cli_cmd_ad2term_event(char *string)
  */
 static void _cli_cmd_reboot_event(char *string)
 {
-    ESP_LOGE(TAG, "%s: rebooting now.", __func__);
-    printf("Restarting now\n");
     hal_restart();
 }
 
@@ -334,14 +332,14 @@ static void _cli_cmd_netmode_event(char *string)
             ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg.c_str());
             break;
         default:
-            printf("Unknown network mode('%c') error.\n", mode[0]);
+            ad2_printf_host("Unknown network mode('%c') error.\n", mode[0]);
             break;
         }
     }
     // show current mode.
     std::string args;
     char cmode = ad2_network_mode(args);
-    printf("The current network mode is '%c' with args '%s'\n", cmode, arg.c_str());
+    ad2_printf_host("The current network mode is '%c' with args '%s'\n", cmode, arg.c_str());
 }
 
 /**

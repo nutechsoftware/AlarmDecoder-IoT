@@ -348,7 +348,7 @@ void twilio_send_task(void *pvParameters)
     http_request = build_request_string(sid, token, body);
     reqp = (char *)http_request.c_str();
 #if defined(TWILIO_DEBUG)
-    printf("sending message to twilio\n%s\n",http_request.c_str());
+    ad2_printf_host("sending message to twilio\n%s\n",http_request.c_str());
 #endif
     /* Send HTTPS POST request. */
     ESP_LOGI(TAG, "Writing HTTP request...");
@@ -457,11 +457,16 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 
             std::string type;
             ad2_get_nv_slot_key_string(TWILIO_TYPE, AD2_DEFAULT_TWILIO_SLOT, type);
+            type.resize(1);
 
-            // add to the queue
-            ESP_LOGI(TAG, "Adding task to twilio send queue");
-            twilio_add_queue(sid, token, from, to, type[0], body);
-
+            // sanity check see if type(char) is in our list of types
+            if (std::string("MRT").find(type) != string::npos) {
+                // add to the queue
+                ESP_LOGI(TAG, "Adding task to twilio send queue");
+                twilio_add_queue(sid, token, from, to, type[0], body);
+            } else {
+                ESP_LOGI(TAG, "Unknown or missing twtype '%s' check settings. Not adding to delivery queue.", type.c_str());
+            }
         }
     }
 }
@@ -485,7 +490,7 @@ static void _cli_cmd_twilio_event(char *string)
     int i;
     for(i = 0;; ++i) {
         if (TWILIO_SETTINGS[i] == 0) {
-            printf("What?\n");
+            ad2_printf_host("What?\n");
             break;
         }
         if(key.compare(TWILIO_SETTINGS[i]) == 0) {
@@ -495,13 +500,13 @@ static void _cli_cmd_twilio_event(char *string)
             if (slot >= 0) {
                 if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
                     ad2_set_nv_slot_key_string(key.c_str(), slot, buf.c_str());
-                    printf("Setting %s value finished.\n", key.c_str());
+                    ad2_printf_host("Setting %s value finished.\n", key.c_str());
                 } else {
                     ad2_get_nv_slot_key_string(key.c_str(), slot, buf);
-                    printf("Current slot #%02i '%s' value '%s'\n", slot, key.c_str(), buf.c_str());
+                    ad2_printf_host("Current slot #%02i '%s' value '%s'\n", slot, key.c_str(), buf.c_str());
                 }
             } else {
-                printf("Missing <slot>\n");
+                ad2_printf_host("Missing <slot>\n");
             }
             // found match search done
             break;

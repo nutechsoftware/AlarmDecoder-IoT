@@ -201,30 +201,41 @@ void ad2_tokenize(std::string const &str, const char delim,
  * @brief printf formatting for std::string.
  *
  * @param [in]fmt std::string format.
- * @param ... variable args.
+ * @param [in]va_list variable args list.
  *
  */
-std::string ad2_string_format(const std::string fmt, ...)
+std::string ad2_string_vaformat(const char *fmt, va_list args)
 {
-    int size = ((int)fmt.size()) * 2 + 50;   // Use a rubric appropriate for your code
-    std::string str;
-    va_list ap;
-    while (1) {     // Maximum two passes on a POSIX system...
-        str.resize(size);
-        va_start(ap, fmt);
-        int n = vsnprintf((char *)str.data(), size, fmt.c_str(), ap);
-        va_end(ap);
-        if (n > -1 && n < size) {  // Everything worked
-            str.resize(n);
-            return str;
-        }
-        if (n > -1) { // Needed size returned
-            size = n + 1;    // For null char
-        } else {
-            size *= 2;    // Guess at a larger size (OS specific)
-        }
+    std::string out = "";
+    int len = vsnprintf(NULL, 0, fmt, args);
+    if (len < 0) {
+        return out;
     }
-    return str;
+    len++; // account for null after tests.
+    char temp[len];
+    len = vsnprintf(temp, len, fmt, args);
+
+    if (len) {
+        out = temp;
+    }
+
+    return out;
+}
+
+/**
+ * @brief printf formatting for std::string.
+ *
+ * @param [in]fmt std::string format.
+ * @param [in]... variable args.
+ *
+ */
+std::string ad2_string_format(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    std::string out = ad2_string_vaformat(fmt, args);
+    va_end(args);
+    return out;
 }
 
 /**
@@ -713,6 +724,21 @@ void ad2_send(std::string &buf)
         ESP_LOGE(TAG, "invalid handle in send_to_ad2");
         return;
     }
+}
+
+/**
+ * @brief Format and send bytes to the host uart.
+ *
+ * @param [in]format const char * format string.
+ * @param [in]... variable args
+ */
+void ad2_printf_host(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    std::string out = ad2_string_vaformat(fmt, args);
+    va_end(args);
+    uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
 }
 
 /**

@@ -122,7 +122,10 @@ static void _cli_cmd_enable_event(char *string)
     // show contents of this slot
     int i;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &i);
-    printf("SmartThings SDK driver is '%s'\n", (i ? "Enabled" : "Disabled"));
+    ad2_printf_host("SmartThings SDK driver is '%s'\n", (i ? "Enabled" : "Disabled"));
+
+    // need to restart or things will be broken.
+    hal_restart();
 }
 
 /**
@@ -159,7 +162,7 @@ static void _cli_cmd_stserial_event(char *string)
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        printf("Missing <serialNumber>\n");
+        ad2_printf_host("Missing <serialNumber>\n");
     }
 }
 
@@ -188,7 +191,7 @@ static void _cli_cmd_stpublickey_event(char *string)
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        printf("Missing <publicKey>\n");
+        ad2_printf_host("Missing <publicKey>\n");
     }
 }
 
@@ -217,7 +220,7 @@ static void _cli_cmd_stprivatekey_event(char *string)
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        printf("Missing <privateKey>\n");
+        ad2_printf_host("Missing <privateKey>\n");
     }
 }
 

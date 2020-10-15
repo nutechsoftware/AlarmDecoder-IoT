@@ -592,15 +592,15 @@ void app_main()
     // Dump hardware info
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    printf("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
-           chip_info.cores,
-           (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-           (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+    ad2_printf_host("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
+                    chip_info.cores,
+                    (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+                    (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 
-    printf("silicon revision %d, ", chip_info.revision);
+    ad2_printf_host("silicon revision %d, ", chip_info.revision);
 
-    printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-           (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+    ad2_printf_host("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+                    (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
     esp_err_t err = nvs_flash_init();
@@ -614,12 +614,36 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
+#if CONFIG_STDK_IOT_CORE
+    // show contents of this slot
+    int stEN;
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &stEN);
+    if (stEN != 'Y' || stEN !='N') {
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, 'Y');
+    }
+#endif
+
     // Register and start the AD2IOT cli early so we can stop init by hitting enter.
     register_ad2_cli_cmd();
 
-    // get the network mode.
+    // get the network mode set default mode to 'N'
     std::string args;
     char net_mode = ad2_network_mode(args);
+    if (net_mode != 'W' || net_mode !='E' || net_mode != 'N') {
+        net_mode = 'N';
+    }
+
+#if CONFIG_STDK_IOT_CORE
+    /**
+     * Initialize SmartThings SDK
+     *
+     *  If enabled it will consume the esp_event_loop_init and only one task can create this.
+     * but if we dont call init our commands are not enabled so we can't disable/enable it.
+     *
+     * FIXME: Need to call all components with init in two parts register and init.
+     */
+    stsdk_init();
+#endif
 
     /**
      * FIXME: SmartThings needs to manage the Wifi during adopting.
@@ -663,48 +687,28 @@ void app_main()
     AD2Parse.subscribeTo(ON_FIRE, my_ON_FIRE_CB, nullptr);
 #endif
 
-    // Load AD2IoT operating mode [Socket|UART] and argument
-    // get the mode
-    std::string ad2_mode;
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode);
-    g_ad2_mode = ad2_mode[0];
-
-    // init the AlarmDecoder UART
-    if (g_ad2_mode == 'C') {
-        init_ad2_uart_client();
-    } else if (g_ad2_mode == 'S') {
-        init_ser2sock_client();
-    } else {
-        ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        printf("AD2IoT operating mode configured. Configure using ad2source command.\n");
-    }
-
-#if defined(AD2_SER2SOCK_SERVER)
-    // init ser2sock server
-    init_ser2sock_server();
-#endif
-
 #if CONFIG_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
 #endif
 
-#if CONFIG_STDK_IOT_CORE
-    /**
-     * Initialize SmartThings SDK
-     *
-     *  If enabled it will consume the esp_event_loop_init and only one task can create this.
-     * but if we dont call init our commands are not enabled so we can't disable/enable it.
-     *
-     * FIXME: Need to call all components with init in two parts register and init.
-     */
-    stsdk_init();
-#endif
-
     // Start the CLI.
     // Press ENTER to halt and stay in CLI only.
     uart_cli_main();
+
+#if CONFIG_STDK_IOT_CORE
+    // Disable stsdk if network mode is not N
+    if ( net_mode == 'N') {
+        // Kick off a connect to SmartThings server to get things started.
+        stsdk_connection_start();
+    } else {
+        ESP_LOGI(TAG, "Setting netmode <> 'N' disabling SmartThings.");
+        ad2_printf_host("Setting netmode <> 'N' disabling SmartThings.\n");
+    }
+#endif
+
+    // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
 
     // Start main AlarmDecoder IoT app task
     xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, tskIDLE_PRIORITY+1, NULL);
@@ -712,13 +716,27 @@ void app_main()
     // Start firmware update task
     ota_init();
 
-#if CONFIG_STDK_IOT_CORE
-    // Disable stsdk if network mode is not N
-    if ( net_mode == 'N') {
-        // Kick off a connect to SmartThings server to get things started.
-        stsdk_connection_start();
+    // Load AD2IoT operating mode [Socket|UART] and argument
+    std::string ad2_mode;
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode);
+    g_ad2_mode = ad2_mode[0];
+
+    // Lastly init the AlarmDecoder UART | Socket and start processing messages.
+    if (g_ad2_mode == 'C') {
+        init_ad2_uart_client();
+    } else if (g_ad2_mode == 'S') {
+        init_ser2sock_client();
+    } else {
+        ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\n");
     }
+
+#if defined(AD2_SER2SOCK_SERVER)
+    // init ser2sock server
+    init_ser2sock_server();
 #endif
+
 }
 
 #ifdef __cplusplus

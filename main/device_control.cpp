@@ -253,6 +253,8 @@ void hal_gpio_init(void)
  */
 void hal_restart()
 {
+    ESP_LOGE(TAG, "%s: rebooting now.", __func__);
+    ad2_printf_host("Restarting now\n");
     esp_restart();
 }
 

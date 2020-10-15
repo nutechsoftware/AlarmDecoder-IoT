@@ -780,7 +780,7 @@ void ota_do_update(char *arg)
  */
 void ota_do_version(char *arg)
 {
-    printf("Installed version(" FIRMWARE_VERSION  ") available version(%s)\n", ota_available_version.c_str());
+    ad2_printf_host("Installed version(" FIRMWARE_VERSION  ") available version(%s)\n", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus
