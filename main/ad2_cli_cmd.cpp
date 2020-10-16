@@ -359,7 +359,7 @@ static void _cli_cmd_ad2logmode_event(char *string)
         case 'N':
         case 'D':
         case 'I':
-        ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, mode[0]);
+            ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, mode[0]);
 
             break;
         default:

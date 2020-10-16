@@ -851,12 +851,12 @@ char ad2_log_mode()
  *
  * @param [in]m char mode
  */
-void ad2_set_log_mode(char m) {
+void ad2_set_log_mode(char m)
+{
     char lm = ad2_log_mode();
     if (lm == 'I') {
         esp_log_level_set("*", ESP_LOG_INFO);        // set all components to INFO level
-    } else
-    if (lm == 'D')  {
+    } else if (lm == 'D')  {
         esp_log_level_set("*", ESP_LOG_DEBUG);       // set all components to DEBUG level
     } else {
         esp_log_level_set("*", ESP_LOG_WARN);        // set all components to WARN level

@@ -631,11 +631,9 @@ void app_main()
     // If the hardware is local UART start it now.
     if (g_ad2_mode == 'C') {
         init_ad2_uart_client();
-    } else
-    if (g_ad2_mode == 'S') {
+    } else if (g_ad2_mode == 'S') {
         ad2_printf_host("Delaying start of ad2source SOCKET after network is up.");
-    }
-    else {
+    } else {
         ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
         ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
     }
