@@ -744,13 +744,13 @@ static void ota_polling_task_func(void *arg)
 static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
-        "- Preform an OTA upgrade now download and install new flash.\n\n"
-        "  ```" OTA_UPGRADE_CMD "```\n\n", ota_do_update
+        "- Preform an OTA upgrade now download and install new flash.\r\n\r\n"
+        "  ```" OTA_UPGRADE_CMD "```\r\n\r\n", ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)
-        "- Report the current and available version.\n\n"
-        "  ```" OTA_VERSION_CMD "```\n\n", ota_do_version
+        "- Report the current and available version.\r\n\r\n"
+        "  ```" OTA_VERSION_CMD "```\r\n\r\n", ota_do_version
     }
 };
 
@@ -780,7 +780,7 @@ void ota_do_update(char *arg)
  */
 void ota_do_version(char *arg)
 {
-    ad2_printf_host("Installed version(" FIRMWARE_VERSION  ") available version(%s)\n", ota_available_version.c_str());
+    ad2_printf_host("Installed version(" FIRMWARE_VERSION  ") available version(%s)\r\n", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus

@@ -88,6 +88,7 @@ void hal_change_led_mode(int noti_led_mode);
 void hal_gpio_init(void);
 void hal_restart();
 void hal_init_wifi();
+void hal_host_uart_init();
 
 #ifdef __cplusplus
 }

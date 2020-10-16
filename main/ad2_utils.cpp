@@ -201,10 +201,30 @@ void ad2_tokenize(std::string const &str, const char delim,
  * @brief printf formatting for std::string.
  *
  * @param [in]fmt std::string format.
+ * @param [in]size size_t buffer limits.
  * @param [in]va_list variable args list.
  *
+ * @return new std::string
  */
-std::string ad2_string_vaformat(const char *fmt, va_list args)
+std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args)
+{
+    size_t len = size + 1; // Add room for null
+    std::string out = "";
+    char temp[len];
+    vsnprintf(temp, len, fmt, args);
+    out = temp;
+    return out;
+}
+
+/**
+ * @brief printf formatting for std::string.
+ *
+ * @param [in]fmt std::string format.
+ * @param [in]va_list variable args list.
+ *
+ * @return new std::string
+ */
+std::string ad2_string_vaprintf(const char *fmt, va_list args)
 {
     std::string out = "";
     int len = vsnprintf(NULL, 0, fmt, args);
@@ -228,12 +248,13 @@ std::string ad2_string_vaformat(const char *fmt, va_list args)
  * @param [in]fmt std::string format.
  * @param [in]... variable args.
  *
+ * @return new std::string
  */
-std::string ad2_string_format(const char *fmt, ...)
+std::string ad2_string_printf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    std::string out = ad2_string_vaformat(fmt, args);
+    std::string out = ad2_string_vaprintf(fmt, args);
     va_end(args);
     return out;
 }
@@ -350,7 +371,7 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &valueout
     } else {
         size_t size;
         std::string tkey;
-        tkey = ad2_string_format("%02i", slot);
+        tkey = ad2_string_printf("%02i", slot);
         // get size including terminator.
         err = nvs_get_str(my_handle, tkey.c_str(), NULL, &size);
         if (err == ESP_OK && size) {
@@ -387,7 +408,7 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, const char *value)
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         std::string tkey;
-        tkey = ad2_string_format("%02i", slot);
+        tkey = ad2_string_printf("%02i", slot);
 
         if (value == NULL) {
             err = nvs_erase_key(my_handle, tkey.c_str());
@@ -528,7 +549,7 @@ void ad2_arm_away(int codeId, int vpartId)
 
     if (s) {
         if (s->panel_type == ADEMCO_PANEL) {
-            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "2");
+            msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "2");
         } else if (s->panel_type == DSC_PANEL) {
             msg = "<S5>";
         }
@@ -569,7 +590,7 @@ void ad2_arm_stay(int codeId, int vpartId)
 
     if (s) {
         if (s->panel_type == ADEMCO_PANEL) {
-            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "3");
+            msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "3");
         } else if (s->panel_type == DSC_PANEL) {
             msg = "<S4>";
         }
@@ -609,9 +630,9 @@ void ad2_disarm(int codeId, int vpartId)
 
     if (s) {
         if (s->panel_type == ADEMCO_PANEL) {
-            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "1");
+            msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "1");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = ad2_string_format("K%02i%s", address, code.c_str());
+            msg = ad2_string_printf("K%02i%s", address, code.c_str());
         }
 
         ESP_LOGI(TAG,"Sending DISARM command");
@@ -650,7 +671,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
 
     if (s) {
         if (s->panel_type == ADEMCO_PANEL) {
-            msg = ad2_string_format("K%02i%s%s", address, code.c_str(), "9");
+            msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "9");
         } else if (s->panel_type == DSC_PANEL) {
             msg = "<S6>";
         }
@@ -682,7 +703,7 @@ void ad2_fire_alarm(int codeId, int vpartId)
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
 
     std::string msg;
-    msg = ad2_string_format("K%02i<S1>", address);
+    msg = ad2_string_printf("K%02i<S1>", address);
 
     ESP_LOGI(TAG,"Sending FIRE PANIC button command");
     ad2_send(msg);
@@ -704,7 +725,7 @@ void ad2_send(std::string &buf)
 
         /* replace macros <S1>-<S8> with real values */
         for (int x = 1; x < 9; x++) {
-            std::string key = ad2_string_format("<S%01i>", x);
+            std::string key = ad2_string_printf("<S%01i>", x);
             std::string out;
             out.append(3, (char)x);
             ad2_replace_all( buf, key.c_str(), out.c_str());
@@ -736,7 +757,23 @@ void ad2_printf_host(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    std::string out = ad2_string_vaformat(fmt, args);
+    std::string out = ad2_string_vaprintf(fmt, args);
+    va_end(args);
+    uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
+}
+
+/**
+ * @brief Format and send bytes to the host uart with sized buffer.
+ *
+ * @param [in]format const char * format string.
+ * @param [in]size size_t buffer size limiter.
+ * @param [in]... variable args
+ */
+void ad2_snprintf_host(const char *fmt, size_t size, ...)
+{
+    va_list args;
+    va_start(args, size);
+    std::string out = ad2_string_vasnprintf(fmt, size, args);
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
 }
@@ -788,6 +825,43 @@ char ad2_network_mode(std::string &args)
 }
 
 
+/**
+ * @brief return the current log mode value
+ *
+ * @return char mode
+ */
+char ad2_log_mode()
+{
+    int mode = 0;
+    ad2_get_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, &mode);
+    switch(mode) {
+    case 'I':
+    case 'D':
+    case 'N':
+        break;
+    default:
+        mode = 'N';
+        break;
+    }
+    return mode;
+}
+
+/**
+ * @brief set the current log mode value
+ *
+ * @param [in]m char mode
+ */
+void ad2_set_log_mode(char m) {
+    char lm = ad2_log_mode();
+    if (lm == 'I') {
+        esp_log_level_set("*", ESP_LOG_INFO);        // set all components to INFO level
+    } else
+    if (lm == 'D')  {
+        esp_log_level_set("*", ESP_LOG_DEBUG);       // set all components to DEBUG level
+    } else {
+        esp_log_level_set("*", ESP_LOG_WARN);        // set all components to WARN level
+    }
+}
 
 
 #ifdef __cplusplus

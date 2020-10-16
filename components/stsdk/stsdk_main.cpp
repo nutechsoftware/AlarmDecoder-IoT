@@ -122,7 +122,7 @@ static void _cli_cmd_enable_event(char *string)
     // show contents of this slot
     int i;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &i);
-    ad2_printf_host("SmartThings SDK driver is '%s'\n", (i ? "Enabled" : "Disabled"));
+    ad2_printf_host("SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
 
     // need to restart or things will be broken.
     hal_restart();
@@ -133,7 +133,8 @@ static void _cli_cmd_enable_event(char *string)
  */
 static void _cli_cmd_cleanup_event(char *string)
 {
-    ESP_LOGI(TAG, "%s: clean-up data with reboot option", __func__);
+    ESP_LOGI(TAG, "%s: clean-up data with restart option", __func__);
+    ad2_printf_host("Calling clean-up for STSDK settings.\r\n");
     st_conn_cleanup(ctx, true);
 }
 
@@ -158,11 +159,14 @@ static void _cli_cmd_stserial_event(char *string)
         err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+            ad2_printf_host("Failed setting value.\r\n");
+        } else {
+            ad2_printf_host("Success setting value.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        ad2_printf_host("Missing <serialNumber>\n");
+        ad2_printf_host("Missing <serialNumber>\r\n");
     }
 }
 
@@ -187,11 +191,14 @@ static void _cli_cmd_stpublickey_event(char *string)
         err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+            ad2_printf_host("Failed setting value.\r\n");
+        } else {
+            ad2_printf_host("Success setting value.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        ad2_printf_host("Missing <publicKey>\n");
+        ad2_printf_host("Missing <publicKey>\r\n");
     }
 }
 
@@ -216,11 +223,14 @@ static void _cli_cmd_stprivatekey_event(char *string)
         err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+            ad2_printf_host("Failed setting value.\r\n");
+        } else {
+            ad2_printf_host("Success setting value.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        ad2_printf_host("Missing <privateKey>\n");
+        ad2_printf_host("Missing <privateKey>\r\n");
     }
 }
 
@@ -239,32 +249,32 @@ char * STSDK_SETTINGS [] = {
 static struct cli_command stsdk_cmd_list[] = {
     {
         (char*)STSDK_ENABLE,(char*)
-        "- Enable SmartThings component\n\n"
-        "  ```" STSDK_ENABLE " {bool}```\n\n"
+        "- Enable SmartThings component\r\n\r\n"
+        "  ```" STSDK_ENABLE " {bool}```\r\n\r\n"
         "  - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
     },
     {
         (char*)STSDK_CLEANUP,(char*)
-        "- Cleanup NV data with reboot option\n\n"
-        "  ```" STSDK_CLEANUP "```\n\n", _cli_cmd_cleanup_event
+        "- Cleanup NV data with restart option\r\n\r\n"
+        "  ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
     },
     {
         (char*)STSDK_SERIAL,(char*)
-        "- Sets the SmartThings device_info serialNumber.\n\n"
-        "  ```" STSDK_SERIAL " {serialNumber}```\n\n"
-        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stserial_event
+        "- Sets the SmartThings device_info serialNumber.\r\n\r\n"
+        "  ```" STSDK_SERIAL " {serialNumber}```\r\n\r\n"
+        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stserial_event
     },
     {
         (char*)STSDK_PUBKEY,(char*)
-        "- Sets the SmartThings device_info publicKey.\n\n"
-        "  ```" STSDK_PUBKEY " {publicKey}```\n\n"
-        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stpublickey_event
+        "- Sets the SmartThings device_info publicKey.\r\n\r\n"
+        "  ```" STSDK_PUBKEY " {publicKey}```\r\n\r\n"
+        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stpublickey_event
     },
     {
         (char*)STSDK_PRIVKEY,(char*)
-        "- Sets the SmartThings device_info privateKey.\n\n"
-        "  ```" STSDK_PRIVKEY " {privateKey}```\n\n"
-        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stprivatekey_event
+        "- Sets the SmartThings device_info privateKey.\r\n\r\n"
+        "  ```" STSDK_PRIVKEY " {privateKey}```\r\n\r\n"
+        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stprivatekey_event
     },
 };
 
@@ -427,7 +437,7 @@ void cap_available_version_set(char *available_version)
     /* Send avail version to ota cap handler */
     ST_CAP_SEND_ATTR_STRING(ota_cap_handle, (char*)"availableVersion", available_version, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
-        ESP_LOGE(TAG, "fail to send init_data");
+        ESP_LOGE(TAG, "failed to send init_data");
     }
 
 }
@@ -577,10 +587,10 @@ void stsdk_init(void)
     if (ctx != NULL) {
         iot_err = st_conn_set_noti_cb(ctx, iot_noti_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set notification callback function");
+            ESP_LOGE(TAG, "failed to set notification callback function");
         }
     } else {
-        ESP_LOGE(TAG, "fail to create the iot_context");
+        ESP_LOGE(TAG, "failed to create the iot_context");
     }
 
     // Add AD2 capabilies
@@ -631,7 +641,7 @@ void capability_init()
     if (refresh_cap_handle) {
         iot_err = st_cap_cmd_set_cb(refresh_cap_handle, "refresh", refresh_cmd_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set cmd_cb for refresh");
+            ESP_LOGE(TAG, "failed to set cmd_cb for refresh");
         }
     }
 
@@ -640,7 +650,7 @@ void capability_init()
     if (healthCheck_cap_handle) {
         iot_err = st_cap_cmd_set_cb(healthCheck_cap_handle, "ping", refresh_cmd_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set cmd_cb for healthCheck");
+            ESP_LOGE(TAG, "failed to set cmd_cb for healthCheck");
         }
     }
 
@@ -649,7 +659,7 @@ void capability_init()
     if (ota_cap_handle) {
         iot_err = st_cap_cmd_set_cb(ota_cap_handle, "updateFirmware", update_firmware_cmd_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set cmd_cb for updateFirmware");
+            ESP_LOGE(TAG, "failed to set cmd_cb for updateFirmware");
         }
     }
 
@@ -756,7 +766,7 @@ void stsdk_connection_start(void)
     // process on-boarding procedure. There is nothing more to do on the app side than call the API.
     err = st_conn_start(ctx, (st_status_cb)&iot_status_cb, IOT_STATUS_ALL, NULL, pin_num);
     if (err) {
-        ESP_LOGE(TAG, "fail to start connection. err:%d", err);
+        ESP_LOGE(TAG, "failed to start connection. err:%d", err);
     }
     if (pin_num) {
         free(pin_num);
@@ -813,7 +823,7 @@ void button_event(IOT_CAP_HANDLE *handle, int type, int count)
             }
             break;
         case 5:
-            /* clean-up provisioning & registered data with reboot option*/
+            /* clean-up provisioning & registered data with restart option*/
             st_conn_cleanup(ctx, true);
 
             break;
@@ -835,7 +845,7 @@ void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 
     ST_CAP_SEND_ATTR_NUMBER(handle, "checkInterval", 60, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
-        ESP_LOGE(TAG, "fail to send init_data");
+        ESP_LOGE(TAG, "failed to send init_data");
     }
 
 }
@@ -851,7 +861,7 @@ void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
     /* Send avail version to ota cap handler */
     ST_CAP_SEND_ATTR_STRING(handle, (char*)"availableVersion", (char *)FIRMWARE_VERSION, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
-        ESP_LOGE(TAG, "fail to send init_data");
+        ESP_LOGE(TAG, "failed to send init_data");
     }
 
 }

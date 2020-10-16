@@ -53,9 +53,21 @@ Choose one of the following configurations.
 
     ```help [command]```
 
-  - Reboot the device.
+  - Set logging mode.
 
-    ```reboot```
+    ```logmode {level}```
+
+    - {level}
+         [I] - Informational.
+         [D] - Debugging. (Only if compiled with DEBUG).
+         [N] - None: (default) Warnings and errors only.
+    Examples:
+      - Set logging mode to INFO.
+        - logmode I
+
+  - Restart the device.
+
+    ```restart```
 
   - Preform an OTA upgrade now download and install new flash.
 
@@ -82,7 +94,7 @@ Choose one of the following configurations.
         - netmode W mode=d&sid=example&password=somethingsecret
       - Ethernet DHCP DNS2 override.
         - netmode E mode=d&dns2=4.2.2.2
-      - Ethernet Static IPv4 address
+      - Ethernet Static IPv4 address.
         - netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8
 
   - Simulate a button press event.
@@ -108,13 +120,13 @@ Choose one of the following configurations.
       - A valid alarm code or -1 to remove.
 
     Examples
-      - Set default code to 1234
+      - Set default code to 1234.
         - code 0 1234
-      - Set alarm code for slot 1
+      - Set alarm code for slot 1.
         - code 1 1234
-      - Show code in slot #3
+      - Show code in slot #3.
         - code 3
-      - Remove code for slot 2
+      - Remove code for slot 2.
         - code 2 -1
 
       Note: value -1 will remove an entry.
@@ -139,9 +151,9 @@ Choose one of the following configurations.
         - vpaddr 0 18
       - Set default send partition to 1 for a DSC system.
         - vpaddr 0 1
-      - Show address for partition 2
+      - Show address for partition 2.
         - vpaddr 2
-      - Remove virtual partition in slot 2
+      - Remove virtual partition in slot 2.
         - vpaddr 2 -1
 
       Note: address -1 will remove an entry.
@@ -158,11 +170,11 @@ Choose one of the following configurations.
       - [C]om arg: {TXPIN:RXPIN}.
 
     Examples:
-      - Show current mode
+      - Show current mode.
         - ad2source
-      - Set source to ser2sock client at address and port
+      - Set source to ser2sock client at address and port.
         - ad2source SOCK 192.168.1.2:10000
-      - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16
+      - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16.
         - ad2source COM 17:16
 
 ### SmartThings STSDK IoT commands
@@ -172,7 +184,7 @@ Choose one of the following configurations.
 
     - {bool}: [Y]es/[N]o
 
-  - Cleanup NV data with reboot option
+  - Cleanup NV data with restart option
 
     ```stcleanup```
 
@@ -339,7 +351,7 @@ I (266972) AD2_IoT: MESSAGE_CB: '[10010001000000003A--],008,[f72600ff1008001c080
 ```
 
 ## Troubleshooting
-- Pressing ENTER early in the ESP32 boot will prevent any startup tasks. This can help if the ESP32 is in a REBOOT CRASH LOOP. To exit this mode ```'reboot'```
+- Pressing ENTER early in the ESP32 boot will prevent any startup tasks. This can help if the ESP32 is in a REBOOT CRASH LOOP. To exit this mode ```'restart'```
 - If the AD2* is not communicating it may be stuck in a configuration mode or its configuration may have been corrupted during firmware update of the ESP32. If this happens you can directly connect to the AD2* over the UART or Socket by using the command ```'ad2term'```.
 
   Note) If the connection is a Socket it is currently necessary to have the ESP32 running and not halted at boot and connected with SmartThings for Wifi and networking to be active.

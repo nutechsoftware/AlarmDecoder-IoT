@@ -348,7 +348,7 @@ void twilio_send_task(void *pvParameters)
     http_request = build_request_string(sid, token, body);
     reqp = (char *)http_request.c_str();
 #if defined(TWILIO_DEBUG)
-    ad2_printf_host("sending message to twilio\n%s\n",http_request.c_str());
+    ad2_printf_host("sending message to twilio\r\n%s\r\n",http_request.c_str());
 #endif
     /* Send HTTPS POST request. */
     ESP_LOGI(TAG, "Writing HTTP request...");
@@ -436,7 +436,7 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 
         std::string body;
         if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
-            body = ad2_string_format("EVENT ID %d",(int)arg);
+            body = ad2_string_printf("EVENT ID %d",(int)arg);
         } else {
             body = AD2Parse.event_str[(int)arg];
         }
@@ -490,7 +490,7 @@ static void _cli_cmd_twilio_event(char *string)
     int i;
     for(i = 0;; ++i) {
         if (TWILIO_SETTINGS[i] == 0) {
-            ad2_printf_host("What?\n");
+            ad2_printf_host("What?\r\n");
             break;
         }
         if(key.compare(TWILIO_SETTINGS[i]) == 0) {
@@ -500,13 +500,13 @@ static void _cli_cmd_twilio_event(char *string)
             if (slot >= 0) {
                 if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
                     ad2_set_nv_slot_key_string(key.c_str(), slot, buf.c_str());
-                    ad2_printf_host("Setting %s value finished.\n", key.c_str());
+                    ad2_printf_host("Setting %s value finished.\r\n", key.c_str());
                 } else {
                     ad2_get_nv_slot_key_string(key.c_str(), slot, buf);
-                    ad2_printf_host("Current slot #%02i '%s' value '%s'\n", slot, key.c_str(), buf.c_str());
+                    ad2_printf_host("Current slot #%02i '%s' value '%s'\r\n", slot, key.c_str(), buf.c_str());
                 }
             } else {
-                ad2_printf_host("Missing <slot>\n");
+                ad2_printf_host("Missing <slot>\r\n");
             }
             // found match search done
             break;
@@ -520,51 +520,51 @@ static void _cli_cmd_twilio_event(char *string)
 static struct cli_command twilio_cmd_list[] = {
     {
         (char*)TWILIO_TOKEN,(char*)
-        "- Sets the 'User Auth Token' for notifications.\n\n"
-        "  ```" TWILIO_TOKEN " {slot} {hash}```\n\n"
-        "  - {slot}: [N]\n"
-        "    - For default use 0. Support multiple Twilio accounts.\n"
-        "  - {hash}: Twilio 'User Auth Token'\n\n"
-        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\n\n", _cli_cmd_twilio_event
+        "- Sets the 'User Auth Token' for notifications.\r\n\r\n"
+        "  ```" TWILIO_TOKEN " {slot} {hash}```\r\n\r\n"
+        "  - {slot}: [N]\r\n"
+        "    - For default use 0. Support multiple Twilio accounts.\r\n"
+        "  - {hash}: Twilio 'User Auth Token'\r\n\r\n"
+        "  Example: " TWILIO_TOKEN " 0 aabbccdd112233..\r\n\r\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_SID,(char*)
-        "- Sets the 'Account SID' for notification.\n\n"
-        "  ```" TWILIO_SID " {slot} {hash}```\n\n"
-        "  - {slot}: [N]\n"
-        "    - For default use 0. Support multiple Twilio accounts.\n"
-        "  - {hash}: Twilio 'Account SID'\n\n"
-        "  Example: " TWILIO_SID " 0 aabbccdd112233..\n\n", _cli_cmd_twilio_event
+        "- Sets the 'Account SID' for notification.\r\n\r\n"
+        "  ```" TWILIO_SID " {slot} {hash}```\r\n\r\n"
+        "  - {slot}: [N]\r\n"
+        "    - For default use 0. Support multiple Twilio accounts.\r\n"
+        "  - {hash}: Twilio 'Account SID'\r\n\r\n"
+        "  Example: " TWILIO_SID " 0 aabbccdd112233..\r\n\r\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_FROM,(char*)
-        "- Sets the 'From' address for notification.\n\n"
-        "  ```" TWILIO_FROM " {slot} {phone} ```\n\n"
-        "  - {slot}: [N]\n"
-        "    - For default use 0. Support multiple Twilio accounts.\n"
-        "  - {phone}: [NXXXYYYZZZZ]\n"
-        "    - From phone #\n\n"
-        "  Example: " TWILIO_FROM " 0 13115552368\n\n", _cli_cmd_twilio_event
+        "- Sets the 'From' address for notification.\r\n\r\n"
+        "  ```" TWILIO_FROM " {slot} {phone} ```\r\n\r\n"
+        "  - {slot}: [N]\r\n"
+        "    - For default use 0. Support multiple Twilio accounts.\r\n"
+        "  - {phone}: [NXXXYYYZZZZ]\r\n"
+        "    - From phone #\r\n\r\n"
+        "  Example: " TWILIO_FROM " 0 13115552368\r\n\r\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_TO,(char*)
-        "- Sets the 'To' address for notification.\n\n"
-        "  ```" TWILIO_TO " {slot} {phone}```\n\n"
-        "  - {slot}: [N]\n"
-        "    - For default use 0. Support multiple Twilio accounts.\n"
-        "  - {phone}: [NXXXYYYZZZZ]\n"
-        "    - To phone #\n\n"
-        "  Example: " TWILIO_TO " 0 13115552368\n\n", _cli_cmd_twilio_event
+        "- Sets the 'To' address for notification.\r\n\r\n"
+        "  ```" TWILIO_TO " {slot} {phone}```\r\n\r\n"
+        "  - {slot}: [N]\r\n"
+        "    - For default use 0. Support multiple Twilio accounts.\r\n"
+        "  - {phone}: [NXXXYYYZZZZ]\r\n"
+        "    - To phone #\r\n\r\n"
+        "  Example: " TWILIO_TO " 0 13115552368\r\n\r\n", _cli_cmd_twilio_event
     },
     {
         (char*)TWILIO_TYPE,(char*)
-        "- Sets the 'Type' for notification.\n\n"
-        "  ```" TWILIO_TYPE " {slot} {type}```\n\n"
-        "  - {slot}\n"
-        "    - For default use 0. Support multiple Twilio accounts.\n"
-        "  - {type}: [M|T]\n"
-        "    - Notification type [M]essage or [T]wiml.\n\n"
-        "  Example: " TWILIO_TYPE " 0 M\n\n", _cli_cmd_twilio_event
+        "- Sets the 'Type' for notification.\r\n\r\n"
+        "  ```" TWILIO_TYPE " {slot} {type}```\r\n\r\n"
+        "  - {slot}\r\n"
+        "    - For default use 0. Support multiple Twilio accounts.\r\n"
+        "  - {type}: [M|T]\r\n"
+        "    - Notification type [M]essage or [T]wiml.\r\n\r\n"
+        "  Example: " TWILIO_TYPE " 0 M\r\n\r\n", _cli_cmd_twilio_event
     },
 };
 

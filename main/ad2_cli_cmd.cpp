@@ -84,10 +84,10 @@ static void _cli_cmd_code_event(char *string)
         if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
             if (arg.length()) {
                 if (atoi(arg.c_str()) == -1) {
-                    ad2_printf_host("Removing code in slot %i...\n", slot);
+                    ad2_printf_host("Removing code in slot %i...\r\n", slot);
                     ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
                 } else {
-                    ad2_printf_host("Setting code in slot %i to '%s'...\n", slot, arg.c_str());
+                    ad2_printf_host("Setting code in slot %i to '%s'...\r\n", slot, arg.c_str());
                     ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
                 }
             }
@@ -95,7 +95,7 @@ static void _cli_cmd_code_event(char *string)
             // show contents of this slot
             std::string buf;
             ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
-            ad2_printf_host("The code in slot %i is '%s'\n", slot, buf.c_str());
+            ad2_printf_host("The code in slot %i is '%s'\r\n", slot, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
@@ -130,17 +130,17 @@ static void _cli_cmd_vpaddr_event(char *string)
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                ad2_printf_host("Setting vpaddr in slot %i to '%i'...\n", slot, address);
+                ad2_printf_host("Setting vpaddr in slot %i to '%i'...\r\n", slot, address);
                 ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
             } else {
                 // delete entry
-                ad2_printf_host("Deleting vpaddr in slot %i...\n", slot);
+                ad2_printf_host("Deleting vpaddr in slot %i...\r\n", slot);
                 ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, -1);
             }
         } else {
             // show contents of this slot
             ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, &address);
-            ad2_printf_host("The vpaddr in slot %i is %i\n", slot, address);
+            ad2_printf_host("The vpaddr in slot %i is %i\r\n", slot, address);
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
@@ -180,10 +180,10 @@ static void _cli_cmd_ad2source_event(char *string)
                                            AD2MODE_CONFIG_ARG_SLOT, arg.c_str());
                 break;
             default:
-                ad2_printf_host("Invalid mode selected must be [S]ocket or [C]OM\n");
+                ad2_printf_host("Invalid mode selected must be [S]ocket or [C]OM\r\n");
             }
         } else {
-            ad2_printf_host("Missing <arg>\n");
+            ad2_printf_host("Missing <arg>\r\n");
         }
     } else {
         // get mode in slot 0
@@ -193,9 +193,9 @@ static void _cli_cmd_ad2source_event(char *string)
         // get arg in slot 1
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
                                    AD2MODE_CONFIG_ARG_SLOT, arg);
-
-        ad2_printf_host("Current %s '%s'\n", (modesz[0]=='C'?"COM TXPIN:RXPIN":"SOCKET AUTHORITY"), arg.c_str());
     }
+    ad2_printf_host("Current mode '%s %s'\r\n", (modesz[0]=='C'?"COM":"SOCKET"), arg.c_str());
+
 }
 
 /**
@@ -209,7 +209,7 @@ static void _cli_cmd_ad2source_event(char *string)
  */
 static void _cli_cmd_ad2term_event(char *string)
 {
-    ad2_printf_host("Locking main threads. Send '.' 3 times to break out and return.\n");
+    ad2_printf_host("Locking main threads. Send '.' 3 times to break out and return.\r\n");
     portENTER_CRITICAL(&spinlock);
     g_StopMainTask = 2;
     portEXIT_CRITICAL(&spinlock);
@@ -259,7 +259,7 @@ static void _cli_cmd_ad2term_event(char *string)
             // should not happen
         } else {
             ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-            ad2_printf_host("AD2IoT operating mode configured. Configure using ad2source command.\n");
+            ad2_printf_host("AD2IoT operating mode configured. Configure using ad2source command.\r\n");
             break;
         }
 
@@ -293,19 +293,19 @@ static void _cli_cmd_ad2term_event(char *string)
         vTaskDelay(20 / portTICK_PERIOD_MS);
     }
 
-    ad2_printf_host("Resuming main threads.\n");
+    ad2_printf_host("Resuming main threads.\r\n");
     portENTER_CRITICAL(&spinlock);
     g_StopMainTask = 0;
     portEXIT_CRITICAL(&spinlock);
 }
 
 /**
- * @brief event handler for reboot command
+ * @brief event handler for restart command
  *
  * @param [in]string command buffer pointer.
  *
  */
-static void _cli_cmd_reboot_event(char *string)
+static void _cli_cmd_restart_event(char *string)
 {
     hal_restart();
 }
@@ -332,15 +332,46 @@ static void _cli_cmd_netmode_event(char *string)
             ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg.c_str());
             break;
         default:
-            ad2_printf_host("Unknown network mode('%c') error.\n", mode[0]);
+            ad2_printf_host("Unknown network mode('%c') error.\r\n", mode[0]);
             break;
         }
     }
     // show current mode.
     std::string args;
     char cmode = ad2_network_mode(args);
-    ad2_printf_host("The current network mode is '%c' with args '%s'\n", cmode, arg.c_str());
+    ad2_printf_host("The current network mode is '%c' with args '%s'.\r\n", cmode, arg.c_str());
 }
+
+/**
+ * @brief event handler for logging command
+ *
+ * @param [in]string command buffer pointer.
+ *
+ */
+static void _cli_cmd_ad2logmode_event(char *string)
+{
+    ESP_LOGI(TAG, "%s: Setting logging mode (%s).", __func__, string);
+    std::string mode;
+    std::string arg;
+    if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
+        ad2_ucase(mode);
+        switch(mode[0]) {
+        case 'N':
+        case 'D':
+        case 'I':
+        ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, mode[0]);
+
+            break;
+        default:
+            ad2_printf_host("Unknown logging mode('%c') error.\r\n", mode[0]);
+            break;
+        }
+    }
+    // show current mode.
+    char cmode = ad2_log_mode();
+    ad2_printf_host("The current logging mode mode is '%c'.\r\n", cmode);
+}
+
 
 /**
  * @brief virtual button press event.
@@ -373,102 +404,114 @@ static void _cli_cmd_butten_event(char *string)
 static struct cli_command cmd_list[] = {
     {
         (char*)AD2_REBOOT,(char*)
-        "- Reboot the device.\n\n"
-        "  ```" AD2_REBOOT "```\n\n", _cli_cmd_reboot_event
+        "- Restart the device.\r\n\r\n"
+        "  ```" AD2_REBOOT "```\r\n\r\n", _cli_cmd_restart_event
     },
     {
         (char*)AD2_NETMODE,(char*)
-        "- Manage network connection type.\n\n"
-        "  ```" AD2_NETMODE " {mode} [args]```\n\n"
-        "  - {mode}\n"
-        "    - [N]one: (default) Do not enable any network let component(s) manage the networking.\n"
-        "    - [W]iFi: Enable WiFi network driver.\n"
-        "    - [E]thernet: Enable ethernet network driver.\n"
-        "  - [arg]\n"
-        "    - Argument string name value pairs sepearted by &.\n"
-        "      - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD\n\n"
-        "  Examples\n"
-        "    - WiFi DHCP with SID and password.\n"
-        "      - netmode W mode=d&sid=example&password=somethingsecret\n"
-        "    - Ethernet DHCP DNS2 override.\n"
-        "      - netmode E mode=d&dns2=4.2.2.2\n"
-        "    - Ethernet Static IPv4 address\n"
-        "      - netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8\n"
+        "- Manage network connection type.\r\n\r\n"
+        "  ```" AD2_NETMODE " {mode} [args]```\r\n\r\n"
+        "  - {mode}\r\n"
+        "    - [N]one: (default) Do not enable any network let component(s) manage the networking.\r\n"
+        "    - [W]iFi: Enable WiFi network driver.\r\n"
+        "    - [E]thernet: Enable ethernet network driver.\r\n"
+        "  - [arg]\r\n"
+        "    - Argument string name value pairs sepearted by &.\r\n"
+        "      - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD\r\n\r\n"
+        "  Examples\r\n"
+        "    - WiFi DHCP with SID and password.\r\n"
+        "      - netmode W mode=d&sid=example&password=somethingsecret\r\n"
+        "    - Ethernet DHCP DNS2 override.\r\n"
+        "      - netmode E mode=d&dns2=4.2.2.2\r\n"
+        "    - Ethernet Static IPv4 address.\r\n"
+        "      - netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8\r\n"
         , _cli_cmd_netmode_event
     },
     {
         (char*)AD2_BUTTON,(char*)
-        "- Simulate a button press event.\n\n"
-        "  ```" AD2_BUTTON " {count} {type}```\n\n"
-        "  - {count}\n"
-        "    - Number of times the button was pushed.\n"
-        "  - {type}\n"
-        "    - The type of event 'short' or 'long'.\n\n"
-        "  Examples\n"
-        "    - Send a single LONG button press.\n"
-        "      - " AD2_BUTTON " 1 long\n", _cli_cmd_butten_event
+        "- Simulate a button press event.\r\n\r\n"
+        "  ```" AD2_BUTTON " {count} {type}```\r\n\r\n"
+        "  - {count}\r\n"
+        "    - Number of times the button was pushed.\r\n"
+        "  - {type}\r\n"
+        "    - The type of event 'short' or 'long'.\r\n\r\n"
+        "  Examples\r\n"
+        "    - Send a single LONG button press.\r\n"
+        "      - " AD2_BUTTON " 1 long\r\n", _cli_cmd_butten_event
     },
     {
         (char*)AD2_CODE,(char*)
-        "- Manage user codes.\n\n"
-        "  ```" AD2_CODE " {id} [value]```\n\n"
-        "  - {id}\n"
-        "    - Index of code to evaluate. 0 is default.\n"
-        "  - [value]\n"
-        "    - A valid alarm code or -1 to remove.\n\n"
-        "  Examples\n"
-        "    - Set default code to 1234\n"
-        "      - " AD2_CODE " 0 1234\n"
-        "    - Set alarm code for slot 1\n"
-        "      - " AD2_CODE " 1 1234\n"
-        "    - Show code in slot #3\n"
-        "      - " AD2_CODE " 3\n"
-        "    - Remove code for slot 2\n"
-        "      - " AD2_CODE " 2 -1\n\n"
-        "    Note: value -1 will remove an entry.\n", _cli_cmd_code_event
+        "- Manage user codes.\r\n\r\n"
+        "  ```" AD2_CODE " {id} [value]```\r\n\r\n"
+        "  - {id}\r\n"
+        "    - Index of code to evaluate. 0 is default.\r\n"
+        "  - [value]\r\n"
+        "    - A valid alarm code or -1 to remove.\r\n\r\n"
+        "  Examples\r\n"
+        "    - Set default code to 1234.\r\n"
+        "      - " AD2_CODE " 0 1234\r\n"
+        "    - Set alarm code for slot 1.\r\n"
+        "      - " AD2_CODE " 1 1234\r\n"
+        "    - Show code in slot #3.\r\n"
+        "      - " AD2_CODE " 3\r\n"
+        "    - Remove code for slot 2.\r\n"
+        "      - " AD2_CODE " 2 -1\r\n\r\n"
+        "    Note: value -1 will remove an entry.\r\n", _cli_cmd_code_event
     },
     {
         (char*)AD2_VPADDR,(char*)
-        "- Manage virtual partitions\n\n"
-        "  ```" AD2_VPADDR " {id} {value}```\n\n"
-        "  - {id}\n"
-        "    - The virtual partition ID. 0 is the default.\n"
-        "  - [value]\n"
-        "    - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\n\n"
-        "  Examples\n"
-        "    - Set default address mask to 18 for an Ademco system.\n"
-        "      - " AD2_VPADDR " 0 18\n"
-        "    - Set default send partition to 1 for a DSC system.\n"
-        "      - " AD2_VPADDR " 0 1\n"
-        "    - Show address for partition 2\n"
-        "      - " AD2_VPADDR " 2\n"
-        "    - Remove virtual partition in slot 2\n"
-        "      - " AD2_VPADDR " 2 -1\n\n"
-        "    Note: address -1 will remove an entry.\n", _cli_cmd_vpaddr_event
+        "- Manage virtual partitions\r\n\r\n"
+        "  ```" AD2_VPADDR " {id} {value}```\r\n\r\n"
+        "  - {id}\r\n"
+        "    - The virtual partition ID. 0 is the default.\r\n"
+        "  - [value]\r\n"
+        "    - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n\r\n"
+        "  Examples\r\n"
+        "    - Set default address mask to 18 for an Ademco system.\r\n"
+        "      - " AD2_VPADDR " 0 18\r\n"
+        "    - Set default send partition to 1 for a DSC system.\r\n"
+        "      - " AD2_VPADDR " 0 1\r\n"
+        "    - Show address for partition 2.\r\n"
+        "      - " AD2_VPADDR " 2\r\n"
+        "    - Remove virtual partition in slot 2.\r\n"
+        "      - " AD2_VPADDR " 2 -1\r\n\r\n"
+        "    Note: address -1 will remove an entry.\r\n", _cli_cmd_vpaddr_event
     },
     {
         (char*)AD2_SOURCE,(char*)
-        "- Manage AlarmDecoder protocol source.\n\n"
-        "  ```" AD2_SOURCE " [{mode} {arg}]```\n\n"
-        "  - {mode}\n"
-        "    - [S]ocket: Use ser2sock server over tcp for AD2* messages.\n"
-        "    - [C]om port: Use local UART for AD2* messages.\n"
-        "  - {arg}\n"
-        "    - [S]ocket arg: {HOST:PORT}\n"
-        "    - [C]om arg: {TXPIN:RXPIN}.\n\n"
-        "  Examples:\n"
-        "    - Show current mode\n"
-        "      - " AD2_SOURCE "\n"
-        "    - Set source to ser2sock client at address and port\n"
-        "      - " AD2_SOURCE " SOCK 192.168.1.2:10000\n"
-        "    - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16\n"
-        "      - " AD2_SOURCE " COM 17:16\n", _cli_cmd_ad2source_event
+        "- Manage AlarmDecoder protocol source.\r\n\r\n"
+        "  ```" AD2_SOURCE " [{mode} {arg}]```\r\n\r\n"
+        "  - {mode}\r\n"
+        "    - [S]ocket: Use ser2sock server over tcp for AD2* messages.\r\n"
+        "    - [C]om port: Use local UART for AD2* messages.\r\n"
+        "  - {arg}\r\n"
+        "    - [S]ocket arg: {HOST:PORT}\r\n"
+        "    - [C]om arg: {TXPIN:RXPIN}.\r\n\r\n"
+        "  Examples:\r\n"
+        "    - Show current mode.\r\n"
+        "      - " AD2_SOURCE "\r\n"
+        "    - Set source to ser2sock client at address and port.\r\n"
+        "      - " AD2_SOURCE " SOCK 192.168.1.2:10000\r\n"
+        "    - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16.\r\n"
+        "      - " AD2_SOURCE " COM 17:16\r\n", _cli_cmd_ad2source_event
     },
     {
         (char*)AD2_TERM,(char*)
-        "- Connect directly to the AD2* source and halt processing.\n\n"
-        "  ```" AD2_TERM "```\n\n"
-        "  Note: To exit press ... three times fast.\n", _cli_cmd_ad2term_event
+        "- Connect directly to the AD2* source and halt processing.\r\n\r\n"
+        "  ```" AD2_TERM "```\r\n\r\n"
+        "  Note: To exit press ... three times fast.\r\n", _cli_cmd_ad2term_event
+    },
+    {
+        (char*)AD2_LOGMODE,(char*)
+        "- Set logging mode.\r\n\r\n"
+        "  ```" AD2_LOGMODE " {level}```\r\n\r\n"
+        "  - {level}\r\n"
+        "       [I] - Informational\r\n"
+        "       [D] - Debugging\r\n"
+        "       [N] - None: (default) Warnings and errors only.\r\n\n\n"
+        "  Examples:\r\n"
+        "    - Set logging mode to INFO.\r\n"
+        "      - " AD2_LOGMODE " I\r\n", _cli_cmd_ad2logmode_event
     }
 };
 

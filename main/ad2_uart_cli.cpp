@@ -55,8 +55,8 @@ static void cli_cmd_help(char *string);
  * @brief command list for module
  */
 static struct cli_command help_cmd = {
-    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\n\n"
-    "  ```" AD2_HELP_CMD " [command]```\n\n", cli_cmd_help
+    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n\r\n"
+    "  ```" AD2_HELP_CMD " [command]```\r\n\r\n", cli_cmd_help
 };
 
 /**
@@ -103,7 +103,7 @@ static void cli_process_command(char* input_string)
     command = cli_find_command(input_string);
 
     if (command == NULL) {
-        ad2_printf_host("command not found. please check 'help'\n");
+        ad2_printf_host("command not found. please check 'help'\r\n");
         return;
     }
 
@@ -163,10 +163,10 @@ static void cli_cmd_help(char *cmd)
         cli_cmd_t *command;
         command = cli_find_command(buf.c_str());
         if (command != NULL) {
-            ad2_printf_host("Help for command '%s'\n\n%s\n", command->command, command->help_string);
+            ad2_printf_host("Help for command '%s'\r\n\r\n%s\r\n", command->command, command->help_string);
             showhelp = false;
         } else {
-            ad2_printf_host(", Command not found '%s'\n", cmd);
+            ad2_printf_host(", Command not found '%s'\r\n", cmd);
         }
     }
 
@@ -174,14 +174,14 @@ static void cli_cmd_help(char *cmd)
         int x = 0;
         bool sendpfx = false;
         bool sendsfx = false;
-        ad2_printf_host("Available AD2IoT terminal commands\n  [");
+        ad2_printf_host("Available AD2IoT terminal commands\r\n  [");
         while (now) {
             if (!now->cmd) {
                 continue;
             }
             if (sendpfx && now->next) {
                 sendpfx = false;
-                ad2_printf_host(",\n   ");
+                ad2_printf_host(",\r\n   ");
             }
             if (sendsfx) {
                 sendsfx = false;
@@ -199,7 +199,7 @@ static void cli_cmd_help(char *cmd)
                 x = 0;
             }
         }
-        ad2_printf_host("]\n\nType help <command> for details on each command.\n\n");
+        ad2_printf_host("]\r\n\r\nType help <command> for details on each command.\r\n\r\n");
     }
 }
 
@@ -245,27 +245,6 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
 }
 
 /**
- * @brief UART0 settings
- */
-static void esp_uart_init()
-{
-
-    // Configure parameters of an UART driver,
-    uart_config_t* uart_config = (uart_config_t*)calloc(sizeof(uart_config_t), 1);
-
-    uart_config->baud_rate = 115200;
-    uart_config->data_bits = UART_DATA_8_BITS;
-    uart_config->parity    = UART_PARITY_DISABLE;
-    uart_config->stop_bits = UART_STOP_BITS_1;
-    uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
-
-    uart_param_config(UART_NUM_0, uart_config);
-    uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
-
-    free(uart_config);
-}
-
-/**
  * @brief UART CLI task
  * Echo back valid data and allow for simple left/right cursor navigation.
  *   Port: UART0
@@ -291,10 +270,17 @@ static void esp_uart_cli_task(void *pvParameters)
     cli_register_command(&help_cmd);
 
     while (1) {
-        memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
         // Read data from the UART
+        memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
         int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_RATE_MS);
+
+        if (len < 0) {
+            ESP_LOGE(TAG, "%s: uart cli read error.", __func__);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            continue;
+        }
+
         for (int i = 0; i < len; i++) {
             switch(rx_buffer[i]) {
             case '\r':
@@ -307,29 +293,29 @@ static void esp_uart_cli_task(void *pvParameters)
                 }
                 portEXIT_CRITICAL(&spinlock);
 
-                ad2_printf_host("\r\n", 2);
+                ad2_printf_host("\r\n");
                 if (line_len) {
                     cli_process_command((char *)line);
                     memcpy(prev_line, line, MAX_UART_LINE_SIZE);
                     memset(line, 0, MAX_UART_LINE_SIZE);
                     line_len = 0;
                 }
-                ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
+                ad2_printf_host(PROMPT_STRING);
                 break;
 
             case '\b':
                 //backspace
                 if (line_len > 0) {
-                    ad2_printf_host("\b \b", 3);
+                    ad2_printf_host("\b \b");
                     line[--line_len] = '\0';
                 }
                 break;
 
             case 0x03: //Ctrl + C
-                ad2_printf_host("^C\n", 3);
+                ad2_printf_host("^C\r\n");
                 memset(line, 0, MAX_UART_LINE_SIZE);
                 line_len = 0;
-                ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
+                ad2_printf_host(PROMPT_STRING);
                 break;
 
             case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
@@ -338,10 +324,10 @@ static void esp_uart_cli_task(void *pvParameters)
                     case 0x41: //UP
                         memcpy(line, prev_line, MAX_UART_LINE_SIZE);
                         line_len = strlen((char*)line);
-                        ad2_printf_host((const char *)&rx_buffer[i+1], 2);
-                        ad2_printf_host("\r\n", 2);
-                        ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
-                        ad2_printf_host((const char *)line, line_len);
+                        ad2_snprintf_host((const char *)&rx_buffer[i+1], 2);
+                        ad2_printf_host("\r\n");
+                        ad2_printf_host(PROMPT_STRING);
+                        ad2_snprintf_host((const char *)line, line_len);
                         i+=3;
                         break;
                     case 0x42: //DOWN - ignore
@@ -350,14 +336,14 @@ static void esp_uart_cli_task(void *pvParameters)
                     case 0x43: //right
                         if (line[line_len+1] != '\0') {
                             line_len += 1;
-                            ad2_printf_host((const char *)&rx_buffer[i], 3);
+                            ad2_snprintf_host((const char *)&rx_buffer[i], 3);
                         }
                         i+=3;
                         break;
                     case 0x44: //left
                         if (line_len > 0) {
                             line_len -= 1;
-                            ad2_printf_host((const char *)&rx_buffer[i], 3);
+                            ad2_snprintf_host((const char *)&rx_buffer[i], 3);
                         }
                         i+=3;
                         break;
@@ -375,7 +361,7 @@ static void esp_uart_cli_task(void *pvParameters)
                     }
 
                     // print character back
-                    ad2_printf_host((const char *) &rx_buffer[i], 1);
+                    ad2_snprintf_host((const char *) &rx_buffer[i], 1);
 
                     line[line_len++] = rx_buffer[i];
                 }
@@ -395,15 +381,13 @@ void uart_cli_main()
     /* to decide whether the main function is running or not by user action... */
     g_StopMainTask = 1;    //default value is 1;  stop for a timeout
 
-    esp_uart_init();
-
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    ad2_printf_host("Press enter in the next 5 seconds to stop the init.\n");
+    ad2_printf_host("Press enter in the next 5 seconds to stop the init.\r\n");
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
-    ad2_printf_host("Starting main task.\n");
+    ad2_printf_host("Starting main task.\r\n");
     ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
 
 }

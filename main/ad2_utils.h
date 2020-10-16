@@ -46,12 +46,16 @@ void ad2_fire_alarm(int codeId, int addressId);
 void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int address_slot);
 void ad2_printf_host(const char *format, ...);
+void ad2_snprintf_host(const char *fmt, size_t size, ...);
 char ad2_network_mode(std::string &args);
+char ad2_log_mode();
+void ad2_set_log_mode(char m);
 
 // string utils
 
-std::string ad2_string_format(const char *fmt, ...);
-std::string ad2_string_vaformat(const char *fmt, va_list args);
+std::string ad2_string_printf(const char *fmt, ...);
+std::string ad2_string_vaprintf(const char *fmt, va_list args);
+std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
 int  ad2_copy_nth_arg(std::string &dest, char* src, int n);
 void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);

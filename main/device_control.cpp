@@ -32,6 +32,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "driver/uart.h"
 #include "esp_log.h"
 
 #include "alarmdecoder_main.h"
@@ -254,7 +255,7 @@ void hal_gpio_init(void)
 void hal_restart()
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
-    ad2_printf_host("Restarting now\n");
+    ad2_printf_host("Restarting now\r\n");
     esp_restart();
 }
 
@@ -398,6 +399,28 @@ void hal_init_wifi()
 
     return;
 
+}
+
+
+/**
+ * @brief Start host uart
+ */
+void hal_host_uart_init()
+{
+
+    // Configure parameters of an UART driver,
+    uart_config_t* uart_config = (uart_config_t*)calloc(sizeof(uart_config_t), 1);
+
+    uart_config->baud_rate = 115200;
+    uart_config->data_bits = UART_DATA_8_BITS;
+    uart_config->parity    = UART_PARITY_DISABLE;
+    uart_config->stop_bits = UART_STOP_BITS_1;
+    uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+
+    uart_param_config(UART_NUM_0, uart_config);
+    uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+
+    free(uart_config);
 }
 
 #ifdef __cplusplus

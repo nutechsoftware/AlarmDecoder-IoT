@@ -55,6 +55,9 @@
 #define AD2MODE_CONFIG_MODE_SLOT 0 // FIXED Slot #0 for the mode
 #define AD2MODE_CONFIG_ARG_SLOT  1 // FIXED SLot #1 for the argument
 
+// @brief Parent Key to store ogging mode
+#define LOGMODE_CONFIG_KEY    "logmode"
+
 // UART RX buffer size
 #define AD2_UART_RX_BUFF_SIZE  100
 #define MAX_UART_LINE_SIZE    (1024)

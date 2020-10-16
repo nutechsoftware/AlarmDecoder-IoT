@@ -586,8 +586,13 @@ void app_main()
 
     //// AlarmDecoder App main
 
+    // start with log level error.
+    esp_log_level_set("*", ESP_LOG_NONE);        // set all components to ERROR level
+
     // init the AD2IoT gpio
     hal_gpio_init();
+
+    hal_host_uart_init();
 
     // Dump hardware info
     esp_chip_info_t chip_info;
@@ -599,7 +604,7 @@ void app_main()
 
     ad2_printf_host("silicon revision %d, ", chip_info.revision);
 
-    ad2_printf_host("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+    ad2_printf_host("%dMB %s flash\r\n", spi_flash_get_chip_size() / (1024 * 1024),
                     (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
@@ -614,8 +619,28 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
+    // load and set the logging level.
+    ad2_set_log_mode(ad2_log_mode());
+
+    // Load AD2IoT operating mode [Socket|UART] and argument
+    std::string ad2_mode;
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode);
+    g_ad2_mode = ad2_mode[0];
+
+    // If the hardware is local UART start it now.
+    if (g_ad2_mode == 'C') {
+        init_ad2_uart_client();
+    } else
+    if (g_ad2_mode == 'S') {
+        ad2_printf_host("Delaying start of ad2source SOCKET after network is up.");
+    }
+    else {
+        ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
+    }
+
 #if CONFIG_STDK_IOT_CORE
-    // show contents of this slot
     int stEN;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &stEN);
     if (stEN != 'Y' || stEN !='N') {
@@ -703,7 +728,7 @@ void app_main()
         stsdk_connection_start();
     } else {
         ESP_LOGI(TAG, "Setting netmode <> 'N' disabling SmartThings.");
-        ad2_printf_host("Setting netmode <> 'N' disabling SmartThings.\n");
+        ad2_printf_host("Setting netmode <> 'N' disabling SmartThings.\r\n");
     }
 #endif
 
@@ -716,20 +741,9 @@ void app_main()
     // Start firmware update task
     ota_init();
 
-    // Load AD2IoT operating mode [Socket|UART] and argument
-    std::string ad2_mode;
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode);
-    g_ad2_mode = ad2_mode[0];
-
-    // Lastly init the AlarmDecoder UART | Socket and start processing messages.
-    if (g_ad2_mode == 'C') {
-        init_ad2_uart_client();
-    } else if (g_ad2_mode == 'S') {
+    // If the AD2* is a socket connection we can hopefully start it now.
+    if (g_ad2_mode == 'S') {
         init_ser2sock_client();
-    } else {
-        ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\n");
     }
 
 #if defined(AD2_SER2SOCK_SERVER)
