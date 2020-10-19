@@ -2,7 +2,7 @@
 *  @file    twilio.cpp
 *  @author  Sean Mathews <coder@f34r.com>
 *  @date    09/12/2020
-*  @version 1.0.2
+*  @version 1.0.3
 *
 *  @brief Simple commands to post to api.twilio.com
 *
@@ -671,8 +671,7 @@ void twilio_init()
     AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
     AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
     AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
-    AD2Parse.subscribeTo(ON_ALARM, ad2_event_cb, (void*)ON_ALARM);
-    AD2Parse.subscribeTo(ON_ALARM_RESTORE, ad2_event_cb, (void*)ON_ALARM_RESTORE);
+    AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_event_cb, (void*)ON_ALARM_CHANGE);
 
 #if 1 /* TESTING FIXME */
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb, (void*)ON_CHIME_CHANGE);

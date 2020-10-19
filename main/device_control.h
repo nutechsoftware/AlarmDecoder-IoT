@@ -32,18 +32,24 @@
 #define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
 #define GPIO_OUTPUT_NOUSE1 17
 #define GPIO_OUTPUT_NOUSE2 25
+#define GPIO_OUTPUT_SWITCH_A GPIO_NUM_MAX
+#define GPIO_OUTPUT_SWITCH_B GPIO_NUM_MAX
 #elif CONFIG_TARGET_OLIMEX_ESP32_EVB
 #define GPIO_INPUT_BUTTON 0
 #define GPIO_OUTPUT_MAINLED 12
 #define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
 #define GPIO_OUTPUT_NOUSE1 14
 #define GPIO_OUTPUT_NOUSE2 27
+#define GPIO_OUTPUT_SWITCH_A GPIO_NUM_MAX
+#define GPIO_OUTPUT_SWITCH_B GPIO_NUM_MAX
 #else // ESP32_DEVKITC_V4
 #define GPIO_INPUT_BUTTON 0
 #define GPIO_OUTPUT_MAINLED 12
 #define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
 #define GPIO_OUTPUT_NOUSE1 14
 #define GPIO_OUTPUT_NOUSE2 27
+#define GPIO_OUTPUT_SWITCH_A GPIO_NUM_MAX
+#define GPIO_OUTPUT_SWITCH_B GPIO_NUM_MAX
 #endif
 
 #ifdef __cplusplus
@@ -83,6 +89,8 @@ enum button_event_type {
 int hal_get_button_event(int* button_event_type, int* button_event_count);
 void hal_change_switch_a_state(int switch_state);
 void hal_change_switch_b_state(int switch_state);
+bool hal_get_switch_a_state();
+bool hal_get_switch_b_state();
 void hal_led_blink(int switch_state, int delay, int count);
 void hal_change_led_mode(int noti_led_mode);
 void hal_gpio_init(void);

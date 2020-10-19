@@ -2,7 +2,7 @@
  *  @file    alarmdecoder_api.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    01/15/2020
- *  @version 1.0.2
+ *  @version 1.0.3
  *
  *  @brief AlarmDecoder embedded state machine and parser
  *
@@ -374,13 +374,16 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->panel_type = msg[PANEL_TYPE_BYTE];
 
                             // triggers
+                            bool SEND_FIRE_CHANGE  = false;
                             bool SEND_READY_CHANGE = false;
                             bool SEND_ARMED_CHANGE = false;
                             bool SEND_CHIME_CHANGE = false;
-                            bool SEND_FIRE_CHANGE  = false;
+                            bool SEND_POWER_CHANGE = false;
+                            bool SEND_BATTERY_CHANGE = false;
+                            bool SEND_ALARM_CHANGE = false;
 
                             // state change tracking
-                            bool ARMED_HOME = is_bit_set(ARMED_HOME_BYTE, msg.c_str());
+                            bool ARMED_STAY = is_bit_set(ARMED_STAY_BYTE, msg.c_str());
                             bool ARMED_AWAY = is_bit_set(ARMED_AWAY_BYTE, msg.c_str());
                             bool PERIMETER_ONLY = is_bit_set(PERIMETERONLY_BYTE, msg.c_str());
                             bool ENTRY_DELAY = is_bit_set(ENTRYDELAY_BYTE, msg.c_str());
@@ -388,6 +391,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool CHIME_ON = is_bit_set(CHIME_BYTE, msg.c_str());
                             bool EXIT_NOW = false;
                             bool FIRE_ALARM = is_bit_set(FIRE_BYTE, msg.c_str());
+                            bool AC_POWER = is_bit_set(ACPOWER_BYTE, msg.c_str());
+                            bool LOW_BATTERY = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
+                            bool ALARM_BELL = is_bit_set(ALARM_BYTE, msg.c_str());
 
                             // Get section #4 alpha message and upper case for later searching
                             string ALPHAMSG = msg.substr(SECTION_4_START,32);
@@ -408,7 +414,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             }
 
                             // If we are armed we may be in exit mode
-                            if (ARMED_HOME || ARMED_AWAY) {
+                            if (ARMED_STAY || ARMED_AWAY) {
                                 switch (ad2ps->panel_type) {
                                 case ADEMCO_PANEL:
                                     if ( !ADEMCO_SYS_MESSAGE ) {
@@ -438,6 +444,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_READY_CHANGE = true;
                                 SEND_ARMED_CHANGE = true;
                                 SEND_CHIME_CHANGE = true;
+                                SEND_POWER_CHANGE = true;
+                                SEND_BATTERY_CHANGE = true;
+                                SEND_ALARM_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
                                 // fire state change
@@ -451,7 +460,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 }
 
                                 // armed_state change send notification
-                                if ( ad2ps->armed_home != ARMED_HOME ||
+                                if ( ad2ps->armed_stay != ARMED_STAY ||
                                         ad2ps->armed_away != ARMED_AWAY) {
                                     SEND_ARMED_CHANGE = true;
                                 }
@@ -459,6 +468,21 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 // chime_on state change send
                                 if ( ad2ps->chime_on != CHIME_ON ) {
                                     SEND_CHIME_CHANGE = true;
+                                }
+
+                                // ac_power state change send
+                                if ( ad2ps->ac_power != AC_POWER ) {
+                                    SEND_POWER_CHANGE = true;
+                                }
+
+                                // ac_power state change send
+                                if ( ad2ps->battery_low != LOW_BATTERY ) {
+                                    SEND_BATTERY_CHANGE = true;
+                                }
+
+                                // ALARM_BELL state change send
+                                if ( ad2ps->alarm_sounding != ALARM_BELL ) {
+                                    SEND_ALARM_CHANGE = true;
                                 }
                             }
 
@@ -482,22 +506,22 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // Save states for event tracked changes
                             ad2ps->armed_away = ARMED_AWAY;
-                            ad2ps->armed_home = ARMED_HOME;
+                            ad2ps->armed_stay = ARMED_STAY;
                             ad2ps->entry_delay_off = ENTRY_DELAY;
                             ad2ps->perimeter_only = PERIMETER_ONLY;
                             ad2ps->ready = READY;
                             ad2ps->exit_now = EXIT_NOW;
                             ad2ps->chime_on = CHIME_ON;
                             ad2ps->fire_alarm = FIRE_ALARM;
+                            ad2ps->ac_power = AC_POWER;
+                            ad2ps->battery_low = LOW_BATTERY;
+                            ad2ps->alarm_sounding = ALARM_BELL;
 
                             // Save states for non even tracked changes
                             ad2ps->backlight_on  = is_bit_set(BACKLIGHT_BYTE, msg.c_str());
                             ad2ps->programming_mode = is_bit_set(PROGMODE_BYTE, msg.c_str());
                             ad2ps->zone_bypassed = is_bit_set(BYPASS_BYTE, msg.c_str());
-                            ad2ps->ac_power = is_bit_set(ACPOWER_BYTE, msg.c_str());
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
-                            ad2ps->alarm_sounding = is_bit_set(ALARM_BYTE, msg.c_str());
-                            ad2ps->battery_low = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = is_bit_set(SYSSPECIFIC_BYTE, msg.c_str());
                             ad2ps->beeps = msg[BEEPMODE_BYTE];
@@ -514,8 +538,8 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
 
                             // Debugging / testing output
-                            ESP_LOGD(TAG, "!DBG: SSIZE(%i) PID(%i) MASK(%08X) Ready(%i) Armed[Away(%i) Home(%i)] Bypassed(%i) Exit(%i)",
-                                     AD2PStates.size(),ad2ps->partition,amask,ad2ps->ready,ad2ps->armed_away,ad2ps->armed_home,ad2ps->zone_bypassed,ad2ps->exit_now);
+                            ESP_LOGD(TAG, "!DBG: SSIZE(%i) PID(%i) MASK(%08X) Ready(%i) Armed[Away(%i) Stay(%i)] Bypassed(%i) Exit(%i)",
+                                     AD2PStates.size(),ad2ps->partition,amask,ad2ps->ready,ad2ps->armed_away,ad2ps->armed_stay,ad2ps->zone_bypassed,ad2ps->exit_now);
 
                             // Call ON_MESSAGE callback if enabled.
                             notifySubscribers(ON_MESSAGE, msg, ad2ps);
@@ -532,7 +556,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // Send armed/disarm event
                             if ( SEND_ARMED_CHANGE ) {
-                                if ( ad2ps->armed_home || ad2ps->armed_away) {
+                                if ( ad2ps->armed_stay || ad2ps->armed_away) {
                                     notifySubscribers(ON_ARM, msg, ad2ps);
                                 } else {
                                     notifySubscribers(ON_DISARM, msg, ad2ps);
@@ -544,6 +568,20 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 notifySubscribers(ON_CHIME_CHANGE, msg, ad2ps);
                             }
 
+                            // Send event if ac_power state changed
+                            if ( SEND_POWER_CHANGE ) {
+                                notifySubscribers(ON_POWER_CHANGE, msg, ad2ps);
+                            }
+
+                            // Send event if battery_low state changed
+                            if ( SEND_BATTERY_CHANGE ) {
+                                notifySubscribers(ON_LOW_BATTERY, msg, ad2ps);
+                            }
+
+                            // Send event if alarm_sounding state changed
+                            if ( SEND_ALARM_CHANGE ) {
+                                notifySubscribers(ON_ALARM_CHANGE, msg, ad2ps);
+                            }
                         }
                     } else {
                         //TODO: Error statistics tracking

@@ -2,7 +2,7 @@
  *  @file    ota_util.c
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
- *  @version 1.0.2
+ *  @version 1.0.3
  *
  *  @brief OTA update support
  *

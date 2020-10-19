@@ -382,20 +382,44 @@ static void _cli_cmd_ad2logmode_event(char *string)
 static void _cli_cmd_butten_event(char *string)
 {
     std::string buf;
+    char id = '?';
     int count = 1;
     int type = BUTTON_SHORT_PRESS;
 
+    // ID {[A|B]}
     if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
+        id = buf.c_str()[0];
+    }
+    switch(id) {
+    case 'A': // Messages
+    case 'B': // Redirect
+        break;
+    default:
+        ad2_printf_host("Unknown button ID expect A or B.\r\n");
+        return;
+    }
+
+    // count {int}
+    if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
         count = strtol(buf.c_str(), NULL, 10);
     }
-    if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
+
+    // type {long|short}
+    if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
         if (strncmp(buf.c_str(), "long", 4) == 0) {
             type = BUTTON_LONG_PRESS;
         }
     }
 
+    if (id == 'A') {
+        hal_change_switch_a_state(!hal_get_switch_b_state());
+    }
+
+    if (id == 'B') {
+        hal_change_switch_b_state(!hal_get_switch_b_state());
+    }
+
     ESP_LOGI(TAG, "%s: button_event : count %d, type %d", __func__, count, type);
-    //FIXME: button_event(ctx, type, count);
 }
 
 /**
@@ -430,14 +454,16 @@ static struct cli_command cmd_list[] = {
     {
         (char*)AD2_BUTTON,(char*)
         "- Simulate a button press event.\r\n\r\n"
-        "  ```" AD2_BUTTON " {count} {type}```\r\n\r\n"
+        "  ```" AD2_BUTTON " {id} {count} {type}```\r\n\r\n"
+        "  - {id}\r\n"
+        "    - ID of the button to push [A|B].\r\n"
         "  - {count}\r\n"
         "    - Number of times the button was pushed.\r\n"
         "  - {type}\r\n"
         "    - The type of event 'short' or 'long'.\r\n\r\n"
         "  Examples\r\n"
-        "    - Send a single LONG button press.\r\n"
-        "      - " AD2_BUTTON " 1 long\r\n", _cli_cmd_butten_event
+        "    - Send a single LONG press to button A.\r\n"
+        "      - " AD2_BUTTON " A 1 long\r\n", _cli_cmd_butten_event
     },
     {
         (char*)AD2_CODE,(char*)

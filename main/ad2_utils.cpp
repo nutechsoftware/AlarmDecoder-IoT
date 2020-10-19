@@ -710,6 +710,60 @@ void ad2_fire_alarm(int codeId, int vpartId)
 }
 
 /**
+ * @brief Send the PANIC command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_panic_alarm(int codeId, int vpartId)
+{
+
+    // Get the address/partition mask for multi partition support.
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+
+    std::string msg;
+    msg = ad2_string_printf("K%02i<S2>", address);
+
+    ESP_LOGI(TAG,"Sending PANIC button command");
+    ad2_send(msg);
+}
+
+
+/**
+ * @brief Send the AUX(medical) PANIC command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_aux_alarm(int codeId, int vpartId)
+{
+
+    // Get the address/partition mask for multi partition support.
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+
+    std::string msg;
+    msg = ad2_string_printf("K%02i<S3>", address);
+
+    ESP_LOGI(TAG,"Sending AUX PANIC button command");
+    ad2_send(msg);
+}
+
+
+/**
  * @brief Send string to the AD2 devices after macro translation.
  *
  * @param [in]buf Pointer to string to send to AD2 devices.

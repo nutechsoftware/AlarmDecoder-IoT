@@ -2,7 +2,7 @@
 *  @file    alarmdecoder_main.cpp
 *  @author  Sean Mathews <coder@f34r.com>
 *  @date    02/20/2020
-*  @version 1.0.2
+*  @version 1.0.3
 *
 *  @brief AlarmDecoder IoT embedded network appliance
 *
@@ -147,7 +147,7 @@ void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  */
 void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_READY_CHANGE: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
+    ESP_LOGI(TAG, "ON_READY_CHANGE: READY(%i) EXIT(%i) STAY(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_stay, s->armed_away);
 }
 
 /**
@@ -160,7 +160,7 @@ void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  */
 void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_ARM: READY(%i) EXIT(%i) HOME(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_home, s->armed_away);
+    ESP_LOGI(TAG, "ON_ARM: READY(%i) EXIT(%i) STAY(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_stay, s->armed_away);
 }
 
 /**

@@ -32,11 +32,15 @@
 #include "caps_refresh.h"
 #include "caps_switch.h"
 #include "caps_securitySystem.h"
+#include "caps_button.h"
 #include "caps_momentary.h"
 #include "caps_smokeDetector.h"
 #include "caps_tamperAlert.h"
 #include "caps_contactSensor.h"
 #include "caps_carbonMonoxideDetector.h"
+#include "caps_powerSource.h"
+#include "caps_alarm.h"
+#include "caps_battery.h"
 
 #define STSDK_ENABLE   "stenable"
 #define STSDK_CLEANUP  "stcleanup"
@@ -59,17 +63,42 @@ void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data
 void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data);
 void ping_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
 void refresh_cmd_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data);
-
+int stsdk_get_switch_b_state();
+int stsdk_get_switch_b_state();
 
 extern iot_status_t g_iot_status;
 extern iot_stat_lv_t g_iot_stat_lv;
-extern caps_switch_data_t *cap_switch_a_data;
-extern caps_switch_data_t *cap_switch_b_data;
+
+extern IOT_CAP_HANDLE *ota_cap_handle;
+extern IOT_CAP_HANDLE *healthCheck_cap_handle;
+extern IOT_CAP_HANDLE *refresh_cap_handle;
+#if 0 // TODO/FIXME
+extern caps_securitySystem_data_t *cap_securitySystem_data;
+extern caps_button_data_t *cap_buttonMainSecurityActions_data;
+#endif
+extern caps_powerSource_data_t *cap_powerSource_data;
+extern caps_battery_data_t *cap_battery_data;
 extern caps_contactSensor_data_t *cap_contactSensor_data_chime;
 extern caps_momentary_data_t *cap_momentary_data_chime;
-extern caps_securitySystem_data_t *cap_securitySystem_data;
 extern caps_smokeDetector_data_t *cap_smokeDetector_data;
 extern caps_momentary_data_t *cap_momentary_data_fire;
+extern caps_alarm_data_t *cap_alarm_bell_data;
+extern caps_momentary_data_t *cap_momentary_data_panic_alarm;
+extern caps_momentary_data_t *cap_momentary_data_aux_alarm;
+extern caps_contactSensor_data_t *cap_contactSensor_data_arm_stay;
+extern caps_momentary_data_t *cap_momentary_data_arm_stay;
+extern caps_contactSensor_data_t *cap_contactSensor_data_arm_away;
+extern caps_momentary_data_t *cap_momentary_data_arm_away;
+extern caps_contactSensor_data_t *cap_contactSensor_data_bypass;
+#if 0 // TODO/FIXME
+extern caps_switch_data_t *cap_switch_a_data;
+extern caps_switch_data_t *cap_switch_b_data;
+#endif
+extern caps_momentary_data_t *cap_momentary_data_disarm;
+
+
+
+
 
 extern IOT_CAP_HANDLE *ota_cap_handle;
 extern IOT_CAP_HANDLE *healthCheck_cap_handle;
