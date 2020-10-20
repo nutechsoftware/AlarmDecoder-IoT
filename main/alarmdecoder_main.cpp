@@ -639,10 +639,11 @@ void app_main()
     }
 
 #if CONFIG_STDK_IOT_CORE
-    int stEN;
+    int stEN= -1;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &stEN);
-    if (stEN != 'Y' || stEN !='N') {
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, 'Y');
+    if (stEN == -1) {
+        // Enable STSDK if no setting found.
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, 1);
     }
 #endif
 
