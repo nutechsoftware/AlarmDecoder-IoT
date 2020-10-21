@@ -5,8 +5,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [X] CORE: Fix: build error JSON.h issue using esp4.x.
-- [T] STSDK: Fix: Not enabling by default.
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
@@ -19,6 +17,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
 - [ ] Twilio: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+## [1.0.3 P1] - 2020-10-20
+- [X] CORE: Add command feedback to commands that require a restart to take effect.
+- [X] STSDK: Remove restart for enable. Add warnings about restarting.
+- [X] CORE: Fix: build error JSON.h issue using esp4.x.
+- [X] STSDK: Fix: Not enabling by default.
+- [X] TWILIO: Fix: mbedtls_x509_crt_parse is broken when building esp 4.x with return code -0x2180. The PEM parsing routine expects the last byte to be null but under 4.x build it is `-`. Using EMBED_TXTFILES automatically puts a \0 at the end of the block of memory and it is included in the size of the buffer. This is the setting that is used in the 3.x build component mk file.
 
 ## [1.0.3] - 2020-10-19
 - [X] STSDK: Improve: Connect Panic Alarm and Medical Alarm buttons each requires 3 taps with 5 second timeout.

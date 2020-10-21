@@ -178,6 +178,7 @@ static void _cli_cmd_ad2source_event(char *string)
                 // save arg in slot 1
                 ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
                                            AD2MODE_CONFIG_ARG_SLOT, arg.c_str());
+                ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
                 break;
             default:
                 ad2_printf_host("Invalid mode selected must be [S]ocket or [C]OM\r\n");
@@ -330,6 +331,7 @@ static void _cli_cmd_netmode_event(char *string)
             ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, mode[0]);
             ad2_copy_nth_arg(arg, string, 2);
             ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg.c_str());
+            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
             break;
         default:
             ad2_printf_host("Unknown network mode('%c') error.\r\n", mode[0]);

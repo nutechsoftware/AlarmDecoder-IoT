@@ -643,6 +643,7 @@ void app_main()
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &stEN);
     if (stEN == -1) {
         // Enable STSDK if no setting found.
+        ESP_LOGI(TAG,"STSDK enable setting not found. Saving new enabled by default.");
         ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, 1);
     }
 #endif
