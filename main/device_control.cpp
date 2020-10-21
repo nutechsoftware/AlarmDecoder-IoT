@@ -32,11 +32,13 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "driver/uart.h"
 #include "esp_log.h"
 
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
 #include "ad2_settings.h"
+#include "device_control.h"
 
 static const char *TAG = "HAL";
 
@@ -55,6 +57,9 @@ const int WIFI_EVENT_BIT_ALL = BIT0|BIT1|BIT2|BIT3|BIT4;
 static int HAL_WIFI_INITIALIZED = false;
 static EventGroupHandle_t wifi_event_group;
 
+static bool switchAState = SWITCH_OFF;
+static bool switchBState = SWITCH_OFF;
+
 
 /**
  * @brief Change SWITCH/RELAY state.
@@ -67,9 +72,11 @@ static EventGroupHandle_t wifi_event_group;
 void hal_change_switch_a_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED,MAINLED_GPIO_OFF);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_A, SWITCH_OFF);
+        switchAState = SWITCH_OFF;
     } else {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_A, SWITCH_ON);
+        switchAState = SWITCH_ON;
     }
 }
 
@@ -84,10 +91,36 @@ void hal_change_switch_a_state(int switch_state)
 void hal_change_switch_b_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_OFF);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_B, MAINLED_GPIO_OFF);
+        switchBState = SWITCH_OFF;
     } else {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
+        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_B, MAINLED_GPIO_ON);
+        switchBState = SWITCH_ON;
     }
+}
+
+/**
+ * @brief Get SWITCH/RELAY A state.
+ *
+ * @param [in]switch_state int [SWITCH_ON|SWITCH_OFF]
+ *
+ * @return bool current state.
+ */
+bool hal_get_switch_a_state()
+{
+    return switchAState;
+}
+
+/**
+ * @brief Get SWITCH/RELAY B state.
+ *
+ * @param [in]switch_state int [SWITCH_ON|SWITCH_OFF]
+ *
+ * @return bool current state.
+ */
+bool hal_get_switch_b_state()
+{
+    return switchBState;
 }
 
 /**
@@ -148,6 +181,15 @@ int hal_get_button_event(int* button_event_type, int* button_event_count)
 }
 
 /**
+ * @brief set the LED state
+ *
+ */
+void hal_change_led_state(int state)
+{
+    gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, state);
+}
+
+/**
  * @brief blocking call flashes the LED at a given delay for
  * a given count.
  *
@@ -157,9 +199,9 @@ void hal_led_blink(int switch_state, int delay, int count)
 {
     for (int i = 0; i < count; i++) {
         vTaskDelay(delay / portTICK_PERIOD_MS);
-        hal_change_switch_a_state(1 - switch_state);
+        hal_change_led_state(SWITCH_OFF);
         vTaskDelay(delay / portTICK_PERIOD_MS);
-        hal_change_switch_a_state(switch_state);
+        hal_change_led_state(SWITCH_ON);
     }
 }
 
@@ -189,7 +231,7 @@ void hal_change_led_mode(int mode)
     case LED_ANIMATION_MODE_SLOW:
         if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
             led_state = 1 - led_state;
-            hal_change_switch_a_state(led_state);
+            hal_change_led_state(led_state);
             vTaskSetTimeOutState(&led_timeout);
             if (led_state == SWITCH_ON) {
                 led_tick = pdMS_TO_TICKS(200);
@@ -201,7 +243,7 @@ void hal_change_led_mode(int mode)
     case LED_ANIMATION_MODE_FAST:
         if (xTaskCheckForTimeOut(&led_timeout, &led_tick ) != pdFALSE) {
             led_state = 1 - led_state;
-            hal_change_switch_a_state(led_state);
+            hal_change_led_state(led_state);
             vTaskSetTimeOutState(&led_timeout);
             led_tick = pdMS_TO_TICKS(100);
         }
@@ -253,6 +295,8 @@ void hal_gpio_init(void)
  */
 void hal_restart()
 {
+    ESP_LOGE(TAG, "%s: rebooting now.", __func__);
+    ad2_printf_host("Restarting now\r\n");
     esp_restart();
 }
 
@@ -396,6 +440,28 @@ void hal_init_wifi()
 
     return;
 
+}
+
+
+/**
+ * @brief Start host uart
+ */
+void hal_host_uart_init()
+{
+
+    // Configure parameters of an UART driver,
+    uart_config_t* uart_config = (uart_config_t*)calloc(sizeof(uart_config_t), 1);
+
+    uart_config->baud_rate = 115200;
+    uart_config->data_bits = UART_DATA_8_BITS;
+    uart_config->parity    = UART_PARITY_DISABLE;
+    uart_config->stop_bits = UART_STOP_BITS_1;
+    uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+
+    uart_param_config(UART_NUM_0, uart_config);
+    uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+
+    free(uart_config);
 }
 
 #ifdef __cplusplus

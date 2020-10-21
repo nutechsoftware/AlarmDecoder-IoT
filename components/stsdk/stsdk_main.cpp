@@ -2,7 +2,7 @@
  *  @file    stsdk_main.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
- *  @version 1.0.2
+ *  @version 1.0.3
  *
  *  @brief SmartThings Direct Attached Device using STSDK
  *
@@ -78,35 +78,110 @@ extern const uint8_t onboarding_config_end[]    asm("_binary_onboarding_config_j
 extern const uint8_t device_info_start[]        asm("_binary_device_info_json_start");
 extern const uint8_t device_info_end[]          asm("_binary_device_info_json_end");
 
-// @brief Physical|Virtual Relay / Switch B
-caps_switch_data_t *cap_switch_a_data;
+/**
+ * @brief component: main
+ */
+// @brief OTA device capabilies
+IOT_CAP_HANDLE *ota_cap_handle = NULL;
+// @brief Health Check capabilities
+IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
+// @brief Refresh action capabilities
+IOT_CAP_HANDLE *refresh_cap_handle = NULL;
+#if 0 // TODO/FIXME
+// @brief Security System capability
+caps_securitySystem_data_t *cap_securitySystem_data;
+// @brief Buttons in 'main' component for managing security modes.
+caps_button_data_t *cap_buttonMainSecurityActions_data;
+#endif
+// @brief Power Source [UNKNOWN, AC, BATTERY]
+caps_powerSource_data_t *cap_powerSource_data;
+// @brief Battery [% int 0 - 100]
+caps_battery_data_t *cap_battery_data;
 
-// @brief Physical|Virtual Relay / Switch A
-caps_switch_data_t *cap_switch_b_data;
 
+/**
+ * @brief component: chime
+ * Chime management
+ */
 // @brief Chime virtual contact sensor
 caps_contactSensor_data_t *cap_contactSensor_data_chime;
-
 // @brief Chime momentary button
 caps_momentary_data_t *cap_momentary_data_chime;
 
-// @brief Security System capability
-caps_securitySystem_data_t *cap_securitySystem_data;
 
+/**
+ * @brief component: fire
+ * Fire Alarm
+ */
 // @brief Smoke Detector capability
 caps_smokeDetector_data_t *cap_smokeDetector_data;
-
-// @brief Fire Alarm momentary button
+// @brief Fire Alarm momentary panic button
 caps_momentary_data_t *cap_momentary_data_fire;
 
-// @brief OTA device capabilies
-IOT_CAP_HANDLE *ota_cap_handle = NULL;
+/**
+ * @brief component: alarm
+ * Alarm Bell
+ */
+// @brief Alarm capability
+caps_alarm_data_t *cap_alarm_bell_data;
+// @brief Fire Alarm momentary panic button
+caps_momentary_data_t *cap_momentary_data_panic_alarm;
 
-// @brief Health Check capabilities
-IOT_CAP_HANDLE *healthCheck_cap_handle = NULL;
+/**
+ * @brief component: auxalarm
+ * AUX Medical alarm.
+ */
+// @brief AUX Alarm momentary panic button
+caps_momentary_data_t *cap_momentary_data_aux_alarm;
 
-// @brief Refresh action capabilities
-IOT_CAP_HANDLE *refresh_cap_handle = NULL;
+/**
+ * @brief component: armstay
+ * Arm Stay
+ */
+// @brief Arm Stay virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_arm_stay;
+// @brief Arm Stay momentary button
+caps_momentary_data_t *cap_momentary_data_arm_stay;
+
+/**
+ * @brief component: armaway
+ * Arm Away
+ */
+// @brief Arm Away virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_arm_away;
+// @brief Arm Away momentary button
+caps_momentary_data_t *cap_momentary_data_arm_away;
+
+/**
+ * @brief component: bypass
+ * Bypass state & control
+ */
+// @brief Arm Away virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_bypass;
+
+
+#if 0 // TODO/FIXME
+/**
+ * @brief component: outputA
+ */
+// @brief Physical|Virtual Relay / Switch A
+caps_switch_data_t *cap_switch_a_data;
+
+
+/**
+ * @brief component: outputB
+ */
+// @brief Physical|Virtual Relay / Switch B
+caps_switch_data_t *cap_switch_b_data;
+#endif
+
+/**
+ * @brief component: disarm
+ * Disarm panel.
+ */
+// @brief Alarm Disarm momentary button
+caps_momentary_data_t *cap_momentary_data_disarm;
+
 
 /**
  * Enable/Disable STSDK component.
@@ -114,15 +189,17 @@ IOT_CAP_HANDLE *refresh_cap_handle = NULL;
 static void _cli_cmd_enable_event(char *string)
 {
     ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, (arg[0] == 'Y' || arg[0] ==  'y'));
+        ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
     }
 
     // show contents of this slot
     int i;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &i);
-    printf("SmartThings SDK driver is '%s'\n", (i ? "Enabled" : "Disabled"));
+    ad2_printf_host("SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+
 }
 
 /**
@@ -130,7 +207,8 @@ static void _cli_cmd_enable_event(char *string)
  */
 static void _cli_cmd_cleanup_event(char *string)
 {
-    ESP_LOGI(TAG, "%s: clean-up data with reboot option", __func__);
+    ESP_LOGI(TAG, "%s: clean-up data with restart option", __func__);
+    ad2_printf_host("Calling clean-up for STSDK settings.\r\n");
     st_conn_cleanup(ctx, true);
 }
 
@@ -144,22 +222,25 @@ static void _cli_cmd_cleanup_event(char *string)
  */
 static void _cli_cmd_stserial_event(char *string)
 {
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
         }
-        err = nvs_set_str(my_handle, "SerialNum", arg);
+        err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+            ad2_printf_host("Failed setting value.\r\n");
+        } else {
+            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        printf("Missing <serialNumber>\n");
+        ad2_printf_host("Missing <serialNumber>\r\n");
     }
 }
 
@@ -173,22 +254,25 @@ static void _cli_cmd_stserial_event(char *string)
  */
 static void _cli_cmd_stpublickey_event(char *string)
 {
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
         }
-        err = nvs_set_str(my_handle, "PublicKey", arg);
+        err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+            ad2_printf_host("Failed setting value.\r\n");
+        } else {
+            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        printf("Missing <publicKey>\n");
+        ad2_printf_host("Missing <publicKey>\r\n");
     }
 }
 
@@ -202,22 +286,25 @@ static void _cli_cmd_stpublickey_event(char *string)
  */
 static void _cli_cmd_stprivatekey_event(char *string)
 {
-    char arg[80];
-    if (ad2_copy_nth_arg(arg, string, sizeof(arg), 1) >= 0) {
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         nvs_handle my_handle;
         esp_err_t err;
         err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
         }
-        err = nvs_set_str(my_handle, "PrivateKey", arg);
+        err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
+            ad2_printf_host("Failed setting value.\r\n");
+        } else {
+            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        printf("Missing <privateKey>\n");
+        ad2_printf_host("Missing <privateKey>\r\n");
     }
 }
 
@@ -236,39 +323,40 @@ char * STSDK_SETTINGS [] = {
 static struct cli_command stsdk_cmd_list[] = {
     {
         (char*)STSDK_ENABLE,(char*)
-        "- Enable SmartThings component\n\n"
-        "  ```" STSDK_ENABLE " {bool}```\n\n"
+        "- Enable SmartThings component\r\n\r\n"
+        "  ```" STSDK_ENABLE " {bool}```\r\n\r\n"
         "  - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
     },
     {
         (char*)STSDK_CLEANUP,(char*)
-        "- Cleanup NV data with reboot option\n\n"
-        "  ```" STSDK_CLEANUP "```\n\n", _cli_cmd_cleanup_event
+        "- Cleanup NV data with restart option\r\n\r\n"
+        "  ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
     },
     {
         (char*)STSDK_SERIAL,(char*)
-        "- Sets the SmartThings device_info serialNumber.\n\n"
-        "  ```" STSDK_SERIAL " {serialNumber}```\n\n"
-        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stserial_event
+        "- Sets the SmartThings device_info serialNumber.\r\n\r\n"
+        "  ```" STSDK_SERIAL " {serialNumber}```\r\n\r\n"
+        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stserial_event
     },
     {
         (char*)STSDK_PUBKEY,(char*)
-        "- Sets the SmartThings device_info publicKey.\n\n"
-        "  ```" STSDK_PUBKEY " {publicKey}```\n\n"
-        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stpublickey_event
+        "- Sets the SmartThings device_info publicKey.\r\n\r\n"
+        "  ```" STSDK_PUBKEY " {publicKey}```\r\n\r\n"
+        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stpublickey_event
     },
     {
         (char*)STSDK_PRIVKEY,(char*)
-        "- Sets the SmartThings device_info privateKey.\n\n"
-        "  ```" STSDK_PRIVKEY " {privateKey}```\n\n"
-        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\n\n", _cli_cmd_stprivatekey_event
+        "- Sets the SmartThings device_info privateKey.\r\n\r\n"
+        "  ```" STSDK_PRIVKEY " {privateKey}```\r\n\r\n"
+        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stprivatekey_event
     },
 };
 
+#if 0 // TODO/FIXME
 /**
  * @brief switch/relay state A
  */
-int get_switch_a_state(void)
+int stsdk_get_switch_a_state(void)
 {
     const char* switch_value = cap_switch_a_data->get_switch_value(cap_switch_a_data);
     int switch_state = SWITCH_OFF;
@@ -288,7 +376,7 @@ int get_switch_a_state(void)
 /**
  * @brief get switch/relay state B
  */
-int get_switch_b_state(void)
+int stsdk_get_switch_b_state(void)
 {
     const char* switch_value = cap_switch_b_data->get_switch_value(cap_switch_b_data);
     int switch_state = SWITCH_OFF;
@@ -304,6 +392,7 @@ int get_switch_b_state(void)
     }
     return switch_state;
 }
+#endif
 
 /**
  * @brief ST Cloud app arm away momentary button pushed
@@ -390,13 +479,124 @@ void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
     }
 }
 
+/**
+ * @brief Clear the panic trigger counter
+ */
+static int panic_trigger_count = 0;
+static TimerHandle_t panic_trigger_timer = nullptr;
+void panic_trigger_clear(TimerHandle_t *arg)
+{
+    xTimerDelete(panic_trigger_timer, 1000 / portTICK_PERIOD_MS);
+    panic_trigger_count = 0;
+    panic_trigger_timer = nullptr;
+    ESP_LOGI(TAG, "Clearing panic alarm counter.");
+}
 
+/**
+ * @brief ST Cloud app panic alarm momentary button pushed
+ * trigger a panic alarm! Are you sure?
+ */
+void cap_panic_alarm_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    panic_trigger_count++;
+    ESP_LOGI(TAG, "Panic alarm trigger count %i", panic_trigger_count);
+    if (panic_trigger_count >= 3) {
+        ESP_LOGI(TAG, "Sending panic alarm signal to panel.");
+        // send PANIC command to the panel.
+        ad2_panic_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+    } else {
+        if (panic_trigger_timer) {
+            xTimerReset(panic_trigger_timer, 1000 / portTICK_PERIOD_MS);
+        } else {
+            panic_trigger_timer = xTimerCreate( "PANIC_TRIG",
+                                                ( 5000 / portTICK_PERIOD_MS),
+                                                pdFALSE,
+                                                (void *) nullptr,
+                                                (TimerCallbackFunction_t) panic_trigger_clear
+                                              );
+            if (panic_trigger_timer == nullptr) {
+                ESP_LOGE(TAG, "Error creating panic trigger timer");
+            } else {
+                xTimerStart(panic_trigger_timer, 0);
+                ESP_LOGI(TAG, "Starting panic trigger timer");
+            }
+        }
+    }
+}
+
+
+/**
+ * @brief Clear the aux trigger counter
+ */
+static int aux_trigger_count = 0;
+static TimerHandle_t aux_trigger_timer = nullptr;
+void aux_trigger_clear(TimerHandle_t *arg)
+{
+    xTimerDelete(aux_trigger_timer, 1000 / portTICK_PERIOD_MS);
+    aux_trigger_count = 0;
+    aux_trigger_timer = nullptr;
+    ESP_LOGI(TAG, "Clearing aux alarm counter.");
+}
+
+/**
+ * @brief ST Cloud app AUX(Medical) aux alarm momentary button pushed
+ * send panel AUX aux commands.
+ */
+void cap_aux_alarm_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    aux_trigger_count++;
+    ESP_LOGI(TAG, "AUX alarm trigger count %i", aux_trigger_count);
+    if (aux_trigger_count >= 3) {
+        ESP_LOGI(TAG, "Sending aux alarm signal to panel.");
+        // send AUX ALARM command to the panel.
+        ad2_aux_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+    } else {
+        if (aux_trigger_timer) {
+            xTimerReset(aux_trigger_timer, 1000 / portTICK_PERIOD_MS);
+        } else {
+            aux_trigger_timer = xTimerCreate( "AUX_TRIG",
+                                              ( 5000 / portTICK_PERIOD_MS),
+                                              pdFALSE,
+                                              (void *) nullptr,
+                                              (TimerCallbackFunction_t) aux_trigger_clear
+                                            );
+            if (aux_trigger_timer == nullptr) {
+                ESP_LOGE(TAG, "Error creating aux trigger timer");
+            } else {
+                xTimerStart(aux_trigger_timer, 0);
+                ESP_LOGI(TAG, "Starting aux trigger timer");
+            }
+        }
+    }
+}
+
+/**
+ * @brief ST Cloud app Arm Stay momentary button pushed
+ * send panel Arm Stay commands.
+ */
+void cap_arm_stay_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    // send ARM stay command to the panel.
+    ad2_arm_stay(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+}
+
+/**
+ * @brief ST Cloud app Arm Away momentary button pushed
+ * send panel Arm Away commands.
+ */
+void cap_arm_away_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    // send ARM AWAY command to the panel.
+    ad2_arm_away(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+}
+
+#if 0 // TODO/FIXME
 /**
  * @brief callback for cloud update to switch A
  */
 void cap_switch_a_cmd_cb(struct caps_switch_data *caps_data)
 {
-    int switch_state = get_switch_a_state();
+    int switch_state = stsdk_get_switch_a_state();
     hal_change_switch_a_state(switch_state);
 }
 
@@ -405,36 +605,42 @@ void cap_switch_a_cmd_cb(struct caps_switch_data *caps_data)
  */
 void cap_switch_b_cmd_cb(struct caps_switch_data *caps_data)
 {
-    int switch_state = get_switch_b_state();
+    caps_data->get_switch_value(caps_data);
+
+    int switch_state = stsdk_get_switch_b_state();
     hal_change_switch_b_state(switch_state);
 }
+#endif
 
 /**
  * @brief set available version ota capabilty.
  */
 void cap_available_version_set(char *available_version)
 {
-    IOT_EVENT *init_evt;
-    uint8_t evt_num = 1;
-    int32_t sequence_no;
+    int32_t sequence_no = 0;
 
     if (!available_version) {
         ESP_LOGE(TAG, "invalid parameter");
         return;
     }
 
-    /* Setup switch on state */
-    init_evt = st_cap_attr_create_string((char*)"availableVersion", available_version, NULL);
-
     /* Send avail version to ota cap handler */
-    sequence_no = st_cap_attr_send(ota_cap_handle, evt_num, &init_evt);
+    ST_CAP_SEND_ATTR_STRING(ota_cap_handle, (char*)"availableVersion", available_version, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
-        ESP_LOGE(TAG, "fail to send init_data");
+        ESP_LOGE(TAG, "failed to send init_data");
     }
 
-    st_cap_attr_free(init_evt);
 }
 
+/**
+ * @brief ST Cloud app disarm momentary button pushed
+ * send panel disarm commands.
+ */
+void cap_disarm_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    // send DISARM using defaults command to the panel.
+    ad2_disarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+}
 
 /**
  * AlarmDecoder API subscriber callback functions.
@@ -470,13 +676,30 @@ void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
-        if (s->armed_home) {
+        if (s->armed_stay) {
+#if 0 // TODO/FIXME
             cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
-        } else {
-            cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
-        }
+#endif
+            cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, caps_helper_contactSensor.attr_contact.value_open);
+            cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
 
+            cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, caps_helper_contactSensor.attr_contact.value_closed);
+            cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
+
+        } else {
+#if 0 // TODO/FIXME
+            cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
+#endif
+            cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, caps_helper_contactSensor.attr_contact.value_open);
+            cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
+
+            cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, caps_helper_contactSensor.attr_contact.value_closed);
+            cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
+
+        }
+#if 0 // TODO/FIXME
         cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+#endif
     }
 }
 
@@ -495,8 +718,16 @@ void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
+
+#if 0 // TODO/FIXME
         cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed);
         cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
+#endif
+        // Turn both off.
+        cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, caps_helper_contactSensor.attr_contact.value_closed);
+        cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
+        cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, caps_helper_contactSensor.attr_contact.value_closed);
+        cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
     }
 }
 
@@ -551,6 +782,84 @@ void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 }
 
 /**
+ * @brief ON_POWER_CHANGE.
+ * Called when the alarm panel AC power stage changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_power_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_POWER_CHANGE: '%i'", s->ac_power);
+        if ( s->ac_power ) {
+            cap_powerSource_data->set_powerSource_value(cap_powerSource_data, caps_helper_powerSource.attr_powerSource.value_mains);
+        } else {
+            cap_powerSource_data->set_powerSource_value(cap_powerSource_data, caps_helper_powerSource.attr_powerSource.value_battery);
+        }
+
+        cap_powerSource_data->attr_powerSource_send(cap_powerSource_data);
+    }
+}
+
+/**
+ * @brief ON_LOW_BATTERY.
+ * Called when the alarm panel BATTERY LOW event.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_low_battery_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_LOW_BATTERY: '%i'", s->battery_low);
+
+        if ( s->battery_low ) {
+            cap_battery_data->set_battery_value(cap_battery_data, 0);
+        } else {
+            cap_battery_data->set_battery_value(cap_battery_data, 100);
+        }
+
+        cap_battery_data->attr_battery_send(cap_battery_data);
+    }
+}
+
+/**
+ * @brief ON_ALARM_CHANGE.
+ * Called when the alarm panel ALARM BELL state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_ALARM_CHANGE: '%i'", s->alarm_sounding);
+        const char *alarm_value = caps_helper_alarm.attr_alarm.value_off;
+        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_value);
+        if ( s->alarm_sounding ) {
+            alarm_value = caps_helper_alarm.attr_alarm.value_siren;
+        }
+        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_value);
+        cap_alarm_bell_data->attr_alarm_send(cap_alarm_bell_data);
+    }
+}
+
+
+
+/**
  * @brief Initialize the STSDK engine
  */
 void stsdk_init(void)
@@ -580,10 +889,10 @@ void stsdk_init(void)
     if (ctx != NULL) {
         iot_err = st_conn_set_noti_cb(ctx, iot_noti_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set notification callback function");
+            ESP_LOGE(TAG, "failed to set notification callback function");
         }
     } else {
-        ESP_LOGE(TAG, "fail to create the iot_context");
+        ESP_LOGE(TAG, "failed to create the iot_context");
     }
 
     // Add AD2 capabilies
@@ -604,6 +913,15 @@ void stsdk_init(void)
     // Subscribe to FIRE events to update cap_smokeDetector capability.
     AD2Parse.subscribeTo(ON_FIRE, on_fire_cb, nullptr);
 
+    // Subscribe to AC_POWER change events to update cap_powerSource capability.
+    AD2Parse.subscribeTo(ON_POWER_CHANGE, on_power_cb, nullptr);
+
+    // Subscribe to ON_LOW_BATTERY change events to update cap_battery capability.
+    AD2Parse.subscribeTo(ON_LOW_BATTERY, on_low_battery_cb, nullptr);
+
+    // Subscribe to SEND_ALARM_CHANGE change events to update cap_alarm capability.
+    AD2Parse.subscribeTo(ON_ALARM_CHANGE, on_alarm_change_cb, nullptr);
+
 }
 
 /**
@@ -614,49 +932,38 @@ void capability_init()
     ESP_LOGI(TAG, "capability_init");
     int iot_err;
 
-    // Virtual or Phsyical RELAYs/SWITCHs
-    cap_switch_a_data = caps_switch_initialize(ctx, "switch1", NULL, NULL);
-    if (cap_switch_a_data) {
-        // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
-        cap_switch_a_data->cmd_on_usr_cb = cap_switch_a_cmd_cb;
-        cap_switch_a_data->cmd_off_usr_cb = cap_switch_a_cmd_cb;
-    }
-
-    cap_switch_b_data = caps_switch_initialize(ctx, "switch2", NULL, NULL);
-    if (cap_switch_b_data) {
-        // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
-        cap_switch_b_data->cmd_on_usr_cb = cap_switch_b_cmd_cb;
-        cap_switch_b_data->cmd_off_usr_cb = cap_switch_b_cmd_cb;
-    }
+    /**
+     * @brief component: main
+     */
 
     // refresh device type init
     refresh_cap_handle = st_cap_handle_init(ctx, "main", "refresh", NULL, NULL);
     if (refresh_cap_handle) {
         iot_err = st_cap_cmd_set_cb(refresh_cap_handle, "refresh", refresh_cmd_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set cmd_cb for refresh");
+            ESP_LOGE(TAG, "failed to set cmd_cb for refresh");
         }
     }
-
     // healthCheck capabilities init
     healthCheck_cap_handle = st_cap_handle_init(ctx, "main", "healthCheck", cap_health_check_init_cb, NULL);
     if (healthCheck_cap_handle) {
         iot_err = st_cap_cmd_set_cb(healthCheck_cap_handle, "ping", refresh_cmd_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set cmd_cb for healthCheck");
+            ESP_LOGE(TAG, "failed to set cmd_cb for healthCheck");
         }
     }
-
     // firmwareUpdate capabilities init
     ota_cap_handle = st_cap_handle_init(ctx, "main", "firmwareUpdate", cap_current_version_init_cb, NULL);
     if (ota_cap_handle) {
         iot_err = st_cap_cmd_set_cb(ota_cap_handle, "updateFirmware", update_firmware_cmd_cb, NULL);
         if (iot_err) {
-            ESP_LOGE(TAG, "fail to set cmd_cb for updateFirmware");
+            ESP_LOGE(TAG, "failed to set cmd_cb for updateFirmware");
         }
     }
 
+#if 0 // TODO/FIXME
     // securitySystem device type init
+    // FIXME: Broken in the ST cloud...
     cap_securitySystem_data = caps_securitySystem_initialize(ctx, "main", NULL, NULL);
     if (cap_securitySystem_data) {
         const char *init_value = caps_helper_securitySystem.attr_securitySystemStatus.value_disarmed;
@@ -665,31 +972,186 @@ void capability_init()
         cap_securitySystem_data->cmd_armStay_usr_cb = cap_securitySystem_arm_stay_cmd_cb;
         cap_securitySystem_data->cmd_disarm_usr_cb = cap_securitySystem_disarm_cmd_cb;
     }
+#endif
 
-    // Chime contact sensor
+#if 0 // TODO/FIXME
+    // Arm|Disarm|Exit button(s) device type init
+    cap_buttonMainSecurityActions_data = caps_button_initialize(ctx, "main", NULL, NULL);
+    if (cap_buttonMainSecurityActions_data) {
+        cap_buttonMainSecurityActions_data->set_numberOfButtons_value(cap_buttonMainSecurityActions_data, 4);
+        const char *values[] = { "pushed" };
+        cap_buttonMainSecurityActions_data->set_supportedButtonValues_value(cap_buttonMainSecurityActions_data, values, ARRAY_SIZE(values));
+    }
+#endif
+
+    // Power source init
+    cap_powerSource_data = caps_powerSource_initialize(ctx, "main", NULL, NULL);
+    if (cap_powerSource_data) {
+        AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+        const char *init_value = caps_helper_powerSource.attr_powerSource.value_unknown;
+        if (s != nullptr) {
+            if (s->ac_power) {
+                init_value = caps_helper_powerSource.attr_powerSource.value_mains;
+            } else {
+                init_value = caps_helper_powerSource.attr_powerSource.value_battery;
+            }
+        }
+        cap_powerSource_data->set_powerSource_value(cap_powerSource_data, init_value);
+    }
+    // Battery init
+    cap_battery_data = caps_battery_initialize(ctx, "main", NULL, NULL);
+    if (cap_battery_data) {
+        AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+
+        /* @brief initial value of 100% battery as this is most likely the case at boot. */
+        int init_value = 100;
+
+        if (s != nullptr) {
+            if (s->battery_low) {
+                init_value = 0;
+            }
+        }
+        cap_battery_data->set_battery_value(cap_battery_data, init_value);
+    }
+
+
+    /**
+     * @brief component: chime
+     */
+    // Chime contact sensor ( visual for state )
     cap_contactSensor_data_chime = caps_contactSensor_initialize(ctx, "chime", NULL, NULL);
     if (cap_contactSensor_data_chime) {
         const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
         cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, contact_init_value);
     }
-    // Chime Momentary button
+    // Chime Momentary button: toggle chime mode.
     cap_momentary_data_chime = caps_momentary_initialize(ctx, "chime", NULL, NULL);
     if (cap_momentary_data_chime) {
         cap_momentary_data_chime->cmd_push_usr_cb = cap_securitySystem_chime_cmd_cb;
     }
 
+    /*
+     * @brief component: fire
+     */
     // Smoke Detector
     cap_smokeDetector_data = caps_smokeDetector_initialize(ctx, "fire", NULL, NULL);
     if (cap_smokeDetector_data) {
         const char *smoke_init_value = caps_helper_smokeDetector.attr_smoke.value_clear;
         cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, smoke_init_value);
     }
-
-    // Fire Alarm Momentary button
+    // Fire Alarm panic Momentary button
     cap_momentary_data_fire = caps_momentary_initialize(ctx, "fire", NULL, NULL);
     if (cap_momentary_data_fire) {
         cap_momentary_data_fire->cmd_push_usr_cb = cap_fire_cmd_cb;
     }
+
+    /**
+     * @brief component: alarm
+     */
+    // Alarm panel Bell status.
+    cap_alarm_bell_data = caps_alarm_initialize(ctx, "alarm", NULL, NULL);
+    if (cap_alarm_bell_data) {
+        const char *alarm_init_value = caps_helper_alarm.attr_alarm.value_off;
+        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_init_value);
+    }
+    // Panic Alarm Momentary button
+    cap_momentary_data_panic_alarm = caps_momentary_initialize(ctx, "alarm", NULL, NULL);
+    if (cap_momentary_data_panic_alarm) {
+        cap_momentary_data_panic_alarm->cmd_push_usr_cb = cap_panic_alarm_cmd_cb;
+    }
+    // TODO: carbon monoxide alarm. Will require LRR process and wont work on all systems.
+
+    /**
+     * @brief component: auxalarm
+     * AUX Medical alarm.
+     */
+    // @brief AUX Alarm momentary panic button
+    cap_momentary_data_aux_alarm = caps_momentary_initialize(ctx, "auxalarm", NULL, NULL);
+    if (cap_momentary_data_aux_alarm) {
+        cap_momentary_data_aux_alarm->cmd_push_usr_cb = cap_aux_alarm_cmd_cb;
+    }
+
+    /**
+     * @brief component: armstay
+     * Arm Stay control.
+     */
+    // Arm Stay contact sensor ( visual for state )
+    cap_contactSensor_data_arm_stay = caps_contactSensor_initialize(ctx, "armstay", NULL, NULL);
+    if (cap_contactSensor_data_arm_stay) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, contact_init_value);
+    }
+    // @brief Arm Stay momentary button
+    cap_momentary_data_arm_stay = caps_momentary_initialize(ctx, "armstay", NULL, NULL);
+    if (cap_momentary_data_arm_stay) {
+        cap_momentary_data_arm_stay->cmd_push_usr_cb = cap_arm_stay_cmd_cb;
+    }
+
+    /**
+     * @brief component: armaway
+     * Arm Away control.
+     */
+    // Arm Stay contact sensor ( visual for state )
+    cap_contactSensor_data_arm_away = caps_contactSensor_initialize(ctx, "armaway", NULL, NULL);
+    if (cap_contactSensor_data_arm_away) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, contact_init_value);
+    }
+    // @brief Arm Away momentary button
+    cap_momentary_data_arm_away = caps_momentary_initialize(ctx, "armaway", NULL, NULL);
+    if (cap_momentary_data_arm_away) {
+        cap_momentary_data_arm_away->cmd_push_usr_cb = cap_arm_away_cmd_cb;
+    }
+
+#if 0 // TODO
+    /**
+     * @brief component: outputA
+     */
+    // Output capabilies that can be tied to local Physical GPIO tied to a Relay.
+    cap_switch_a_data = caps_switch_initialize(ctx, "outputA", NULL, NULL);
+    if (cap_switch_a_data) {
+        // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
+        cap_switch_a_data->cmd_on_usr_cb = cap_switch_a_cmd_cb;
+        cap_switch_a_data->cmd_off_usr_cb = cap_switch_a_cmd_cb;
+        int val = hal_get_switch_a_state();
+        const char *switch_init_value;
+        if (val) {
+            switch_init_value = caps_helper_switch.attr_switch.value_on;
+        } else {
+            switch_init_value = caps_helper_switch.attr_switch.value_off;
+        }
+        cap_switch_a_data->set_switch_value(cap_switch_a_data, switch_init_value);
+    }
+
+    /**
+     * @brief component: outputB
+     */
+    // Output capabilies that can be tied to local Physical GPIO tied to a Relay.
+    cap_switch_b_data = caps_switch_initialize(ctx, "outputB", NULL, NULL);
+    if (cap_switch_b_data) {
+        // FIXME: const char *init_value = caps_helper_switch.attr_switch.value_on;
+        cap_switch_b_data->cmd_on_usr_cb = cap_switch_b_cmd_cb;
+        cap_switch_b_data->cmd_off_usr_cb = cap_switch_b_cmd_cb;
+        int val = hal_get_switch_b_state();
+        const char *switch_init_value;
+        if (val) {
+            switch_init_value = caps_helper_switch.attr_switch.value_on;
+        } else {
+            switch_init_value = caps_helper_switch.attr_switch.value_off;
+        }
+        cap_switch_b_data->set_switch_value(cap_switch_b_data, switch_init_value);
+    }
+#endif
+
+    /**
+     * @brief component: disarm
+     */
+    // Disarm Alarm Momentary button
+    cap_momentary_data_disarm = caps_momentary_initialize(ctx, "disarm", NULL, NULL);
+    if (cap_momentary_data_disarm) {
+        cap_momentary_data_disarm->cmd_push_usr_cb = cap_disarm_cmd_cb;
+    }
+
 }
 
 /**
@@ -718,8 +1180,12 @@ void iot_status_cb(iot_status_t status,
     case IOT_STATUS_IDLE:
     case IOT_STATUS_CONNECTING:
         noti_led_mode = LED_ANIMATION_MODE_IDLE;
-        // FIXME: send update on all caps to cloud
-        hal_change_switch_a_state(get_switch_a_state());
+
+#if 0 // TODO/FIXME
+        // Sync local hw switches to cloud states.
+        hal_change_switch_a_state(stsdk_get_switch_a_state());
+        hal_change_switch_b_state(stsdk_get_switch_b_state());
+#endif
         break;
     default:
         break;
@@ -759,7 +1225,7 @@ void stsdk_connection_start(void)
     // process on-boarding procedure. There is nothing more to do on the app side than call the API.
     err = st_conn_start(ctx, (st_status_cb)&iot_status_cb, IOT_STATUS_ALL, NULL, pin_num);
     if (err) {
-        ESP_LOGE(TAG, "fail to start connection. err:%d", err);
+        ESP_LOGE(TAG, "failed to start connection. err:%d", err);
     }
     if (pin_num) {
         free(pin_num);
@@ -790,82 +1256,38 @@ void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data)
     }
 }
 
+
 /**
- * @brief FIXME
+ * @brief Callback on init of health check capability.
  */
-void button_event(IOT_CAP_HANDLE *handle, int type, int count)
-{
-    if (type == BUTTON_SHORT_PRESS) {
-        ESP_LOGI(TAG, "Button short press, count: %d", count);
-        switch(count) {
-        case 1:
-            if (g_iot_status == IOT_STATUS_NEED_INTERACT) {
-                st_conn_ownership_confirm(ctx, true);
-                noti_led_mode = LED_ANIMATION_MODE_IDLE;
-                hal_change_switch_a_state(get_switch_a_state());
-            } else {
-                if (get_switch_a_state() == SWITCH_ON) {
-                    hal_change_switch_a_state(SWITCH_OFF);
-                    cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_off);
-                    cap_switch_a_data->attr_switch_send(cap_switch_a_data);
-                } else {
-                    hal_change_switch_a_state(SWITCH_ON);
-                    cap_switch_a_data->set_switch_value(cap_switch_a_data, caps_helper_switch.attr_switch.value_on);
-                    cap_switch_a_data->attr_switch_send(cap_switch_a_data);
-                }
-            }
-            break;
-        case 5:
-            /* clean-up provisioning & registered data with reboot option*/
-            st_conn_cleanup(ctx, true);
-
-            break;
-        default:
-            hal_led_blink(get_switch_a_state(), 100, count);
-            break;
-        }
-    } else if (type == BUTTON_LONG_PRESS) {
-        ESP_LOGI(TAG, "Button long press, iot_status: %d", g_iot_status);
-        hal_led_blink(get_switch_a_state(), 100, 3);
-        st_conn_cleanup(ctx, false);
-        xTaskCreate(stsdk_connection_start_task, "connection_task", 2048, NULL, tskIDLE_PRIORITY+2, NULL);
-    }
-}
-
 void cap_health_check_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-    IOT_EVENT *init_evt;
-    uint8_t evt_num = 1;
-    int32_t sequence_no;
+    int32_t sequence_no = 0;
 
-    init_evt = st_cap_attr_create_int("checkInterval", 60, NULL);
-    sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+    ST_CAP_SEND_ATTR_NUMBER(handle, "checkInterval", 60, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
-        ESP_LOGE(TAG, "fail to send init_data");
+        ESP_LOGE(TAG, "failed to send init_data");
     }
-
-    st_cap_attr_free(init_evt);
 
 }
 
+/**
+ * @brief Callback on init of version capability.
+ */
 void cap_current_version_init_cb(IOT_CAP_HANDLE *handle, void *usr_data)
 {
-    IOT_EVENT *init_evt;
-    uint8_t evt_num = 1;
-    int32_t sequence_no;
+    int32_t sequence_no = 0;
 
     /* Setup switch on state */
     // FIXME: get from device_info ctx->device_info->firmware_version
     // that is loaded from device_info.json
-    init_evt = st_cap_attr_create_string("currentVersion", (char *)FIRMWARE_VERSION, NULL);
 
-    /* Send current version attribute */
-    sequence_no = st_cap_attr_send(handle, evt_num, &init_evt);
+    /* Send avail version to ota cap handler */
+    ST_CAP_SEND_ATTR_STRING(handle, (char*)"availableVersion", (char *)FIRMWARE_VERSION, NULL, NULL, sequence_no);
     if (sequence_no < 0) {
-        ESP_LOGE(TAG, "fail to send init_data");
+        ESP_LOGE(TAG, "failed to send init_data");
     }
 
-    st_cap_attr_free(init_evt);
 }
 
 /**
@@ -884,7 +1306,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
     AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if (s != nullptr) {
         std::string statestr = "REFRESH";
-        if (s->armed_home || s->armed_away) {
+        if (s->armed_stay || s->armed_away) {
             on_arm_cb(&statestr, s, nullptr);
         } else {
             on_disarm_cb(&statestr, s, nullptr);

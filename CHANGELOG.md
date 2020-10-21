@@ -5,15 +5,50 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
+- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
+- [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: TODO: Ethernet hardware enable.
 - [ ] CORE: Tidy: Improve Kconfig menuconfig.
-- [ ] CORE: WISHLIST: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
+- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: ARM Stay/Away
    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
 - [ ] Twilio: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+## [1.0.3 P1] - 2020-10-20
+- [X] CORE: Add command feedback to commands that require a restart to take effect.
+- [X] STSDK: Remove restart for enable. Add warnings about restarting.
+- [X] CORE: Fix: build error JSON.h issue using esp4.x.
+- [X] STSDK: Fix: Not enabling by default.
+- [X] TWILIO: Fix: mbedtls_x509_crt_parse is broken when building esp 4.x with return code -0x2180. The PEM parsing routine expects the last byte to be null but under 4.x build it is `-`. Using EMBED_TXTFILES automatically puts a \0 at the end of the block of memory and it is included in the size of the buffer. This is the setting that is used in the 3.x build component mk file.
+
+## [1.0.3] - 2020-10-19
+- [X] STSDK: Improve: Connect Panic Alarm and Medical Alarm buttons each requires 3 taps with 5 second timeout.
+- [X] STSDK: Improve: Connect DISARM button.
+- [X] STSDK: Improve: Connect ARM STAY, ARM AWAY buttons.
+- [X] API: Improve: POWER_CHANGE, ALARM BELL CHANGE, BATTERY CHANGE. Rename ALARM to ALARM_BELL. Home->Stay
+- [X] STSDK: Improve: Add battery capability. Tested. Batter low on panel sends 0% battery. Battery OK sends 100%.
+- [X] STSDK: Improve: Add Power Source capability. Tested. Shows 'mains' or 'battery' depending on alarm state.
+- [X] STSDK: Improve: Connected AD2* events to capabilities:
+- [X] STSDK: Improve: Cleanup add comments to capabilities declarations.
+- [X] STSDK: Improve: Connect Switch A/B to hal_
+- [X] CORE: Improve: Add Alarm Panel Action buttons in main component to replace securitySystem that seems to be broken on the ST cloud. Good test for dynamic update of a capability. The buttons will reflect the current panel state.
+- [X] CORE: Improve: Command <strike>reboot</strike> -> restart. Much better, almost did a reboot on my host :)
+- [X] CORE: Tidy: Command help and moved to \r\n on all HOST communication same as AD2*
+- [X] CORE: New: Command: logmode {debug|info|none}. Set logging mode to get more | less details.
+- [X] CORE: Improve: Moved esp host UART init to hal_.
+- [X] CORE: Improve: New formatting utils to make it easy to build messages to send and route all host com through a one api to allow for management <strike>printf</strike>.
+- [X] CORE: Improve: Refactor init sequence and error checking to get the network up before connecting to the AD2*.
+- [X] STSDK: Improve: Set default 'stenable' to Y. At first boot it starts and initializes the st nvme partition allowing stserial etc to be called. It is still necessary to add the stserial etc before it will show as an AC on WiFi scanners. From the factory with Keys it will just show up at first boot.
+- [X] CORE: New: DSC/Ademco support.
+- [X] CORE: New: More utils. Make it easy to send '\x01\x01\x01' using <S1> macro as is done in the current AD2 webapp. upper lower case.
+- [X] CORE: Less C more C++.
+- [X] CORE: Fix: Switching to espidf 4.x build.
+- [X] CORE: Fix deprecated stsdk api calls.
+- [X] CORE: Fix: building with espidf 4.x Currently testing only on 3.x branch but will switch to 4.x as soon as some warnings are sorted out.
 
 ## [1.0.2] - 2020-10-11
 - [X] CORE: New: Command: ```'netmode <[W,E,N]> <ARGS>'```. If SmartThings is disabled allow control of network settings.

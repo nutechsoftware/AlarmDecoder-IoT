@@ -66,7 +66,7 @@ enum AD2_PARSER_STATES {
 // BIT/DATA OFFSETS
 #define READY_BYTE          1
 #define ARMED_AWAY_BYTE     2
-#define ARMED_HOME_BYTE     3
+#define ARMED_STAY_BYTE     3
 #define BACKLIGHT_BYTE      4
 #define PROGMODE_BYTE       5
 #define BEEPMODE_BYTE       6
@@ -152,7 +152,7 @@ public:
     bool unknown_state = true;
     bool ready = false;
     bool armed_away = false;
-    bool armed_home = false;
+    bool armed_stay = false;
     bool backlight_on = false;
     bool programming_mode = false;
     bool zone_bypassed = false;
@@ -197,8 +197,7 @@ typedef enum {
     ON_DISARM,          ///< DISARMED
     ON_POWER_CHANGE,    ///< AC POWER STATE CHANGE
     ON_READY_CHANGE,    ///< READY STATE CHANGE
-    ON_ALARM,           ///< ALARM
-    ON_ALARM_RESTORE,   ///< ALARM RESTORED
+    ON_ALARM_CHANGE,    ///< ALARM BELL CHANGE
     ON_FIRE,            ///< FIRE ALARM
     ON_BYPASS,          ///< BYPASS STATE CHANGE
     ON_BOOT,            ///< AD2 Firmware boot

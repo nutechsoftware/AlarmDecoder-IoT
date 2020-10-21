@@ -2,7 +2,7 @@
  *  @file    ota_util.c
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
- *  @version 1.0.2
+ *  @version 1.0.3
  *
  *  @brief OTA update support
  *
@@ -173,8 +173,11 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
     for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++) {
         char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
         if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
+            ESP_LOGI(TAG, "Test supported version '%s' PASS", upgrade);
             is_new_version = true;
             break;
+        } else {
+            ESP_LOGI(TAG, "Test supported version '%s' FAIL", upgrade);
         }
     }
 
@@ -691,7 +694,7 @@ static void ota_polling_task_func(void *arg)
 
         vTaskDelay(30000 / portTICK_PERIOD_MS);
 
-        ESP_LOGI(TAG, "Starting check new version");
+        ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
 
         if (ota_task_handle != NULL) {
             ESP_LOGI(TAG, "Device is updating");
@@ -709,10 +712,9 @@ static void ota_polling_task_func(void *arg)
         esp_err_t ret = ota_https_read_version_info(&read_data, &read_data_len);
         if (ret == ESP_OK) {
             char *available_version = NULL;
-
             esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
             if (err != ESP_OK) {
-                ESP_LOGE(TAG, "ota_api_get_available_version is failed : %d", err);
+                ESP_LOGE(TAG, "ota_api_get_available_version failed : %d", err);
                 continue;
             }
 
@@ -721,9 +723,11 @@ static void ota_polling_task_func(void *arg)
                 ota_available_version = available_version;
                 AD2Parse.updateVersion(available_version);
                 free(available_version);
+                ESP_LOGI(TAG, "Get avail version found '%s' on the server.", available_version);
             } else {
                 // if nothing available then it must be the same we have installed.
                 ota_available_version = FIRMWARE_VERSION;
+                ESP_LOGI(TAG, "Get avail version found NO available version on the server.");
             }
         }
 
@@ -740,13 +744,13 @@ static void ota_polling_task_func(void *arg)
 static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
-        "- Preform an OTA upgrade now download and install new flash.\n\n"
-        "  ```" OTA_UPGRADE_CMD "```\n\n", ota_do_update
+        "- Preform an OTA upgrade now download and install new flash.\r\n\r\n"
+        "  ```" OTA_UPGRADE_CMD "```\r\n\r\n", ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)
-        "- Report the current and available version.\n\n"
-        "  ```" OTA_VERSION_CMD "```\n\n", ota_do_version
+        "- Report the current and available version.\r\n\r\n"
+        "  ```" OTA_VERSION_CMD "```\r\n\r\n", ota_do_version
     }
 };
 
@@ -776,7 +780,7 @@ void ota_do_update(char *arg)
  */
 void ota_do_version(char *arg)
 {
-    printf("Installed version(" FIRMWARE_VERSION  ") available version(%s)\n", ota_available_version.c_str());
+    ad2_printf_host("Installed version(" FIRMWARE_VERSION  ") available version(%s)\r\n", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus
