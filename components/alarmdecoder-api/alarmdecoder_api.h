@@ -193,31 +193,31 @@ typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*,
  */
 typedef enum {
     ON_RAW_MESSAGE = 1, ///< RAW panel message before parsing.
-    ON_ARM,             ///< ARMED
-    ON_DISARM,          ///< DISARMED
-    ON_POWER_CHANGE,    ///< AC POWER STATE CHANGE
-    ON_READY_CHANGE,    ///< READY STATE CHANGE
-    ON_ALARM_CHANGE,    ///< ALARM BELL CHANGE
-    ON_FIRE,            ///< FIRE ALARM
-    ON_BYPASS,          ///< BYPASS STATE CHANGE
-    ON_BOOT,            ///< AD2 Firmware boot
-    ON_CONFIG_RECEIVED, ///< AD2 CONFIG RECEIVED
-    ON_ZONE_FAULT,      ///< ZONE FAULT EVENT
-    ON_ZONE_RESTORE,    ///< ZONE RESTORE EVENT
-    ON_LOW_BATTERY,     ///< LOW BATTERY EVENT
-    ON_PANIC,           ///< PANIC EVENT
-    ON_RELAY_CHANGE,    ///< !REL RELAY EVENT
-    ON_CHIME_CHANGE,    ///< Chime state change
-    ON_MESSAGE,         ///< ALPHA MESSAGE After parsing
-    ON_EXP,             ///< !EXP Zone Expander message
-    ON_LRR,             ///< !LRR Long Range Contact ID message
-    ON_RFX,             ///< !RFX 5800 RFX event with serial #
-    ON_SENDING_RECEIVED,///< SEND finished ".done"
-    ON_AUI,             ///< !AUI message received
-    ON_KPM,             ///< !KPM message normal alpha with header.
-    ON_KPE,             ///< !KPE Keypad event message
-    ON_CRC,             ///< !CRC event message
-    ON_VER,             ///< !VER message received
+    ON_ARM,                    ///< ARMED
+    ON_DISARM,                 ///< DISARMED
+    ON_POWER_CHANGE,           ///< AC POWER STATE CHANGE
+    ON_READY_CHANGE,           ///< READY STATE CHANGE
+    ON_ALARM_CHANGE,           ///< ALARM BELL CHANGE
+    ON_FIRE,                   ///< FIRE ALARM
+    ON_ZONE_BYPASSED_CHANGE,   ///< BYPASS STATE CHANGE
+    ON_BOOT,                   ///< AD2 Firmware boot
+    ON_CONFIG_RECEIVED,        ///< AD2 CONFIG RECEIVED
+    ON_ZONE_FAULT,             ///< ZONE FAULT EVENT
+    ON_ZONE_RESTORE,           ///< ZONE RESTORE EVENT
+    ON_LOW_BATTERY,            ///< LOW BATTERY EVENT
+    ON_PANIC,                  ///< PANIC EVENT
+    ON_RELAY_CHANGE,           ///< !REL RELAY EVENT
+    ON_CHIME_CHANGE,           ///< Chime state change
+    ON_MESSAGE,                ///< ALPHA MESSAGE After parsing
+    ON_EXP,                    ///< !EXP Zone Expander message
+    ON_LRR,                    ///< !LRR Long Range Contact ID message
+    ON_RFX,                    ///< !RFX 5800 RFX event with serial #
+    ON_SENDING_RECEIVED,       ///< SEND finished ".done"
+    ON_AUI,                    ///< !AUI message received
+    ON_KPM,                    ///< !KPM message normal alpha with header.
+    ON_KPE,                    ///< !KPE Keypad event message
+    ON_CRC,                    ///< !CRC event message
+    ON_VER,                    ///< !VER message received
     ON_ERR,
     ON_FIRMWARE_VERSION ///< new firmware available event
 } ad2_event_t;

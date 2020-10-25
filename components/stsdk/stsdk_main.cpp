@@ -157,7 +157,7 @@ caps_momentary_data_t *cap_momentary_data_arm_away;
  * Bypass state & control
  */
 // @brief Arm Away virtual contact sensor
-caps_contactSensor_data_t *cap_contactSensor_data_bypass;
+caps_contactSensor_data_t *cap_contactSensor_data_zone_bypassed;
 
 
 #if 0 // TODO/FIXME
@@ -857,6 +857,30 @@ void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
     }
 }
 
+/**
+ * @brief ON_ZONE_BYPASSED_CHANGE.
+ * Called when the alarm panel ZONE BYPASSED state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_zone_bypassed_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_ZONE_BYPASSED_CHANGE: '%i'", s->zone_bypassed);
+        if ( s->zone_bypassed ) {
+            cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, caps_helper_contactSensor.attr_contact.value_closed);
+        }
+
+        cap_contactSensor_data_zone_bypassed->attr_contact_send(cap_contactSensor_data_zone_bypassed);
+    }
+}
 
 
 /**
@@ -919,8 +943,11 @@ void stsdk_init(void)
     // Subscribe to ON_LOW_BATTERY change events to update cap_battery capability.
     AD2Parse.subscribeTo(ON_LOW_BATTERY, on_low_battery_cb, nullptr);
 
-    // Subscribe to SEND_ALARM_CHANGE change events to update cap_alarm capability.
+    // Subscribe to ON_ALARM_CHANGE change events to update cap_alarm capability.
     AD2Parse.subscribeTo(ON_ALARM_CHANGE, on_alarm_change_cb, nullptr);
+
+    // Subscribe to ON_ZONE_BYPASSED_CHANGE change events to update zone bypassed capability.
+    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, on_zone_bypassed_change_cb, nullptr);
 
 }
 
@@ -1142,6 +1169,16 @@ void capability_init()
         cap_switch_b_data->set_switch_value(cap_switch_b_data, switch_init_value);
     }
 #endif
+
+    /**
+     * @brief component: bypass
+     */
+    // bypass contact sensor ( visual for state )
+    cap_contactSensor_data_zone_bypassed = caps_contactSensor_initialize(ctx, "bypass", NULL, NULL);
+    if (cap_contactSensor_data_zone_bypassed) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, contact_init_value);
+    }
 
     /**
      * @brief component: disarm

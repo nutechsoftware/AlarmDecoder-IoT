@@ -381,6 +381,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool SEND_POWER_CHANGE = false;
                             bool SEND_BATTERY_CHANGE = false;
                             bool SEND_ALARM_CHANGE = false;
+                            bool SEND_ZONE_BYPASSED_CHANGE = false;
 
                             // state change tracking
                             bool ARMED_STAY = is_bit_set(ARMED_STAY_BYTE, msg.c_str());
@@ -394,6 +395,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool AC_POWER = is_bit_set(ACPOWER_BYTE, msg.c_str());
                             bool LOW_BATTERY = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
                             bool ALARM_BELL = is_bit_set(ALARM_BYTE, msg.c_str());
+                            bool ZONE_BYPASSED = is_bit_set(BYPASS_BYTE, msg.c_str());
 
                             // Get section #4 alpha message and upper case for later searching
                             string ALPHAMSG = msg.substr(SECTION_4_START,32);
@@ -447,6 +449,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_POWER_CHANGE = true;
                                 SEND_BATTERY_CHANGE = true;
                                 SEND_ALARM_CHANGE = true;
+                                SEND_ZONE_BYPASSED_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
                                 // fire state change
@@ -484,6 +487,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 if ( ad2ps->alarm_sounding != ALARM_BELL ) {
                                     SEND_ALARM_CHANGE = true;
                                 }
+
+                                // BYPASSED state change
+                                if ( ad2ps->zone_bypassed != ZONE_BYPASSED) {
+                                    SEND_ZONE_BYPASSED_CHANGE = true;
+                                }
                             }
 
                             // entry_delay bit is expected to change only when the ARMED bit changes.
@@ -516,11 +524,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->ac_power = AC_POWER;
                             ad2ps->battery_low = LOW_BATTERY;
                             ad2ps->alarm_sounding = ALARM_BELL;
+                            ad2ps->zone_bypassed = ZONE_BYPASSED;
 
                             // Save states for non even tracked changes
                             ad2ps->backlight_on  = is_bit_set(BACKLIGHT_BYTE, msg.c_str());
                             ad2ps->programming_mode = is_bit_set(PROGMODE_BYTE, msg.c_str());
-                            ad2ps->zone_bypassed = is_bit_set(BYPASS_BYTE, msg.c_str());
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = is_bit_set(SYSSPECIFIC_BYTE, msg.c_str());
@@ -581,6 +589,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // Send event if alarm_sounding state changed
                             if ( SEND_ALARM_CHANGE ) {
                                 notifySubscribers(ON_ALARM_CHANGE, msg, ad2ps);
+                            }
+
+                            // Send event if zone_bypassed state changed
+                            if ( SEND_ZONE_BYPASSED_CHANGE ) {
+                                notifySubscribers(ON_ZONE_BYPASSED_CHANGE, msg, ad2ps);
                             }
                         }
                     } else {
