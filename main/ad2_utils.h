@@ -45,6 +45,7 @@ void ad2_chime_toggle(int codeId, int addressId);
 void ad2_fire_alarm(int codeId, int addressId);
 void ad2_panic_alarm(int codeId, int addressId);
 void ad2_aux_alarm(int codeId, int addressId);
+void ad2_exit_now(int codeId, int addressId);
 void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int address_slot);
 void ad2_printf_host(const char *format, ...);

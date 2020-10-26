@@ -172,6 +172,9 @@ caps_contactSensor_data_t *cap_contactSensor_data_ready_to_arm;
  */
 // @brief Exit Mode virtual contact sensor
 caps_contactSensor_data_t *cap_contactSensor_data_exit_now;
+// @brief Exit Now momentary button
+caps_momentary_data_t *cap_momentary_data_exit_now;
+
 
 #if 0 // TODO/FIXME
 /**

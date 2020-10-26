@@ -5,8 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [W] STSDK: Zone events.
-- [W] CORE: Add commands to define zone tracked zones.
+- [ ] STSDK: Zone events.
+- [ ] CORE: Add commands to define zone tracked zones.
+- [X] API: Fix: found bugs when testing EXIT NOW with ST App.
 - [X] API: Added ON_EXIT_CHANGE event to api.
 - [X] STSDK: Added EXIT NOW state contact capability and momentary to activate EXIT mode on DSC/Ademco.
 - [X] CORE: Added ad2_exit_now call to send exit now command to the panel based upon panel type.
@@ -14,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] API: Added BYPASS CHANGE event
 - [X] STSDK: Wired BYPASS to the bypass component contact capability.
 - [X] STSDK: remove battery fault contact from device profile in ST dev portal.
+- [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.

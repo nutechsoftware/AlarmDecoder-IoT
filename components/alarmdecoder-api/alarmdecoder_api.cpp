@@ -382,6 +382,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool SEND_BATTERY_CHANGE = false;
                             bool SEND_ALARM_CHANGE = false;
                             bool SEND_ZONE_BYPASSED_CHANGE = false;
+                            bool SEND_EXIT_CHANGE = false;
 
                             // state change tracking
                             bool ARMED_STAY = is_bit_set(ARMED_STAY_BYTE, msg.c_str());
@@ -450,6 +451,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_BATTERY_CHANGE = true;
                                 SEND_ALARM_CHANGE = true;
                                 SEND_ZONE_BYPASSED_CHANGE = true;
+                                SEND_EXIT_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
                                 // fire state change
@@ -509,7 +511,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // exit_now state change send
                             if ( ad2ps->exit_now != EXIT_NOW ) {
-                                SEND_READY_CHANGE = true;
+                                SEND_EXIT_CHANGE = true;
                             }
 
                             // Save states for event tracked changes
@@ -595,6 +597,12 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             if ( SEND_ZONE_BYPASSED_CHANGE ) {
                                 notifySubscribers(ON_ZONE_BYPASSED_CHANGE, msg, ad2ps);
                             }
+
+                            // Send event if EXIT state changed
+                            if ( SEND_EXIT_CHANGE ) {
+                                notifySubscribers(ON_EXIT_CHANGE, msg, ad2ps);
+                            }
+
                         }
                     } else {
                         //TODO: Error statistics tracking
