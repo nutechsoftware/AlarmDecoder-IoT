@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [W] STSDK: Zone events.
+- [W] CORE: Add commands to define zone tracked zones.
 - [X] API: Added ON_EXIT_CHANGE event to api.
 - [X] STSDK: Added EXIT NOW state contact capability and momentary to activate EXIT mode on DSC/Ademco.
 - [X] CORE: Added ad2_exit_now call to send exit now command to the panel based upon panel type.
