@@ -156,9 +156,22 @@ caps_momentary_data_t *cap_momentary_data_arm_away;
  * @brief component: bypass
  * Bypass state & control
  */
-// @brief Arm Away virtual contact sensor
+// @brief Zone Bypassed virtual contact sensor
 caps_contactSensor_data_t *cap_contactSensor_data_zone_bypassed;
 
+/**
+ * @brief component: ready
+ * Ready to arm state
+ */
+// @brief Ready To Arm virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_ready_to_arm;
+
+/**
+ * @brief component: exit
+ * Exit state. Zones disabled to allow entry / exit while armed.
+ */
+// @brief Exit Mode virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_exit_now;
 
 #if 0 // TODO/FIXME
 /**
@@ -590,6 +603,16 @@ void cap_arm_away_cmd_cb(struct caps_momentary_data *caps_data)
     ad2_arm_away(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+/**
+ * @brief ST Cloud app Exit Now momentary button pushed
+ * send panel Exit Now commands.
+ */
+void cap_exit_now_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    // send EXIT NOW command to the panel.
+    ad2_exit_now(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+}
+
 #if 0 // TODO/FIXME
 /**
  * @brief callback for cloud update to switch A
@@ -882,6 +905,57 @@ void on_zone_bypassed_change_cb(std::string *msg, AD2VirtualPartitionState *s, v
     }
 }
 
+/**
+ * @brief ON_EXIT_NOW_CHANGE.
+ * Called when the alarm panel EXIT NOW state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_exit_now_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_EXIT_NOW_CHANGE: '%i'", s->exit_now);
+        if ( s->exit_now ) {
+            cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, caps_helper_contactSensor.attr_contact.value_closed);
+        }
+
+        cap_contactSensor_data_exit_now->attr_contact_send(cap_contactSensor_data_exit_now);
+    }
+}
+
+
+/**
+ * @brief ON_READY_CHANGE
+ * Called when the alarm panel READY TO ARM state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_ready_to_arm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_READY_CHANGE: '%i'", s->ready);
+        if ( s->ready ) {
+            cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, caps_helper_contactSensor.attr_contact.value_closed);
+        }
+
+        cap_contactSensor_data_ready_to_arm->attr_contact_send(cap_contactSensor_data_ready_to_arm);
+    }
+}
+
 
 /**
  * @brief Initialize the STSDK engine
@@ -949,6 +1023,11 @@ void stsdk_init(void)
     // Subscribe to ON_ZONE_BYPASSED_CHANGE change events to update zone bypassed capability.
     AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, on_zone_bypassed_change_cb, nullptr);
 
+    // Subscribe to ON_READY_CHANGE change events to update zone bypassed capability.
+    AD2Parse.subscribeTo(ON_READY_CHANGE, on_ready_to_arm_change_cb, nullptr);
+
+    // Subscribe to ON_EXIT_CHANGE change events to update zone bypassed capability.
+    AD2Parse.subscribeTo(ON_EXIT_CHANGE, on_exit_now_change_cb, nullptr);
 }
 
 /**
@@ -1178,6 +1257,31 @@ void capability_init()
     if (cap_contactSensor_data_zone_bypassed) {
         const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
         cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, contact_init_value);
+    }
+
+    /**
+     * @brief component: ready
+     */
+    // ready contact sensor ( visual for state )
+    cap_contactSensor_data_ready_to_arm = caps_contactSensor_initialize(ctx, "ready", NULL, NULL);
+    if (cap_contactSensor_data_ready_to_arm) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, contact_init_value);
+    }
+
+    /**
+     * @brief component: exit
+     */
+    // 'exit now' contact sensor ( visual for state )
+    cap_contactSensor_data_exit_now = caps_contactSensor_initialize(ctx, "exit", NULL, NULL);
+    if (cap_contactSensor_data_exit_now) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, contact_init_value);
+    }
+    // @brief Exit Now button
+    cap_momentary_data_exit_now = caps_momentary_initialize(ctx, "exit", NULL, NULL);
+    if (cap_momentary_data_exit_now) {
+        cap_momentary_data_exit_now->cmd_push_usr_cb = cap_exit_now_cmd_cb;
     }
 
     /**

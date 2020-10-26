@@ -764,6 +764,47 @@ void ad2_aux_alarm(int codeId, int vpartId)
 
 
 /**
+ * @brief Send the EXIT now command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_exit_now(int codeId, int vpartId)
+{
+    // Get user code
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
+
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+
+    std::string msg;
+
+    // @brief get the vpart state
+    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+
+    if (s) {
+        if (s->panel_type == ADEMCO_PANEL) {
+            msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "*");
+        } else if (s->panel_type == DSC_PANEL) {
+            msg = "<S8>";
+        }
+
+        ESP_LOGI(TAG,"Sending EXIT NOW command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "Error decoding partition mask");
+    }
+}
+
+
+/**
  * @brief Send string to the AD2 devices after macro translation.
  *
  * @param [in]buf Pointer to string to send to AD2 devices.

@@ -218,6 +218,7 @@ typedef enum {
     ON_KPE,                    ///< !KPE Keypad event message
     ON_CRC,                    ///< !CRC event message
     ON_VER,                    ///< !VER message received
+    ON_EXIT_CHANGE,
     ON_ERR,
     ON_FIRMWARE_VERSION ///< new firmware available event
 } ad2_event_t;
