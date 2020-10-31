@@ -5,16 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [ ] STSDK: Zone events.
-- [ ] CORE: Add commands to define zone tracked zones.
-- [X] API: Fix: found bugs when testing EXIT NOW with ST App.
-- [X] API: Added ON_EXIT_CHANGE event to api.
-- [X] STSDK: Added EXIT NOW state contact capability and momentary to activate EXIT mode on DSC/Ademco.
-- [X] CORE: Added ad2_exit_now call to send exit now command to the panel based upon panel type.
-- [X] STSDK: Wired READY TO ARM contact capability and state tracking.
-- [X] API: Added BYPASS CHANGE event
-- [X] STSDK: Wired BYPASS to the bypass component contact capability.
-- [X] STSDK: remove battery fault contact from device profile in ST dev portal.
+- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [ ] TWILIO: Add CLI commands to allow the user to construct N number of virtual events to send messages for using the new AD2EventSearch API.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
@@ -28,6 +20,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
 - [ ] Twilio: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+## [1.0.3 P2 WIP] - 2020-10-31 (no release)
+- [X] API: New class AD2EventSearch and support functions to subscribe. I spent a few days on this. A bit of a unicorn hunt. I could write discrete API and CLI code for every possible message type from the AlarmDecoder protocol but this seems excessive. The task is the same on every message so a single CLI and API to create custom tracking of all messages using REGEX and simple state logic was what I ended up with. This new class when constructed becomes a virtual contact with OPEN/CLOSE/FAULT states. These states are updated based upon user supplied regex patterns and simple user provided logic hints.
+- [X] API: RFX message expand hex to bin for easy parsing.
+- [X] API: Added message type tracking during parse for post processing.
+- [X] API: new string parse function. hex_to_binsz. Rename confusing name bit_string to bin_to_binsz.
+- [X] API: Fix: found bugs when testing EXIT NOW with ST App.
+- [X] API: Added ON_EXIT_CHANGE event to api.
+- [X] STSDK: Added EXIT NOW state contact capability and momentary to activate EXIT mode on DSC/Ademco.
+- [X] CORE: Added ad2_exit_now call to send exit now command to the panel based upon panel type.
+- [X] STSDK: Wired READY TO ARM contact capability and state tracking.
+- [X] API: Added BYPASS CHANGE event
+- [X] STSDK: Wired BYPASS to the bypass component contact capability.
+- [X] STSDK: remove battery fault contact from device profile in ST dev portal.
 
 ## [1.0.3 P1] - 2020-10-20
 - [X] CORE: Add command feedback to commands that require a restart to take effect.
