@@ -609,6 +609,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool AC_POWER = is_bit_set(ACPOWER_BYTE, msg.c_str());
                             bool LOW_BATTERY = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
                             bool ALARM_BELL = is_bit_set(ALARM_BYTE, msg.c_str());
+                            bool ALARM_STICKY = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             bool ZONE_BYPASSED = is_bit_set(BYPASS_BYTE, msg.c_str());
 
                             // Get section #4 alpha message and upper case for later searching
@@ -667,9 +668,16 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_EXIT_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
-                                // fire state change
+                                // fire state change send
                                 if ( ad2ps->fire_alarm != FIRE_ALARM ) {
-                                    SEND_FIRE_CHANGE = true;
+                                    // TODO: Test on DSC
+                                    // skip messages with Alarm sticky bit off unless clearing the event
+                                    if (ALARM_STICKY && !FIRE_ALARM) {
+                                        // restore current ignore change
+                                        FIRE_ALARM = ad2ps->fire_alarm;
+                                    } else {
+                                        SEND_FIRE_CHANGE = true;
+                                    }
                                 }
 
                                 // ready state change
@@ -700,7 +708,14 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                                 // ALARM_BELL state change send
                                 if ( ad2ps->alarm_sounding != ALARM_BELL ) {
-                                    SEND_ALARM_CHANGE = true;
+                                    // TODO: Test on DSC
+                                    // skip messages with Alarm sticky bit off unless clearing the event
+                                    if (ALARM_STICKY && !ALARM_BELL) {
+                                        // restore current ignore change
+                                        ALARM_BELL = ad2ps->alarm_sounding;
+                                    } else {
+                                        SEND_ALARM_CHANGE = true;
+                                    }
                                 }
 
                                 // BYPASSED state change

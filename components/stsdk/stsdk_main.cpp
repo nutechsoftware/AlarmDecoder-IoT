@@ -122,8 +122,8 @@ caps_momentary_data_t *cap_momentary_data_fire;
  * @brief component: alarm
  * Alarm Bell
  */
-// @brief Alarm capability
-caps_alarm_data_t *cap_alarm_bell_data;
+// @brief Alarm Active virtual contact sensor
+caps_contactSensor_data_t *cap_alarm_bell_data;
 // @brief Fire Alarm momentary panic button
 caps_momentary_data_t *cap_momentary_data_panic_alarm;
 
@@ -613,7 +613,7 @@ void cap_arm_away_cmd_cb(struct caps_momentary_data *caps_data)
 void cap_exit_now_cmd_cb(struct caps_momentary_data *caps_data)
 {
     // send EXIT NOW command to the panel.
-    ad2_exit_now(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+    ad2_exit_now(AD2_DEFAULT_VPA_SLOT);
 }
 
 #if 0 // TODO/FIXME
@@ -799,10 +799,12 @@ void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
         ESP_LOGI(TAG, "ON_FIRE: '%s'", msg->c_str());
         if ( s->fire_alarm ) {
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, caps_helper_contactSensor.attr_contact.value_open);
         } else {
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_clear);
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, caps_helper_contactSensor.attr_contact.value_closed);
         }
-
+        cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
         cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
     }
 }
@@ -873,13 +875,14 @@ void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_ALARM_CHANGE: '%i'", s->alarm_sounding);
-        const char *alarm_value = caps_helper_alarm.attr_alarm.value_off;
-        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_value);
         if ( s->alarm_sounding ) {
-            alarm_value = caps_helper_alarm.attr_alarm.value_siren;
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data,
+                                                   caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data,
+                                                   caps_helper_contactSensor.attr_contact.value_closed);
         }
-        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_value);
-        cap_alarm_bell_data->attr_alarm_send(cap_alarm_bell_data);
+        cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
     }
 }
 
@@ -1158,10 +1161,10 @@ void capability_init()
      * @brief component: alarm
      */
     // Alarm panel Bell status.
-    cap_alarm_bell_data = caps_alarm_initialize(ctx, "alarm", NULL, NULL);
+    cap_alarm_bell_data = caps_contactSensor_initialize(ctx, "alarm", NULL, NULL);
     if (cap_alarm_bell_data) {
-        const char *alarm_init_value = caps_helper_alarm.attr_alarm.value_off;
-        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_init_value);
+        const char *alarm_init_value = caps_helper_contactSensor.attr_contact.value_closed;
+        cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, alarm_init_value);
     }
     // Panic Alarm Momentary button
     cap_momentary_data_panic_alarm = caps_momentary_initialize(ctx, "alarm", NULL, NULL);

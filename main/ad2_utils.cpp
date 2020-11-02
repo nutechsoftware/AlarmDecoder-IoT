@@ -775,11 +775,8 @@ void ad2_aux_alarm(int codeId, int vpartId)
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_exit_now(int codeId, int vpartId)
+void ad2_exit_now(int vpartId)
 {
-    // Get user code
-    std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
 
     int address = -1;
     ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
@@ -791,7 +788,7 @@ void ad2_exit_now(int codeId, int vpartId)
 
     if (s) {
         if (s->panel_type == ADEMCO_PANEL) {
-            msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "*");
+            msg = ad2_string_printf("K%02i%s", address, "*");
         } else if (s->panel_type == DSC_PANEL) {
             msg = "<S8>";
         }
@@ -876,7 +873,7 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
 /**
  * @brief send RAW string to the AD2 devices.
  *
- * @param [in]address_slot Address slot for address to use for
+ * @param [in]vpartId Address slot for address to use for
  * returning partition info. The AlarmDecoderParser class tracks
  * every message and parses each into a status by virtual partition.
  * Each state is stored by an address mask. To fetch the state of
@@ -884,11 +881,11 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
  * be on that partition. For DSC panels the address is the partition.
  *
  */
-AD2VirtualPartitionState *ad2_get_partition_state(int address_slot)
+AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
 {
     AD2VirtualPartitionState * s = nullptr;
     int x = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, address_slot, &x);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &x);
     // if we found a NV record then initialize the AD2PState for the mask.
     if (x != -1) {
         s = AD2Parse.getAD2PState(x, false);

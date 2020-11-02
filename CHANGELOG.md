@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [X] STSDK: Alarm bell ON when fire alarm is on.
+- [X] CORE: Misc tidy cleanup var rename.
+- [X] STSDK: Remove Alarm capability. It was not what I expected. Replaced with contact :c(.
+- [X] STSDK: ARM Stay/Away and other indicators now working.
+   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets... Update. With help from ST dev team the problem went POOF! Took a bit but it looks good now. I how have all my feedback working.
+- [X] API: FIX: Improve FIRE and ALARM tracking issue with state toggle.
 - [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
 - [ ] TWILIO: Add CLI commands to allow the user to construct N number of virtual events to send messages for using the new AD2EventSearch API.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
@@ -16,8 +22,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
-- [ ] STSDK: ARM Stay/Away
-   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
 - [ ] Twilio: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
 

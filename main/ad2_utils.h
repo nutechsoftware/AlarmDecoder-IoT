@@ -38,16 +38,16 @@ extern "C" {
 
 // Communication with AD2* device / host
 
-void ad2_arm_away(int codeId, int addressId);
-void ad2_arm_stay(int codeId, int addressId);
-void ad2_disarm(int codeId, int addressId);
-void ad2_chime_toggle(int codeId, int addressId);
-void ad2_fire_alarm(int codeId, int addressId);
-void ad2_panic_alarm(int codeId, int addressId);
-void ad2_aux_alarm(int codeId, int addressId);
-void ad2_exit_now(int codeId, int addressId);
+void ad2_arm_away(int codeId, int vpartId);
+void ad2_arm_stay(int codeId, int vpartId);
+void ad2_disarm(int codeId, int vpartId);
+void ad2_chime_toggle(int codeId, int vpartId);
+void ad2_fire_alarm(int codeId, int vpartId);
+void ad2_panic_alarm(int codeId, int vpartId);
+void ad2_aux_alarm(int codeId, int vpartId);
+void ad2_exit_now(int vpartId);
 void ad2_send(std::string &buf);
-AD2VirtualPartitionState *ad2_get_partition_state(int address_slot);
+AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
 void ad2_printf_host(const char *format, ...);
 void ad2_snprintf_host(const char *fmt, size_t size, ...);
 char ad2_network_mode(std::string &args);
