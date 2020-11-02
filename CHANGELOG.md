@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] TWILIO: Refactor for 3 sub commands [M]essage [C]Call(Twilio) [E]Mail(SendGrid)
+- [ ] TWILIO: Add EVENT Search commands to create notifications on user defined logic.
 - [X] STSDK: Alarm bell ON when fire alarm is on.
 - [X] CORE: Misc tidy cleanup var rename.
 - [X] STSDK: Remove Alarm capability. It was not what I expected. Replaced with contact :c(.
