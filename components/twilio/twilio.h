@@ -35,12 +35,13 @@
 
 #define TWILIO_RATE_LIMIT 2000
 
-#define TWILIO_SID   "twsid"
-#define TWILIO_TOKEN "twtoken"
-#define TWILIO_TYPE  "twtype"
-#define TWILIO_TO    "twto"
-#define TWILIO_FROM  "twfrom"
-#define TWILIO_BODY  "twbody"
+#define TWILIO_SID_CFGKEY     "twsid"
+#define TWILIO_TOKEN_CFGKEY   "twtoken"
+#define TWILIO_TYPE_CFGKEY    "twtype"
+#define TWILIO_TO_CFGKEY      "twto"
+#define TWILIO_FROM_CFGKEY    "twfrom"
+#define TWILIO_BODY_CFGKEY    "twbody"
+#define TWILIO_SAS_CFGKEY     "twsas"
 
 #ifdef __cplusplus
 extern "C" {

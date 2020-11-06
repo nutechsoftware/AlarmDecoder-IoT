@@ -457,6 +457,20 @@ public:
         {AD2_STATE_FAULT, "FAULT"},
     };
 
+    std::map<const std::string, ad2_message_t> message_type_id = {
+        {"ALPHA", ALPHA_MESSAGE_TYPE},
+        {"LRR",   LRR_MESSAGE_TYPE},
+        {"REL",   REL_MESSAGE_TYPE},
+        {"EXP",   EXP_MESSAGE_TYPE},
+        {"RFX",   RFX_MESSAGE_TYPE},
+        {"AUI",   AUI_MESSAGE_TYPE},
+        {"KPM",   KPM_MESSAGE_TYPE},
+        {"KPE",   KPE_MESSAGE_TYPE},
+        {"CRC",   CRC_MESSAGE_TYPE},
+        {"VER",   VER_MESSAGE_TYPE},
+        {"ERR",   ERR_MESSAGE_TYPE},
+    };
+
 protected:
     // Track all panel states in separate class.
     ad2pstates_t AD2PStates;

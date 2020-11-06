@@ -291,15 +291,50 @@ bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replac
     return true;
 }
 
+
+/**
+ * @brief left trim.
+ *
+ * @param [in]s std::string &.
+ */
+void ad2_ltrim(std::string &s)
+{
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+                                    std::not1(std::ptr_fun<int, int>(std::isspace))));
+}
+
+/**
+ * @brief right trim.
+ *
+ * @param [in]s std::string &.
+ */
+void ad2_rtrim(std::string &s)
+{
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+                         std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
+/**
+ * @brief all trim.
+ *
+ * @param [in]s std::string &.
+ */
+void ad2_trim(std::string &s)
+{
+    ad2_ltrim(s);
+    ad2_rtrim(s);
+}
+
 /**
  * @brief Generic get NV string value by key and slot(0-99).
  *
  * @param [in]key to search for.
  * @param [in]slot inter slot from 0 - 99.
+ * @param [in]s char * suffix.
  * @param [out]valueout int * to store search results.
  *
  */
-void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout)
+void ad2_get_nv_slot_key_int(const char *key, int slot, const char *s, int *valueout)
 {
     esp_err_t err;
 
@@ -309,11 +344,8 @@ void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = (char*)malloc(tlen);
-        snprintf(tkey, tlen, "%02i", slot);
-        err = nvs_get_i32(my_handle, tkey, valueout);
-        free(tkey);
+        std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
+        err = nvs_get_i32(my_handle, tkey.c_str(), valueout);
         nvs_close(my_handle);
     }
 }
@@ -323,11 +355,12 @@ void ad2_get_nv_slot_key_int(const char *key, int slot, int *valueout)
  *
  * @param [in]key to search for.
  * @param [in]slot inter slot from 0 - 99.
+ * @param [in]s char * suffix.
  * @param [in]value int value to store for search results.
  *
  * @note  value < 0 will remove entry
  */
-void ad2_set_nv_slot_key_int(const char *key, int slot, int value)
+void ad2_set_nv_slot_key_int(const char *key, int slot, const char *s, int value)
 {
     esp_err_t err;
 
@@ -337,15 +370,13 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, int value)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
-        int tlen = strlen(key)+3; // add space for XX\n
-        char *tkey = (char*)malloc(tlen);
-        snprintf(tkey, tlen, "%02i", slot);
+        std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
         if (value == -1) {
-            err = nvs_erase_key(my_handle, tkey);
+            err = nvs_erase_key(my_handle, tkey.c_str());
         } else {
-            err = nvs_set_i32(my_handle, tkey, value);
+            err = nvs_set_i32(my_handle, tkey.c_str(), value);
         }
-        free(tkey);
+
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     }
@@ -356,10 +387,11 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, int value)
  *
  * @param [in]key to search for.
  * @param [in]slot inter slot from 0 - 99.
+ * @param [in]s char * suffix.
  * @param [out]valueout std::string * to store search results.
  *
  */
-void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &valueout)
+void ad2_get_nv_slot_key_string(const char *key, int slot, const char *s, std::string &valueout)
 {
     esp_err_t err;
 
@@ -370,8 +402,7 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &valueout
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         size_t size;
-        std::string tkey;
-        tkey = ad2_string_printf("%02i", slot);
+        std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
         // get size including terminator.
         err = nvs_get_str(my_handle, tkey.c_str(), NULL, &size);
         if (err == ESP_OK && size) {
@@ -394,10 +425,11 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &valueout
  *
  * @param [in]key pointer to key to save value under
  * @param [in]slot int slot# from 0 - 99
+ * @param [in]s char * suffix.
  * @param [in]value pointer to string to store for search results.
  *
  */
-void ad2_set_nv_slot_key_string(const char *key, int slot, const char *value)
+void ad2_set_nv_slot_key_string(const char *key, int slot, const char *s, const char *value)
 {
     esp_err_t err;
 
@@ -408,7 +440,7 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, const char *value)
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         std::string tkey;
-        tkey = ad2_string_printf("%02i", slot);
+        tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
 
         if (value == NULL) {
             err = nvs_erase_key(my_handle, tkey.c_str());
@@ -537,10 +569,10 @@ void ad2_arm_away(int codeId, int vpartId)
 
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -557,7 +589,7 @@ void ad2_arm_away(int codeId, int vpartId)
         ESP_LOGI(TAG,"Sending ARM AWAY command");
         ad2_send(msg);
     } else {
-        ESP_LOGE(TAG, "Error decoding partition mask");
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
     }
 }
 
@@ -578,10 +610,10 @@ void ad2_arm_stay(int codeId, int vpartId)
 
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -597,7 +629,7 @@ void ad2_arm_stay(int codeId, int vpartId)
         ESP_LOGI(TAG,"Sending ARM STAY command");
         ad2_send(msg);
     } else {
-        ESP_LOGE(TAG, "Error decoding partition mask");
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
     }
 }
 
@@ -618,10 +650,10 @@ void ad2_disarm(int codeId, int vpartId)
 
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -638,7 +670,7 @@ void ad2_disarm(int codeId, int vpartId)
         ESP_LOGI(TAG,"Sending DISARM command");
         ad2_send(msg);
     } else {
-        ESP_LOGE(TAG, "Error decoding partition mask");
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
     }
 }
 
@@ -659,10 +691,10 @@ void ad2_chime_toggle(int codeId, int vpartId)
 
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, code);
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -679,7 +711,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
         ESP_LOGI(TAG,"Sending CHIME toggle command");
         ad2_send(msg);
     } else {
-        ESP_LOGE(TAG, "Error decoding partition mask");
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
     }
 }
 
@@ -700,7 +732,7 @@ void ad2_fire_alarm(int codeId, int vpartId)
 
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
     msg = ad2_string_printf("K%02i<S1>", address);
@@ -726,7 +758,7 @@ void ad2_panic_alarm(int codeId, int vpartId)
 
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
     msg = ad2_string_printf("K%02i<S2>", address);
@@ -753,7 +785,7 @@ void ad2_aux_alarm(int codeId, int vpartId)
 
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
     msg = ad2_string_printf("K%02i<S3>", address);
@@ -779,7 +811,7 @@ void ad2_exit_now(int vpartId)
 {
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &address);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -796,7 +828,7 @@ void ad2_exit_now(int vpartId)
         ESP_LOGI(TAG,"Sending EXIT NOW command");
         ad2_send(msg);
     } else {
-        ESP_LOGE(TAG, "Error decoding partition mask");
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
     }
 }
 
@@ -885,7 +917,7 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
 {
     AD2VirtualPartitionState * s = nullptr;
     int x = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, &x);
+    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &x);
     // if we found a NV record then initialize the AD2PState for the mask.
     if (x != -1) {
         s = AD2Parse.getAD2PState(x, false);
@@ -901,11 +933,11 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
 char ad2_network_mode(std::string &args)
 {
     int mode = 0;
-    ad2_get_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, &mode);
+    ad2_get_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, nullptr, &mode);
     switch(mode) {
     case 'W':
     case 'E':
-        ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, args);
+        ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, nullptr, args);
         break;
     case 'N':
     default:
@@ -925,7 +957,7 @@ char ad2_network_mode(std::string &args)
 char ad2_log_mode()
 {
     int mode = 0;
-    ad2_get_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, &mode);
+    ad2_get_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, nullptr, &mode);
     switch(mode) {
     case 'I':
     case 'D':

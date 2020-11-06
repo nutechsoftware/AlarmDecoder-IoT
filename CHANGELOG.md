@@ -5,14 +5,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [ ] TWILIO: Refactor for 3 sub commands [M]essage [C]Call(Twilio) [E]Mail(SendGrid)
+- [ ] TWILIO: Refactor for 3 sub commands [M]essage [C]Call(Twiml) [E]Mail(SendGrid)
 - [ ] TWILIO: Add EVENT Search commands to create notifications on user defined logic.
+- [x] CORE: refactor NV storage. I need to keep all slot values in a single file for easy export/import. I had them scattered all over. TODO: Still a little more and then a bunch of cleanup needed.
+- [X] TWILIO: Added sendgrid pem file.
+- [X] API: add some lookups for humans for enums.
+- [X] CORE: Add on boot a dump of NV storage usage.
 - [X] STSDK: Alarm bell ON when fire alarm is on.
 - [X] CORE: Misc tidy cleanup var rename.
 - [X] STSDK: Remove Alarm capability. It was not what I expected. Replaced with contact :c(.
 - [X] STSDK: ARM Stay/Away and other indicators now working.
    - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets... Update. With help from ST dev team the problem went POOF! Took a bit but it looks good now. I how have all my feedback working.
 - [X] API: FIX: Improve FIRE and ALARM tracking issue with state toggle.
+- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
 - [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
 - [ ] TWILIO: Add CLI commands to allow the user to construct N number of virtual events to send messages for using the new AD2EventSearch API.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode

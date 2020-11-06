@@ -85,16 +85,16 @@ static void _cli_cmd_code_event(char *string)
             if (arg.length()) {
                 if (atoi(arg.c_str()) == -1) {
                     ad2_printf_host("Removing code in slot %i...\r\n", slot);
-                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
+                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, arg.c_str());
                 } else {
                     ad2_printf_host("Setting code in slot %i to '%s'...\r\n", slot, arg.c_str());
-                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, arg.c_str());
+                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, arg.c_str());
                 }
             }
         } else {
             // show contents of this slot
             std::string buf;
-            ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, buf);
+            ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, buf);
             ad2_printf_host("The code in slot %i is '%s'\r\n", slot, buf.c_str());
         }
     } else {
@@ -131,15 +131,15 @@ static void _cli_cmd_vpaddr_event(char *string)
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
                 ad2_printf_host("Setting vpaddr in slot %i to '%i'...\r\n", slot, address);
-                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, address);
+                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, address);
             } else {
                 // delete entry
                 ad2_printf_host("Deleting vpaddr in slot %i...\r\n", slot);
-                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, -1);
+                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, -1);
             }
         } else {
             // show contents of this slot
-            ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, &address);
+            ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, &address);
             ad2_printf_host("The vpaddr in slot %i is %i\r\n", slot, address);
         }
     } else {
@@ -174,10 +174,10 @@ static void _cli_cmd_ad2source_event(char *string)
             case 'C':
                 // save mode in slot 0
                 ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                           AD2MODE_CONFIG_MODE_SLOT, modesz.c_str());
+                                           AD2MODE_CONFIG_MODE_SLOT, nullptr, modesz.c_str());
                 // save arg in slot 1
                 ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                           AD2MODE_CONFIG_ARG_SLOT, arg.c_str());
+                                           AD2MODE_CONFIG_ARG_SLOT, nullptr, arg.c_str());
                 ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
                 break;
             default:
@@ -189,11 +189,11 @@ static void _cli_cmd_ad2source_event(char *string)
     } else {
         // get mode in slot 0
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                   AD2MODE_CONFIG_MODE_SLOT, modesz);
+                                   AD2MODE_CONFIG_MODE_SLOT, nullptr, modesz);
 
         // get arg in slot 1
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                   AD2MODE_CONFIG_ARG_SLOT, arg);
+                                   AD2MODE_CONFIG_ARG_SLOT, nullptr, arg);
     }
     ad2_printf_host("Current mode '%s %s'\r\n", (modesz[0]=='C'?"COM":"SOCKET"), arg.c_str());
 
@@ -328,9 +328,9 @@ static void _cli_cmd_netmode_event(char *string)
         case 'N':
         case 'W':
         case 'E':
-            ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, mode[0]);
+            ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, nullptr, mode[0]);
             ad2_copy_nth_arg(arg, string, 2);
-            ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, arg.c_str());
+            ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, nullptr, arg.c_str());
             ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
             break;
         default:
@@ -361,7 +361,7 @@ static void _cli_cmd_ad2logmode_event(char *string)
         case 'N':
         case 'D':
         case 'I':
-            ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, mode[0]);
+            ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, nullptr, mode[0]);
 
             break;
         default:

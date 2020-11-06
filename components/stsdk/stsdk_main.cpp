@@ -207,13 +207,13 @@ static void _cli_cmd_enable_event(char *string)
     ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
     std::string arg;
     if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, (arg[0] == 'Y' || arg[0] ==  'y'));
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
         ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
     }
 
     // show contents of this slot
     int i;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &i);
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &i);
     ad2_printf_host("SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
 
 }
@@ -980,7 +980,7 @@ void stsdk_init(void)
     }
 
     int enabled = 0;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &enabled);
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &enabled);
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!enabled) {

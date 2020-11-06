@@ -66,15 +66,18 @@ int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val)
 void ad2_lcase(std::string &str);
 void ad2_ucase(std::string &str);
 bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replaceStr);
+void ad2_ltrim(std::string &s);
+void ad2_rtrim(std::string &s);
+void ad2_trim(std::string &s);
 
 // NV Storage utilities
 
 void ad2_get_nv_arg(const char *key, std::string &value);
 void ad2_set_nv_arg(const char *key, const char *value);
-void ad2_set_nv_slot_key_int(const char *key, int slot, int value);
-void ad2_get_nv_slot_key_int(const char *key, int slot, int *value);
-void ad2_set_nv_slot_key_string(const char *key, int slot, const char *value);
-void ad2_get_nv_slot_key_string(const char *key, int slot, std::string &value);
+void ad2_set_nv_slot_key_int(const char *key, int slot, const char *suffix, int value);
+void ad2_get_nv_slot_key_int(const char *key, int slot, const char *suffix, int *value);
+void ad2_set_nv_slot_key_string(const char *key, int slot, const char *suffix, const char *value);
+void ad2_get_nv_slot_key_string(const char *key, int slot, const char *suffix, std::string &value);
 
 #ifdef __cplusplus
 }

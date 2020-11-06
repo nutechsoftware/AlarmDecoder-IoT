@@ -8,4 +8,4 @@
 #
 
 COMPONENT_ADD_INCLUDEDIRS := . ../../main/
-COMPONENT_EMBED_TXTFILES := twilio_root.pem
+COMPONENT_EMBED_TXTFILES := twilio_root.pem sendgrid_root.pem
