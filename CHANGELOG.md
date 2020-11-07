@@ -5,9 +5,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [ ] TWILIO: Refactor for 3 sub commands [M]essage [C]Call(Twiml) [E]Mail(SendGrid)
-- [ ] TWILIO: Add EVENT Search commands to create notifications on user defined logic.
-- [x] CORE: refactor NV storage. I need to keep all slot values in a single file for easy export/import. I had them scattered all over. TODO: Still a little more and then a bunch of cleanup needed.
+- [ ] TWILIO: Need to add ability to trigger on common states FIRE, ALARM, DISARM, ARM, CHIME etc in new twsas command.
+- [ ] CORE: Need helper routines for doing simple template operations on strings. For now we can specify any static output message for a search alert results so it is not as critical. ex. 'twsas 1 o This is my own message for this alert'.
+- [ ] TWILIO: FIXME prevent multiple concurrent connections. Serialize.
+- [X] TWILIO: Removed test alerts CHIME, ARM, FIRE, ALARM, LRR.
+- [X] API: Added a pointer and integer arg to the search class for callback state passing.
+- [X] CORE: Improve arg ad2_copy_nth_arg adding ability to parse last arg skipping spaces till EOL. Easy to grab large strings as final arguemnt in any command.
+- [X] TWILIO: Commends and remove confusing constants with DEFINES.
+- [X] TWILIO: Tested Email, Call and TEXT messages.
+- [X] TWILIO: Refactor for 3 sub commands [M]essage [C]Call(Twiml) [E]Mail(SendGrid).
+- [X] TWILIO: Add EVENT Search commands to create notifications on user defined logic.
+- [X] CORE: refactor NV storage. I need to keep all slot values in a single file for easy export/import. I had them scattered all over. TODO: Still a little more and then a bunch of cleanup needed.
 - [X] TWILIO: Added sendgrid pem file.
 - [X] API: add some lookups for humans for enums.
 - [X] CORE: Add on boot a dump of NV storage usage.

@@ -375,6 +375,10 @@ public:
 
     ///< Formatted output results from event state change.
     std::string out_message;
+
+    /// user supplied value
+    int INT_ARG;
+    void *PTR_ARG;
 };
 
 /**

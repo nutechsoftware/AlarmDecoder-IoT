@@ -23,16 +23,18 @@
 #ifndef _TWILIO_H
 #define _TWILIO_H
 #if CONFIG_TWILIO_CLIENT
-
 //#define DEBUG_TWILIO
+//#define DEBUG_TWILIO_TLS
 #define TWILIO_QUEUE_SIZE 20
 #define AD2_DEFAULT_TWILIO_SLOT 0
 
 /* Constants that aren't configurable in menuconfig */
-#define WEB_SERVER "api.twilio.com"
-#define WEB_PORT "443"
-#define API_VERSION "2010-04-01"
+#define SENDGRID_API_SERVER "api.sendgrid.com"
+#define SENDGRID_API_PORT "443"
 
+#define TWILIO_API_SERVER "api.twilio.com"
+#define TWILIO_API_PORT "443"
+#define TWILIO_API_VERSION "2010-04-01"
 #define TWILIO_RATE_LIMIT 2000
 
 #define TWILIO_SID_CFGKEY     "twsid"
@@ -42,6 +44,26 @@
 #define TWILIO_FROM_CFGKEY    "twfrom"
 #define TWILIO_BODY_CFGKEY    "twbody"
 #define TWILIO_SAS_CFGKEY     "twsas"
+
+#define MAX_SEARCH_KEYS 9
+
+// NV storage sub key values for virtual search switch
+#define SK_NOTIFY_SLOT       "N"
+#define SK_DEFAULT_STATE     "D"
+#define SK_AUTO_RESET        "R"
+#define SK_TYPE_LIST         "T"
+#define SK_PREFILTER_REGEX   "P"
+#define SK_OPEN_REGEX_LIST   "O"
+#define SK_CLOSED_REGEX_LIST "C"
+#define SK_FAULT_REGEX_LIST  "F"
+#define SK_OPEN_OUTPUT_FMT   "o"
+#define SK_CLOSED_OUTPUT_FMT "c"
+#define SK_FAULT_OUTPUT_FMT  "f"
+
+// Notification types
+#define TWILIO_NOTIFY_MESSAGE "M"
+#define TWILIO_NOTIFY_CALL    "C"
+#define TWILIO_NOTIFY_EMAIL   "E"
 
 #ifdef __cplusplus
 extern "C" {

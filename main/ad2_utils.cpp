@@ -516,11 +516,12 @@ void ad2_set_nv_arg(const char *key, const char *value)
  *
  * @param dest pointer to std::string for output
  * @param [in]src pointer to input bytes
-] * @param [in]n argument number to return if possible
+ * @param [in]n argument number to return if possible
+ * @param [in]remaining Default false. If true will consume remaining string as the final result.
  *
  * @return 0 on success -1 on failure
  */
-int ad2_copy_nth_arg(std::string &dest, char* src, int n)
+int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining)
 {
     int start = 0, end = -1;
     int i = 0, word_index = 0;
@@ -534,7 +535,12 @@ int ad2_copy_nth_arg(std::string &dest, char* src, int n)
             }
         } else if ((src[i] != ' ') && ((src[i+1]==' ')||(src[i+1]=='\0'))) { //end check
             if (word_index == n) {
-                end = i;
+                if (remaining) {
+                    // Fast Forward to \0
+                    end = strlen(src);
+                } else {
+                    end = i;
+                }
                 break;
             }
         }

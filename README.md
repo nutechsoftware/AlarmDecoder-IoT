@@ -213,7 +213,7 @@ Choose one of the following configurations.
 
     - {slot}: [N]
       - For default use 0. Support multiple Twilio accounts.
-    - {hash}: Twilio 'Account SID'
+    - {hash}: Twilio 'Account SID'. SendGrid 'KEY Name' or user defined N/A.
 
     Example: twsid 0 aabbccdd112233..
 
@@ -223,7 +223,7 @@ Choose one of the following configurations.
 
     - {slot}: [N]
       - For default use 0. Support multiple Twilio accounts.
-    - {hash}: Twilio 'User Auth Token'
+    - {hash}: Twilio 'User Auth Token'. SendGrid 'API KEY'.
 
     Example: twtoken 0 aabbccdd112233..
 
@@ -232,9 +232,9 @@ Choose one of the following configurations.
     ```twtype {slot} {type}```
 
     - {slot}
-      - For default use 0. Support multiple Twilio accounts.
-    - {type}: [M|T]
-      - Notification type [M]essage or [T]wiml.
+      - For default use 0. Support multiple accounts.
+    - {type}: [M|C|E]
+      - Notification type [M]essage, [C]all, [E]mail.
 
     Example: twtype 0 M
 
@@ -259,6 +259,75 @@ Choose one of the following configurations.
       - To phone #
 
     Example: twto 0 13115552368
+
+  - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
+
+    ```twsas {slot} {setting} {arg1} [arg2]```
+
+    - {slot}
+      - 1-99 : Supports multiple virtual smart alert switches.
+    - {setting}
+      - [N] Notification slot
+        -  Notification settings slot to use for sending this events.
+      - [D] Default state
+        - {arg1}: [0]CLOSE [1]OPEN
+      - [R] AUTO Reset.
+        - {arg1}:  time in ms 0 to disable
+      - [T] Message type filter.
+        - {arg1}: Message type list seperated by ',' or empty to disables filter.
+          - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR]
+      - [P] Pre filter REGEX or empty to disable.
+      - [O] Open state regex search string list management.
+        - {arg1}: Index # 1-8
+        - {arg2}: Regex string for this slot or empty string  to clear
+      - [C] Close state regex search string list management.
+        - {arg1}: Index # 1-8
+        - {arg2}: Regex string for this slot or empty string to clear
+      - [F] Fault state regex search string list management.
+        - {arg1}: Index # 1-8
+        - {arg2}: Regex string for this slot or empty  string to clear
+      - [o] Open output format string.
+      - [c] Close output format string.
+      - [f] Fault output format string.
+
+    - Example cli commands to setup a complete virtual contact.
+      - Setup notifications from profile in slot #0(default) for 5800 RF sensor with SN 0123456 and trigger on OPEN, CLOSE and FAULT REGEX patterns.
+        ```console
+        ## Setup Twilio smart vmirtual switch #1 to watch RFX messages for SN: 0123456
+        AD2IOT # twsas 1 D 0
+        Setting smartswitch #1 to use default state 'CLOSED' 0
+
+        AD2IOT # twsas 1 N 0
+        Setting smartswitch #1 to use notification settings from slot #0
+
+        AD2IOT # twsas 1 R 0
+        Setting smartswitch #1 auto reset value 0
+
+        AD2IOT # twsas 1 T RFX
+        Setting smartswitch #1 message type filter list to 'RFX'
+
+        AD2IOT # twsas 1 P !RFX:0123456,.*
+        Setting smartswitch #1 pre filter regex to '!RFX:0123456,.*'.
+
+        AD2IOT # twsas 1 O 1 !RFX:0123456,1.......
+        Setting smartswitch #1 REGEX filter #01 for state 'OPEN' to '!RFX:0123456,1.......'.
+
+        AD2IOT # twsas 1 C 1 !RFX:0123456,0.......
+        Setting smartswitch #1 REGEX filter #01 for state 'CLOSED' to '!RFX:0123456,1.......'.
+
+        AD2IOT # twsas 1 F 1 !RFX:0123456,......1.
+        Setting smartswitch #1 REGEX filter #01 for state 'FAULT' to '!RFX:0123456,......1.'.
+
+        AD2IOT # twsas 1 o RF SENSOR 0123456 OPEN
+        Setting smartswitch #1 output format string for 'OPEN' state to 'RF SENSOR 0123456 OPEN'.
+
+        AD2IOT # twsas 1 c RF SENSOR 0123456 CLOSED
+        Setting smartswitch #1 output format string for 'CLOSED' state to 'RF SENSOR 0123456 CLOSED'.
+
+        AD2IOT # twsas 1 f RF SENSOR 0123456 FAULT
+        Setting smartswitch #1 output format string for 'FAULT' state to 'RF SENSOR 0123456 FAULT'.
+        ```
+
 
 
 ## Building firmware

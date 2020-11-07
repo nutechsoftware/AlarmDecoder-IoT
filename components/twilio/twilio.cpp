@@ -46,6 +46,8 @@
 #include <lwip/netdb.h>
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "cJSON.h"
+
 static const char *TAG = "TWILIO";
 
 // AlarmDecoder includes
@@ -75,11 +77,13 @@ static const char *TAG = "TWILIO";
 #endif
 
 QueueHandle_t  sendQ=NULL;
-mbedtls_ssl_config conf;
 mbedtls_entropy_context entropy;
 mbedtls_ctr_drbg_context ctr_drbg;
-mbedtls_ssl_context ssl;
+mbedtls_ssl_config twilio_conf;
+mbedtls_ssl_context twilio_ssl;
 mbedtls_x509_crt api_twilio_com_cacert;
+mbedtls_ssl_config sendgrid_conf;
+mbedtls_ssl_context sendgrid_ssl;
 mbedtls_x509_crt api_sendgrid_com_cacert;
 mbedtls_net_context server_fd;
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
@@ -138,7 +142,7 @@ std::string urlencode(std::string str)
 /**
  * build auth string from user and pass
  */
-std::string get_auth_header(const std::string& user, const std::string& password)
+std::string get_basic_auth_header(const std::string& user, const std::string& password)
 {
 
     size_t toencodeLen = user.length() + password.length() + 2;
@@ -164,20 +168,36 @@ std::string get_auth_header(const std::string& user, const std::string& password
 }
 
 /**
- * build_request_string()
+ * build Bearer auth string from api key
  */
-std::string build_request_string(std::string sid,
-                                 std::string token, std::string body)
+std::string get_bearer_auth_header(const std::string& apikey)
+{
+    return "Authorization: Bearer " + apikey;
+}
+
+/**
+ * i()
+ */
+std::string build_twilio_request_string(std::string sid,
+                                        std::string token, std::string body, char type)
 {
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
+    std::string apiPath;
 
-    std::string auth_header = get_auth_header(sid, token);
+    if (type == TWILIO_NOTIFY_CALL[0]) {
+        apiPath = "Calls.json";
+    }
+    if (type == TWILIO_NOTIFY_MESSAGE[0]) {
+        apiPath = "Messages.json";
+    }
+
+    std::string auth_header = get_basic_auth_header(sid, token);
     std::string http_request =
-        "POST /" + std::string(API_VERSION) + "/Accounts/" + sid + "/Messages HTTP/1.0\r\n" +
+        "POST /" + std::string(TWILIO_API_VERSION) + "/Accounts/" + sid + "/" + apiPath + " HTTP/1.0\r\n" +
         "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
         auth_header + "\r\n" +
-        "Host: " + WEB_SERVER + "\r\n" +
+        "Host: " + TWILIO_API_SERVER + "\r\n" +
         "Cache-control: no-cache\r\n" +
         "Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n" +
         "Content-Length: " + ad2_to_string(body.length()) + "\r\n" +
@@ -186,6 +206,78 @@ std::string build_request_string(std::string sid,
     return http_request;
 }
 
+/**
+ * build_sendgrid_bodY()
+ */
+std::string build_sendgrid_body(std::string from, std::string to, std::string arg)
+{
+    // object: root
+    cJSON *_root = cJSON_CreateObject();
+
+    // array: personalizations
+    cJSON *_personalizations = cJSON_CreateArray();
+    cJSON *_pitem = cJSON_CreateObject();
+    cJSON_AddItemToArray(_personalizations, _pitem);
+
+    // object: from
+    cJSON *_from = cJSON_CreateObject();
+    cJSON_AddStringToObject(_from, "email", from.c_str());
+
+    // array: content
+    std::string message = arg;
+    cJSON *_content = cJSON_CreateArray();
+    cJSON *_text = cJSON_CreateObject();
+    cJSON_AddItemToArray(_content, _text);
+    cJSON_AddStringToObject(_text, "type", "text/plain");
+    cJSON_AddStringToObject(_text, "value", message.c_str());
+
+    // add top level items to root
+    cJSON_AddItemToObject(_root, "personalizations", _personalizations);
+    cJSON_AddItemToObject(_root, "from", _from);
+    cJSON_AddItemToObject(_root, "content", _content);
+
+
+    // _personalizations -> subject
+    cJSON_AddStringToObject(_pitem, "subject", ad2_string_printf("AD2 ALERT '%s'", arg.c_str()).c_str());
+
+    // _personalizations -> to[]
+    cJSON *_to = cJSON_CreateArray();
+    cJSON_AddItemToObject(_pitem, "to", _to);
+    cJSON *_email = cJSON_CreateObject();
+    cJSON_AddItemToArray(_to, _email);
+    cJSON_AddStringToObject(_email, "email", to.c_str());
+
+
+    char *json = NULL;
+    json = cJSON_Print(_root);
+
+    std::string ret = json;
+    cJSON_Delete(_root);
+
+    return ret;
+}
+
+/**
+ * build_sendgrid_request_string()
+ */
+std::string build_sendgrid_request_string(std::string apikey, std::string body)
+{
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+
+    std::string auth_header = get_bearer_auth_header(apikey);
+    std::string http_request = "POST https://api.sendgrid.com/v3/mail/send HTTP/1.1\r\n";
+    http_request +=
+        "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
+        auth_header + "\r\n" +
+        "Host: " + std::string(SENDGRID_API_SERVER) + "\r\n" +
+        "Cache-control: no-cache\r\n" +
+        "Content-Type: application/json; charset=utf-8\r\n" +
+        "Content-Length: " + ad2_to_string(body.length()) + "\r\n" +
+        "Connection: close\r\n" +
+        "\r\n" + body + "\r\n";
+    return http_request;
+}
 
 #ifdef __cplusplus
 extern "C" {
@@ -233,6 +325,7 @@ void twilio_consumer_task(void *pvParameter)
             if (xReturned != pdPASS) {
                 ESP_LOGE(TAG, "failed to create twilio task.");
             }
+            // FIXME: Need to force 1 task max at a time.
             // Sleep after spawingin a task.
             vTaskDelay(TWILIO_RATE_LIMIT/portTICK_PERIOD_MS); //wait for 500 ms
         }
@@ -245,11 +338,15 @@ void twilio_consumer_task(void *pvParameter)
  */
 void twilio_free()
 {
-    mbedtls_ssl_free( &ssl );
+    mbedtls_ssl_free( &twilio_ssl );
     mbedtls_x509_crt_free( &api_twilio_com_cacert );
+    mbedtls_ssl_config_free( &twilio_conf );
+
+    mbedtls_ssl_free( &sendgrid_ssl );
     mbedtls_x509_crt_free( &api_sendgrid_com_cacert );
+    mbedtls_ssl_config_free( &sendgrid_conf );
+
     mbedtls_ctr_drbg_free( &ctr_drbg);
-    mbedtls_ssl_config_free( &conf );
     mbedtls_entropy_free( &entropy );
 }
 
@@ -270,6 +367,7 @@ void twilio_send_task(void *pvParameters)
     std::string http_request;
     std::string body;
     char * reqp = NULL;
+    mbedtls_ssl_context *_ssl = nullptr;
 
 
     // should never happen sanity check.
@@ -295,42 +393,70 @@ void twilio_send_task(void *pvParameters)
     free(message_data);
 
     /* Build the HTTPS POST request. */
+    const char * _api_server_port = nullptr;
+    const char * _api_server_address = nullptr;
+
     switch(type) {
-    case 'M': // Messages
+    // Twilio Messages api
+    case TWILIO_NOTIFY_MESSAGE[0]:
+        _api_server_address = TWILIO_API_SERVER;
+        _api_server_port = TWILIO_API_PORT;
         body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
                "&Body=" + urlencode(arg);
+        // build request string including basic auth headers
+        http_request = build_twilio_request_string(sid, token, body, TWILIO_NOTIFY_MESSAGE[0]);
+        _ssl = &twilio_ssl;
         break;
-    case 'R': // Redirect
-        break;
-    case 'T': // Twiml URL
+
+    // Twilio Call api
+    case TWILIO_NOTIFY_CALL[0]:
+        _api_server_address = TWILIO_API_SERVER;
+        _api_server_port = TWILIO_API_PORT;
         body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
-               "&Url=" + urlencode(arg);
+               "&Twiml=" + urlencode(arg);
+        // build request string including basic auth headers
+        http_request = build_twilio_request_string(sid, token, body, TWILIO_NOTIFY_CALL[0]);
+        _ssl = &twilio_ssl;
         break;
+
+    // SendGrid Email api.
+    case TWILIO_NOTIFY_EMAIL[0]:
+        _api_server_address = SENDGRID_API_SERVER;
+        _api_server_port = SENDGRID_API_PORT;
+
+        body = build_sendgrid_body(from, to, arg);
+
+        // build request string including basic auth headers
+        http_request = build_sendgrid_request_string(token, body);
+        ESP_LOGI(TAG, "SENDING '%s'", http_request.c_str());
+        _ssl = &sendgrid_ssl;
+        break;
+
     default:
         ESP_LOGW(TAG, "Unknown message type '%c' aborting task.", type);
         vTaskDelete(NULL);
         return;
     }
 
-    ESP_LOGI(TAG, "Connecting to %s:%s...", WEB_SERVER, WEB_PORT);
+    ESP_LOGI(TAG, "Connecting to %s:%s...", _api_server_address, _api_server_port);
 
     // clean up and ready for new request
-    mbedtls_ssl_session_reset(&ssl);
+    mbedtls_ssl_session_reset(_ssl);
     mbedtls_net_free(&server_fd);
 
-    if ((ret = mbedtls_net_connect(&server_fd, WEB_SERVER,
-                                   WEB_PORT, MBEDTLS_NET_PROTO_TCP)) != 0) {
+    if ((ret = mbedtls_net_connect(&server_fd, _api_server_address,
+                                   _api_server_port, MBEDTLS_NET_PROTO_TCP)) != 0) {
         ESP_LOGE(TAG, "mbedtls_net_connect returned -%x", -ret);
         goto exit;
     }
 
     ESP_LOGI(TAG, "Connected.");
 
-    mbedtls_ssl_set_bio(&ssl, &server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+    mbedtls_ssl_set_bio(_ssl, &server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
 
     ESP_LOGI(TAG, "Performing the SSL/TLS handshake...");
 
-    while ((ret = mbedtls_ssl_handshake(&ssl)) != 0) {
+    while ((ret = mbedtls_ssl_handshake(_ssl)) != 0) {
         if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
             ESP_LOGE(TAG, "mbedtls_ssl_handshake returned -0x%x", -ret);
             goto exit;
@@ -339,7 +465,7 @@ void twilio_send_task(void *pvParameters)
 
     ESP_LOGI(TAG, "Verifying peer X.509 certificate...");
 
-    if ((flags = mbedtls_ssl_get_verify_result(&ssl)) != 0) {
+    if ((flags = mbedtls_ssl_get_verify_result(_ssl)) != 0) {
         /* In real life, we probably want to close connection if ret != 0 */
         ESP_LOGW(TAG, "Failed to verify peer certificate!");
         bzero(buf, sizeof(buf));
@@ -349,18 +475,18 @@ void twilio_send_task(void *pvParameters)
         ESP_LOGI(TAG, "Certificate verified.");
     }
 
-    ESP_LOGI(TAG, "Cipher suite is %s", mbedtls_ssl_get_ciphersuite(&ssl));
+    ESP_LOGI(TAG, "Cipher suite is %s", mbedtls_ssl_get_ciphersuite(_ssl));
 
-    // build request string including basic auth headers
-    http_request = build_request_string(sid, token, body);
     reqp = (char *)http_request.c_str();
-#if defined(TWILIO_DEBUG)
-    ad2_printf_host("sending message to twilio\r\n%s\r\n",http_request.c_str());
+#if defined(DEBUG_TWILIO)
+    ESP_LOGI(TAG, "sending message to twilio\r\n%s\r\n",http_request.c_str());
 #endif
+
+
     /* Send HTTPS POST request. */
     ESP_LOGI(TAG, "Writing HTTP request...");
     do {
-        ret = mbedtls_ssl_write(&ssl,
+        ret = mbedtls_ssl_write(_ssl,
                                 (const unsigned char *)reqp + written_bytes,
                                 strlen(reqp) - written_bytes);
         if (ret >= 0) {
@@ -377,7 +503,7 @@ void twilio_send_task(void *pvParameters)
     do {
         len = sizeof(buf) - 1;
         bzero(buf, sizeof(buf));
-        ret = mbedtls_ssl_read(&ssl, (unsigned char *)buf, len);
+        ret = mbedtls_ssl_read(_ssl, (unsigned char *)buf, len);
 
         if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
             continue;
@@ -398,12 +524,14 @@ void twilio_send_task(void *pvParameters)
             break;
         }
         // TODO: parse response error logging for easier debugging.
-
+#if defined(DEBUG_TWILIO)
+        ESP_LOGI(TAG, "HTTPRX: %s", buf);
+#endif
         len = ret;
         ESP_LOGD(TAG, "%d bytes read", len);
     } while(1);
 
-    mbedtls_ssl_close_notify(&ssl);
+    mbedtls_ssl_close_notify(_ssl);
 
 exit:
 
@@ -467,7 +595,7 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
             type.resize(1);
 
             // sanity check see if type(char) is in our list of types
-            if (std::string("MRT").find(type) != string::npos) {
+            if (std::string(TWILIO_NOTIFY_MESSAGE TWILIO_NOTIFY_CALL TWILIO_NOTIFY_EMAIL).find(type) != string::npos) {
                 // add to the queue
                 ESP_LOGI(TAG, "Adding task to twilio send queue");
                 twilio_add_queue(sid, token, from, to, type[0], body);
@@ -490,9 +618,34 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 void on_search_match_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
-    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s'", msg->c_str(), es->out_message.c_str());
-    for( std::size_t idx = 1; idx < es->RESULT_GROUPS.size(); ++idx ) {
-        ESP_LOGI(TAG, "----- '%s'", es->RESULT_GROUPS[idx].c_str());
+    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
+    if (g_ad2_network_state == AD2_CONNECTED) {
+        std::string body = es->out_message;
+        // load our settings for this event type.
+        std::string sid;
+        ad2_get_nv_slot_key_string(TWILIO_SID_CFGKEY, es->INT_ARG, nullptr, sid);
+
+        std::string token;
+        ad2_get_nv_slot_key_string(TWILIO_TOKEN_CFGKEY, es->INT_ARG, nullptr, token);
+
+        std::string from;
+        ad2_get_nv_slot_key_string(TWILIO_FROM_CFGKEY, es->INT_ARG, nullptr, from);
+
+        std::string to;
+        ad2_get_nv_slot_key_string(TWILIO_TO_CFGKEY, es->INT_ARG, nullptr, to);
+
+        std::string type;
+        ad2_get_nv_slot_key_string(TWILIO_TYPE_CFGKEY, es->INT_ARG, nullptr, type);
+        type.resize(1);
+
+        // sanity check see if type(char) is in our list of types
+        if (std::string(TWILIO_NOTIFY_MESSAGE TWILIO_NOTIFY_CALL TWILIO_NOTIFY_EMAIL).find(type) != string::npos) {
+            // add to the queue
+            ESP_LOGI(TAG, "Adding task to twilio send queue");
+            twilio_add_queue(sid, token, from, to, type[0], body);
+        } else {
+            ESP_LOGI(TAG, "Unknown or missing twtype '%s' check settings. Not adding to delivery queue.", type.c_str());
+        }
     }
 }
 
@@ -527,8 +680,9 @@ static void _cli_cmd_twilio_event(char *string)
                     ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
                     ad2_printf_host("Setting %s value finished.\r\n", key.c_str());
                 } else {
+                    buf = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, nullptr, buf);
-                    ad2_printf_host("Current slot #%02i '%s' value '%s'\r\n", slot, key.c_str(), buf.c_str());
+                    ad2_printf_host("Current slot #%02i '%s' value '%s'\r\n", slot, key.c_str(), buf.length() ? buf.c_str() : "EMPTY");
                 }
             } else {
                 ad2_printf_host("Missing <slot>\r\n");
@@ -569,52 +723,58 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
             // sub key suffix.
             std::string sk = ad2_string_printf("%c", buf[0]);
 
-            // get the args if any
-            ad2_copy_nth_arg(arg1, string, 3);
-            ad2_copy_nth_arg(arg2, string, 4);
-
             /* setting */
             switch(buf[0]) {
-            case 'N': // Notification slot
+            case SK_NOTIFY_SLOT[0]: // Notification slot
+                ad2_copy_nth_arg(arg1, string, 3);
                 i = std::atoi (arg1.c_str());
                 tmpsz = i < 0 ? "Clearing" : "Setting";
                 ad2_set_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), i);
                 ad2_printf_host("%s smartswitch #%i to use notification settings from slot #%i.\r\n", tmpsz.c_str(), slot, i);
                 break;
-            case 'D': // Default state
+            case SK_DEFAULT_STATE[0]: // Default state
+                ad2_copy_nth_arg(arg1, string, 3);
                 i = std::atoi (arg1.c_str());
                 ad2_set_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), i);
                 ad2_printf_host("Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
                 break;
-            case 'R': // Auto Reset
+            case SK_AUTO_RESET[0]: // Auto Reset
+                ad2_copy_nth_arg(arg1, string, 3);
                 i = std::atoi (arg1.c_str());
                 ad2_set_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), i);
                 ad2_printf_host("Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
                 break;
-            case 'T': // Message type filter list
+            case SK_TYPE_LIST[0]: // Message type filter list
+                // consume the arge and to EOL
+                ad2_copy_nth_arg(arg1, string, 3, true);
                 ad2_set_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), arg1.c_str());
                 ad2_printf_host("Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
                 break;
-            case 'P': // Pre filter REGEX
+            case SK_PREFILTER_REGEX[0]: // Pre filter REGEX
+                // consume the arge and to EOL
+                ad2_copy_nth_arg(arg1, string, 3, true);
                 ad2_set_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), arg1.c_str());
                 ad2_printf_host("Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
                 break;
 
-            case 'O': // Open state REGEX list editor
-            case 'C': // Close state REGEX list editor
-            case 'F': // Fault state REGEX list editor
+            case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
+            case SK_CLOSED_REGEX_LIST[0]: // Closed state REGEX list editor
+            case SK_FAULT_REGEX_LIST[0]: // Fault state REGEX list editor
                 // Add index to file name to track N number of elements.
+                ad2_copy_nth_arg(arg1, string, 3);
                 i = std::atoi (arg1.c_str());
-                if ( i > 0 && i < 9) {
+                if ( i > 0 && i < MAX_SEARCH_KEYS) {
+                    // consume the arge and to EOL
+                    ad2_copy_nth_arg(arg2, string, 4, true);
                     std::string op = arg2.length() > 0 ? "Setting" : "Clearing";
                     sk+=ad2_string_printf("%02i", i);
-                    if (buf[0] == 'O') {
+                    if (buf[0] == SK_OPEN_REGEX_LIST[0]) {
                         tmpsz = "OPEN";
                     }
-                    if (buf[0] == 'C') {
+                    if (buf[0] == SK_CLOSED_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (buf[0] == 'F') {
+                    if (buf[0] == SK_FAULT_REGEX_LIST[0]) {
                         tmpsz = "FAULT";
                     }
                     ad2_set_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), arg2.c_str());
@@ -624,16 +784,18 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
                 }
                 break;
 
-            case 'o': // Open state output format string
-            case 'c': // Close state output format string
-            case 'f': // Fault state output format string
-                if (buf[0] == 'o') {
+            case SK_OPEN_OUTPUT_FMT[0]: // Open state output format string
+            case SK_CLOSED_OUTPUT_FMT[0]: // Closed state output format string
+            case SK_FAULT_OUTPUT_FMT[0]: // Fault state output format string
+                // consume the arge and to EOL
+                ad2_copy_nth_arg(arg1, string, 3, true);
+                if (buf[0] == SK_OPEN_OUTPUT_FMT[0]) {
                     tmpsz = "OPEN";
                 }
-                if (buf[0] == 'c') {
+                if (buf[0] == SK_CLOSED_OUTPUT_FMT[0]) {
                     tmpsz = "CLOSED";
                 }
-                if (buf[0] == 'f') {
+                if (buf[0] == SK_FAULT_OUTPUT_FMT[0]) {
                     tmpsz = "FAULT";
                 }
                 ad2_set_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), arg1.c_str());
@@ -648,52 +810,63 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
             // query show contents.
             int i;
             std::string out;
-            std::string args = "NDRTPOCFocf";
+            std::string args = SK_NOTIFY_SLOT
+                               SK_DEFAULT_STATE
+                               SK_AUTO_RESET
+                               SK_TYPE_LIST
+                               SK_PREFILTER_REGEX
+                               SK_OPEN_REGEX_LIST
+                               SK_CLOSED_REGEX_LIST
+                               SK_FAULT_REGEX_LIST
+                               SK_OPEN_OUTPUT_FMT
+                               SK_CLOSED_OUTPUT_FMT
+                               SK_FAULT_OUTPUT_FMT;
+
             ad2_printf_host("Twilio SmartSwitch #%i report\r\n", slot);
             // sub key suffix.
             std::string sk;
             for(char& c : args) {
                 std::string sk = ad2_string_printf("%c", c);
                 switch(c) {
-                case 'N':
+                case SK_NOTIFY_SLOT[0]:
                     i = 0; // Default 0
                     ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), &i);
                     ad2_printf_host("  Using notification settings from slot #%i.\r\n", i);
                     break;
-                case 'D':
+                case SK_DEFAULT_STATE[0]:
                     i = 0; // Default CLOSED
                     ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), &i);
                     ad2_printf_host("  Switch default state is '%s' (%i).\r\n", AD2Parse.state_str[i].c_str(), i);
                     break;
-                case 'R':
+                case SK_AUTO_RESET[0]:
                     i = 0; // Defaut 0 or disabled
                     ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), &i);
                     ad2_printf_host("  Auto reset time in ms is '%s'.\r\n", (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
                     break;
-                case 'T':
+                case SK_TYPE_LIST[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), out);
                     ad2_printf_host("  Message type list is '%s'.\r\n", out.c_str());
                     break;
-                case 'P':
+                case SK_PREFILTER_REGEX[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), out);
                     ad2_printf_host("  Pre filter REGEX is '%s'.\r\n", out.c_str());
                     break;
-                case 'O':
-                case 'C':
-                case 'F':
+                case SK_OPEN_REGEX_LIST[0]:
+                case SK_CLOSED_REGEX_LIST[0]:
+                case SK_FAULT_REGEX_LIST[0]:
                     // * Find all sub keys and show info.
-                    if (c == 'O') {
+                    if (c == SK_OPEN_REGEX_LIST[0]) {
                         tmpsz = "OPEN";
                     }
-                    if (c == 'C') {
+                    if (c == SK_CLOSED_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (c == 'F') {
+                    if (c == SK_FAULT_REGEX_LIST[0]) {
                         tmpsz = "FAULT";
                     }
-                    for ( i = 1; i < 9; i++ ) {
+                    for ( i = 1; i < MAX_SEARCH_KEYS; i++ ) {
                         out = "";
                         std::string tsk = sk + ad2_string_printf("%02i", i);
                         ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, tsk.c_str(), out);
@@ -702,16 +875,16 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
                         }
                     }
                     break;
-                case 'o':
-                case 'c':
-                case 'f':
-                    if (c == 'o') {
+                case SK_OPEN_OUTPUT_FMT[0]:
+                case SK_CLOSED_OUTPUT_FMT[0]:
+                case SK_FAULT_OUTPUT_FMT[0]:
+                    if (c == SK_OPEN_OUTPUT_FMT[0]) {
                         tmpsz = "OPEN";
                     }
-                    if (c == 'c') {
+                    if (c == SK_CLOSED_OUTPUT_FMT[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (c == 'f') {
+                    if (c == SK_FAULT_OUTPUT_FMT[0]) {
                         tmpsz = "FAULT";
                     }
                     out = "";
@@ -737,7 +910,7 @@ static struct cli_command twilio_cmd_list[] = {
         "  ```" TWILIO_TOKEN_CFGKEY " {slot} {hash}```\r\n\r\n"
         "  - {slot}: [N]\r\n"
         "    - For default use 0. Support multiple accounts.\r\n"
-        "  - {hash}: Twilio 'User Auth Token'\r\n\r\n"
+        "  - {hash}: Twilio 'User Auth Token'. SendGrid 'API KEY'.\r\n\r\n"
         "  Example: " TWILIO_TOKEN_CFGKEY " 0 aabbccdd112233..\r\n\r\n", _cli_cmd_twilio_event
     },
     {
@@ -746,7 +919,7 @@ static struct cli_command twilio_cmd_list[] = {
         "  ```" TWILIO_SID_CFGKEY " {slot} {hash}```\r\n\r\n"
         "  - {slot}: [N]\r\n"
         "    - For default use 0. Support multiple accounts.\r\n"
-        "  - {hash}: Twilio 'Account SID'\r\n\r\n"
+        "  - {hash}: Twilio 'Account SID'. SendGrid 'KEY Name' or user defined N/A.\r\n\r\n"
         "  Example: " TWILIO_SID_CFGKEY " 0 aabbccdd112233..\r\n\r\n", _cli_cmd_twilio_event
     },
     {
@@ -823,44 +996,34 @@ void twilio_init()
         cli_register_command(&twilio_cmd_list[i]);
     }
 
-    // init server_fd
-    mbedtls_net_init(&server_fd);
-    // init ssl
-    mbedtls_ssl_init(&ssl);
-    // init SSL conf
-    mbedtls_ssl_config_init(&conf);
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
     mbedtls_ssl_cache_init( &cache );
 #endif
+    // init server_fd
+    mbedtls_net_init(&server_fd);
+
+    // init api.twilio.com ssl connection
+    mbedtls_ssl_init(&twilio_ssl);
+    // init api.twilio.com SSL conf
+    mbedtls_ssl_config_init(&twilio_conf);
     // init cert for api.twilio.com
     mbedtls_x509_crt_init(&api_twilio_com_cacert);
+
+    // init api.sendgrid.com ssl connection
+    mbedtls_ssl_init(&sendgrid_ssl);
+    // init api.sendgrid.com SSL conf
+    mbedtls_ssl_config_init(&sendgrid_conf);
     // init cert for api.sendgrid.com
     mbedtls_x509_crt_init(&api_sendgrid_com_cacert);
+
     // init entropy
     mbedtls_entropy_init(&entropy);
+
     // init drbg
     mbedtls_ctr_drbg_init(&ctr_drbg);
-#if defined(DEBUG_TWILIO)
+#if defined(DEBUG_TWILIO_TLS)
     mbedtls_debug_set_threshold( DEBUG_LEVEL );
 #endif
-
-    ESP_LOGI(TAG, "Loading api.twilio.com CA root certificate...");
-    res = mbedtls_x509_crt_parse(&api_twilio_com_cacert, twilio_root_pem_start,
-                                 twilio_root_pem_end-twilio_root_pem_start);
-    if(res < 0) {
-        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -res);
-        twilio_free();
-        return;
-    }
-
-    ESP_LOGI(TAG, "Loading api.sendgrid.com CA root certificate...");
-    res = mbedtls_x509_crt_parse(&api_sendgrid_com_cacert, sendgrid_root_pem_start,
-                                 sendgrid_root_pem_end-sendgrid_root_pem_start);
-    if(res < 0) {
-        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -res);
-        twilio_free();
-        return;
-    }
 
     ESP_LOGI(TAG, "Seeding the random number generator");
     if((res = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
@@ -870,33 +1033,45 @@ void twilio_init()
         return;
     }
 
+    /**
+     * api.twilio.com SSL setup
+     */
+    ESP_LOGI(TAG, "Loading api.twilio.com CA root certificate...");
+    res = mbedtls_x509_crt_parse(&api_twilio_com_cacert, twilio_root_pem_start,
+                                 twilio_root_pem_end-twilio_root_pem_start);
+    if(res < 0) {
+        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -res);
+        twilio_free();
+        return;
+    }
+
     /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
        a warning if CA verification fails but it will continue to connect.
        You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
     */
-    mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
-    mbedtls_ssl_conf_ca_chain(&conf, &api_twilio_com_cacert, NULL);
-    mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+    mbedtls_ssl_conf_authmode(&twilio_conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
+    mbedtls_ssl_conf_ca_chain(&twilio_conf, &api_twilio_com_cacert, NULL);
+    mbedtls_ssl_conf_rng(&twilio_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
 #ifdef CONFIG_MBEDTLS_DEBUG
-    mbedtls_esp_enable_debug_log(&conf, 4);
+    mbedtls_esp_enable_debug_log(&twilio_conf, 4);
 #endif
 
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_conf_session_cache( &conf, &cache,
+    mbedtls_ssl_conf_session_cache( &twilio_conf, &cache,
                                     mbedtls_ssl_cache_get,
                                     mbedtls_ssl_cache_set );
 #endif
 
-    ESP_LOGI(TAG, "Setting hostname for TLS session...");
+    ESP_LOGI(TAG, "Setting api.twilio.com hostname for TLS session...");
     /* Hostname set here should match CN in server certificate */
-    if((res = mbedtls_ssl_set_hostname(&ssl, WEB_SERVER)) != 0) {
+    if((res = mbedtls_ssl_set_hostname(&twilio_ssl, TWILIO_API_SERVER)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -res);
         twilio_free();
         return;
     }
 
-    ESP_LOGI(TAG, "Setting up the SSL/TLS structure...");
-    if((res = mbedtls_ssl_config_defaults(&conf,
+    ESP_LOGI(TAG, "Setting up the api.twilio.com SSL/TLS structure...");
+    if((res = mbedtls_ssl_config_defaults(&twilio_conf,
                                           MBEDTLS_SSL_IS_CLIENT,
                                           MBEDTLS_SSL_TRANSPORT_STREAM,
                                           MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
@@ -905,7 +1080,60 @@ void twilio_init()
         return;
     }
 
-    if ((res = mbedtls_ssl_setup(&ssl, &conf)) != 0) {
+    if ((res = mbedtls_ssl_setup(&twilio_ssl, &twilio_conf)) != 0) {
+        ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -res);
+        twilio_free();
+        return;
+    }
+
+    /**
+     * api.sendgrid.com SSL setup
+     */
+    ESP_LOGI(TAG, "Loading api.sendgrid.com CA root certificate...");
+    res = mbedtls_x509_crt_parse(&api_sendgrid_com_cacert, sendgrid_root_pem_start,
+                                 sendgrid_root_pem_end-sendgrid_root_pem_start);
+    if(res < 0) {
+        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -res);
+        twilio_free();
+        return;
+    }
+
+    /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
+       a warning if CA verification fails but it will continue to connect.
+       You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
+    */
+    mbedtls_ssl_conf_authmode(&sendgrid_conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
+    mbedtls_ssl_conf_ca_chain(&sendgrid_conf, &api_sendgrid_com_cacert, NULL);
+    mbedtls_ssl_conf_rng(&sendgrid_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+#ifdef CONFIG_MBEDTLS_DEBUG
+    mbedtls_esp_enable_debug_log(&sendgrid_conf, 4);
+#endif
+
+#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
+    mbedtls_ssl_conf_session_cache( &sendgrid_conf, &cache,
+                                    mbedtls_ssl_cache_get,
+                                    mbedtls_ssl_cache_set );
+#endif
+
+    ESP_LOGI(TAG, "Setting api.sendgrid.com hostname for TLS session...");
+    /* Hostname set here should match CN in server certificate */
+    if((res = mbedtls_ssl_set_hostname(&sendgrid_ssl, SENDGRID_API_SERVER)) != 0) {
+        ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -res);
+        twilio_free();
+        return;
+    }
+
+    ESP_LOGI(TAG, "Setting up the api.sendgrid.com SSL/TLS structure...");
+    if((res = mbedtls_ssl_config_defaults(&sendgrid_conf,
+                                          MBEDTLS_SSL_IS_CLIENT,
+                                          MBEDTLS_SSL_TRANSPORT_STREAM,
+                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
+        ESP_LOGE(TAG, "mbedtls_ssl_config_defaults returned %d", res);
+        twilio_free();
+        return;
+    }
+
+    if ((res = mbedtls_ssl_setup(&sendgrid_ssl, &sendgrid_conf)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -res);
         twilio_free();
         return;
@@ -922,47 +1150,70 @@ void twilio_init()
     // TODO configure to all selection on events to notify on.
 
     // Register callbacks for a few static events for testing.
-    AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
-    AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
-    AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
-    AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
-    AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_event_cb, (void*)ON_ALARM_CHANGE);
+    //AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
+    //AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
+    //AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
+    //AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
+    //AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_event_cb, (void*)ON_ALARM_CHANGE);
 
     // Register search based virtual switches.
     for (int i = 1; i < 99; i++) {
         int notification_slot = -1;
-        ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, i, "N", &notification_slot);
+        ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, i, SK_NOTIFY_SLOT, &notification_slot);
         if (notification_slot >= 0) {
             AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
+
+            // Save the notification slot. That is all we need to complete the task.
+            es1->INT_ARG = notification_slot;
+
             // We at least need some output format or skip
-            ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, "o", es1->OPEN_OUTPUT_FORMAT);
-            ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, "c", es1->CLOSED_OUTPUT_FORMAT);
-            ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, "f", es1->FAULT_OUTPUT_FORMAT);
+            ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
+            ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, SK_CLOSED_OUTPUT_FMT, es1->CLOSED_OUTPUT_FORMAT);
+            ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, SK_FAULT_OUTPUT_FMT, es1->FAULT_OUTPUT_FORMAT);
             if ( es1->OPEN_OUTPUT_FORMAT.length()
                     || es1->CLOSED_OUTPUT_FORMAT.length()
                     || es1->FAULT_OUTPUT_FORMAT.length() ) {
-                ESP_LOGI(TAG,"FIXME: adding subscriber slot#%02i notification id %02i", i, notification_slot);
+
                 std::string notify_types_sz = "";
                 std::vector<std::string> notify_types_v;
-                ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, "T", notify_types_sz);
+                ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, SK_TYPE_LIST, notify_types_sz);
                 ad2_tokenize(notify_types_sz, ',', notify_types_v);
                 for (auto &sztype : notify_types_v) {
                     ad2_trim(sztype);
                     auto x = AD2Parse.message_type_id.find(sztype);
                     if(x != std::end(AD2Parse.message_type_id)) {
                         ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
-                        ESP_LOGI(TAG,"FIXME: adding type '%s' -> %i", sztype.c_str(), (int)mt);
                         es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
                     }
                 }
-                ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, "P", es1->PRE_FILTER_REGEX);
+                ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
 
-                // FIXME
-                es1->OPEN_REGEX_LIST.push_back("RFX:0041594,1.......");
-                es1->CLOSED_REGEX_LIST.push_back("RFX:0041594,0.......");
-                es1->FAULT_REGEX_LIST.push_back("RFX:0041594,......1.");
+                // Load all regex search patterns for OPEN,CLOSE and FAULT sub keys.
+                std::string regex_sk_list = SK_FAULT_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
+                for(char& c : regex_sk_list) {
+                    std::string sk = ad2_string_printf("%c", c);
+                    for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
+                        std::string out = "";
+                        std::string tsk = sk + ad2_string_printf("%02i", a);
+                        ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, i, tsk.c_str(), out);
+                        if ( out.length()) {
+                            if (c == SK_OPEN_REGEX_LIST[0]) {
+                                es1->OPEN_REGEX_LIST.push_back(out);
+                            }
+                            if (c == SK_CLOSED_REGEX_LIST[0]) {
+                                es1->CLOSED_REGEX_LIST.push_back(out);
+                            }
+                            if (c == SK_FAULT_REGEX_LIST[0]) {
+                                es1->FAULT_REGEX_LIST.push_back(out);
+                            }
+                        }
+                    }
+                }
 
+                // Save the search to a list for management.
                 AD2EventSearches.push_back(es1);
+
+                // subscribe to the callback for events.
                 AD2Parse.subscribeTo(on_search_match_cb, es1);
             }
         }

@@ -59,7 +59,7 @@ void ad2_set_log_mode(char m);
 std::string ad2_string_printf(const char *fmt, ...);
 std::string ad2_string_vaprintf(const char *fmt, va_list args);
 std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
-int  ad2_copy_nth_arg(std::string &dest, char* src, int n);
+int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining = false);
 void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);
 int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
