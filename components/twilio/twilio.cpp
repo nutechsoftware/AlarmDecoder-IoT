@@ -304,10 +304,11 @@ void twilio_add_queue(std::string &sid, std::string &token, std::string &from, s
 }
 
 /**
- * Background task to watch queue and synchronously spawn tasks.
+ * Background task to watch queue and synchronously send notifications.
  * Note:
- *   1) Only runs one task at a time.
- *   2) Monitor/limit max tasks in queue.
+ *   [X] Only runs one task at a time.
+ *   [X] Delivery rate limited.
+ *   [ ] Limit max tasks in queue. How many? High water local audible alert?.
  */
 void twilio_consumer_task(void *pvParameter)
 {
@@ -319,17 +320,16 @@ void twilio_consumer_task(void *pvParameter)
         }
         twilio_message_data_t *message_data = NULL;
         if ( xQueueReceive(sendQ,&message_data,portMAX_DELAY) ) {
-            ESP_LOGI(TAG, "creating task for twilio notification");
-            // process the message
-            BaseType_t xReturned = xTaskCreate(&twilio_send_task, "twilio_send_task", 1024*5, (void *)message_data, tskIDLE_PRIORITY+5, NULL);
-            if (xReturned != pdPASS) {
-                ESP_LOGE(TAG, "failed to create twilio task.");
-            }
-            // FIXME: Need to force 1 task max at a time.
-            // Sleep after spawingin a task.
-            vTaskDelay(TWILIO_RATE_LIMIT/portTICK_PERIOD_MS); //wait for 500 ms
+            ESP_LOGI(TAG, "Calling twilio notification.");
+            twilio_send_task((void *)message_data);
+            ESP_LOGI(TAG, "Completed requests stack free %d", uxTaskGetStackHighWaterMark(NULL));
+            vTaskDelay(TWILIO_RATE_LIMIT/portTICK_PERIOD_MS);
+        } else {
+            // sleep for a bit then check the queue again.
+            vTaskDelay(100/portTICK_PERIOD_MS);
         }
     }
+    // Notification queue consumer task stopping.
     vTaskDelete(NULL);
 }
 
@@ -373,7 +373,6 @@ void twilio_send_task(void *pvParameters)
     // should never happen sanity check.
     if (message_data == NULL) {
         ESP_LOGE(TAG, "error null message_data aborting task.");
-        vTaskDelete(NULL);
         return;
     }
     // load message data local for ease of access
@@ -434,7 +433,6 @@ void twilio_send_task(void *pvParameters)
 
     default:
         ESP_LOGW(TAG, "Unknown message type '%c' aborting task.", type);
-        vTaskDelete(NULL);
         return;
     }
 
@@ -539,9 +537,6 @@ exit:
         mbedtls_strerror(ret, buf, 100);
         ESP_LOGE(TAG, "Last error was: -0x%x - %s", -ret, buf);
     }
-    ESP_LOGI(TAG, "Completed requests stack free %d", uxTaskGetStackHighWaterMark(NULL));
-
-    vTaskDelete(NULL);
 }
 
 char * TWILIO_SETTINGS [] = {
@@ -1144,7 +1139,7 @@ void twilio_init()
     if( sendQ == 0 ) {
         ESP_LOGE(TAG, "Failed to create twilio queue.");
     } else {
-        xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 2048, NULL, tskIDLE_PRIORITY+1, NULL);
+        xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
     }
 
     // TODO configure to all selection on events to notify on.

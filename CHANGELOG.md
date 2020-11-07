@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] WIP
 - [ ] TWILIO: Need to add ability to trigger on common states FIRE, ALARM, DISARM, ARM, CHIME etc in new twsas command.
 - [ ] CORE: Need helper routines for doing simple template operations on strings. For now we can specify any static output message for a search alert results so it is not as critical. ex. 'twsas 1 o This is my own message for this alert'.
-- [ ] TWILIO: FIXME prevent multiple concurrent connections. Serialize.
+- [X] TWILIO: FIXME prevent multiple concurrent connections. Serialize.
 - [X] TWILIO: Removed test alerts CHIME, ARM, FIRE, ALARM, LRR.
 - [X] API: Added a pointer and integer arg to the search class for callback state passing.
 - [X] CORE: Improve arg ad2_copy_nth_arg adding ability to parse last arg skipping spaces till EOL. Easy to grab large strings as final arguemnt in any command.
