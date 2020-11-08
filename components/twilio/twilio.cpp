@@ -427,7 +427,9 @@ void twilio_send_task(void *pvParameters)
 
         // build request string including basic auth headers
         http_request = build_sendgrid_request_string(token, body);
+#if defined(DEBUG_TWILIO)
         ESP_LOGI(TAG, "SENDING '%s'", http_request.c_str());
+#endif
         _ssl = &sendgrid_ssl;
         break;
 

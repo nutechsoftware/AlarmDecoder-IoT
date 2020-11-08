@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
 
 ## [1.0.3 P3 WIP] - 2020-11-08 (QA testing for next release.)
+- [ ] CORE: Tidy QA testing.
 - [X] TWILIO: Need to add ability to trigger on common states FIRE, ALARM, DISARM, ARM, CHIME etc in new twsas command.
 - [X] TWILIO: Add CLI commands to allow the user to construct N number of virtual events to send messages for using the new AD2EventSearch API.
 - [X] CORE: Need helper routines for doing simple template operations on strings. For now we can specify any static output message for a search alert results so it is not as critical. ex. 'twsas 1 o This is my own message for this alert'.

@@ -456,20 +456,20 @@ public:
         {ON_READY_CHANGE,       "READY"},
         {ON_ALARM_CHANGE,       "ALARM"},
         {ON_FIRE,               "FIRE"},
-/*      {ON_ZONE_BYPASS_CHANGE, "BYPASS"}, */
-/*      {ON_BOOT,               "BOOT"}, */
-/*      {ON_CONFIG_RECEIVED,    "CONFIG"}, */
-/*      {ON_ZONE_FAULT,         "ZONE FAULT"}, */
-/*      {ON_ZONE_RESTORE,       "ZONE RESTORE"}, */
+        /*      {ON_ZONE_BYPASS_CHANGE, "BYPASS"}, */
+        /*      {ON_BOOT,               "BOOT"}, */
+        /*      {ON_CONFIG_RECEIVED,    "CONFIG"}, */
+        /*      {ON_ZONE_FAULT,         "ZONE FAULT"}, */
+        /*      {ON_ZONE_RESTORE,       "ZONE RESTORE"}, */
         {ON_LOW_BATTERY,        "LOW BATTERY"},
-/*      {ON_PANIC,              "PANIC"}, */
+        /*      {ON_PANIC,              "PANIC"}, */
         {ON_CHIME_CHANGE,       "CHIME"},
         {ON_MESSAGE,            "MESSAGE"},
         {ON_REL,                "RELAY"},
         {ON_EXP,                "EXPANDER"},
         {ON_LRR,                "CONTACT ID"},
         {ON_RFX,                "RFX"},
-/*      {ON_SENDING_RECEIVED,   "SEND ACK"}, */
+        /*      {ON_SENDING_RECEIVED,   "SEND ACK"}, */
         {ON_AUI,                "AUI"},
         {ON_KPM,                "KPM"},
         {ON_KPE,                "KPE"},

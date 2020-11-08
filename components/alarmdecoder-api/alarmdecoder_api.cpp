@@ -167,54 +167,53 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
     // build a simple event string that can be used by search.
     if (pstate) {
         switch ((int)ev) {
-            case ON_DISARM:
-                break;
-            case ON_ARM:
-                if (pstate->armed_stay) {
-                    emsg += " STAY";
-                }
-                if (pstate->armed_away) {
-                    emsg += " AWAY";
-                }
-                break;
-            case ON_POWER_CHANGE:
-                if(pstate->ac_power) {
-                    emsg += " AC";
-                } else
-                {
-                    emsg += " BATTERY";
-                }
-                break;
-            case ON_READY_CHANGE:
-                if(!pstate->ready) {
-                    emsg += " ON";
-                } else {
-                    emsg += " OFF";
-                }
-                break;
-            case ON_ALARM_CHANGE:
-                if(pstate->alarm_sounding) {
-                    emsg += " ON";
-                } else {
-                    emsg += " OFF";
-                }
-                break;
-            case ON_FIRE:
-                if(pstate->fire_alarm) {
-                    emsg += " ON";
-                } else {
-                    emsg += " OFF";
-                }
-                break;
-            case ON_CHIME_CHANGE:
-                if(pstate->chime_on) {
-                    emsg += " ON";
-                } else {
-                    emsg += " OFF";
-                }
-                break;
-            default:
-                emsg += " " + msg;
+        case ON_DISARM:
+            break;
+        case ON_ARM:
+            if (pstate->armed_stay) {
+                emsg += " STAY";
+            }
+            if (pstate->armed_away) {
+                emsg += " AWAY";
+            }
+            break;
+        case ON_POWER_CHANGE:
+            if(pstate->ac_power) {
+                emsg += " AC";
+            } else {
+                emsg += " BATTERY";
+            }
+            break;
+        case ON_READY_CHANGE:
+            if(!pstate->ready) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_ALARM_CHANGE:
+            if(pstate->alarm_sounding) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_FIRE:
+            if(pstate->fire_alarm) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_CHIME_CHANGE:
+            if(pstate->chime_on) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        default:
+            emsg += " " + msg;
         }
 
     }
