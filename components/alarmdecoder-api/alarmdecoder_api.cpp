@@ -146,9 +146,82 @@ void AlarmDecoderParser::subscribeTo(ad2_event_t ev, AD2ParserCallback_sub_t fn,
  */
 void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate)
 {
+    // notify any direct subscribers to this event type.
     for ( subscribers_t::iterator i = AD2Subscribers[ev].begin(); i != AD2Subscribers[ev].end(); ++i ) {
         (i->fn)(&msg, pstate, i->arg);
     }
+
+    // Build a human readable string of the event and send
+    // as the msg to notifySearchSubscribers with a message type of "EVENT".
+    // notifySearchSubscribers will check all search subscribers and look
+    // for any matches calling the search call back if a match is found.
+
+    // convert event to human readable string and state OPEN/CLOSE/FAULT
+    std::string emsg;
+    if (event_str.find((int)ev) == event_str.end()) {
+        emsg = "EVENT ID %d" + std::to_string(ev);
+    } else {
+        emsg = event_str[(int)ev];
+    }
+
+    // build a simple event string that can be used by search.
+    if (pstate) {
+        switch ((int)ev) {
+            case ON_DISARM:
+                break;
+            case ON_ARM:
+                if (pstate->armed_stay) {
+                    emsg += " STAY";
+                }
+                if (pstate->armed_away) {
+                    emsg += " AWAY";
+                }
+                break;
+            case ON_POWER_CHANGE:
+                if(pstate->ac_power) {
+                    emsg += " AC";
+                } else
+                {
+                    emsg += " BATTERY";
+                }
+                break;
+            case ON_READY_CHANGE:
+                if(!pstate->ready) {
+                    emsg += " ON";
+                } else {
+                    emsg += " OFF";
+                }
+                break;
+            case ON_ALARM_CHANGE:
+                if(pstate->alarm_sounding) {
+                    emsg += " ON";
+                } else {
+                    emsg += " OFF";
+                }
+                break;
+            case ON_FIRE:
+                if(pstate->fire_alarm) {
+                    emsg += " ON";
+                } else {
+                    emsg += " OFF";
+                }
+                break;
+            case ON_CHIME_CHANGE:
+                if(pstate->chime_on) {
+                    emsg += " ON";
+                } else {
+                    emsg += " OFF";
+                }
+                break;
+            default:
+                emsg += " " + msg;
+        }
+
+    }
+    // notify any search subscribers that are watching for the "EVENT" type. Provide
+    // a human readable event description.
+    // TODO: Document event messages
+    notifySearchSubscribers(EVENT_MESSAGE_TYPE, emsg, pstate);
 }
 
 /**
@@ -838,7 +911,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                     }
                 }
 
-                // call Search callback subscribers if a match is found.
+                // call Search callback subscribers if a match is found for this message type.
                 notifySearchSubscribers(MESSAGE_TYPE, msg, ad2ps);
 
 #ifdef MONITOR_PARSER_TIMING

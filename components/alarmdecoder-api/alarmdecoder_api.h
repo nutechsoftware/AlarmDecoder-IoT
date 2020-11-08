@@ -243,7 +243,8 @@ typedef enum {
     KPE_MESSAGE_TYPE,
     CRC_MESSAGE_TYPE,
     VER_MESSAGE_TYPE,
-    ERR_MESSAGE_TYPE
+    ERR_MESSAGE_TYPE,
+    EVENT_MESSAGE_TYPE
 } ad2_message_t;
 
 /**
@@ -447,12 +448,34 @@ public:
 
     void test();
 
+    // Human readable event id strings.
     std::map<int, const std::string> event_str = {
-        {ON_FIRE,         "FIRE ALARM"},
-        {ON_CHIME_CHANGE, "CHIME"},
-        {ON_LRR,          "CID EVENT"},
-        {ON_ARM,          "ARMED"},
-        {ON_DISARM,       "DISARMED"},
+        {ON_ARM,                "ARMED"},
+        {ON_DISARM,             "DISARMED"},
+        {ON_POWER_CHANGE,       "POWER"},
+        {ON_READY_CHANGE,       "READY"},
+        {ON_ALARM_CHANGE,       "ALARM"},
+        {ON_FIRE,               "FIRE"},
+/*      {ON_ZONE_BYPASS_CHANGE, "BYPASS"}, */
+/*      {ON_BOOT,               "BOOT"}, */
+/*      {ON_CONFIG_RECEIVED,    "CONFIG"}, */
+/*      {ON_ZONE_FAULT,         "ZONE FAULT"}, */
+/*      {ON_ZONE_RESTORE,       "ZONE RESTORE"}, */
+        {ON_LOW_BATTERY,        "LOW BATTERY"},
+/*      {ON_PANIC,              "PANIC"}, */
+        {ON_CHIME_CHANGE,       "CHIME"},
+        {ON_MESSAGE,            "MESSAGE"},
+        {ON_REL,                "RELAY"},
+        {ON_EXP,                "EXPANDER"},
+        {ON_LRR,                "CONTACT ID"},
+        {ON_RFX,                "RFX"},
+/*      {ON_SENDING_RECEIVED,   "SEND ACK"}, */
+        {ON_AUI,                "AUI"},
+        {ON_KPM,                "KPM"},
+        {ON_KPE,                "KPE"},
+        {ON_CRC,                "CRC"},
+        {ON_VER,                "VER"},
+        {ON_ERR,                "ERR"},
     };
 
     std::map<int, const std::string> state_str = {
@@ -473,6 +496,7 @@ public:
         {"CRC",   CRC_MESSAGE_TYPE},
         {"VER",   VER_MESSAGE_TYPE},
         {"ERR",   ERR_MESSAGE_TYPE},
+        {"EVENT", EVENT_MESSAGE_TYPE},
     };
 
 protected:
