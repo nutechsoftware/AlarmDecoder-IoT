@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
 
-## [1.0.3 P3 WIP] - 2020-11-08 (QA testing for next release.)
-- [ ] CORE: Tidy QA testing.
+## [1.0.4] - 2020-11-08
+- [X] CORE: Tidy QA testing.
 - [X] TWILIO: Improve docs and ```twsas``` command report format as valid commands with comments.
 - [X] TWILIO: Need to add ability to trigger on common states FIRE, ALARM, DISARM, ARM, CHIME etc in new twsas command.
 - [X] TWILIO: Add CLI commands to allow the user to construct N number of virtual events to send messages for using the new AD2EventSearch API.
