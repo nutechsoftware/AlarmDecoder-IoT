@@ -71,7 +71,7 @@ void AlarmDecoderParser::updateVersion(char *arg)
  * @return std::string
  *
  */
-std::string AlarmDecoderParser::bit_string(size_t const size, void const * const ptr)
+std::string AlarmDecoderParser::bin_to_binsz(size_t const size, void const * const ptr)
 {
     std::string out;
     unsigned char *b = (unsigned char*) ptr;
@@ -86,12 +86,48 @@ std::string AlarmDecoderParser::bit_string(size_t const size, void const * const
     return out;
 }
 
+/**
+ * @brief build bit string from hex string
+ *
+ * @param [in]ptr pointer to buffer of bytes to read
+ *
+ * @return std::string
+ *
+ */
+std::string AlarmDecoderParser::hex_to_binsz(void const * const ptr)
+{
+    std::string out;
+    unsigned char *b = (unsigned char*) ptr;
+    int i = 0, j, bitval;
+    while (b[i]) {
+        char c = b[i];
+        int value = 0;
+        if(c >= '0' && c <= '9') {
+            value = (c - '0');
+        } else if (c >= 'A' && c <= 'F') {
+            value = (10 + (c - 'A'));
+        } else if (c >= 'a' && c <= 'f') {
+            value = (10 + (c - 'a'));
+        } else {
+            // invalid
+            value = 0x00;
+        }
+        for (j = 3; j >= 0; j--) {
+            bitval = (value >> j) & 1;
+            out += '0'+bitval;
+        }
+        i++;
+    }
+    return out;
+}
+
 
 /**
  * @brief Subscribe to a EVENT type.
  *
  * @param [in]ev ad2_event_t event TYPE
  *   ex. ON_MESSAGE
+ * @param [in]fn Callback pointer function type AD2ParserCallback_sub_t.
  * @param [in]arg pointer to argument to pass to subscriber on event.
  */
 void AlarmDecoderParser::subscribeTo(ad2_event_t ev, AD2ParserCallback_sub_t fn, void *arg)
@@ -110,8 +146,224 @@ void AlarmDecoderParser::subscribeTo(ad2_event_t ev, AD2ParserCallback_sub_t fn,
  */
 void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate)
 {
+    // notify any direct subscribers to this event type.
     for ( subscribers_t::iterator i = AD2Subscribers[ev].begin(); i != AD2Subscribers[ev].end(); ++i ) {
         (i->fn)(&msg, pstate, i->arg);
+    }
+
+    // Build a human readable string of the event and send
+    // as the msg to notifySearchSubscribers with a message type of "EVENT".
+    // notifySearchSubscribers will check all search subscribers and look
+    // for any matches calling the search call back if a match is found.
+
+    // convert event to human readable string and state OPEN/CLOSE/FAULT
+    std::string emsg;
+    if (event_str.find((int)ev) == event_str.end()) {
+        emsg = "EVENT ID %d" + std::to_string(ev);
+    } else {
+        emsg = event_str[(int)ev];
+    }
+
+    // build a simple event string that can be used by search.
+    if (pstate) {
+        switch ((int)ev) {
+        case ON_DISARM:
+            break;
+        case ON_ARM:
+            if (pstate->armed_stay) {
+                emsg += " STAY";
+            }
+            if (pstate->armed_away) {
+                emsg += " AWAY";
+            }
+            break;
+        case ON_POWER_CHANGE:
+            if(pstate->ac_power) {
+                emsg += " AC";
+            } else {
+                emsg += " BATTERY";
+            }
+            break;
+        case ON_READY_CHANGE:
+            if(!pstate->ready) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_ALARM_CHANGE:
+            if(pstate->alarm_sounding) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_FIRE:
+            if(pstate->fire_alarm) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_CHIME_CHANGE:
+            if(pstate->chime_on) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        default:
+            emsg += " " + msg;
+        }
+
+    }
+    // notify any search subscribers that are watching for the "EVENT" type. Provide
+    // a human readable event description.
+    // TODO: Document event messages
+    notifySearchSubscribers(EVENT_MESSAGE_TYPE, emsg, pstate);
+}
+
+/**
+ * @brief Subscribe to a message using a REGEX expression.
+ *
+ * @param [in]fn Callback pointer function type AD2ParserCallback_sub_t.
+ * @param [in]regex_search regex search structure.
+ * @param [in]arg pointer to argument to pass to subscriber on event.
+ */
+void AlarmDecoderParser::subscribeTo(AD2ParserCallback_sub_t fn, AD2EventSearch *event_search)
+{
+    subscribers_t& v = AD2Subscribers[ON_SEARCH_MATCH];
+    v.push_back(AD2SubScriber(fn, event_search));
+}
+
+/**
+ * @brief Sequentially call each subscriber function in the list.
+ *
+ * @param [in]mt message type.
+ * @param [in]msg message that generated event.
+ * @param [in]s virtual partition state. May be nullptr only valid for ALPHA messages.
+ */
+void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2VirtualPartitionState *pstate)
+{
+    for ( subscribers_t::iterator i = AD2Subscribers[ON_SEARCH_MATCH].begin(); i != AD2Subscribers[ON_SEARCH_MATCH].end(); ++i ) {
+        if (i->eSearch) {
+            bool done = false;
+            int savedstate = i->eSearch->getState();
+            std::string outformat;
+
+            // Pre filter tests for message type.
+            std::vector<ad2_message_t> *fmt = &i->eSearch->PRE_FILTER_MESAGE_TYPE;
+            /// only test if a list is supplied.
+            if (fmt->size()) {
+                bool res = false;
+                if(std::find(fmt->begin(), fmt->end(), mt)!=fmt->end()) {
+                    // Found the item
+                    res = true;
+                }
+                if (!res) {
+                    // no match next subscriber.
+                    continue;
+                }
+            }
+
+            // Pre filter tests for message REGEX match.
+            std::string pfregex = i->eSearch->PRE_FILTER_REGEX;
+            /// only test if supplied.
+            if (pfregex.length()) {
+                std::smatch m;
+                std::regex e(pfregex);
+                const auto& tmsg = msg;
+                std::match_results< std::string::const_iterator > mr;
+                bool res = std::regex_search(tmsg, m, e);
+                if (!res) {
+                    // no match next subscriber.
+                    continue;
+                }
+            }
+
+            // Test CLOSED REGEX list stop on first matching statement.
+            /// only test if a list is supplied.
+            if (!done && i->eSearch->CLOSED_REGEX_LIST.size()) {
+                for(auto &regexstr : i->eSearch->CLOSED_REGEX_LIST) {
+                    std::smatch m;
+                    std::regex e(regexstr);
+                    const auto& tmsg = msg;
+                    std::match_results< std::string::const_iterator > mr;
+                    bool res = std::regex_search(tmsg, m, e);
+                    if (res) {
+                        // no match next subscriber.
+                        i->eSearch->setState(AD2_STATE_CLOSED);
+                        outformat = i->eSearch->CLOSED_OUTPUT_FORMAT;
+                        // Clear last output results before we collect new.
+                        i->eSearch->RESULT_GROUPS.clear();
+                        // save the regex group results if any.
+                        for(auto idx : m) {
+                            i->eSearch->RESULT_GROUPS.push_back(idx);
+                        }
+                        done = true;
+                        break;
+                    }
+                }
+            }
+
+            // Test OPEN REGEX list stop on first matching statement.
+            /// only test if a list is supplied.
+            if (!done && i->eSearch->OPEN_REGEX_LIST.size()) {
+                for(auto &regexstr : i->eSearch->OPEN_REGEX_LIST) {
+                    std::smatch m;
+                    std::regex e(regexstr);
+                    const auto& tmsg = msg;
+                    bool res = std::regex_search(tmsg, m, e);
+                    if (res) {
+                        // no match next subscriber.
+                        i->eSearch->setState(AD2_STATE_OPEN);
+                        outformat = i->eSearch->OPEN_OUTPUT_FORMAT;
+                        // Clear last output results before we collect new.
+                        i->eSearch->RESULT_GROUPS.clear();
+                        // save the regex group results if any.
+                        for(auto idx : m) {
+                            i->eSearch->RESULT_GROUPS.push_back(idx);
+                        }
+                        done = true;
+                        break;
+                    }
+                }
+            }
+
+            // Test FAULT REGEX list stop on first matching statement.
+            /// only test if a list is supplied.
+            if (!done && i->eSearch->FAULT_REGEX_LIST.size()) {
+                for(auto &regexstr : i->eSearch->FAULT_REGEX_LIST) {
+                    std::smatch m;
+                    std::regex e(regexstr);
+                    const auto& tmsg = msg;
+                    std::match_results< std::string::const_iterator > mr;
+                    bool res = std::regex_search(tmsg, m, e);
+                    if (res) {
+                        // no match next subscriber.
+                        outformat = i->eSearch->FAULT_OUTPUT_FORMAT;
+                        i->eSearch->setState(AD2_STATE_FAULT);
+                        // Clear last output results before we collect new.
+                        i->eSearch->RESULT_GROUPS.clear();
+                        // save the regex group results if any.
+                        for(auto idx : m) {
+                            i->eSearch->RESULT_GROUPS.push_back(idx);
+                        }
+                        done = true;
+                        break;
+                    }
+                }
+            }
+
+            // Match found and state changed. Call the callback routine.
+            if (savedstate != i->eSearch->getState()) {
+                i->eSearch->last_message = msg;
+                i->eSearch->out_message = outformat; //FIXME do the formatting macro magic stuff.
+                (i->fn)(&msg, pstate, i->eSearch);
+            }
+
+            // All done with this subscriber. Next.
+        }
     }
 }
 
@@ -285,6 +537,14 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
             // Process full messages on CR or LF
             if ( ch == '\n' || ch == '\r') {
 
+#if MONITOR_PARSER_TIMING
+                // monitor processing time.
+                int64_t xStart, xEnd, xDifference;
+                xStart = esp_timer_get_time();
+#endif
+                // state mask
+                AD2VirtualPartitionState *ad2ps = nullptr;
+
                 // Next wait for start of next message
                 AD2_Parser_State = AD2_PARSER_SCANNING_START;
 
@@ -299,6 +559,8 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                     }
                 }
 
+                ad2_message_t MESSAGE_TYPE = UNKOWN_MESSAGE_TYPE;
+
                 // call ON_RAW_MESSAGE callback if enabled.
                 notifySubscribers(ON_RAW_MESSAGE, msg, nostate);
 
@@ -312,38 +574,61 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                 if (msg[0] == '!') {
                     if (msg.find("!LRR:") == 0) {
                         // call ON_LRR callback if enabled.
+                        MESSAGE_TYPE = LRR_MESSAGE_TYPE;
                         notifySubscribers(ON_LRR, msg, nostate);
-                    } else if (msg.find("!REL:") == 0 || msg.find("!EXP:") == 0) {
+                    } else if (msg.find("!REL:") == 0) {
                         // call ON_EXPANDER_MESSAGE callback if enabled.
+                        MESSAGE_TYPE = REL_MESSAGE_TYPE;
+                        notifySubscribers(ON_REL, msg, nostate);
+                    } else if (msg.find("!EXP:") == 0) {
+                        MESSAGE_TYPE = EXP_MESSAGE_TYPE;
                         notifySubscribers(ON_EXP, msg, nostate);
                     } else if (msg.find("!RFX:") == 0) {
+                        MESSAGE_TYPE = RFX_MESSAGE_TYPE;
+                        // Expand the HEX value to a bit string for easy pattern matching.
+                        // RFX:012345,80 -> !RFX:012345,10000000
+                        std::string save = msg;
+                        std::regex rx( "!RFX:(.*),(.*)" );
+                        std::match_results< std::string::const_iterator > mr;
+                        bool res = std::regex_search( msg, mr, rx );
+                        if (res && mr.size() == 3) {
+                            std::string bits = hex_to_binsz(mr.str(2).c_str());
+                            msg = "!RFX:" + mr.str(1) + "," + bits;
+                        }
                         // call ON_RFX callback if enabled.
                         notifySubscribers(ON_RFX, msg, nostate);
+
                     } else if (msg.find("!AUI:") == 0) {
                         // call ON_AUI callback if enabled.
+                        MESSAGE_TYPE = AUI_MESSAGE_TYPE;
                         notifySubscribers(ON_AUI, msg, nostate);
                     } else if (msg.find("!KPM:") == 0) {
                         // FIXME: move parser below to function so it can be called here.
                         // call ON_KPM callback if enabled.
+                        MESSAGE_TYPE = KPM_MESSAGE_TYPE;
                         notifySubscribers(ON_KPM, msg, nostate);
                     } else if (msg.find("!KPE:") == 0) {
                         // call ON_KPE callback if enabled.
+                        MESSAGE_TYPE = KPE_MESSAGE_TYPE;
                         notifySubscribers(ON_KPE, msg, nostate);
                     } else if (msg.find("!CRC:") == 0) {
                         // call ON_CRC callback if enabled.
+                        MESSAGE_TYPE = CRC_MESSAGE_TYPE;
                         notifySubscribers(ON_CRC, msg, nostate);
                     } else if (msg.find("!VER:") == 0) {
                         // Parse the version string.
                         // call ON_VER callback if enabled.
+                        MESSAGE_TYPE = VER_MESSAGE_TYPE;
                         notifySubscribers(ON_VER, msg, nostate);
                     } else if (msg.find("!ERR:") == 0) {
                         // call ON_ERR callback if enabled.
+                        MESSAGE_TYPE = ERR_MESSAGE_TYPE;
                         notifySubscribers(ON_ERR, msg, nostate);
                     }
                 } else {
                     // http://www.alarmdecoder.com/wiki/index.php/Protocol#Keypad
                     if (msg[0] == '[') {
-
+                        MESSAGE_TYPE = ALPHA_MESSAGE_TYPE;
                         // Excessive sanity check. Test a few static characters.
                         // Length should be 94 bytes and end with ".
                         // [00110011000000003A--],010,[f70700000010808c18020000000000],"ARMED ***STAY** ZONE BYPASSED "
@@ -361,7 +646,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // Ademco 40000000 is keypad address 30
 
                             // Create or return a pointer to our partition storage class.
-                            AD2VirtualPartitionState *ad2ps = getAD2PState(&amask, true);
+                            ad2ps = getAD2PState(&amask, true);
 
                             // we should not need to test the validity of ad2ps with update=true
                             // the function will return a value.
@@ -381,6 +666,8 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool SEND_POWER_CHANGE = false;
                             bool SEND_BATTERY_CHANGE = false;
                             bool SEND_ALARM_CHANGE = false;
+                            bool SEND_ZONE_BYPASSED_CHANGE = false;
+                            bool SEND_EXIT_CHANGE = false;
 
                             // state change tracking
                             bool ARMED_STAY = is_bit_set(ARMED_STAY_BYTE, msg.c_str());
@@ -394,6 +681,8 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool AC_POWER = is_bit_set(ACPOWER_BYTE, msg.c_str());
                             bool LOW_BATTERY = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
                             bool ALARM_BELL = is_bit_set(ALARM_BYTE, msg.c_str());
+                            bool ALARM_STICKY = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
+                            bool ZONE_BYPASSED = is_bit_set(BYPASS_BYTE, msg.c_str());
 
                             // Get section #4 alpha message and upper case for later searching
                             string ALPHAMSG = msg.substr(SECTION_4_START,32);
@@ -447,11 +736,20 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_POWER_CHANGE = true;
                                 SEND_BATTERY_CHANGE = true;
                                 SEND_ALARM_CHANGE = true;
+                                SEND_ZONE_BYPASSED_CHANGE = true;
+                                SEND_EXIT_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
-                                // fire state change
+                                // fire state change send
                                 if ( ad2ps->fire_alarm != FIRE_ALARM ) {
-                                    SEND_FIRE_CHANGE = true;
+                                    // TODO: Test on DSC
+                                    // skip messages with Alarm sticky bit off unless clearing the event
+                                    if (ALARM_STICKY && !FIRE_ALARM) {
+                                        // restore current ignore change
+                                        FIRE_ALARM = ad2ps->fire_alarm;
+                                    } else {
+                                        SEND_FIRE_CHANGE = true;
+                                    }
                                 }
 
                                 // ready state change
@@ -482,7 +780,19 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                                 // ALARM_BELL state change send
                                 if ( ad2ps->alarm_sounding != ALARM_BELL ) {
-                                    SEND_ALARM_CHANGE = true;
+                                    // TODO: Test on DSC
+                                    // skip messages with Alarm sticky bit off unless clearing the event
+                                    if (ALARM_STICKY && !ALARM_BELL) {
+                                        // restore current ignore change
+                                        ALARM_BELL = ad2ps->alarm_sounding;
+                                    } else {
+                                        SEND_ALARM_CHANGE = true;
+                                    }
+                                }
+
+                                // BYPASSED state change
+                                if ( ad2ps->zone_bypassed != ZONE_BYPASSED) {
+                                    SEND_ZONE_BYPASSED_CHANGE = true;
                                 }
                             }
 
@@ -501,7 +811,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // exit_now state change send
                             if ( ad2ps->exit_now != EXIT_NOW ) {
-                                SEND_READY_CHANGE = true;
+                                SEND_EXIT_CHANGE = true;
                             }
 
                             // Save states for event tracked changes
@@ -516,11 +826,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->ac_power = AC_POWER;
                             ad2ps->battery_low = LOW_BATTERY;
                             ad2ps->alarm_sounding = ALARM_BELL;
+                            ad2ps->zone_bypassed = ZONE_BYPASSED;
 
                             // Save states for non even tracked changes
                             ad2ps->backlight_on  = is_bit_set(BACKLIGHT_BYTE, msg.c_str());
                             ad2ps->programming_mode = is_bit_set(PROGMODE_BYTE, msg.c_str());
-                            ad2ps->zone_bypassed = is_bit_set(BYPASS_BYTE, msg.c_str());
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = is_bit_set(SYSSPECIFIC_BYTE, msg.c_str());
@@ -582,6 +892,17 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             if ( SEND_ALARM_CHANGE ) {
                                 notifySubscribers(ON_ALARM_CHANGE, msg, ad2ps);
                             }
+
+                            // Send event if zone_bypassed state changed
+                            if ( SEND_ZONE_BYPASSED_CHANGE ) {
+                                notifySubscribers(ON_ZONE_BYPASSED_CHANGE, msg, ad2ps);
+                            }
+
+                            // Send event if EXIT state changed
+                            if ( SEND_EXIT_CHANGE ) {
+                                notifySubscribers(ON_EXIT_CHANGE, msg, ad2ps);
+                            }
+
                         }
                     } else {
                         //TODO: Error statistics tracking
@@ -589,6 +910,14 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                     }
                 }
 
+                // call Search callback subscribers if a match is found for this message type.
+                notifySearchSubscribers(MESSAGE_TYPE, msg, ad2ps);
+
+#ifdef MONITOR_PARSER_TIMING
+                xEnd = esp_timer_get_time();
+                xDifference = xEnd - xStart;
+                ESP_LOGI(TAG, "message processing time: %lldus", xDifference );
+#endif
                 // Do not save EOL into the ring. We are done for now.
                 break;
 

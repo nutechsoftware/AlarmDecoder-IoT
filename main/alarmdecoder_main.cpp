@@ -287,7 +287,7 @@ static void ser2sock_client_task(void *pvParameters)
             // host stored in slot 1
             std::string buf;
             ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                       AD2MODE_CONFIG_ARG_SLOT, buf);
+                                       AD2MODE_CONFIG_ARG_SLOT, nullptr, buf);
 
             std::vector<std::string> out;
             ad2_tokenize(buf, ':', out);
@@ -545,7 +545,7 @@ void init_ad2_uart_client()
     // host stored in slot 1
     std::string port_pins;
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_ARG_SLOT, port_pins);
+                               AD2MODE_CONFIG_ARG_SLOT, nullptr, port_pins);
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
     ad2_tokenize(port_pins, ':', out);
@@ -619,13 +619,19 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
+    // Example of nvs_get_stats() to get the number of used entries and free entries:
+    nvs_stats_t nvs_stats;
+    nvs_get_stats(NULL, &nvs_stats);
+    ad2_printf_host("Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
+                    nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
+
     // load and set the logging level.
     ad2_set_log_mode(ad2_log_mode());
 
     // Load AD2IoT operating mode [Socket|UART] and argument
     std::string ad2_mode;
     ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, ad2_mode);
+                               AD2MODE_CONFIG_MODE_SLOT, nullptr, ad2_mode);
     g_ad2_mode = ad2_mode[0];
 
     // If the hardware is local UART start it now.
@@ -640,11 +646,11 @@ void app_main()
 
 #if CONFIG_STDK_IOT_CORE
     int stEN= -1;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &stEN);
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &stEN);
     if (stEN == -1) {
         // Enable STSDK if no setting found.
         ESP_LOGI(TAG,"STSDK enable setting not found. Saving new enabled by default.");
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, 1);
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, 1);
     }
 #endif
 
@@ -691,7 +697,7 @@ void app_main()
     // see iot_cli_cmd::vpaddr
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         int x = -1;
-        ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, n, &x);
+        ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, n, 0, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
             uint32_t amask = 1;

@@ -1,6 +1,5 @@
 idf_component_register(SRCS "stsdk_main.cpp"
                             "caps_battery.c"
-                            "caps_alarm.c"
                             "caps_powerSource.c"
                             "caps_button.c"
                             "caps_carbonMonoxideDetector.c"

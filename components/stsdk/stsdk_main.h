@@ -39,7 +39,6 @@
 #include "caps_contactSensor.h"
 #include "caps_carbonMonoxideDetector.h"
 #include "caps_powerSource.h"
-#include "caps_alarm.h"
 #include "caps_battery.h"
 
 #define STSDK_ENABLE   "stenable"
@@ -82,7 +81,7 @@ extern caps_contactSensor_data_t *cap_contactSensor_data_chime;
 extern caps_momentary_data_t *cap_momentary_data_chime;
 extern caps_smokeDetector_data_t *cap_smokeDetector_data;
 extern caps_momentary_data_t *cap_momentary_data_fire;
-extern caps_alarm_data_t *cap_alarm_bell_data;
+extern caps_contactSensor_data_t *cap_alarm_bell_data;
 extern caps_momentary_data_t *cap_momentary_data_panic_alarm;
 extern caps_momentary_data_t *cap_momentary_data_aux_alarm;
 extern caps_contactSensor_data_t *cap_contactSensor_data_arm_stay;

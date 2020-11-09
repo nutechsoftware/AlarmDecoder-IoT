@@ -122,8 +122,8 @@ caps_momentary_data_t *cap_momentary_data_fire;
  * @brief component: alarm
  * Alarm Bell
  */
-// @brief Alarm capability
-caps_alarm_data_t *cap_alarm_bell_data;
+// @brief Alarm Active virtual contact sensor
+caps_contactSensor_data_t *cap_alarm_bell_data;
 // @brief Fire Alarm momentary panic button
 caps_momentary_data_t *cap_momentary_data_panic_alarm;
 
@@ -156,8 +156,24 @@ caps_momentary_data_t *cap_momentary_data_arm_away;
  * @brief component: bypass
  * Bypass state & control
  */
-// @brief Arm Away virtual contact sensor
-caps_contactSensor_data_t *cap_contactSensor_data_bypass;
+// @brief Zone Bypassed virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_zone_bypassed;
+
+/**
+ * @brief component: ready
+ * Ready to arm state
+ */
+// @brief Ready To Arm virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_ready_to_arm;
+
+/**
+ * @brief component: exit
+ * Exit state. Zones disabled to allow entry / exit while armed.
+ */
+// @brief Exit Mode virtual contact sensor
+caps_contactSensor_data_t *cap_contactSensor_data_exit_now;
+// @brief Exit Now momentary button
+caps_momentary_data_t *cap_momentary_data_exit_now;
 
 
 #if 0 // TODO/FIXME
@@ -191,13 +207,13 @@ static void _cli_cmd_enable_event(char *string)
     ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
     std::string arg;
     if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, (arg[0] == 'Y' || arg[0] ==  'y'));
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
         ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
     }
 
     // show contents of this slot
     int i;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &i);
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &i);
     ad2_printf_host("SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
 
 }
@@ -590,6 +606,16 @@ void cap_arm_away_cmd_cb(struct caps_momentary_data *caps_data)
     ad2_arm_away(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
 }
 
+/**
+ * @brief ST Cloud app Exit Now momentary button pushed
+ * send panel Exit Now commands.
+ */
+void cap_exit_now_cmd_cb(struct caps_momentary_data *caps_data)
+{
+    // send EXIT NOW command to the panel.
+    ad2_exit_now(AD2_DEFAULT_VPA_SLOT);
+}
+
 #if 0 // TODO/FIXME
 /**
  * @brief callback for cloud update to switch A
@@ -773,10 +799,12 @@ void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
         ESP_LOGI(TAG, "ON_FIRE: '%s'", msg->c_str());
         if ( s->fire_alarm ) {
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, caps_helper_contactSensor.attr_contact.value_open);
         } else {
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_clear);
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, caps_helper_contactSensor.attr_contact.value_closed);
         }
-
+        cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
         cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
     }
 }
@@ -847,16 +875,92 @@ void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_ALARM_CHANGE: '%i'", s->alarm_sounding);
-        const char *alarm_value = caps_helper_alarm.attr_alarm.value_off;
-        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_value);
         if ( s->alarm_sounding ) {
-            alarm_value = caps_helper_alarm.attr_alarm.value_siren;
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data,
+                                                   caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data,
+                                                   caps_helper_contactSensor.attr_contact.value_closed);
         }
-        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_value);
-        cap_alarm_bell_data->attr_alarm_send(cap_alarm_bell_data);
+        cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
     }
 }
 
+/**
+ * @brief ON_ZONE_BYPASSED_CHANGE.
+ * Called when the alarm panel ZONE BYPASSED state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_zone_bypassed_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_ZONE_BYPASSED_CHANGE: '%i'", s->zone_bypassed);
+        if ( s->zone_bypassed ) {
+            cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, caps_helper_contactSensor.attr_contact.value_closed);
+        }
+
+        cap_contactSensor_data_zone_bypassed->attr_contact_send(cap_contactSensor_data_zone_bypassed);
+    }
+}
+
+/**
+ * @brief ON_EXIT_NOW_CHANGE.
+ * Called when the alarm panel EXIT NOW state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_exit_now_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_EXIT_NOW_CHANGE: '%i'", s->exit_now);
+        if ( s->exit_now ) {
+            cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, caps_helper_contactSensor.attr_contact.value_closed);
+        }
+
+        cap_contactSensor_data_exit_now->attr_contact_send(cap_contactSensor_data_exit_now);
+    }
+}
+
+
+/**
+ * @brief ON_READY_CHANGE
+ * Called when the alarm panel READY TO ARM state changes.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_ready_to_arm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "ON_READY_CHANGE: '%i'", s->ready);
+        if ( s->ready ) {
+            cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, caps_helper_contactSensor.attr_contact.value_open);
+        } else {
+            cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, caps_helper_contactSensor.attr_contact.value_closed);
+        }
+
+        cap_contactSensor_data_ready_to_arm->attr_contact_send(cap_contactSensor_data_ready_to_arm);
+    }
+}
 
 
 /**
@@ -876,7 +980,7 @@ void stsdk_init(void)
     }
 
     int enabled = 0;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, &enabled);
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &enabled);
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!enabled) {
@@ -919,9 +1023,17 @@ void stsdk_init(void)
     // Subscribe to ON_LOW_BATTERY change events to update cap_battery capability.
     AD2Parse.subscribeTo(ON_LOW_BATTERY, on_low_battery_cb, nullptr);
 
-    // Subscribe to SEND_ALARM_CHANGE change events to update cap_alarm capability.
+    // Subscribe to ON_ALARM_CHANGE change events to update cap_alarm capability.
     AD2Parse.subscribeTo(ON_ALARM_CHANGE, on_alarm_change_cb, nullptr);
 
+    // Subscribe to ON_ZONE_BYPASSED_CHANGE change events to update zone bypassed capability.
+    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, on_zone_bypassed_change_cb, nullptr);
+
+    // Subscribe to ON_READY_CHANGE change events to update zone bypassed capability.
+    AD2Parse.subscribeTo(ON_READY_CHANGE, on_ready_to_arm_change_cb, nullptr);
+
+    // Subscribe to ON_EXIT_CHANGE change events to update zone bypassed capability.
+    AD2Parse.subscribeTo(ON_EXIT_CHANGE, on_exit_now_change_cb, nullptr);
 }
 
 /**
@@ -1049,10 +1161,10 @@ void capability_init()
      * @brief component: alarm
      */
     // Alarm panel Bell status.
-    cap_alarm_bell_data = caps_alarm_initialize(ctx, "alarm", NULL, NULL);
+    cap_alarm_bell_data = caps_contactSensor_initialize(ctx, "alarm", NULL, NULL);
     if (cap_alarm_bell_data) {
-        const char *alarm_init_value = caps_helper_alarm.attr_alarm.value_off;
-        cap_alarm_bell_data->set_alarm_value(cap_alarm_bell_data, alarm_init_value);
+        const char *alarm_init_value = caps_helper_contactSensor.attr_contact.value_closed;
+        cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, alarm_init_value);
     }
     // Panic Alarm Momentary button
     cap_momentary_data_panic_alarm = caps_momentary_initialize(ctx, "alarm", NULL, NULL);
@@ -1142,6 +1254,41 @@ void capability_init()
         cap_switch_b_data->set_switch_value(cap_switch_b_data, switch_init_value);
     }
 #endif
+
+    /**
+     * @brief component: bypass
+     */
+    // bypass contact sensor ( visual for state )
+    cap_contactSensor_data_zone_bypassed = caps_contactSensor_initialize(ctx, "bypass", NULL, NULL);
+    if (cap_contactSensor_data_zone_bypassed) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, contact_init_value);
+    }
+
+    /**
+     * @brief component: ready
+     */
+    // ready contact sensor ( visual for state )
+    cap_contactSensor_data_ready_to_arm = caps_contactSensor_initialize(ctx, "ready", NULL, NULL);
+    if (cap_contactSensor_data_ready_to_arm) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, contact_init_value);
+    }
+
+    /**
+     * @brief component: exit
+     */
+    // 'exit now' contact sensor ( visual for state )
+    cap_contactSensor_data_exit_now = caps_contactSensor_initialize(ctx, "exit", NULL, NULL);
+    if (cap_contactSensor_data_exit_now) {
+        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
+        cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, contact_init_value);
+    }
+    // @brief Exit Now button
+    cap_momentary_data_exit_now = caps_momentary_initialize(ctx, "exit", NULL, NULL);
+    if (cap_momentary_data_exit_now) {
+        cap_momentary_data_exit_now->cmd_push_usr_cb = cap_exit_now_cmd_cb;
+    }
 
     /**
      * @brief component: disarm

@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
+- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
@@ -13,10 +16,47 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
-- [ ] STSDK: ARM Stay/Away
-   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets...
-- [ ] Twilio: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+## [1.0.4] - 2020-11-08
+- [X] CORE: Tidy QA testing.
+- [X] TWILIO: Improve docs and ```twsas``` command report format as valid commands with comments.
+- [X] TWILIO: Need to add ability to trigger on common states FIRE, ALARM, DISARM, ARM, CHIME etc in new twsas command.
+- [X] TWILIO: Add CLI commands to allow the user to construct N number of virtual events to send messages for using the new AD2EventSearch API.
+- [X] CORE: Need helper routines for doing simple template operations on strings. For now we can specify any static output message for a search alert results so it is not as critical. ex. 'twsas 1 o This is my own message for this alert'.
+- [X] TWILIO: FIXME prevent multiple concurrent connections. Serialize.
+- [X] TWILIO: Removed test alerts CHIME, ARM, FIRE, ALARM, LRR.
+- [X] API: Added a pointer and integer arg to the search class for callback state passing.
+- [X] CORE: Improve arg ad2_copy_nth_arg adding ability to parse last arg skipping spaces till EOL. Easy to grab large strings as final arguemnt in any command.
+- [X] TWILIO: Commends and remove confusing constants with DEFINES.
+- [X] TWILIO: Tested Email, Call and TEXT messages.
+- [X] TWILIO: Refactor for 3 sub commands [M]essage [C]Call(Twiml) [E]Mail(SendGrid).
+- [X] TWILIO: Add EVENT Search commands to create notifications on user defined logic.
+- [X] CORE: refactor NV storage. I need to keep all slot values in a single file for easy export/import. I had them scattered all over. TODO: Still a little more and then a bunch of cleanup needed.
+- [X] TWILIO: Added sendgrid pem file.
+- [X] API: add some lookups for humans for enums.
+- [X] CORE: Add on boot a dump of NV storage usage.
+- [X] STSDK: Alarm bell ON when fire alarm is on.
+- [X] CORE: Misc tidy cleanup var rename.
+- [X] STSDK: Remove Alarm capability. It was not what I expected. Replaced with contact :c(.
+- [X] STSDK: ARM Stay/Away and other indicators now working.
+   - Issue reported on [ST forums](https://community.smartthings.com/t/securitysystem-capability-arm-fail-using-stsdk-but-disarm-works/205526). Crickets... Update. With help from ST dev team the problem went POOF! Took a bit but it looks good now. I how have all my feedback working.
+- [X] API: FIX: Improve FIRE and ALARM tracking issue with state toggle.
+- [X] TWILIO: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
+
+## [1.0.3 P2 WIP] - 2020-10-31 (no release)
+- [X] API: New class AD2EventSearch and support functions to subscribe. I spent a few days on this. A bit of a unicorn hunt. I could write discrete API and CLI code for every possible message type from the AlarmDecoder protocol but this seems excessive. The task is the same on every message so a single CLI and API to create custom tracking of all messages using REGEX and simple state logic was what I ended up with. This new class when constructed becomes a virtual contact with OPEN/CLOSE/FAULT states. These states are updated based upon user supplied regex patterns and simple user provided logic hints.
+- [X] API: RFX message expand hex to bin for easy parsing.
+- [X] API: Added message type tracking during parse for post processing.
+- [X] API: new string parse function. hex_to_binsz. Rename confusing name bit_string to bin_to_binsz.
+- [X] API: Fix: found bugs when testing EXIT NOW with ST App.
+- [X] API: Added ON_EXIT_CHANGE event to api.
+- [X] STSDK: Added EXIT NOW state contact capability and momentary to activate EXIT mode on DSC/Ademco.
+- [X] CORE: Added ad2_exit_now call to send exit now command to the panel based upon panel type.
+- [X] STSDK: Wired READY TO ARM contact capability and state tracking.
+- [X] API: Added BYPASS CHANGE event
+- [X] STSDK: Wired BYPASS to the bypass component contact capability.
+- [X] STSDK: remove battery fault contact from device profile in ST dev portal.
 
 ## [1.0.3 P1] - 2020-10-20
 - [X] CORE: Add command feedback to commands that require a restart to take effect.
