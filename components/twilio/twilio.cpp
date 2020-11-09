@@ -828,27 +828,38 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
                 case SK_NOTIFY_SLOT[0]:
                     i = 0; // Default 0
                     ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), &i);
-                    ad2_printf_host("  Using notification settings from slot #%i.\r\n", i);
+                    ad2_printf_host("# Set notification slot [%c] to #%i.\r\n", c, i);
+                    ad2_printf_host("%s %i %c %i\r\n", TWILIO_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_DEFAULT_STATE[0]:
                     i = 0; // Default CLOSED
                     ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), &i);
-                    ad2_printf_host("  Switch default state is '%s' (%i).\r\n", AD2Parse.state_str[i].c_str(), i);
+                    ad2_printf_host("# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
+                    ad2_printf_host("%s %i %c %i\r\n", TWILIO_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_AUTO_RESET[0]:
                     i = 0; // Defaut 0 or disabled
                     ad2_get_nv_slot_key_int(TWILIO_SAS_CFGKEY, slot, sk.c_str(), &i);
-                    ad2_printf_host("  Auto reset time in ms is '%s'.\r\n", (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
+                    ad2_printf_host("# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
+                    ad2_printf_host("%s %i %c %i\r\n", TWILIO_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_TYPE_LIST[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), out);
-                    ad2_printf_host("  Message type list is '%s'.\r\n", out.c_str());
+                    ad2_printf_host("# Set message type list [%c]\r\n", c);
+                    if (out.length()) {
+                        ad2_printf_host("%s %i %c %s\r\n", TWILIO_SAS_CFGKEY, slot, c, out.c_str());
+                    } else {
+                        ad2_printf_host("# disabled\r\n");
+                    }
                     break;
                 case SK_PREFILTER_REGEX[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), out);
-                    ad2_printf_host("  Pre filter REGEX is '%s'.\r\n", out.c_str());
+                    if (out.length()) {
+                        ad2_printf_host("# Set pre filter REGEX [%c]\r\n", c);
+                        ad2_printf_host("%s %i %c %s\r\n", TWILIO_SAS_CFGKEY, slot, c, out.c_str());
+                    }
                     break;
                 case SK_OPEN_REGEX_LIST[0]:
                 case SK_CLOSED_REGEX_LIST[0]:
@@ -868,7 +879,8 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
                         std::string tsk = sk + ad2_string_printf("%02i", i);
                         ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, tsk.c_str(), out);
                         if (out.length()) {
-                            ad2_printf_host("  '%s' state REGEX Filter #%02i is '%s'.\r\n", tmpsz.c_str(), i, out.c_str());
+                            ad2_printf_host("# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
+                            ad2_printf_host("%s %i %c %i %s\r\n", TWILIO_SAS_CFGKEY, slot, c, i, out.c_str());
                         }
                     }
                     break;
@@ -886,7 +898,10 @@ static void _cli_cmd_twilio_smart_alert_switch(char *string)
                     }
                     out = "";
                     ad2_get_nv_slot_key_string(TWILIO_SAS_CFGKEY, slot, sk.c_str(), out);
-                    ad2_printf_host("  Output format string for '%s' state is '%s'.\r\n", tmpsz.c_str(), out.c_str());
+                    if (out.length()) {
+                        ad2_printf_host("# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
+                        ad2_printf_host("%s %i %c %s\r\n", TWILIO_SAS_CFGKEY, slot, c, out.c_str());
+                    }
                     break;
                 }
             }

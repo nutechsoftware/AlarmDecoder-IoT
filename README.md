@@ -292,79 +292,95 @@ Choose one of the following configurations.
       - [f] Fault output format string.
 
     - Examples cli commands to setup a complete virtual contact.
-      - Send notifications from profile in slot #0(default) for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and FAULT REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
+      - Configure notification profiles..
         ```console
-        ## Setup Twilio smart virtual switch #1 to watch RFX messages for SN: 0123456
-        AD2IOT # twsas 1 D 0
-        Setting smartswitch #1 to use default state 'CLOSED' 0
+        # Profile #0 EMail using api.sendgrid.com
+        twsid 0 NA
+        twtoken 0 Abcdefg012345....
+        twfrom 0 foo@example.com
+        twto 0 bar@example.com
+        twtype 0 E
 
-        AD2IOT # twsas 1 N 0
-        Setting smartswitch #1 to use notification settings from slot #0
+        # Profile #1 SMS/Text message using api.twilio.com
+        twsid 1 Abcdefg012345....
+        twtoken 1 Abcdefg012345....
+        twfrom 1 15555551234
+        twto 1 15555551234
+        twtype 1 M
 
-        AD2IOT # twsas 1 R 0
-        Setting smartswitch #1 auto reset value 0
-
-        AD2IOT # twsas 1 T RFX
-        Setting smartswitch #1 message type filter list to 'RFX'
-
-        AD2IOT # twsas 1 P !RFX:0123456,.*
-        Setting smartswitch #1 pre filter regex to '!RFX:0123456,.*'.
-
-        AD2IOT # twsas 1 O 1 !RFX:0123456,1.......
-        Setting smartswitch #1 REGEX filter #01 for state 'OPEN' to '!RFX:0123456,1.......'.
-
-        AD2IOT # twsas 1 C 1 !RFX:0123456,0.......
-        Setting smartswitch #1 REGEX filter #01 for state 'CLOSED' to '!RFX:0123456,1.......'.
-
-        AD2IOT # twsas 1 F 1 !RFX:0123456,......1.
-        Setting smartswitch #1 REGEX filter #01 for state 'FAULT' to '!RFX:0123456,......1.'.
-
-        AD2IOT # twsas 1 o RF SENSOR 0123456 OPEN
-        Setting smartswitch #1 output format string for 'OPEN' state to 'RF SENSOR 0123456 OPEN'.
-
-        AD2IOT # twsas 1 c RF SENSOR 0123456 CLOSED
-        Setting smartswitch #1 output format string for 'CLOSED' state to 'RF SENSOR 0123456 CLOSED'.
-
-        AD2IOT # twsas 1 f RF SENSOR 0123456 FAULT
-        Setting smartswitch #1 output format string for 'FAULT' state to 'RF SENSOR 0123456 FAULT'.
+        # Profile #2 Voice Twiml call using api.twilio.com
+        twsid 2 Abcdefg012345....
+        twtoken 2 Abcdefg012345....
+        twfrom 2 15555551234
+        twto 2 15555551234
+        twtype 2 C
+        ```
+      - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and FAULT REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
+        ```console
+        Twilio SmartSwitch #1 report
+        # Set notification slot [N] to #0.
+        twsas 1 N 0
+        # Set default virtual switch state [D] to 'CLOSED'(0)
+        twsas 1 D 0
+        # Set auto reset time in ms [R] to 'DISABLED'
+        twsas 1 R 0
+        # Set message type list [T]
+        twsas 1 T RFX
+        # Set pre filter REGEX [P]
+        twsas 1 P !RFX:0123456,.*
+        # Set 'OPEN' state REGEX Filter [O] #01.
+        twsas 1 O 1 !RFX:0123456,1.......
+        # Set 'CLOSED' state REGEX Filter [C] #01.
+        twsas 1 C 1 !RFX:0123456,0.......
+        # Set 'FAULT' state REGEX Filter [F] #01.
+        twsas 1 F 1 !RFX:0123456,......1.
+        # Set output format string for 'OPEN' state [o].
+        twsas 1 o RF SENSOR 0123456 OPEN
+        # Set output format string for 'CLOSED' state [c].
+        twsas 1 c RF SENSOR 0123456 CLOSED
+        # Set output format string for 'FAULT' state [f].
+        twsas 1 f RF SENSOR 0123456 FAULT
         ```
       - Send notifications from profile in slot #2 in the example a Call profile when EVENT message "FIRE ON" or "FIRE OFF" are received. Use a Twiml string to define how the call is processed. This can include extensive external logic calling multiple people or just say something and hangup.
         ```console
-        ## Setup Twilio smart virtual switch #1 to watch RFX messages for SN: 0123456
-        AD2IOT # twsas 3 D 0
-        Setting smartswitch #1 to use default state 'CLOSED' 0
-
-        AD2IOT # twsas 3 N 2
-        Setting smartswitch #1 to use notification settings from slot #0
-
-        AD2IOT # twsas 3 R 0
-        Setting smartswitch #1 auto reset value 0
-
-        AD2IOT # twsas 3 T EVENT
-        Setting smartswitch #1 message type filter list to 'EVENT'
-
-        AD2IOT # twsas 3 P
-        Setting smartswitch #1 pre filter regex to ''.
-
-        AD2IOT # twsas 3 O 1 FIRE ON
-        Setting smartswitch #1 REGEX filter #01 for state 'OPEN' to 'FIRE ON'.
-
-        AD2IOT # twsas 3 C 1 FIRE OFF
-        Setting smartswitch #1 REGEX filter #01 for state 'CLOSED' to 'FIRE OFF'.
-
-        AD2IOT # twsas 3 F 1
-        Setting smartswitch #1 REGEX filter #01 for state 'FAULT' to ''.
-
-        AD2IOT # twsas 3 o <Response><Say>Notification alert FIRE DETECTED</Say></Response>
-        Setting smartswitch #1 output format string for 'OPEN' state to '<Response><Say>Notification alert FIRE DETECTED</Say></Response>'.
-
-        AD2IOT # twsas 3 c <Response><Say>Notification alert FIRE CLEAR</Say></Response>
-        Setting smartswitch #1 output format string for 'CLOSED' state to '<Response><Say>Notification alert FIRE CLEAR</Say></Response>'.
-
-        AD2IOT # twsas 3 f
-        Setting smartswitch #1 output format string for 'FAULT' state to ''.
+        Twilio SmartSwitch #2 report
+        # Set notification slot [N] to #2.
+        twsas 2 N 2
+        # Set default virtual switch state [D] to 'CLOSED'(0)
+        twsas 2 D 0
+        # Set auto reset time in ms [R] to 'DISABLED'
+        twsas 2 R 0
+        # Set message type list [T]
+        twsas 2 T EVENT
+        # Set 'OPEN' state REGEX Filter [O] #01.
+        twsas 2 O 1 FIRE ON
+        # Set 'CLOSED' state REGEX Filter [C] #01.
+        twsas 2 C 1 FIRE OFF
+        # Set output format string for 'OPEN' state [o].
+        twsas 2 o <Response><Say>Notification alert FIRE ALARM</Say></Response>
+        # Set output format string for 'CLOSED' state [c].
+        twsas 2 c <Response><Say>Notification alert FIRE CLEAR</Say></Response>
         ```
-
+      - Send notifications from profile in slot #2 in the example a Call profile when EVENT message "POWER BATTERY" or "POWER AC" are received. Use a Twiml string to define how the call is processed. This can include extensive external logic calling multiple people or just say something and hangup.
+        ```console
+        Twilio SmartSwitch #3 report
+        # Set notification slot [N] to #2.
+        twsas 3 N 2
+        # Set default virtual switch state [D] to 'CLOSED'(0)
+        twsas 3 D 0
+        # Set auto reset time in ms [R] to 'DISABLED'
+        twsas 3 R 0
+        # Set message type list [T]
+        twsas 3 T EVENT
+        # Set 'OPEN' state REGEX Filter [O] #01.
+        twsas 3 O 1 POWER AC
+        # Set 'CLOSED' state REGEX Filter [C] #01.
+        twsas 3 C 1 POWER BATTERY
+        # Set output format string for 'OPEN' state [o].
+        twsas 3 o <Response><Say>Notification alert ON MAIN AC POWER</Say></Response>
+        # Set output format string for 'CLOSED' state [c].
+        twsas 3 c <Response><Say>Notification alert ON BATTERY BACKUP POWER</Say></Response>
+        ```
 
 ## Building firmware
 ### Setup build environment
