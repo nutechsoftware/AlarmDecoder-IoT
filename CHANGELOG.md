@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [X] TWILIO: Fix ~250 byte memory leak in Twilio json code.
+
+- [X] TWILIO: Missed log refactor after serialize refactor. No logic changes.
+- [X] TWILIO: Fix ~250 byte memory leak in Twilio json code.. No logic changes.
 - [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
 - [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode

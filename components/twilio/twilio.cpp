@@ -313,8 +313,8 @@ void twilio_add_queue(std::string &sid, std::string &token, std::string &from, s
  */
 void twilio_consumer_task(void *pvParameter)
 {
+    ESP_LOGI(TAG,"queue consumer loop start");
     while(1) {
-        ESP_LOGI(TAG,"queue consumer loop start");
         if(sendQ == NULL) {
             ESP_LOGW(TAG, "sendQ is not ready task ending");
             break;
