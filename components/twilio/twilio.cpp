@@ -252,6 +252,7 @@ std::string build_sendgrid_body(std::string from, std::string to, std::string ar
     json = cJSON_Print(_root);
 
     std::string ret = json;
+    free (json);
     cJSON_Delete(_root);
 
     return ret;
