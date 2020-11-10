@@ -135,9 +135,9 @@ Choose one of the following configurations.
 
     ```ad2term```
 
-    Note: To exit press ... three times fast.
+    Note: To exit send a period ```.``` three times fast.
 
-  - Manage virtual partitions
+  - Manage virtual partitions.
 
     ```vpaddr {id} {value}```
 

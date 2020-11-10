@@ -488,7 +488,7 @@ static struct cli_command cmd_list[] = {
     },
     {
         (char*)AD2_VPADDR,(char*)
-        "- Manage virtual partitions\r\n\r\n"
+        "- Manage virtual partitions.\n\r\n"
         "  ```" AD2_VPADDR " {id} {value}```\r\n\r\n"
         "  - {id}\r\n"
         "    - The virtual partition ID. 0 is the default.\r\n"
