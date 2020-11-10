@@ -174,7 +174,7 @@ Choose one of the following configurations.
         - ad2source
       - Set source to ser2sock client at address and port.
         - ad2source SOCK 192.168.1.2:10000
-      - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16.
+      - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.
         - ad2source COM 17:16
 
 ### SmartThings STSDK IoT commands
@@ -380,6 +380,33 @@ Choose one of the following configurations.
         twsas 3 o <Response><Say>Notification alert ON MAIN AC POWER</Say></Response>
         # Set output format string for 'CLOSED' state [c].
         twsas 3 c <Response><Say>Notification alert ON BATTERY BACKUP POWER</Say></Response>
+        ```
+      - Existing search verbs. ```RFX``` and others are not useful here as they can be filtered by message type ```RFX``` directly. The more useful verbs contain a modifier such as ON/OFF. TODO: Add ZONE tracking verbs and algorithm.
+        ```
+        ARM STAY
+        ARM AWAY
+        DISARMED
+        POWER AC
+        POWER BATTERY
+        READY ON
+        READY OFF
+        ALARM ON
+        ALARM OFF
+        FIRE ON
+        FIRE OFF
+        LOW BATTERY
+        CHIME ON
+        CHIME OFF
+        MESSAGE
+        RELAY
+        EXPANDER
+        CONTACT ID
+        RFX
+        AUI
+        KPM
+        CRC
+        VER
+        ERR
         ```
 
 ## Building firmware

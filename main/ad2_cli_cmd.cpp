@@ -520,7 +520,7 @@ static struct cli_command cmd_list[] = {
         "      - " AD2_SOURCE "\r\n"
         "    - Set source to ser2sock client at address and port.\r\n"
         "      - " AD2_SOURCE " SOCK 192.168.1.2:10000\r\n"
-        "    - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16.\r\n"
+        "    - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.\r\n"
         "      - " AD2_SOURCE " COM 17:16\r\n", _cli_cmd_ad2source_event
     },
     {
