@@ -1,0 +1,465 @@
+{
+  "mnmn": "0AOf",
+  "vid": "AD2IOTV10",
+  "type": "profile",
+  "dashboard": {
+    "states": [],
+    "actions": [
+      {
+        "component": "main",
+        "capability": "refresh",
+        "version": 1
+      }
+    ]
+  },
+  "detailView": [
+    {
+      "component": "main",
+      "capability": "healthCheck",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "main",
+      "capability": "firmwareUpdate",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "main",
+      "capability": "refresh",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "main",
+      "capability": "powerSource",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "main",
+      "capability": "battery",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "chime",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "chime",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "fire",
+      "capability": "smokeDetector",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "fire",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "alarm",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "alarm",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "auxalarm",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "armstay",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "armstay",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "armaway",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "armaway",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "ready",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "bypass",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "disarm",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "exit",
+      "capability": "contactSensor",
+      "version": 1,
+      "values": [],
+      "patch": []
+    },
+    {
+      "component": "exit",
+      "capability": "momentary",
+      "version": 1,
+      "values": [],
+      "patch": []
+    }
+  ],
+  "automation": {
+    "conditions": [
+      {
+        "component": "main",
+        "capability": "healthCheck",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "firmwareUpdate",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "refresh",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "powerSource",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "battery",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "chime",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "chime",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "fire",
+        "capability": "smokeDetector",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "fire",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "alarm",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "alarm",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "auxalarm",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armstay",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armstay",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armaway",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armaway",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "ready",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "bypass",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "disarm",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "exit",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "exit",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      }
+    ],
+    "actions": [
+      {
+        "component": "main",
+        "capability": "healthCheck",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "firmwareUpdate",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "refresh",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "powerSource",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "main",
+        "capability": "battery",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "chime",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "chime",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "fire",
+        "capability": "smokeDetector",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "fire",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "alarm",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "alarm",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "auxalarm",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armstay",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armstay",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armaway",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "armaway",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "ready",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "bypass",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "disarm",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "exit",
+        "capability": "contactSensor",
+        "version": 1,
+        "values": [],
+        "patch": []
+      },
+      {
+        "component": "exit",
+        "capability": "momentary",
+        "version": 1,
+        "values": [],
+        "patch": []
+      }
+    ]
+  },
+  "migration": true
+}
