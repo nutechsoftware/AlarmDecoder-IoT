@@ -52,6 +52,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+void stsdk_register_cmds(void);
 void stsdk_init(void);
 void button_event(IOT_CAP_HANDLE *handle, int type, int count);
 void iot_noti_cb(iot_noti_data_t *noti_data, void *noti_usr_data);

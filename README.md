@@ -59,6 +59,7 @@ Choose one of the following configurations.
 
     - {level}
          [I] - Informational.
+         [V] - Verbose.
          [D] - Debugging. (Only if compiled with DEBUG).
          [N] - None: (default) Warnings and errors only.
     Examples:
@@ -412,8 +413,11 @@ Choose one of the following configurations.
 ## Building firmware
 ### Setup build environment
 - Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
-- Select the esp32 build environment.
+- Select the esp32 build environment. Branch v1.4 seems to be the current active branch and uses espidf v4.0.1-317-g50b3e2c81.
 ```
+cd ~/esp
+ git clone https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.git -b release/v1.4
+ cd st-device-sdk-c-ref
 ./setup.py esp32
 ```
 

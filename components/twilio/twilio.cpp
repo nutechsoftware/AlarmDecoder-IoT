@@ -1001,14 +1001,20 @@ static struct cli_command twilio_cmd_list[] = {
 /**
  * Initialize queue and SSL
  */
-void twilio_init()
+void twilio_register_cmds()
 {
-    int res = 0;
-
     // Register twilio CLI commands
     for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++) {
         cli_register_command(&twilio_cmd_list[i]);
     }
+}
+
+/**
+ * Initialize queue and SSL
+ */
+void twilio_init()
+{
+    int res = 0;
 
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
     mbedtls_ssl_cache_init( &cache );

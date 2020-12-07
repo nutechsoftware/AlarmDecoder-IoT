@@ -78,6 +78,7 @@ typedef struct twilio_message_data {
     char *arg;
 } twilio_message_data_t;
 
+void twilio_register_cmds();
 void twilio_init();
 void twilio_send_task(void *pvParameters);
 void twilio_add_queue(std::string &sid, std::string &token, std::string &from, std::string &to, char type, std::string &arg);

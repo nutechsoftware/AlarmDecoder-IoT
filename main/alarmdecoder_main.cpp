@@ -207,6 +207,21 @@ void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 }
 
 /**
+ * @brief ON_LOW_BATTERY
+ * Called when a low battery state change event is triggered.
+ * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
+ * to make it clear LOW BATTERY ON = Contact LED ON
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
+ */
+void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_LOW_BATTERY_CB: BATTERY(%i)", s->battery_low);
+}
+
+/**
  * @brief Main task to monitor physical button(s) and update state led(s).
  *
  * @param [in]pvParameters currently not used NULL.
@@ -592,7 +607,10 @@ void app_main()
     // init the AD2IoT gpio
     hal_gpio_init();
 
+    // init host(USB) uart port
     hal_host_uart_init();
+
+    ad2_printf_host(AD2_SIGNON, FIRMWARE_VERSION);
 
     // Dump hardware info
     esp_chip_info_t chip_info;
@@ -608,15 +626,16 @@ void app_main()
                     (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
+    ad2_printf_host("Initialize NVS subsystem start.");
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
-        ESP_LOGI(TAG, "truncating nvs partition");
+        ad2_printf_host(" Not found or error clearing flash.");
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
-        ESP_LOGI(TAG, "nvs_flash_init done");
     }
+    ad2_printf_host(" Done.\r\n");
     ESP_ERROR_CHECK( err );
 
     // Example of nvs_get_stats() to get the number of used entries and free entries:
@@ -625,73 +644,25 @@ void app_main()
     ad2_printf_host("Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
-    // load and set the logging level.
-    ad2_set_log_mode(ad2_log_mode());
-
-    // Load AD2IoT operating mode [Socket|UART] and argument
-    std::string ad2_mode;
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, nullptr, ad2_mode);
-    g_ad2_mode = ad2_mode[0];
-
-    // If the hardware is local UART start it now.
-    if (g_ad2_mode == 'C') {
-        init_ad2_uart_client();
-    } else if (g_ad2_mode == 'S') {
-        ad2_printf_host("Delaying start of ad2source SOCKET after network is up.");
-    } else {
-        ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
-    }
-
 #if CONFIG_STDK_IOT_CORE
-    int stEN= -1;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &stEN);
-    if (stEN == -1) {
-        // Enable STSDK if no setting found.
-        ESP_LOGI(TAG,"STSDK enable setting not found. Saving new enabled by default.");
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, 1);
-    }
+    // Register STSDK CLI commands.
+    stsdk_register_cmds();
 #endif
 
-    // Register and start the AD2IOT cli early so we can stop init by hitting enter.
+#if CONFIG_TWILIO_CLIENT
+    // Register TWILIO CLI commands.
+    twilio_register_cmds();
+#endif
+
+    // Register AD2 CLI commands.
     register_ad2_cli_cmd();
 
-    // get the network mode set default mode to 'N'
-    std::string args;
-    char net_mode = ad2_network_mode(args);
-    if (net_mode != 'W' || net_mode !='E' || net_mode != 'N') {
-        net_mode = 'N';
-    }
+    // Start the CLI.
+    // Press ENTER to halt and stay in CLI only.
+    uart_cli_main();
 
-#if CONFIG_STDK_IOT_CORE
-    /**
-     * Initialize SmartThings SDK
-     *
-     *  If enabled it will consume the esp_event_loop_init and only one task can create this.
-     * but if we dont call init our commands are not enabled so we can't disable/enable it.
-     *
-     * FIXME: Need to call all components with init in two parts register and init.
-     */
-    stsdk_init();
-#endif
-
-    /**
-     * FIXME: SmartThings needs to manage the Wifi during adopting.
-     * FIXME: For now just one interface more is much more complex.
-     */
-#if CONFIG_AD2IOT_USE_ETHERNET
-    if ( net_mode == 'E') {
-        // Init the hardware ethernet module
-        hal_init_eth();
-    }
-#endif
-#if CONFIG_AD2IOT_USE_WIFI
-    if ( net_mode == 'W') {
-        // Init the wifi module
-        hal_init_wifi();
-    }
-#endif
+    // load and set the logging level.
+    ad2_set_log_mode(ad2_log_mode());
 
     // init the virtual partition database from NV storage
     // see iot_cli_cmd::vpaddr
@@ -707,7 +678,64 @@ void app_main()
         }
     }
 
-#if 1
+    // Load AD2IoT operating mode [Socket|UART] and argument
+    std::string ad2_mode;
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_MODE_SLOT, nullptr, ad2_mode);
+    g_ad2_mode = ad2_mode[0];
+
+    // If the hardware is local UART start it now.
+    if (g_ad2_mode == 'C') {
+        init_ad2_uart_client();
+    } else if (g_ad2_mode == 'S') {
+        ad2_printf_host("Delaying start of ad2source SOCKET after network is up.\r\n");
+    } else {
+        ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
+    }
+
+#if CONFIG_STDK_IOT_CORE
+    int stEN = -1;
+    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &stEN);
+    if (stEN == -1) {
+        // Enable STSDK if no setting found.
+        ESP_LOGI(TAG,"STSDK enable setting not found. Saving new enabled by default.");
+        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, 1);
+    }
+#endif
+
+    // get the network mode set default mode to 'N'
+    std::string args;
+    char net_mode = ad2_network_mode(args);
+    ad2_printf_host("AD2IoT 'netmode' set to '%c'.\r\n", net_mode);
+
+    /**
+     * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.
+     */
+    if ( net_mode != 'N') {
+        hal_init_network_stack();
+    }
+
+    /**
+     * Start the network hardware driver(s)
+     *
+     * FIXME: SmartThings needs to manage the Wifi during adopting.
+     * For now just one interface more is much more complex.
+     */
+#if CONFIG_AD2IOT_USE_ETHERNET
+    if ( net_mode == 'E') {
+        // Init the hardware ethernet driver and hadware
+        hal_init_eth();
+    }
+#endif
+#if CONFIG_AD2IOT_USE_WIFI
+    if ( net_mode == 'W') {
+        // Init the wifi driver and hardware
+        hal_init_wifi();
+    }
+#endif
+
+#if 1 // FIXME add build switch for release builds.
     // AlarmDecoder callback wire up for testing.
     AD2Parse.subscribeTo(ON_MESSAGE, my_ON_MESSAGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
@@ -716,26 +744,30 @@ void app_main()
     AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_FIRE, my_ON_FIRE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
 #endif
 
-#if CONFIG_TWILIO_CLIENT
-    // Initialize twilio client
-    twilio_init();
-#endif
-
-    // Start the CLI.
-    // Press ENTER to halt and stay in CLI only.
-    uart_cli_main();
-
+    // Start components
 #if CONFIG_STDK_IOT_CORE
     // Disable stsdk if network mode is not N
     if ( net_mode == 'N') {
+        /**
+         * Initialize SmartThings SDK
+         *
+         *  WARNING: If enabled it will consume the esp_event_loop_init and
+         * only one task can create this.
+         */
+        stsdk_init();
         // Kick off a connect to SmartThings server to get things started.
         stsdk_connection_start();
     } else {
         ESP_LOGI(TAG, "Setting netmode <> 'N' disabling SmartThings.");
         ad2_printf_host("Setting netmode <> 'N' disabling SmartThings.\r\n");
     }
+#endif
+#if CONFIG_TWILIO_CLIENT
+    // Initialize twilio client
+    twilio_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.

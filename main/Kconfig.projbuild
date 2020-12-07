@@ -137,6 +137,12 @@ if AD2IOT_USE_ETHERNET
             Set the GPIO number used to reset PHY chip.
             Set to -1 to disable PHY chip hardware reset.
 
+    config AD2IOT_ETH_PHY_POWER_GPIO
+        int "PHY Powercontrol GPIO number"
+        default 12
+        help
+            Set the GPIO number used to enable power on PHY chip.
+
     config AD2IOT_ETH_PHY_ADDR
         int "PHY Address"
         range 0 31 if AD2IOT_USE_INTERNAL_ETHERNET

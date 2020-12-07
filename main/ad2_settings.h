@@ -64,3 +64,6 @@
 
 // NV
 #define AD2_MAX_VALUE_SIZE 1024
+
+// Signon message
+#define AD2_SIGNON "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"

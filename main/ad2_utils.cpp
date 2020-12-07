@@ -951,7 +951,7 @@ char ad2_network_mode(std::string &args)
         mode = 'N';
         break;
     }
-    return mode;
+    return (char) mode & 0xff;
 }
 
 
@@ -968,6 +968,7 @@ char ad2_log_mode()
     case 'I':
     case 'D':
     case 'N':
+    case 'V':
         break;
     default:
         mode = 'N';
@@ -988,6 +989,8 @@ void ad2_set_log_mode(char m)
         esp_log_level_set("*", ESP_LOG_INFO);        // set all components to INFO level
     } else if (lm == 'D')  {
         esp_log_level_set("*", ESP_LOG_DEBUG);       // set all components to DEBUG level
+    } else if (lm == 'V') {
+        esp_log_level_set("*", ESP_LOG_VERBOSE);     // set all components to VERBOSE level
     } else {
         esp_log_level_set("*", ESP_LOG_WARN);        // set all components to WARN level
     }
