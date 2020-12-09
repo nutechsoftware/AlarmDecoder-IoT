@@ -691,14 +691,18 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // Ademco QUIRK system messages ignore some bits.
                             bool ADEMCO_SYS_MESSAGE = false;
                             if (ad2ps->panel_type == ADEMCO_PANEL) {
-                                if( ALPHAMSG.find("CHECK") != string::npos ||
-                                        ALPHAMSG.find("SYSTEM") != string::npos) {
+                                if( ALPHAMSG.find("SYSTEM") == 0 ||
+                                        msg[SYSSPECIFIC_BYTE] != '0') {
                                     ADEMCO_SYS_MESSAGE = true;
                                 }
 
                                 if ( ADEMCO_SYS_MESSAGE ) {
                                     // Skip fire bit restore to current so we dont trip an event.
                                     FIRE_ALARM = ad2ps->fire_alarm;
+                                } else {
+                                    // Restore battery state only track when it is a system message.
+                                    // TODO: Zone battery state can be tracked for non system messages.
+                                    LOW_BATTERY = ad2ps->battery_low;
                                 }
                             }
 
@@ -773,7 +777,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                     SEND_POWER_CHANGE = true;
                                 }
 
-                                // ac_power state change send
+                                // low battery state change send
                                 if ( ad2ps->battery_low != LOW_BATTERY ) {
                                     SEND_BATTERY_CHANGE = true;
                                 }
@@ -833,7 +837,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->programming_mode = is_bit_set(PROGMODE_BYTE, msg.c_str());
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
-                            ad2ps->system_specific = is_bit_set(SYSSPECIFIC_BYTE, msg.c_str());
+                            ad2ps->system_specific = (uint8_t) (msg[SYSSPECIFIC_BYTE] - '0') & 0xff;
                             ad2ps->beeps = msg[BEEPMODE_BYTE];
 
                             // Extract the numeric value from section #2
