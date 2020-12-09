@@ -1,24 +1,25 @@
-# AlarmDecoder SmartThings STSDK IoT Appliance
+# AlarmDecoder IoT Appliance with SmartThings STSDK
 [Latest stable release ![Release Version](https://img.shields.io/github/release/nutechsoftware/AlarmDecoder-STSDK.svg?style=plastic) ![Release Date](https://img.shields.io/github/release-date/nutechsoftware/AlarmDecoder-STSDK.svg?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-STSDK/releases/latest/) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-STSDK/master?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-STSDK)
 
 [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-STSDK/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-STSDK/tree/dev) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-STSDK/dev?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-STSDK)
 
 ## Overview
 
-This project provides a framework for building a network IoT appliance to monitor and control alarm panel(s) using the AD2pHAT from AlarmDecoder.com and ESP32-DevKitC-32E or compatible ESP32 development board.
+This project provides a framework for building an IoT network appliance to monitor and control one or many alarm systems.
 
-## Hardware Required
+By integrating the AD2pHAT from AlarmDecoder.com and a compatible ESP32 SoC based board the resulting device connects a compatible alarm system to a public or private MQTT server for monitoring. The device can also be configured to initiate SIP voice calls, SMS messages, or e-mail when a user defined alarm state is triggered. The typical time from the device firmware start to being delivery of a state event is less than 10 seconds. Typical latency between an alarm event and message delivery is 20ms on a local network.
 
-To run this example, it's recommended that you have a ESP32-DevKitC-32E or similar ESP32 based board. It is recommended to use the latest ESP32 V3 chips as they have improved encryption and firmware security features.
+The device firmware is stored in the onboard non-volatile flash making the device resistant to corruption. With OTA update support the flash can be securely loaded with the latest version in just a few seconds over HTTPS.
 
-Using an Olimex ESP32-EVB-EA it takes 6 seconds :) after booting to connect to the network and start sending messages.
+## Tested and recommended hardware
+* ESP32-DevKitC-32E. WiFi only applications.
+* ESP-POE-ISO. Ethernet+WiFi applications.
 
-
-### Firmware
+## Firmware
 TODO: HOWTO flash the latest available firmware or compile this project from source. [Building firmware](#Building-firmware)
 
 
-## New SmartThings app integration
+## SmartThings app integration
 A few options are available as the AD2IoT device moves toward being certified and directly available in the SmartThings app. In order to Discover and adopt the AD2IoT device it needs to be visible in the "My Testing Devices" under the "Adding device" panel.
 
 First you will need to [enable Developer Mode in the app
@@ -29,11 +30,11 @@ Next decide if you want to build your own profile and layout or join the existin
 - Join the AlarmDecoder organization where the profiles are already working and in current development. Enroll in the  AlarmDecoder organization using the Manufacturer ID '''0AOf'''
 https://smartthings.developer.samsung.com/partner/enroll
 
-- Use the SmartThings developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
+- Use the SmartThings/Samsung developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
 
 
 ## Configure the AD2IoT device.
- - Connect the ESP32 development board USB to a host computer and run a terminal program to connect to the virtual com port.
+ - Connect the ESP32 development board USB to a host computer and run a terminal program to connect to the virtual com port using 115200 baud.
  - Configure the AD2* Source cli command **'ad2source'**
 
 Choose one of the following configurations.
@@ -46,6 +47,7 @@ Choose one of the following configurations.
  - Managed networking mode.
    - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password as described in the ```netmode``` command help.
 
+Configure the notifications using the notification components CLI commands.
 
 ## AD2Iot CLI command reference
 ### Base commands

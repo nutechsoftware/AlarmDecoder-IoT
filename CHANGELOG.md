@@ -5,8 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [ ] API: ON_LOW_BATTERY() toggle ON/OFF with no battery.
-- [ ] CORE: Add Ethernet support for ESP32-POE-ISO board. https://raw.githubusercontent.com/OLIMEX/ESP32-POE-ISO/master/HARDWARE/ESP32-PoE-ISO-Rev.D/ESP32-PoE-ISO_Rev_D.pdf Requires patching https://github.com/vtunr/esp-idf/commit/0f8ea938d826a5aacd2f27db20c5e4edeb3e2ba9 Not able to power on correctly with no delay from power to reading registers.
+- [ ] API: ON_LOW_BATTERY() toggle ON/OFF with no battery on on test panel.
+- [ ] CORE: Ethernet is only DHCP currently. Needs arguments processing for static values if defined.
+- [X] CORE: Add Ethernet support for ESP32-POE-ISO board. https://raw.githubusercontent.com/OLIMEX/ESP32-POE-ISO/master/HARDWARE/ESP32-PoE-ISO-Rev.D/ESP32-PoE-ISO_Rev_D.pdf Requires patching https://github.com/vtunr/esp-idf/commit/0f8ea938d826a5aacd2f27db20c5e4edeb3e2ba9 see contrib/esp_eth_phy_lan8720.c.patch
 - [X] CORE: Updated README build notes.
 - [X] CORE: Refactor app_main cleanup and reorder.
 - [X] CORE: Refactor app_main to allow breaking out before network loads just in case hardware is not working and it crashes.

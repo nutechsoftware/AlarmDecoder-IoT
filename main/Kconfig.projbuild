@@ -8,7 +8,7 @@ config AD2IOT_USE_WIFI
 
 config AD2IOT_USE_ETHERNET
     bool "Enable Ethernet driver"
-    default n
+    default y
     help
         Enable support for IPV4 sockets for ser2sock client/server.
 
@@ -236,7 +236,7 @@ config AD2IOT_SER2SOCK_IPV4
         Enable support for IPV4 sockets for ser2sock client/server.
 config AD2IOT_SER2SOCK_IPV6
     bool "Enable IPV6"
-    default y
+    default n
     help
         Enable support for IPV6 sockets for ser2sock client/server.
 
