@@ -705,8 +705,8 @@ void app_main()
 #endif
 
     // get the network mode set default mode to 'N'
-    std::string args;
-    char net_mode = ad2_network_mode(args);
+    std::string netmode_args;
+    char net_mode = ad2_network_mode(netmode_args);
     ad2_printf_host("AD2IoT 'netmode' set to '%c'.\r\n", net_mode);
 
     /**
@@ -725,13 +725,13 @@ void app_main()
 #if CONFIG_AD2IOT_USE_ETHERNET
     if ( net_mode == 'E') {
         // Init the hardware ethernet driver and hadware
-        hal_init_eth();
+        hal_init_eth(netmode_args);
     }
 #endif
 #if CONFIG_AD2IOT_USE_WIFI
     if ( net_mode == 'W') {
         // Init the wifi driver and hardware
-        hal_init_wifi();
+        hal_init_wifi(netmode_args);
     }
 #endif
 
@@ -761,8 +761,8 @@ void app_main()
         // Kick off a connect to SmartThings server to get things started.
         stsdk_connection_start();
     } else {
-        ESP_LOGI(TAG, "Setting netmode <> 'N' disabling SmartThings.");
-        ad2_printf_host("Setting netmode <> 'N' disabling SmartThings.\r\n");
+        ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
+        ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
     }
 #endif
 #if CONFIG_TWILIO_CLIENT

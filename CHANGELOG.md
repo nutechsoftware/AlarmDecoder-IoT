@@ -5,9 +5,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
+- [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
+- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
+- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [ ] API: Add countdown tracking for DSC/Ademco exit mode
+- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
+- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
+- [ ] CORE: TODO: Ethernet hardware enable.
+- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
+- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
+- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
+- [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+## [1.0.5] - 2020-12-15
+- [X] CORE: Tidy: Improve Kconfig menuconfig.
 - [X] API: System specific nibble was a bit. Fixed.
 - [X] API: ON_LOW_BATTERY() toggle ON/OFF with no battery on on test panel. This one keeps poping up...
-- [ ] CORE: Ethernet is only DHCP currently. Needs arguments processing for static values if defined.
+- [X] CORE: Add support for Ethernet and WiFi [S]tatic or [D]ynamic '''MODE''' selection in '''netmode''' command. Static mode supports args IP,MASK,GW,DNS1,DNS2. Currently is ON/OFF settings are only used in Static mode. May later allow for override settings for a mix of DHCP+static.
 - [X] CORE: Add Ethernet support for ESP32-POE-ISO board. https://raw.githubusercontent.com/OLIMEX/ESP32-POE-ISO/master/HARDWARE/ESP32-PoE-ISO-Rev.D/ESP32-PoE-ISO_Rev_D.pdf Requires patching https://github.com/vtunr/esp-idf/commit/0f8ea938d826a5aacd2f27db20c5e4edeb3e2ba9 see contrib/esp_eth_phy_lan8720.c.patch
 - [X] CORE: Updated README build notes.
 - [X] CORE: Refactor app_main cleanup and reorder.
@@ -17,23 +32,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] TWILIO: Split MODULE_init into MODULE_register_cmds MODULE_init so commands can be initialized even if not running.
 - [X] STSDK: Split MODULE_init into MODULE_register_cmds MODULE_init so commands can be initialized even if not running.
 - [X] CORE: Added ON_LOW_BATTERY test callback.
-- [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
 - [X] TWILIO: Missed log refactor after serialize refactor. No logic changes.
 - [X] TWILIO: Fix ~250 byte memory leak in Twilio json code.. No logic changes.
 - [X] CORE: tidy.
-- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
-- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
-- [ ] API: Add countdown tracking for DSC/Ademco exit mode
-- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
-- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
-- [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
-- [ ] CORE: TODO: Ethernet hardware enable.
-- [ ] CORE: Tidy: Improve Kconfig menuconfig.
-- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
-- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
-- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
-- [ ] STSDK: TODO: Add SmartThings Zone devices.
-
 ## [1.0.4] - 2020-11-08
 - [X] CORE: Tidy QA testing.
 - [X] TWILIO: Improve docs and ```twsas``` command report format as valid commands with comments.

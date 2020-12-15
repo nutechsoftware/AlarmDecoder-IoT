@@ -21,9 +21,9 @@
  *
  */
 
-#include "device_control.h"
 
 #include <string.h>
+#include <string>
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
@@ -37,6 +37,7 @@
 #include "esp_log.h"
 #include "esp_eth.h"
 #include "esp_idf_version.h"
+#include "device_control.h"
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 #include "tcpip_adapter.h"
 #else
@@ -421,7 +422,7 @@ void hal_init_network_stack()
 /**
  * @brief initialize wifi hardware and driver
  */
-void hal_init_wifi()
+void hal_init_wifi(std::string &args)
 {
     esp_err_t esp_ret;
     ESP_LOGI(TAG, "WiFi hardware init start");
@@ -447,8 +448,6 @@ void hal_init_wifi()
 
     int res = 0;
     std::string value;
-    std::string args;
-    ad2_network_mode(args);
 
     wifi_config_t sta_config = { };
 
@@ -467,6 +466,65 @@ void hal_init_wifi()
     sta_config.sta.bssid_set = false;
 
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
+
+
+    // test DHCP or Static configuration
+    res = ad2_query_key_value(args, "MODE", value);
+    ad2_ucase(value);
+    bool dhcp = true;
+    if (res > 0) {
+        // Static IP mode
+        if (value[0] == 'S') {
+            dhcp = false;
+        }
+    }
+
+    if (!dhcp) {
+        // init vars
+        std::string ip;
+        std::string netmask;
+        std::string gateway;
+        std::string dns1;
+        std::string dns2;
+        tcpip_adapter_ip_info_t ip_info;
+        tcpip_adapter_dns_info_t dns_info;
+        memset(&ip_info, 0, sizeof(ip_info));
+        memset(&dns_info, 0, sizeof(dns_info));
+
+        // Parse name value pair settings from args string
+        res = ad2_query_key_value(args, "IP", ip);
+        res = ad2_query_key_value(args, "MASK", netmask);
+        res = ad2_query_key_value(args, "GW", gateway);
+        res = ad2_query_key_value(args, "DNS1", dns1);
+        res = ad2_query_key_value(args, "DNS2", dns2);
+
+        // stop dhcp client service on interface.
+        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
+
+        // if gateway defined set it.
+        if (gateway.length()) {
+            ip4addr_aton(gateway.c_str(), &ip_info.gw);
+        }
+
+        // Assign static ip/netmask to interface
+        ip4addr_aton(ip.c_str(), &ip_info.ip);
+        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+        ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
+
+        // assign DNS1 if avail.
+        if (dns1.length()) {
+            ipaddr_aton(dns1.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
+        }
+        // assign DNS2 if avail.
+        if (dns2.length()) {
+            ipaddr_aton(dns2.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
+        }
+    } else {
+        ESP_LOGI(TAG, "DHCP Mode selected");
+    }
+
     ESP_ERROR_CHECK( esp_wifi_start() );
 
     ESP_LOGI(TAG, "WiFi hardware init done");
@@ -476,13 +534,11 @@ void hal_init_wifi()
 /**
  * @brief initialize the ethernet driver
  */
-void hal_init_eth()
+void hal_init_eth(std::string &args)
 {
     ESP_LOGI(TAG, "ETH hardware init start");
-
+    int res = 0;
     std::string value;
-    std::string args;
-    ad2_network_mode(args);
 
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
@@ -507,8 +563,66 @@ void hal_init_eth()
     esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
     esp_eth_handle_t eth_handle = NULL;
     ESP_ERROR_CHECK(esp_eth_driver_install(&config, &eth_handle));
-    ESP_ERROR_CHECK(esp_eth_start(eth_handle));
 
+    // test DHCP or Static configuration
+    res = ad2_query_key_value(args, "MODE", value);
+    ad2_ucase(value);
+    bool dhcp = true;
+    if (res > 0) {
+        // Static IP mode
+        if (value[0] == 'S') {
+            dhcp = false;
+        }
+    }
+
+    if (!dhcp) {
+        ESP_LOGI(TAG, "Static IP Mode selected");
+
+        // init vars
+        std::string ip;
+        std::string netmask;
+        std::string gateway;
+        std::string dns1;
+        std::string dns2;
+        tcpip_adapter_ip_info_t ip_info;
+        tcpip_adapter_dns_info_t dns_info;
+        memset(&ip_info, 0, sizeof(ip_info));
+        memset(&dns_info, 0, sizeof(dns_info));
+
+        // Parse name value pair settings from args string
+        res = ad2_query_key_value(args, "IP", ip);
+        res = ad2_query_key_value(args, "MASK", netmask);
+        res = ad2_query_key_value(args, "GW", gateway);
+        res = ad2_query_key_value(args, "DNS1", dns1);
+        res = ad2_query_key_value(args, "DNS2", dns2);
+
+        // stop dhcp client service on interface.
+        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
+
+        // if gateway defined set it.
+        if (gateway.length()) {
+           ip4addr_aton(gateway.c_str(), &ip_info.gw);
+        }
+
+        // Assign static ip/netmask to interface
+        ip4addr_aton(ip.c_str(), &ip_info.ip);
+        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+        ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_ETH, &ip_info));
+
+        // assign DNS1 if avail.
+        if (dns1.length()) {
+            ipaddr_aton(dns1.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
+        }
+        // assign DNS2 if avail.
+        if (dns2.length()) {
+            ipaddr_aton(dns2.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
+        }
+    } else {
+        ESP_LOGI(TAG, "DHCP Mode selected");
+    }
+    ESP_ERROR_CHECK(esp_eth_start(eth_handle));
     ESP_LOGI(TAG, "ETH hardware init finish");
 
     return;
