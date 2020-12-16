@@ -601,7 +601,7 @@ void hal_init_eth(std::string &args)
 
         // if gateway defined set it.
         if (gateway.length()) {
-           ip4addr_aton(gateway.c_str(), &ip_info.gw);
+            ip4addr_aton(gateway.c_str(), &ip_info.gw);
         }
 
         // Assign static ip/netmask to interface
