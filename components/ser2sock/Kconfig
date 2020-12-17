@@ -1,0 +1,7 @@
+menu "ser2sock server daemon"
+    config SER2SOCKD
+        bool "ser2sock server daemon"
+        default n
+        help
+            Enable ser2sock server daemon
+endmenu

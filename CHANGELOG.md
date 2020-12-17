@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] SER2SOCKD: Add new component ser2sock daemon.
+- [X] CORE: Extract ser2sock fragments and move into ser2sock component.
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
 - [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.

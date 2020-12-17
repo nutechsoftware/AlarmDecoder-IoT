@@ -60,6 +60,11 @@
 #include "stsdk_main.h"
 #endif
 
+// ser2sockd support
+#if CONFIG_SER2SOCKD
+#include "ser2sock.h"
+#endif
+
 // twilio support
 #if CONFIG_TWILIO_CLIENT
 #include "twilio.h"
@@ -403,40 +408,6 @@ static void ser2sock_client_task(void *pvParameters)
 }
 
 /**
- * @brief helper do_retransmit for ser2sock_server_task
- *
- * @param [in]sock socket fd
- */
-inline void do_retransmit(const int sock)
-{
-    int len;
-    char rx_buffer[128];
-
-    do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0) {
-            ESP_LOGE(TAG, "ser2sock server error occurred during receiving: errno %d", errno);
-        } else if (len == 0) {
-            ESP_LOGW(TAG, "ser2sock server connection closed");
-        } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "ser2sock server received %d bytes: %s", len, rx_buffer);
-
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(TAG, "ser2sock server error occurred during sending: errno %d", errno);
-                }
-                to_write -= written;
-            }
-        }
-    } while (len > 0);
-}
-
-/**
  * @brief Start ser2sock client task
  */
 void init_ser2sock_client()
@@ -540,6 +511,11 @@ void app_main()
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
+#endif
+
+#if CONFIG_SER2SOCKD
+    // Register ser2sock daemon CLI commands.
+    ser2sockd_register_cmds();
 #endif
 
 #if CONFIG_TWILIO_CLIENT
@@ -677,9 +653,9 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(CONFIG_SER2SOCK_DAEMON)
+#if defined(CONFIG_SER2SOCKD)
     // init ser2sock server
-    ser2sock_daemon_init();
+    ser2sockd_init();
 #endif
 
 }
