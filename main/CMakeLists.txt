@@ -7,6 +7,7 @@ idf_component_register(SRCS "alarmdecoder_main.cpp"
                     REQUIRES idf::twilio
 		    REQUIRES idf::stsdk
                     REQUIRES idf::otaupdate
+                    REQUIRES idf::ser2sock
                     )
 
 set(STDK_IOT_CORE_USE_DEFINED_CONFIG "y")
