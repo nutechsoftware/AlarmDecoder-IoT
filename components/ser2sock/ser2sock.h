@@ -28,10 +28,8 @@
 #define SER2SOCKD_PORT "10000"
 #define SER2SOCKD_MAX_CLIENTS 4
 
-// NV storage sub key values for virtual search switch
-// Notification types
-#define S2SD_ENABLED  'E'
-#define S2SD_DISABLED 'D'
+#define S2SD_ENABLE           "s2sdenable"
+#define S2SD_ACL_LIST         "s2sdacl"
 
 #ifdef __cplusplus
 extern "C" {
