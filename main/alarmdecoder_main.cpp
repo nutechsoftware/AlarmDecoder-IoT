@@ -445,16 +445,6 @@ void init_ser2sock_client()
 }
 
 /**
- * @brief Start ser2sock server task
- */
-#if defined(AD2_SER2SOCK_SERVER)
-void init_ser2sock_server()
-{
-    xTaskCreate(ser2sock_server_task, "ser2sock_server", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
-}
-#endif
-
-/**
  *  @brief Initialize the uart connected to the AD2 device
  */
 void init_ad2_uart_client()
@@ -687,9 +677,9 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(AD2_SER2SOCK_SERVER)
+#if defined(CONFIG_SER2SOCK_DAEMON)
     // init ser2sock server
-    ser2sock_server_init();
+    ser2sock_daemon_init();
 #endif
 
 }
