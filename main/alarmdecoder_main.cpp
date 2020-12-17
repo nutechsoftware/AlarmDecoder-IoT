@@ -437,103 +437,6 @@ inline void do_retransmit(const int sock)
 }
 
 /**
- * @brief ser2sock server task
- *
- * @param [in]pvParameters currently not used NULL.
- */
-#ifdef SER2SOCK_SERVER
-static void ser2sock_server_task(void *pvParameters)
-{
-    char addr_str[128];
-    // int addr_family = (int)pvParameters;
-    int addr_family = AF_INET;
-    int ip_protocol = 0;
-    struct sockaddr_in6 dest_addr;
-
-    ESP_LOGI(TAG, "ser2sock server task starting.");
-
-    for (;;) {
-        if (g_ad2_network_state == AD2_CONNECTED) {
-            ESP_LOGI(TAG, "ser2sock server starting.");
-            if (addr_family == AF_INET) {
-                struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
-                dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
-                dest_addr_ip4->sin_family = AF_INET;
-                dest_addr_ip4->sin_port = htons(SER2SOCK_SERVER_PORT);
-                ip_protocol = IPPROTO_IP;
-            } else if (addr_family == AF_INET6) {
-                bzero(&dest_addr.sin6_addr.un, sizeof(dest_addr.sin6_addr.un));
-                dest_addr.sin6_family = AF_INET6;
-                dest_addr.sin6_port = htons(SER2SOCK_SERVER_PORT);
-                ip_protocol = IPPROTO_IPV6;
-            }
-
-            int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-            if (listen_sock < 0) {
-                ESP_LOGE(TAG, "ser2sock server unable to create socket: errno %d", errno);
-                vTaskDelete(NULL);
-                return;
-            }
-#if defined(SER2SOCK_IPV4) && defined(SER2SOCK_IPV6)
-            // Note that by default IPV6 binds to both protocols, it is must be disabled
-            // if both protocols used at the same time (used in CI)
-            int opt = 1;
-            setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-            setsockopt(listen_sock, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
-#endif
-
-            ESP_LOGI(TAG, "ser2sock server socket created");
-
-            int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-            if (err != 0) {
-                ESP_LOGE(TAG, "ser2sock server socket unable to bind: errno %d", errno);
-                ESP_LOGE(TAG, "ser2sock server IPPROTO: %d", addr_family);
-                goto CLEAN_UP;
-            }
-            ESP_LOGI(TAG, "ser2sock server socket bound, port %d", SER2SOCK_SERVER_PORT);
-
-            err = listen(listen_sock, 1);
-            if (err != 0) {
-                ESP_LOGE(TAG, "ser2sock server error occurred during listen: errno %d", errno);
-                goto CLEAN_UP;
-            }
-
-            while (1) {
-
-                ESP_LOGI(TAG, "ser2sock server socket listening");
-
-                struct sockaddr_in6 source_addr; // Large enough for both IPv4 or IPv6
-                uint addr_len = sizeof(source_addr);
-                int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-                if (sock < 0) {
-                    ESP_LOGE(TAG, "ser2sock server unable to accept connection: errno %d", errno);
-                    break;
-                }
-
-                // Convert ip address to string
-                if (source_addr.sin6_family == PF_INET) {
-                    inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
-                } else if (source_addr.sin6_family == PF_INET6) {
-                    inet6_ntoa_r(source_addr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-                }
-                ESP_LOGI(TAG, "ser2sock server socket accepted ip address: %s", addr_str);
-
-                do_retransmit(sock);
-
-                shutdown(sock, 0);
-                close(sock);
-            }
-
-CLEAN_UP:
-            close(listen_sock);
-        }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-    vTaskDelete(NULL);
-}
-#endif
-
-/**
  * @brief Start ser2sock client task
  */
 void init_ser2sock_client()
@@ -786,7 +689,7 @@ void app_main()
 
 #if defined(AD2_SER2SOCK_SERVER)
     // init ser2sock server
-    init_ser2sock_server();
+    ser2sock_server_init();
 #endif
 
 }
