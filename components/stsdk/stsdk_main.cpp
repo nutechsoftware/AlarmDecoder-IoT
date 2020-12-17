@@ -962,6 +962,16 @@ void on_ready_to_arm_change_cb(std::string *msg, AD2VirtualPartitionState *s, vo
     }
 }
 
+/**
+ * @brief Register component cli commands.
+ */
+void stsdk_register_cmds(void)
+{
+    // register STSDK CLI commands
+    for (int i = 0; i < ARRAY_SIZE(stsdk_cmd_list); i++) {
+        cli_register_command(&stsdk_cmd_list[i]);
+    }
+}
 
 /**
  * @brief Initialize the STSDK engine
@@ -974,11 +984,6 @@ void stsdk_init(void)
     unsigned int device_info_len = device_info_end - device_info_start;
     int iot_err;
 
-    // register STSDK CLI commands
-    for (int i = 0; i < ARRAY_SIZE(stsdk_cmd_list); i++) {
-        cli_register_command(&stsdk_cmd_list[i]);
-    }
-
     int enabled = 0;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &enabled);
 
@@ -987,6 +992,8 @@ void stsdk_init(void)
         ESP_LOGI(TAG, "STSDK disabled");
         return;
     }
+
+    ESP_LOGI(TAG, "Starting STSDK");
 
     // create a iot context
     ctx = st_conn_init(onboarding_config, onboarding_config_len, device_info, device_info_len);

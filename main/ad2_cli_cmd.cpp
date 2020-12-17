@@ -341,7 +341,7 @@ static void _cli_cmd_netmode_event(char *string)
     // show current mode.
     std::string args;
     char cmode = ad2_network_mode(args);
-    ad2_printf_host("The current network mode is '%c' with args '%s'.\r\n", cmode, arg.c_str());
+    ad2_printf_host("The current network mode is '%c' with args '%s'.\r\n", cmode, args.c_str());
 }
 
 /**
@@ -361,6 +361,7 @@ static void _cli_cmd_ad2logmode_event(char *string)
         case 'N':
         case 'D':
         case 'I':
+        case 'V':
             ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, nullptr, mode[0]);
 
             break;
@@ -488,7 +489,7 @@ static struct cli_command cmd_list[] = {
     },
     {
         (char*)AD2_VPADDR,(char*)
-        "- Manage virtual partitions\r\n\r\n"
+        "- Manage virtual partitions.\r\n\r\n"
         "  ```" AD2_VPADDR " {id} {value}```\r\n\r\n"
         "  - {id}\r\n"
         "    - The virtual partition ID. 0 is the default.\r\n"
@@ -520,7 +521,7 @@ static struct cli_command cmd_list[] = {
         "      - " AD2_SOURCE "\r\n"
         "    - Set source to ser2sock client at address and port.\r\n"
         "      - " AD2_SOURCE " SOCK 192.168.1.2:10000\r\n"
-        "    - Set source to local attached uart with TX on GPIP 17 and RX on GPIO 16.\r\n"
+        "    - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.\r\n"
         "      - " AD2_SOURCE " COM 17:16\r\n", _cli_cmd_ad2source_event
     },
     {
@@ -535,6 +536,7 @@ static struct cli_command cmd_list[] = {
         "  ```" AD2_LOGMODE " {level}```\r\n\r\n"
         "  - {level}\r\n"
         "       [I] - Informational\r\n"
+        "       [V] - Verbose\r\n"
         "       [D] - Debugging\r\n"
         "       [N] - None: (default) Warnings and errors only.\r\n\n\n"
         "  Examples:\r\n"

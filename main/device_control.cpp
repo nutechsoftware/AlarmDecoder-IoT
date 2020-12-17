@@ -21,19 +21,33 @@
  *
  */
 
-#include "device_control.h"
 
 #include <string.h>
+#include <string>
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
 #include "esp_system.h"
+#include "esp_event.h"
 #include "esp_event_loop.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "esp_eth.h"
+#include "esp_idf_version.h"
+#include "device_control.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#include "tcpip_adapter.h"
+#else
+#include "esp_netif.h"
+#endif
+
+#if CONFIG_AD2IOT_ETH_PHY_LAN8720
+//#include "eth_phy/phy_lan8720.h"
+//#define DEFAULT_ETHERNET_PHY_CONFIG phy_lan8720_default_ethernet_config
+#endif
 
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
@@ -46,16 +60,22 @@ static const char *TAG = "HAL";
 extern "C" {
 #endif
 
+void _eth_event_handler(void *arg, esp_event_base_t event_base,
+                        int32_t event_id, void *event_data);
+void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
+                           int32_t event_id, void *event_data);
+
+static int HAL_NET_INITIALIZED = false;
+
+// WiFi event state bits
 const int WIFI_STA_START_BIT 		= BIT0;
 const int WIFI_STA_CONNECT_BIT		= BIT1;
 const int WIFI_STA_DISCONNECT_BIT	= BIT2;
 const int WIFI_AP_START_BIT 		= BIT3;
 const int WIFI_AP_STOP_BIT 			= BIT4;
-
 const int WIFI_EVENT_BIT_ALL = BIT0|BIT1|BIT2|BIT3|BIT4;
 
-static int HAL_WIFI_INITIALIZED = false;
-static EventGroupHandle_t wifi_event_group;
+static EventGroupHandle_t net_event_group;
 
 static bool switchAState = SWITCH_OFF;
 static bool switchBState = SWITCH_OFF;
@@ -303,94 +323,109 @@ void hal_restart()
 /**
  * @brief event handler for WiFi and Ethernet
  */
-static esp_err_t hal_event_handler(void *dummy, system_event_t *event)
+void _wifi_event_handler(void *arg, esp_event_base_t event_base,
+                         int32_t event_id, void *event_data)
 {
     wifi_ap_record_t ap_info;
     memset(&ap_info, 0x0, sizeof(wifi_ap_record_t));
+    wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
 
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        xEventGroupSetBits(wifi_event_group, WIFI_STA_START_BIT);
+    switch(event_id) {
+    case WIFI_EVENT_STA_START:
+        xEventGroupSetBits(net_event_group, WIFI_STA_START_BIT);
         esp_wifi_connect();
         g_ad2_network_state = AD2_OFFLINE;
         break;
 
-    case SYSTEM_EVENT_STA_STOP:
+    case WIFI_EVENT_STA_STOP:
         ESP_LOGI(TAG, "SYSTEM_EVENT_STA_STOP");
-        xEventGroupClearBits(wifi_event_group, WIFI_EVENT_BIT_ALL);
+        xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
         g_ad2_network_state = AD2_OFFLINE;
         break;
 
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        ESP_LOGI(TAG, "Disconnect reason : %d", event->event_info.disconnected.reason);
-        xEventGroupSetBits(wifi_event_group, WIFI_STA_DISCONNECT_BIT);
+    case WIFI_EVENT_STA_DISCONNECTED:
+        ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
+        xEventGroupSetBits(net_event_group, WIFI_STA_DISCONNECT_BIT);
         esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, WIFI_STA_CONNECT_BIT);
+        xEventGroupClearBits(net_event_group, WIFI_STA_CONNECT_BIT);
         g_ad2_network_state = AD2_OFFLINE;
         break;
 
-    case SYSTEM_EVENT_STA_GOT_IP:
-        esp_wifi_sta_get_ap_info(&ap_info);
-        ESP_LOGI(TAG, "got ip:%s rssi:%ddBm",
-                 ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip), ap_info.rssi);
-        xEventGroupSetBits(wifi_event_group, WIFI_STA_CONNECT_BIT);
-        xEventGroupClearBits(wifi_event_group, WIFI_STA_DISCONNECT_BIT);
-        g_ad2_network_state = AD2_CONNECTED;
-        break;
-
-    case SYSTEM_EVENT_AP_START:
-        xEventGroupClearBits(wifi_event_group, WIFI_EVENT_BIT_ALL);
+    case WIFI_EVENT_AP_START:
+        xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_START");
-        xEventGroupSetBits(wifi_event_group, WIFI_AP_START_BIT);
+        xEventGroupSetBits(net_event_group, WIFI_AP_START_BIT);
         break;
 
-    case SYSTEM_EVENT_AP_STOP:
+    case WIFI_EVENT_AP_STOP:
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_STOP");
-        xEventGroupSetBits(wifi_event_group, WIFI_AP_STOP_BIT);
+        xEventGroupSetBits(net_event_group, WIFI_AP_STOP_BIT);
         break;
 
-    case SYSTEM_EVENT_AP_STACONNECTED:
+    case WIFI_EVENT_AP_STACONNECTED:
         ESP_LOGI(TAG, "station:" MACSTR " join, AID=%d",
-                 MAC2STR(event->event_info.sta_connected.mac),
-                 event->event_info.sta_connected.aid);
+                 MAC2STR(event->mac),
+                 event->aid);
         break;
 
-    case SYSTEM_EVENT_AP_STADISCONNECTED:
+    case WIFI_EVENT_AP_STADISCONNECTED:
         ESP_LOGI(TAG, "station:" MACSTR " leave, AID=%d",
-                 MAC2STR(event->event_info.sta_disconnected.mac),
-                 event->event_info.sta_disconnected.aid);
+                 MAC2STR(event->mac),
+                 event->aid);
 
-        xEventGroupSetBits(wifi_event_group, WIFI_AP_STOP_BIT);
+        xEventGroupSetBits(net_event_group, WIFI_AP_STOP_BIT);
         break;
 
     default:
-        ESP_LOGI(TAG, "hal_event_handler = %d", event->event_id);
+        ESP_LOGI(TAG, "wifi_event_handler = %d", event_id);
         break;
     }
 
-    return ESP_OK;
 }
 
 /**
- * @brief initialize wifi driver
+ * @brief initialize network TCP/IP stack driver
  */
-void hal_init_wifi()
+void hal_init_network_stack()
 {
-    ESP_LOGI(TAG, "Wifi hardware init");
 
-    esp_err_t esp_ret;
-    if(HAL_WIFI_INITIALIZED) {
+    if(HAL_NET_INITIALIZED) {
+        ESP_LOGE(TAG, "network TCP/IP stack already initialized");
         return;
     }
 
-    wifi_event_group = xEventGroupCreate();
+    ESP_LOGI(TAG, "network TCP/IP stack init start");
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     tcpip_adapter_init();
-    esp_ret = esp_event_loop_init(hal_event_handler, NULL);
-    if(esp_ret != ESP_OK) {
-        ESP_LOGE(TAG, "esp_event_loop_init failed err=[%d]", esp_ret);
-        return;
-    }
+#else
+    esp_netif_init();
+#endif
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    ESP_ERROR_CHECK(esp_event_loop_init(nullptr, nullptr));
+    ESP_ERROR_CHECK(tcpip_adapter_set_default_eth_handlers());
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL));
+
+    // create event group
+    net_event_group = xEventGroupCreate();
+
+    HAL_NET_INITIALIZED = true;
+
+    ESP_LOGI(TAG, "network TCP/IP stack init finish");
+    return;
+}
+
+/**
+ * @brief initialize wifi hardware and driver
+ */
+void hal_init_wifi(std::string &args)
+{
+    esp_err_t esp_ret;
+    ESP_LOGI(TAG, "WiFi hardware init start");
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_ret = esp_wifi_init(&cfg);
@@ -413,8 +448,6 @@ void hal_init_wifi()
 
     int res = 0;
     std::string value;
-    std::string args;
-    ad2_network_mode(args);
 
     wifi_config_t sta_config = { };
 
@@ -433,15 +466,167 @@ void hal_init_wifi()
     sta_config.sta.bssid_set = false;
 
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
+
+
+    // test DHCP or Static configuration
+    res = ad2_query_key_value(args, "MODE", value);
+    ad2_ucase(value);
+    bool dhcp = true;
+    if (res > 0) {
+        // Static IP mode
+        if (value[0] == 'S') {
+            dhcp = false;
+        }
+    }
+
+    if (!dhcp) {
+        // init vars
+        std::string ip;
+        std::string netmask;
+        std::string gateway;
+        std::string dns1;
+        std::string dns2;
+        tcpip_adapter_ip_info_t ip_info;
+        tcpip_adapter_dns_info_t dns_info;
+        memset(&ip_info, 0, sizeof(ip_info));
+        memset(&dns_info, 0, sizeof(dns_info));
+
+        // Parse name value pair settings from args string
+        res = ad2_query_key_value(args, "IP", ip);
+        res = ad2_query_key_value(args, "MASK", netmask);
+        res = ad2_query_key_value(args, "GW", gateway);
+        res = ad2_query_key_value(args, "DNS1", dns1);
+        res = ad2_query_key_value(args, "DNS2", dns2);
+
+        // stop dhcp client service on interface.
+        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
+
+        // if gateway defined set it.
+        if (gateway.length()) {
+            ip4addr_aton(gateway.c_str(), &ip_info.gw);
+        }
+
+        // Assign static ip/netmask to interface
+        ip4addr_aton(ip.c_str(), &ip_info.ip);
+        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+        ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
+
+        // assign DNS1 if avail.
+        if (dns1.length()) {
+            ipaddr_aton(dns1.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
+        }
+        // assign DNS2 if avail.
+        if (dns2.length()) {
+            ipaddr_aton(dns2.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
+        }
+    } else {
+        ESP_LOGI(TAG, "DHCP Mode selected");
+    }
+
     ESP_ERROR_CHECK( esp_wifi_start() );
 
-    HAL_WIFI_INITIALIZED = true;
-    ESP_LOGI(TAG, "[esp32] iot_bsp_wifi_init done");
-
-    return;
+    ESP_LOGI(TAG, "WiFi hardware init done");
 
 }
 
+/**
+ * @brief initialize the ethernet driver
+ */
+void hal_init_eth(std::string &args)
+{
+    ESP_LOGI(TAG, "ETH hardware init start");
+    int res = 0;
+    std::string value;
+
+    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+    phy_config.phy_addr = CONFIG_AD2IOT_ETH_PHY_ADDR;
+    phy_config.reset_gpio_num = CONFIG_AD2IOT_ETH_PHY_RST_GPIO;
+    phy_config.reset_timeout_ms = 100;
+    gpio_pad_select_gpio((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO);
+    gpio_set_direction((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO, 1);
+    vTaskDelay(pdMS_TO_TICKS(10));
+
+#if CONFIG_AD2IOT_USE_INTERNAL_ETHERNET
+    mac_config.smi_mdc_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDC_GPIO;
+    mac_config.smi_mdio_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDIO_GPIO;
+    esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&mac_config);
+#ifdef CONFIG_AD2IOT_ETH_PHY_LAN8720
+    esp_eth_phy_t *phy = esp_eth_phy_new_lan8720(&phy_config);
+#endif
+#endif
+
+    /* Configure the hardware */
+    esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
+    esp_eth_handle_t eth_handle = NULL;
+    ESP_ERROR_CHECK(esp_eth_driver_install(&config, &eth_handle));
+
+    // test DHCP or Static configuration
+    res = ad2_query_key_value(args, "MODE", value);
+    ad2_ucase(value);
+    bool dhcp = true;
+    if (res > 0) {
+        // Static IP mode
+        if (value[0] == 'S') {
+            dhcp = false;
+        }
+    }
+
+    if (!dhcp) {
+        ESP_LOGI(TAG, "Static IP Mode selected");
+
+        // init vars
+        std::string ip;
+        std::string netmask;
+        std::string gateway;
+        std::string dns1;
+        std::string dns2;
+        tcpip_adapter_ip_info_t ip_info;
+        tcpip_adapter_dns_info_t dns_info;
+        memset(&ip_info, 0, sizeof(ip_info));
+        memset(&dns_info, 0, sizeof(dns_info));
+
+        // Parse name value pair settings from args string
+        res = ad2_query_key_value(args, "IP", ip);
+        res = ad2_query_key_value(args, "MASK", netmask);
+        res = ad2_query_key_value(args, "GW", gateway);
+        res = ad2_query_key_value(args, "DNS1", dns1);
+        res = ad2_query_key_value(args, "DNS2", dns2);
+
+        // stop dhcp client service on interface.
+        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
+
+        // if gateway defined set it.
+        if (gateway.length()) {
+            ip4addr_aton(gateway.c_str(), &ip_info.gw);
+        }
+
+        // Assign static ip/netmask to interface
+        ip4addr_aton(ip.c_str(), &ip_info.ip);
+        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+        ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_ETH, &ip_info));
+
+        // assign DNS1 if avail.
+        if (dns1.length()) {
+            ipaddr_aton(dns1.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
+        }
+        // assign DNS2 if avail.
+        if (dns2.length()) {
+            ipaddr_aton(dns2.c_str(), &dns_info.ip);
+            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
+        }
+    } else {
+        ESP_LOGI(TAG, "DHCP Mode selected");
+    }
+    ESP_ERROR_CHECK(esp_eth_start(eth_handle));
+    ESP_LOGI(TAG, "ETH hardware init finish");
+
+    return;
+}
 
 /**
  * @brief Start host uart
@@ -462,6 +647,55 @@ void hal_host_uart_init()
     uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
 
     free(uart_config);
+}
+
+/** Event handler for IP_EVENT_ETH_GOT_IP */
+void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
+                           int32_t event_id, void *event_data)
+{
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
+    const tcpip_adapter_ip_info_t *ip_info = &event->ip_info;
+
+    ESP_LOGI(TAG, "Ethernet Got IP Address");
+    ESP_LOGI(TAG, "~~~~~~~~~~~");
+    ESP_LOGI(TAG, "ETHIP:" IPSTR, IP2STR(&ip_info->ip));
+    ESP_LOGI(TAG, "ETHMASK:" IPSTR, IP2STR(&ip_info->netmask));
+    ESP_LOGI(TAG, "ETHGW:" IPSTR, IP2STR(&ip_info->gw));
+    ESP_LOGI(TAG, "~~~~~~~~~~~");
+
+    xEventGroupSetBits(net_event_group, WIFI_STA_CONNECT_BIT);
+    xEventGroupClearBits(net_event_group, WIFI_STA_DISCONNECT_BIT);
+    g_ad2_network_state = AD2_CONNECTED;
+
+}
+
+/** Event handler for Ethernet events */
+void _eth_event_handler(void *arg, esp_event_base_t event_base,
+                        int32_t event_id, void *event_data)
+{
+    uint8_t mac_addr[6] = {0};
+    /* we can get the ethernet driver handle from event data */
+    esp_eth_handle_t eth_handle = *(esp_eth_handle_t *)event_data;
+
+    switch (event_id) {
+    case ETHERNET_EVENT_CONNECTED:
+        esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, mac_addr);
+        ESP_LOGI(TAG, "Ethernet Link Up");
+        ESP_LOGI(TAG, "Ethernet HW Addr %02x:%02x:%02x:%02x:%02x:%02x",
+                 mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+        break;
+    case ETHERNET_EVENT_DISCONNECTED:
+        ESP_LOGI(TAG, "Ethernet Link Down");
+        break;
+    case ETHERNET_EVENT_START:
+        ESP_LOGI(TAG, "Ethernet Started");
+        break;
+    case ETHERNET_EVENT_STOP:
+        ESP_LOGI(TAG, "Ethernet Stopped");
+        break;
+    default:
+        break;
+    }
 }
 
 #ifdef __cplusplus

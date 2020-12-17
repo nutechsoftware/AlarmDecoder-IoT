@@ -252,6 +252,7 @@ std::string build_sendgrid_body(std::string from, std::string to, std::string ar
     json = cJSON_Print(_root);
 
     std::string ret = json;
+    free (json);
     cJSON_Delete(_root);
 
     return ret;
@@ -312,8 +313,8 @@ void twilio_add_queue(std::string &sid, std::string &token, std::string &from, s
  */
 void twilio_consumer_task(void *pvParameter)
 {
+    ESP_LOGI(TAG,"queue consumer loop start");
     while(1) {
-        ESP_LOGI(TAG,"queue consumer loop start");
         if(sendQ == NULL) {
             ESP_LOGW(TAG, "sendQ is not ready task ending");
             break;
@@ -1000,14 +1001,20 @@ static struct cli_command twilio_cmd_list[] = {
 /**
  * Initialize queue and SSL
  */
-void twilio_init()
+void twilio_register_cmds()
 {
-    int res = 0;
-
     // Register twilio CLI commands
     for (int i = 0; i < ARRAY_SIZE(twilio_cmd_list); i++) {
         cli_register_command(&twilio_cmd_list[i]);
     }
+}
+
+/**
+ * Initialize queue and SSL
+ */
+void twilio_init()
+{
+    int res = 0;
 
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
     mbedtls_ssl_cache_init( &cache );

@@ -170,7 +170,7 @@ public:
     bool system_issue = false;
     bool perimeter_only = false;
     bool exit_now = false;
-    bool system_specific = false;
+    uint8_t system_specific = 0;
     uint8_t beeps = 0;
     char panel_type = '?';
     bool unused1 = false;

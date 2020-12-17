@@ -1,0 +1,36 @@
+--- /old/st-device-sdk-c-ref/bsp/esp32/components/esp_eth/src/esp_eth_phy_lan8720.c
++++ /new/st-device-sdk-c-ref/bsp/esp32/components/esp_eth/src/esp_eth_phy_lan8720.c
+@@ -266,7 +266,6 @@
+         gpio_pad_select_gpio(lan8720->reset_gpio_num);
+         gpio_set_direction(lan8720->reset_gpio_num, GPIO_MODE_OUTPUT);
+         gpio_set_level(lan8720->reset_gpio_num, 0);
+-        ets_delay_us(100); // insert min input assert time
+         gpio_set_level(lan8720->reset_gpio_num, 1);
+     }
+     return ESP_OK;
+@@ -325,12 +324,22 @@
+     }
+     PHY_CHECK(eth->phy_reg_write(eth, lan8720->addr, ETH_PHY_BMCR_REG_ADDR, bmcr.val) == ESP_OK,
+               "write BMCR failed", err);
+-    PHY_CHECK(eth->phy_reg_read(eth, lan8720->addr, ETH_PHY_BMCR_REG_ADDR, &(bmcr.val)) == ESP_OK,
+-              "read BMCR failed", err);
+     if (!enable) {
++        PHY_CHECK(eth->phy_reg_read(eth, lan8720->addr, ETH_PHY_BMCR_REG_ADDR, &(bmcr.val)) == ESP_OK,
++                    "read BMCR failed", err);
+         PHY_CHECK(bmcr.power_down == 1, "power down failed", err);
+     } else {
+-        PHY_CHECK(bmcr.power_down == 0, "power up failed", err);
++        /* wait for reset complete */
++        uint32_t to = 0;
++        for (to = 0; to < lan8720->reset_timeout_ms / 10; to++) {
++            vTaskDelay(pdMS_TO_TICKS(10));
++            PHY_CHECK(eth->phy_reg_read(eth, lan8720->addr, ETH_PHY_BMCR_REG_ADDR, &(bmcr.val)) == ESP_OK,
++                    "read BMCR failed", err);
++            if (bmcr.power_down == 0) {
++                break;
++            }
++        }
++        PHY_CHECK(to < lan8720->reset_timeout_ms / 10, "power up failed", err);
+     }
+     return ESP_OK;
+ err:

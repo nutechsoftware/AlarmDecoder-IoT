@@ -21,7 +21,7 @@
  *
  */
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1040"
+#define FIRMWARE_VERSION      "AD2IOT-1050"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -64,3 +64,6 @@
 
 // NV
 #define AD2_MAX_VALUE_SIZE 1024
+
+// Signon message
+#define AD2_SIGNON "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
