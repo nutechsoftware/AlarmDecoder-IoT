@@ -114,7 +114,7 @@ static void _cli_cmd_ser2sockd_event(char *string){
                  * Enable/Disable ser2sock daemon.
                  */
                 case S2SD_SUBCMD_ENABLE_ID:
-                    ESP_LOGI(TAG, "%s: enable/disable SER2SOCKD", __func__);
+                    ESP_LOGI(TAG, "%s: enable/disable " SD2D_COMMAND, __func__);
                     if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
                         ad2_set_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
                         ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
