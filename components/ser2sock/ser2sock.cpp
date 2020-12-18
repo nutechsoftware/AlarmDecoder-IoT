@@ -67,15 +67,15 @@ extern "C" {
 /**
  * ser2sock command list and enum.
  */
-char * S2SD_SETTINGS [] = {
-    (char*)S2SD_ENABLE,
-    (char*)S2SD_ACL_LIST,
+char * S2SD_SUBCMD [] = {
+    (char*)S2SD_SUBCMD_ENABLE,
+    (char*)S2SD_SUBCMD_ACL,
     0 // EOF
 };
 
 enum {
-    S2SD_ENABLE_ID = 0,
-    S2SD_ACL_LIST_ID,
+    S2SD_SUBCMD_ENABLE_ID = 0,
+    S2SD_SUBCMD_ACL_ID,
 };
 
 /**
@@ -85,41 +85,50 @@ enum {
  *   [COMMAND] 0 arg...
  */
 static void _cli_cmd_ser2sockd_event(char *string){
-    std::string buf;
-    std::string key;
 
     // key value validation
-    ad2_copy_nth_arg(key, string, 0);
-    ad2_lcase(key);
+    std::string cmd;
+    ad2_copy_nth_arg(cmd, string, 0);
+    ad2_lcase(cmd);
+
+    if(cmd.compare(SD2D_COMMAND) != 0) {
+        ad2_printf_host("What?\r\n");
+        return;;
+    }
+
+    // key value validation
+    std::string subcmd;
+    ad2_copy_nth_arg(subcmd, string, 1);
+    ad2_lcase(subcmd);
 
     int i;
     for(i = 0;; ++i) {
-        if (S2SD_SETTINGS[i] == 0) {
+        if (S2SD_SUBCMD[i] == 0) {
             ad2_printf_host("What?\r\n");
             break;
         }
-        if(key.compare(S2SD_SETTINGS[i]) == 0) {
+        if(subcmd.compare(S2SD_SUBCMD[i]) == 0) {
             std::string arg;
             switch(i) {
                 /**
                  * Enable/Disable ser2sock daemon.
                  */
-                case S2SD_ENABLE_ID:
+                case S2SD_SUBCMD_ENABLE_ID:
                     ESP_LOGI(TAG, "%s: enable/disable SER2SOCKD", __func__);
-                    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-                        ad2_set_nv_slot_key_int(S2SD_ENABLE, 0, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+                        ad2_set_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
                         ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
                     }
 
                     // show contents of this slot
                     int i;
-                    ad2_get_nv_slot_key_int(S2SD_ENABLE, 0, nullptr, &i);
+                    ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &i);
                     ad2_printf_host("ser2sock daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                     break;
                 /**
                  * ser2sock daemon IP/CIDR ACL list.
                  */
-                case S2SD_ACL_LIST_ID:
+                case S2SD_SUBCMD_ACL_ID:
                     ad2_printf_host("Not yet implemented.\r\n");
                     break;
                 default:
@@ -135,18 +144,19 @@ static void _cli_cmd_ser2sockd_event(char *string){
  */
 static struct cli_command ser2sockd_cmd_list[] = {
     {
-        (char*)S2SD_ENABLE,(char*)
-        "- Enable ser2sock daemon component\r\n\r\n"
-        "  ```" S2SD_ENABLE " {bool}```\r\n\r\n"
-        "  - {bool}: [Y]es/[N]o\n\n", _cli_cmd_ser2sockd_event
-    },
-    {
-        (char*)S2SD_ACL_LIST,(char*)
-        "- Sets a list of ip addresses or networks allowed to connect in CIDR format.\r\n\r\n"
-        "  ```" S2SD_ACL_LIST " {CIDR list}```\r\n\r\n"
-        "  - {CIDR list}: empty\r\n"
-        "    - Leave empty string for no ACL.\r\n"
-        "  Example: " S2SD_ACL_LIST " 192.168.123/24,10.10.10.0/24\r\n\r\n", _cli_cmd_ser2sockd_event
+        (char*)SD2D_COMMAND,(char*)
+        "- ser2sock daemon component command\r\n"
+        "  ```" SD2D_COMMAND " {sub command} {arg}```\r\n"
+        "  - {sub command}\r\n"
+        "    - [" S2SD_SUBCMD_ENABLE "] Enable / Disable ser2sock daemon\r\n"
+        "      -  {arg1}: [Y]es [N]o\r\n"
+        "        - [N] Default state\r\n"
+        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ENABLE " Y\r\n"
+        "    - [" S2SD_SUBCMD_ACL "] Set / Get ACL list\r\n"
+        "      - {arg1}: ACL LIST\r\n"
+        "      -  String of CIDR values seperated by commas.\r\n"
+        "        - Default: Empty string disables ACL list\r\n"
+        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.123/32,192.168.1.0/24\r\n\r\n", _cli_cmd_ser2sockd_event
     }
 };
 
@@ -167,7 +177,7 @@ void ser2sockd_register_cmds()
 void ser2sockd_init(void)
 {
     int enabled = 0;
-    ad2_get_nv_slot_key_int(S2SD_ENABLE, 0, nullptr, &enabled);
+    ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &enabled);
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!enabled) {

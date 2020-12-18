@@ -28,8 +28,9 @@
 #define SER2SOCKD_PORT "10000"
 #define SER2SOCKD_MAX_CLIENTS 4
 
-#define S2SD_ENABLE           "s2sdenable"
-#define S2SD_ACL_LIST         "s2sdacl"
+#define SD2D_COMMAND          "ser2sockd"
+#define S2SD_SUBCMD_ENABLE    "enable"
+#define S2SD_SUBCMD_ACL       "acl"
 
 #ifdef __cplusplus
 extern "C" {

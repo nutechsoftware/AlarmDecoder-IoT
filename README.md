@@ -180,6 +180,20 @@ Configure the notifications using the notification components CLI commands.
       - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.
         - ad2source COM 17:16
 
+### ser2sock daemon command and sub commands
+  - ser2sock daemon component command
+    ```ser2sockd {sub command} {arg}```
+    - {sub command}
+      - [enable] Enable / Disable ser2sock daemon
+        - {arg1}: [Y]es [N]o
+          - [N] Default state
+          - Example: ser2sockd enable Y
+      - [acl] Set / Get ACL list
+        - {arg1}: ACL LIST
+          -  String of CIDR values seperated by commas.
+          - Default: Empty string disables ACL list
+          - Example: ser2sockd acl 192.168.0.123/32,192.168.1.0/24
+
 ### SmartThings STSDK IoT commands
   - Enable SmartThings component
 
