@@ -517,7 +517,7 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                         added_slot = -2;
                         added_slot = _add_fd(newsockfd, CLIENT_SOCKET);
                         if (added_slot >= 0) {
-                            ESP_LOGI(TAG, "Socket connected slot %i",added_slot);
+                            ESP_LOGI(TAG, "Socket connected slot %i from %s", added_slot, inet_ntoa(peer_addr.sin_addr));
                             did_work = true;
                         } else {
                             ESP_LOGI(TAG,"add slot error %i", added_slot);
@@ -550,7 +550,7 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                         } else {
                             did_work = true;
                             // FIXME: Need to keep it clean and not call back into main()
-                            ESP_LOGI(TAG,"Received %i bytes from socket fd '%i'", received, my_fds[n].fd);
+                            ESP_LOGI(TAG,"fd(%i) slot(%i) sending %i bytes to the AD2*", my_fds[n].fd, n, received);
                             // FIXME: overide to send raw pointer and not buffer.
                             std::string tmp(buffer, received);
                             ad2_send(tmp);

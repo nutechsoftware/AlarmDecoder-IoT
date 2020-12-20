@@ -239,7 +239,6 @@ void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
 void SER2SOCKD_ON_RAW_RX_DATA(uint8_t *buffer, size_t s, void *arg)
 {
     ser2sockd_sendall(buffer, s);
-    ESP_LOGI(TAG, "SER2SOCKD_ON_RAW_RX_DATA: SIZE(%i)", s);
 }
 #endif
 
