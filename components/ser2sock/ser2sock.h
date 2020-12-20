@@ -41,7 +41,8 @@ extern "C" {
 
 void ser2sockd_register_cmds();
 void ser2sockd_init();
-void ser2sock_server_task(void *pvParameters);
+void ser2sockd_server_task(void *pvParameters);
+void ser2sockd_sendall(uint8_t *buffer, size_t len);
 
 #ifdef __cplusplus
 }

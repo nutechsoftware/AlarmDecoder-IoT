@@ -241,44 +241,9 @@ void ser2sockd_init(void)
     }
 
     ESP_LOGI(TAG, "Starting ser2sockd");
-    xTaskCreate(&ser2sock_server_task, "ser2sock_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // TODO:
-}
-
-
-/**
- * @brief helper do_retransmit for ser2sock_server_task
- *
- * @param [in]sock socket fd
- */
-inline void do_retransmit(const int sock)
-{
-    int len;
-    char rx_buffer[128];
-
-    do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0) {
-            ESP_LOGE(TAG, "ser2sock server error occurred during receiving: errno %d", errno);
-        } else if (len == 0) {
-            ESP_LOGI(TAG, "ser2sock server connection closed");
-        } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "ser2sock server received %d bytes: %s", len, rx_buffer);
-
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(TAG, "ser2sock server error occurred during sending: errno %d", errno);
-                }
-                to_write -= written;
-            }
-        }
-    } while (len > 0);
 }
 
 
@@ -415,10 +380,10 @@ static int _cleanup_fd(int n)
 }
 
 /*
- add_to_all_socket_fds
+ ser2sockd_sendall
  adds a buffer to every connected socket fd ie multiplexes
  */
-static void _add_to_all_socket_fds(char * message, unsigned int len)
+void ser2sockd_sendall(uint8_t *buffer, size_t len)
 {
     void * tempbuffer;
     int n;
@@ -432,7 +397,7 @@ static void _add_to_all_socket_fds(char * message, unsigned int len)
         if (my_fds[n].inuse == true) {
             if (my_fds[n].fd_type == CLIENT_SOCKET) {
                 /* caller of fifo_get must free this */
-                tempbuffer = _fifo_make_buffer(message,len);
+                tempbuffer = _fifo_make_buffer(buffer, len);
                 _fifo_add(&my_fds[n].send_buffer, tempbuffer);
             }
         }
@@ -525,9 +490,8 @@ static int _add_fd(int fd, int fd_type)
  */
 static bool _poll_read_fdset(fd_set *read_fdset)
 {
-    int x, n, received, newsockfd, added_slot;
+    int n, received, newsockfd, added_slot;
     unsigned int clilen;
-    const char *tempbuffer;
     bool did_work = false;
     char buffer[1024] = {0};
 
@@ -585,9 +549,11 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                             _cleanup_fd(n);
                         } else {
                             did_work = true;
-                            ESP_LOGI(TAG,"rx");
-                            // FIXME
-                            // add_to_serial_fd(buffer, received);
+                            // FIXME: Need to keep it clean and not call back into main()
+                            ESP_LOGI(TAG,"Received %i bytes from socket fd '%i'", received, my_fds[n].fd);
+                            // FIXME: overide to send raw pointer and not buffer.
+                            std::string tmp(buffer, received);
+                            ad2_send(tmp);
                         }
                     }
                 }
@@ -603,7 +569,7 @@ static bool _poll_read_fdset(fd_set *read_fdset)
  */
 static bool _poll_write_fdset(fd_set *write_fdset)
 {
-    int x, n, written;
+    int n;
     fifo_buffer* tempbuffer;
     bool did_work = false;
 
@@ -645,14 +611,14 @@ static bool _poll_write_fdset(fd_set *write_fdset)
  *
  * @param [in]pvParameters currently not used NULL.
  */
-void ser2sock_server_task(void *pvParameters)
+void ser2sockd_server_task(void *pvParameters)
 {
     int addr_family = AF_INET;
     int ip_protocol = 0;
     struct sockaddr_in6 dest_addr;
     int n;
     bool bOptionTrue = true;
-    bool did_work = false, reset_state = true;
+    bool did_work = false;
     fd_set read_fdset, write_fdset, except_fdset;
     struct timeval wait;
 

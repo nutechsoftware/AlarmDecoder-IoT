@@ -226,6 +226,23 @@ void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
     ESP_LOGI(TAG, "ON_LOW_BATTERY_CB: BATTERY(%i)", s->battery_low);
 }
 
+#if defined(CONFIG_SER2SOCKD)
+/**
+ * @brief ON_RAW_RX_DATA
+ * Called when data is sent into the parser.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
+ * @note this is done before parsing.
+ */
+void SER2SOCKD_ON_RAW_RX_DATA(uint8_t *buffer, size_t s, void *arg)
+{
+    ser2sockd_sendall(buffer, s);
+    ESP_LOGI(TAG, "SER2SOCKD_ON_RAW_RX_DATA: SIZE(%i)", s);
+}
+#endif
+
 /**
  * @brief Main task to monitor physical button(s) and update state led(s).
  *
@@ -272,8 +289,8 @@ static void ad2uart_client_task(void *pvParameters)
     uart_write_bytes((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length());
 
     while (1) {
-        // do not process if main halted.
-        if (!g_StopMainTask) {
+        // do not process if main halted or network disconnected.
+        if (!g_StopMainTask && g_ad2_network_state == AD2_CONNECTED) {
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
@@ -656,6 +673,7 @@ void app_main()
 #if defined(CONFIG_SER2SOCKD)
     // init ser2sock server
     ser2sockd_init();
+    AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
 #endif
 
 }

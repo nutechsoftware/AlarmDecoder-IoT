@@ -685,12 +685,14 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
                  mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
         break;
     case ETHERNET_EVENT_DISCONNECTED:
+        g_ad2_network_state = AD2_OFFLINE;
         ESP_LOGI(TAG, "Ethernet Link Down");
         break;
     case ETHERNET_EVENT_START:
         ESP_LOGI(TAG, "Ethernet Started");
         break;
     case ETHERNET_EVENT_STOP:
+        g_ad2_network_state = AD2_OFFLINE;
         ESP_LOGI(TAG, "Ethernet Stopped");
         break;
     default:
