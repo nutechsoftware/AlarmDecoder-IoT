@@ -191,6 +191,7 @@ typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
  * API Subscriber callback function pointer type
  */
 typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
+typedef void (*AD2ParserCallbackRawRXData_sub_t)(uint8_t *, size_t len, void *arg);
 
 /**
  * Callback event classes
@@ -225,7 +226,8 @@ typedef enum {
     ON_ERR,                    ///< !ERR error event stats
     ON_EXIT_CHANGE,            ///< Placeholder: EXIT CHANGE event ID
     ON_SEARCH_MATCH,           ///< Placeholder: Pattern match subscriber match
-    ON_FIRMWARE_VERSION        ///< Placeholder: Firmware available event
+    ON_FIRMWARE_VERSION,       ///< Placeholder: Firmware available event
+    ON_RAW_RX_DATA
 } ad2_event_t;
 
 /**
@@ -388,11 +390,12 @@ public:
 class AD2SubScriber
 {
 public:
-    AD2ParserCallback_sub_t fn;
-    void *arg;
-    AD2EventSearch *eSearch;
-    AD2SubScriber(AD2ParserCallback_sub_t infn, void *inarg) : fn(infn), arg(inarg), eSearch(nullptr) { }
-    AD2SubScriber(AD2ParserCallback_sub_t infn, AD2EventSearch *inarg) : fn(infn), arg(nullptr), eSearch(inarg) { }
+    void *fn;
+    void *varg;
+    int   iarg;
+    AD2SubScriber(AD2ParserCallback_sub_t infn, void *inarg) : fn((void *)infn), varg(inarg), iarg(0) { }
+    AD2SubScriber(AD2ParserCallback_sub_t infn, AD2EventSearch *inarg) : fn((void *)infn), varg((void *)inarg), iarg(0) { }
+    AD2SubScriber(AD2ParserCallbackRawRXData_sub_t infn, void *inarg) : fn((void *)infn), varg((void*)(inarg)), iarg(0) { }
 };
 
 /**
@@ -425,6 +428,9 @@ public:
     // Subscribe to events by regex patterns on raw messages and standard event patterns like 'ARMED' or 'READY'.
     // ZONES EVENTS are also tracked and can be used in patterns.
     void subscribeTo(AD2ParserCallback_sub_t fn, AD2EventSearch *event_search);
+
+    // Subscibe to ON_RAW_RX_DATA events.
+    void subscribeTo(AD2ParserCallbackRawRXData_sub_t fn, void *arg);
 
     // Push data into state machine. Events fire if a complete message is
     // received.
@@ -509,6 +515,9 @@ protected:
     // @brief Notify a given subscriber group.
     void notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate);
 
+    // @brief Notify raw data subscribers some bytes were received from the AD2*.
+    // @note this currently happens before parsing.
+    void notifyRawDataSubscribers(uint8_t *data, size_t len);
 
     // @brief Notify a given subscriber group.
     void notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2VirtualPartitionState *s);

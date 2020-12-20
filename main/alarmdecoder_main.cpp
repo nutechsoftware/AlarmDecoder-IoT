@@ -60,6 +60,11 @@
 #include "stsdk_main.h"
 #endif
 
+// ser2sockd support
+#if CONFIG_SER2SOCKD
+#include "ser2sock.h"
+#endif
+
 // twilio support
 #if CONFIG_TWILIO_CLIENT
 #include "twilio.h"
@@ -221,6 +226,22 @@ void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
     ESP_LOGI(TAG, "ON_LOW_BATTERY_CB: BATTERY(%i)", s->battery_low);
 }
 
+#if defined(CONFIG_SER2SOCKD)
+/**
+ * @brief ON_RAW_RX_DATA
+ * Called when data is sent into the parser.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
+ * @note this is done before parsing.
+ */
+void SER2SOCKD_ON_RAW_RX_DATA(uint8_t *buffer, size_t s, void *arg)
+{
+    ser2sockd_sendall(buffer, s);
+}
+#endif
+
 /**
  * @brief Main task to monitor physical button(s) and update state led(s).
  *
@@ -267,8 +288,8 @@ static void ad2uart_client_task(void *pvParameters)
     uart_write_bytes((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length());
 
     while (1) {
-        // do not process if main halted.
-        if (!g_StopMainTask) {
+        // do not process if main halted or network disconnected.
+        if (!g_StopMainTask && g_ad2_network_state == AD2_CONNECTED) {
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
@@ -403,153 +424,12 @@ static void ser2sock_client_task(void *pvParameters)
 }
 
 /**
- * @brief helper do_retransmit for ser2sock_server_task
- *
- * @param [in]sock socket fd
- */
-inline void do_retransmit(const int sock)
-{
-    int len;
-    char rx_buffer[128];
-
-    do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0) {
-            ESP_LOGE(TAG, "ser2sock server error occurred during receiving: errno %d", errno);
-        } else if (len == 0) {
-            ESP_LOGW(TAG, "ser2sock server connection closed");
-        } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(TAG, "ser2sock server received %d bytes: %s", len, rx_buffer);
-
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(TAG, "ser2sock server error occurred during sending: errno %d", errno);
-                }
-                to_write -= written;
-            }
-        }
-    } while (len > 0);
-}
-
-/**
- * @brief ser2sock server task
- *
- * @param [in]pvParameters currently not used NULL.
- */
-#ifdef SER2SOCK_SERVER
-static void ser2sock_server_task(void *pvParameters)
-{
-    char addr_str[128];
-    // int addr_family = (int)pvParameters;
-    int addr_family = AF_INET;
-    int ip_protocol = 0;
-    struct sockaddr_in6 dest_addr;
-
-    ESP_LOGI(TAG, "ser2sock server task starting.");
-
-    for (;;) {
-        if (g_ad2_network_state == AD2_CONNECTED) {
-            ESP_LOGI(TAG, "ser2sock server starting.");
-            if (addr_family == AF_INET) {
-                struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
-                dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
-                dest_addr_ip4->sin_family = AF_INET;
-                dest_addr_ip4->sin_port = htons(SER2SOCK_SERVER_PORT);
-                ip_protocol = IPPROTO_IP;
-            } else if (addr_family == AF_INET6) {
-                bzero(&dest_addr.sin6_addr.un, sizeof(dest_addr.sin6_addr.un));
-                dest_addr.sin6_family = AF_INET6;
-                dest_addr.sin6_port = htons(SER2SOCK_SERVER_PORT);
-                ip_protocol = IPPROTO_IPV6;
-            }
-
-            int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-            if (listen_sock < 0) {
-                ESP_LOGE(TAG, "ser2sock server unable to create socket: errno %d", errno);
-                vTaskDelete(NULL);
-                return;
-            }
-#if defined(SER2SOCK_IPV4) && defined(SER2SOCK_IPV6)
-            // Note that by default IPV6 binds to both protocols, it is must be disabled
-            // if both protocols used at the same time (used in CI)
-            int opt = 1;
-            setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-            setsockopt(listen_sock, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
-#endif
-
-            ESP_LOGI(TAG, "ser2sock server socket created");
-
-            int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-            if (err != 0) {
-                ESP_LOGE(TAG, "ser2sock server socket unable to bind: errno %d", errno);
-                ESP_LOGE(TAG, "ser2sock server IPPROTO: %d", addr_family);
-                goto CLEAN_UP;
-            }
-            ESP_LOGI(TAG, "ser2sock server socket bound, port %d", SER2SOCK_SERVER_PORT);
-
-            err = listen(listen_sock, 1);
-            if (err != 0) {
-                ESP_LOGE(TAG, "ser2sock server error occurred during listen: errno %d", errno);
-                goto CLEAN_UP;
-            }
-
-            while (1) {
-
-                ESP_LOGI(TAG, "ser2sock server socket listening");
-
-                struct sockaddr_in6 source_addr; // Large enough for both IPv4 or IPv6
-                uint addr_len = sizeof(source_addr);
-                int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-                if (sock < 0) {
-                    ESP_LOGE(TAG, "ser2sock server unable to accept connection: errno %d", errno);
-                    break;
-                }
-
-                // Convert ip address to string
-                if (source_addr.sin6_family == PF_INET) {
-                    inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
-                } else if (source_addr.sin6_family == PF_INET6) {
-                    inet6_ntoa_r(source_addr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-                }
-                ESP_LOGI(TAG, "ser2sock server socket accepted ip address: %s", addr_str);
-
-                do_retransmit(sock);
-
-                shutdown(sock, 0);
-                close(sock);
-            }
-
-CLEAN_UP:
-            close(listen_sock);
-        }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-    vTaskDelete(NULL);
-}
-#endif
-
-/**
  * @brief Start ser2sock client task
  */
 void init_ser2sock_client()
 {
     xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
-
-/**
- * @brief Start ser2sock server task
- */
-#if defined(AD2_SER2SOCK_SERVER)
-void init_ser2sock_server()
-{
-    xTaskCreate(ser2sock_server_task, "ser2sock_server", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
-}
-#endif
 
 /**
  *  @brief Initialize the uart connected to the AD2 device
@@ -647,6 +527,11 @@ void app_main()
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
+#endif
+
+#if CONFIG_SER2SOCKD
+    // Register ser2sock daemon CLI commands.
+    ser2sockd_register_cmds();
 #endif
 
 #if CONFIG_TWILIO_CLIENT
@@ -784,9 +669,10 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(AD2_SER2SOCK_SERVER)
+#if defined(CONFIG_SER2SOCKD)
     // init ser2sock server
-    init_ser2sock_server();
+    ser2sockd_init();
+    AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
 #endif
 
 }

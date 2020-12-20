@@ -137,6 +137,33 @@ void AlarmDecoderParser::subscribeTo(ad2_event_t ev, AD2ParserCallback_sub_t fn,
 }
 
 /**
+ * @brief Subscribe to a RAW RX DATA events.
+ *
+ * @param [in]fn Callback pointer function type AD2ParserCallbackRawRXData_sub_t.
+ * @param [in]arg pointer to argument to pass to subscriber on event.
+ */
+void AlarmDecoderParser::subscribeTo(AD2ParserCallbackRawRXData_sub_t fn, void *arg)
+{
+    subscribers_t& v = AD2Subscribers[ON_RAW_RX_DATA];
+    v.push_back(AD2SubScriber(fn, arg));
+}
+
+/**
+ * @brief Sequentially call each subscriber function in the list.
+ *
+ * @param [in]data pointer to bytes from AD2*.
+ * @param [in]len data buffer size.
+ *
+ */
+void AlarmDecoderParser::notifyRawDataSubscribers(uint8_t *data, size_t len)
+{
+    // notify any direct subscribers to this event type(ON_RAW_RX_DATA).
+    for ( subscribers_t::iterator i = AD2Subscribers[ON_RAW_RX_DATA].begin(); i != AD2Subscribers[ON_RAW_RX_DATA].end(); ++i ) {
+        ((AD2ParserCallbackRawRXData_sub_t)i->fn)(data, len, i->varg);
+    }
+}
+
+/**
  * @brief Sequentially call each subscriber function in the list.
  *
  * @param [in]ev event class.
@@ -148,7 +175,7 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
 {
     // notify any direct subscribers to this event type.
     for ( subscribers_t::iterator i = AD2Subscribers[ev].begin(); i != AD2Subscribers[ev].end(); ++i ) {
-        (i->fn)(&msg, pstate, i->arg);
+        ((AD2ParserCallback_sub_t)i->fn)(&msg, pstate, i->varg);
     }
 
     // Build a human readable string of the event and send
@@ -246,13 +273,14 @@ void AlarmDecoderParser::subscribeTo(AD2ParserCallback_sub_t fn, AD2EventSearch 
 void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2VirtualPartitionState *pstate)
 {
     for ( subscribers_t::iterator i = AD2Subscribers[ON_SEARCH_MATCH].begin(); i != AD2Subscribers[ON_SEARCH_MATCH].end(); ++i ) {
-        if (i->eSearch) {
+        if (i->varg) {
+            AD2EventSearch *eSearch = (AD2EventSearch*)i->varg;
             bool done = false;
-            int savedstate = i->eSearch->getState();
+            int savedstate = eSearch->getState();
             std::string outformat;
 
             // Pre filter tests for message type.
-            std::vector<ad2_message_t> *fmt = &i->eSearch->PRE_FILTER_MESAGE_TYPE;
+            std::vector<ad2_message_t> *fmt = &eSearch->PRE_FILTER_MESAGE_TYPE;
             /// only test if a list is supplied.
             if (fmt->size()) {
                 bool res = false;
@@ -267,7 +295,7 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
             }
 
             // Pre filter tests for message REGEX match.
-            std::string pfregex = i->eSearch->PRE_FILTER_REGEX;
+            std::string pfregex = eSearch->PRE_FILTER_REGEX;
             /// only test if supplied.
             if (pfregex.length()) {
                 std::smatch m;
@@ -283,8 +311,8 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
 
             // Test CLOSED REGEX list stop on first matching statement.
             /// only test if a list is supplied.
-            if (!done && i->eSearch->CLOSED_REGEX_LIST.size()) {
-                for(auto &regexstr : i->eSearch->CLOSED_REGEX_LIST) {
+            if (!done && eSearch->CLOSED_REGEX_LIST.size()) {
+                for(auto &regexstr : eSearch->CLOSED_REGEX_LIST) {
                     std::smatch m;
                     std::regex e(regexstr);
                     const auto& tmsg = msg;
@@ -292,13 +320,13 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     bool res = std::regex_search(tmsg, m, e);
                     if (res) {
                         // no match next subscriber.
-                        i->eSearch->setState(AD2_STATE_CLOSED);
-                        outformat = i->eSearch->CLOSED_OUTPUT_FORMAT;
+                        eSearch->setState(AD2_STATE_CLOSED);
+                        outformat = eSearch->CLOSED_OUTPUT_FORMAT;
                         // Clear last output results before we collect new.
-                        i->eSearch->RESULT_GROUPS.clear();
+                        eSearch->RESULT_GROUPS.clear();
                         // save the regex group results if any.
                         for(auto idx : m) {
-                            i->eSearch->RESULT_GROUPS.push_back(idx);
+                            eSearch->RESULT_GROUPS.push_back(idx);
                         }
                         done = true;
                         break;
@@ -308,21 +336,21 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
 
             // Test OPEN REGEX list stop on first matching statement.
             /// only test if a list is supplied.
-            if (!done && i->eSearch->OPEN_REGEX_LIST.size()) {
-                for(auto &regexstr : i->eSearch->OPEN_REGEX_LIST) {
+            if (!done && eSearch->OPEN_REGEX_LIST.size()) {
+                for(auto &regexstr : eSearch->OPEN_REGEX_LIST) {
                     std::smatch m;
                     std::regex e(regexstr);
                     const auto& tmsg = msg;
                     bool res = std::regex_search(tmsg, m, e);
                     if (res) {
                         // no match next subscriber.
-                        i->eSearch->setState(AD2_STATE_OPEN);
-                        outformat = i->eSearch->OPEN_OUTPUT_FORMAT;
+                        eSearch->setState(AD2_STATE_OPEN);
+                        outformat = eSearch->OPEN_OUTPUT_FORMAT;
                         // Clear last output results before we collect new.
-                        i->eSearch->RESULT_GROUPS.clear();
+                        eSearch->RESULT_GROUPS.clear();
                         // save the regex group results if any.
                         for(auto idx : m) {
-                            i->eSearch->RESULT_GROUPS.push_back(idx);
+                            eSearch->RESULT_GROUPS.push_back(idx);
                         }
                         done = true;
                         break;
@@ -332,8 +360,8 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
 
             // Test FAULT REGEX list stop on first matching statement.
             /// only test if a list is supplied.
-            if (!done && i->eSearch->FAULT_REGEX_LIST.size()) {
-                for(auto &regexstr : i->eSearch->FAULT_REGEX_LIST) {
+            if (!done && eSearch->FAULT_REGEX_LIST.size()) {
+                for(auto &regexstr : eSearch->FAULT_REGEX_LIST) {
                     std::smatch m;
                     std::regex e(regexstr);
                     const auto& tmsg = msg;
@@ -341,13 +369,13 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     bool res = std::regex_search(tmsg, m, e);
                     if (res) {
                         // no match next subscriber.
-                        outformat = i->eSearch->FAULT_OUTPUT_FORMAT;
-                        i->eSearch->setState(AD2_STATE_FAULT);
+                        outformat = eSearch->FAULT_OUTPUT_FORMAT;
+                        eSearch->setState(AD2_STATE_FAULT);
                         // Clear last output results before we collect new.
-                        i->eSearch->RESULT_GROUPS.clear();
+                        eSearch->RESULT_GROUPS.clear();
                         // save the regex group results if any.
                         for(auto idx : m) {
-                            i->eSearch->RESULT_GROUPS.push_back(idx);
+                            eSearch->RESULT_GROUPS.push_back(idx);
                         }
                         done = true;
                         break;
@@ -356,10 +384,10 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
             }
 
             // Match found and state changed. Call the callback routine.
-            if (savedstate != i->eSearch->getState()) {
-                i->eSearch->last_message = msg;
-                i->eSearch->out_message = outformat; //FIXME do the formatting macro magic stuff.
-                (i->fn)(&msg, pstate, i->eSearch);
+            if (savedstate != eSearch->getState()) {
+                eSearch->last_message = msg;
+                eSearch->out_message = outformat; //FIXME do the formatting macro magic stuff.
+                ((AD2ParserCallback_sub_t)i->fn)(&msg, pstate, i->varg);
             }
 
             // All done with this subscriber. Next.
@@ -461,6 +489,10 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
     if (len<=0) {
         return false;
     }
+
+    // call ON_RAW_RX_DATA callback if enabled.
+    // For now this is done first but I may move it after parsing below.
+    notifyRawDataSubscribers(buff, (size_t)len);
 
     // Consume all the bytes.
     while (bytes_left>0) {

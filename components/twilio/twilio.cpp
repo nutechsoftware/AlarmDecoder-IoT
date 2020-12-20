@@ -999,7 +999,7 @@ static struct cli_command twilio_cmd_list[] = {
 };
 
 /**
- * Initialize queue and SSL
+ * Register cli commands
  */
 void twilio_register_cmds()
 {
