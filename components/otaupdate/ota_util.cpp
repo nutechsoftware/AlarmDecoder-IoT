@@ -304,8 +304,7 @@ static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
     unsigned int public_key_len = public_key_end - public_key_start;
 
     mbedtls_pk_init( &pk );
-
-    ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)public_key, public_key_len );
+    ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)t.c_str(), public_key_len + 1 ); // Include 1 byte for null terminator required by mbedtls
     if (ret != 0) {
         ESP_LOGE(TAG, "%s: Parse error: 0x%04X", __func__, ret);
         goto clean_up;
