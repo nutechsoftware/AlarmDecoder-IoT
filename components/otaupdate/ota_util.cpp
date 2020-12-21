@@ -171,20 +171,18 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 
     array = cJSON_GetObjectItem(profile, name_upgrade);
 
+    ESP_LOGI(TAG, "Checking if this version supports upgrade");
     for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++) {
         char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
         if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
-            ESP_LOGI(TAG, "Test supported version '%s' PASS", upgrade);
+            ESP_LOGD(TAG, "Test supported version '%s' PASS", upgrade);
             is_new_version = true;
             break;
-        } else {
-            ESP_LOGI(TAG, "Test supported version '%s' FAIL", upgrade);
         }
     }
 
-    ESP_LOGI(TAG, "%s: isNewVersion : %d", __func__, is_new_version);
-
     if (is_new_version) {
+        ESP_LOGI(TAG, "%s: Found current version update support.", __func__);
 
         /* latest */
         item = cJSON_GetObjectItem(profile, name_latest);
@@ -204,6 +202,8 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
         strncpy(latest_version, cJSON_GetStringValue(item), str_len);
         latest_version[str_len] = '\0';
         *new_version = latest_version;
+    } else {
+        ESP_LOGI(TAG, "%s: Not found current version update support.", __func__);
     }
 
 clean_up:
@@ -304,8 +304,9 @@ static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
     unsigned int public_key_len = public_key_end - public_key_start;
 
     mbedtls_pk_init( &pk );
-
-    ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)public_key, public_key_len );
+    // Make sure our key is a null terminated string and send the null to the parser.
+    std::string t((const char *)public_key, public_key_len);
+    ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)t.c_str(), t.length() + 1 );
     if (ret != 0) {
         ESP_LOGE(TAG, "%s: Parse error: 0x%04X", __func__, ret);
         goto clean_up;
@@ -451,7 +452,7 @@ esp_err_t ota_https_update_device()
 
     esp_ota_handle_t update_handle = 0;
     const esp_partition_t *update_partition = NULL;
-    ESP_LOGI(TAG, "%s: Starting OTA", __func__);
+    ESP_LOGI(TAG, "%s: Starting OTA upgrade", __func__);
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
         ESP_LOGE(TAG, "%s: Passive OTA partition not found", __func__);
@@ -698,7 +699,7 @@ static void ota_polling_task_func(void *arg)
         ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
 
         if (ota_task_handle != NULL) {
-            ESP_LOGI(TAG, "Device is updating");
+            ESP_LOGI(TAG, "Device is currently updating skipping checks for now.");
             continue;
         }
 
@@ -723,8 +724,8 @@ static void ota_polling_task_func(void *arg)
             if (available_version) {
                 ota_available_version = available_version;
                 AD2Parse.updateVersion(available_version);
-                free(available_version);
                 ESP_LOGI(TAG, "Get avail version found '%s' on the server.", available_version);
+                free(available_version);
             } else {
                 // if nothing available then it must be the same we have installed.
                 ota_available_version = FIRMWARE_VERSION;
