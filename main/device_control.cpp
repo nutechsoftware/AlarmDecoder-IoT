@@ -346,7 +346,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
     case WIFI_EVENT_STA_CONNECTED:
         // Set hostname
-        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA ,"ad2iot");
+        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA,"ad2iot");
         if(ret != ESP_OK ) {
             ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
         }
@@ -362,7 +362,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
 
     case WIFI_EVENT_AP_START:
         // Set hostname
-        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_AP ,"ad2iot");
+        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_AP,"ad2iot");
         if(ret != ESP_OK ) {
             ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
         }
@@ -705,7 +705,7 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
     case ETHERNET_EVENT_START:
         ESP_LOGI(TAG, "Ethernet Started");
         // Set hostname
-        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH ,"ad2iot");
+        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH,"ad2iot");
         if(ret != ESP_OK ) {
             ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
         }
