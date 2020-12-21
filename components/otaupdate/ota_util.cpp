@@ -49,6 +49,7 @@ static const char *TAG = "AD2OTA";
 #include "ad2_utils.h"
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
+#include "device_control.h"
 
 // specific includes
 #include "ota_util.h"
@@ -118,7 +119,7 @@ static void ota_task_func(void * pvParameter)
     }
 
     ESP_LOGI(TAG, "Prepare to restart system!");
-    esp_restart();
+    hal_restart();
 }
 
 /**
@@ -666,7 +667,7 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
         }
     }
 
-    ESP_LOGI(TAG, "%s: Written image length %d", __func__, total_read_len);
+    ESP_LOGI(TAG, "%s: received body size %d", __func__, total_read_len);
 
     _http_cleanup(client);
 

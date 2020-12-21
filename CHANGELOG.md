@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
+- [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
+- [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
+- [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
 - [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
@@ -17,7 +20,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
-
+## [1.0.6] - 2020-12-19
+- [X] SER2SOCKD: Add new component ser2sock daemon.
+  - [X] README
+  - [X] CMD
+  - [X] INIT
+  - [X] TASK
+  - [X] QA/TESTING
+- [X] API: Refactor api. Simplify subscriber storage class. Add new subscriber callback type. Added ON_RAW_RX_DATA so subscribers can get a raw AD2* stream needed by ser2sockd to avoid writing in ser2sock client and uart client routines.
+- [X] CORE: Extract ser2sock fragments and move into ser2sock component.
 ## [1.0.5] - 2020-12-15
 - [X] CORE: Tidy: Improve Kconfig menuconfig.
 - [X] API: System specific nibble was a bit. Fixed.

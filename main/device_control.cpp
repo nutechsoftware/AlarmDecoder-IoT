@@ -327,6 +327,8 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
                          int32_t event_id, void *event_data)
 {
     wifi_ap_record_t ap_info;
+    int ret;
+
     memset(&ap_info, 0x0, sizeof(wifi_ap_record_t));
     wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
 
@@ -342,7 +344,14 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
         g_ad2_network_state = AD2_OFFLINE;
         break;
-
+    case WIFI_EVENT_STA_CONNECTED:
+        // Set hostname
+        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA,"ad2iot");
+        if(ret != ESP_OK ) {
+            ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
+        }
+        ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
+        break;
     case WIFI_EVENT_STA_DISCONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
         xEventGroupSetBits(net_event_group, WIFI_STA_DISCONNECT_BIT);
@@ -352,6 +361,11 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
 
     case WIFI_EVENT_AP_START:
+        // Set hostname
+        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_AP,"ad2iot");
+        if(ret != ESP_OK ) {
+            ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
+        }
         xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_START");
         xEventGroupSetBits(net_event_group, WIFI_AP_START_BIT);
@@ -361,7 +375,6 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_STOP");
         xEventGroupSetBits(net_event_group, WIFI_AP_STOP_BIT);
         break;
-
     case WIFI_EVENT_AP_STACONNECTED:
         ESP_LOGI(TAG, "station:" MACSTR " join, AID=%d",
                  MAC2STR(event->mac),
@@ -673,6 +686,7 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
 void _eth_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data)
 {
+    esp_err_t ret;
     uint8_t mac_addr[6] = {0};
     /* we can get the ethernet driver handle from event data */
     esp_eth_handle_t eth_handle = *(esp_eth_handle_t *)event_data;
@@ -685,12 +699,19 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
                  mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
         break;
     case ETHERNET_EVENT_DISCONNECTED:
+        g_ad2_network_state = AD2_OFFLINE;
         ESP_LOGI(TAG, "Ethernet Link Down");
         break;
     case ETHERNET_EVENT_START:
         ESP_LOGI(TAG, "Ethernet Started");
+        // Set hostname
+        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH,"ad2iot");
+        if(ret != ESP_OK ) {
+            ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
+        }
         break;
     case ETHERNET_EVENT_STOP:
+        g_ad2_network_state = AD2_OFFLINE;
         ESP_LOGI(TAG, "Ethernet Stopped");
         break;
     default:
