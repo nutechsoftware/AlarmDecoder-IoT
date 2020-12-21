@@ -171,20 +171,18 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 
     array = cJSON_GetObjectItem(profile, name_upgrade);
 
+    ESP_LOGI(TAG, "Checking if this version supports upgrade");
     for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++) {
         char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
         if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
-            ESP_LOGI(TAG, "Test supported version '%s' PASS", upgrade);
+            ESP_LOGD(TAG, "Test supported version '%s' PASS", upgrade);
             is_new_version = true;
             break;
-        } else {
-            ESP_LOGI(TAG, "Test supported version '%s' FAIL", upgrade);
         }
     }
 
-    ESP_LOGI(TAG, "%s: isNewVersion : %d", __func__, is_new_version);
-
     if (is_new_version) {
+        ESP_LOGI(TAG, "%s: Found current version update support.", __func__);
 
         /* latest */
         item = cJSON_GetObjectItem(profile, name_latest);
@@ -204,6 +202,8 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
         strncpy(latest_version, cJSON_GetStringValue(item), str_len);
         latest_version[str_len] = '\0';
         *new_version = latest_version;
+    } else {
+        ESP_LOGI(TAG, "%s: Not found current version update support.", __func__);
     }
 
 clean_up:
@@ -724,8 +724,8 @@ static void ota_polling_task_func(void *arg)
             if (available_version) {
                 ota_available_version = available_version;
                 AD2Parse.updateVersion(available_version);
-                free(available_version);
                 ESP_LOGI(TAG, "Get avail version found '%s' on the server.", available_version);
+                free(available_version);
             } else {
                 // if nothing available then it must be the same we have installed.
                 ota_available_version = FIRMWARE_VERSION;
