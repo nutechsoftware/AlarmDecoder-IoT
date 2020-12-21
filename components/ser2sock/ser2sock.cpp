@@ -54,6 +54,7 @@ static const char *TAG = "SER2SOCKD";
 #include "ad2_utils.h"
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
+#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_SER2SOCKD
@@ -393,7 +394,7 @@ void ser2sockd_sendall(uint8_t *buffer, size_t len)
      Not very efficient but we have plenty of mem with as few connections as we
      will use. If we needed many more I would need to re-factor this code
      */
-    for (n = 0; n < MAX_CLIENTS; n++) {
+    for (n = 0; n < MAXCONNECTIONS; n++) {
         if (my_fds[n].inuse == true) {
             if (my_fds[n].fd_type == CLIENT_SOCKET) {
                 /* caller of fifo_get must free this */
@@ -473,6 +474,33 @@ static int _add_fd(int fd, int fd_type)
             solinger.l_onoff = true;
             solinger.l_linger = 0;
             setsockopt(fd, SOL_SOCKET, SO_LINGER, &solinger, sizeof(solinger));
+
+            if (fd_type == CLIENT_SOCKET) {
+                int ret;
+                int keep_alive = 1;
+                ret = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+                if (ret < 0) {
+                    ESP_LOGI(TAG, "socket set keep-alive failed %d", errno);
+                }
+
+                int idle = 10;
+                ret = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
+                if (ret < 0) {
+                    ESP_LOGI(TAG, "socket set keep-idle failed %d", errno);
+                }
+
+                int interval = 5;
+                ret = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int));
+                if (ret < 0) {
+                    ESP_LOGI(TAG, "socket set keep-interval failed %d", errno);
+                }
+
+                int maxpkt = 3;
+                ret = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
+                if (ret < 0) {
+                    ESP_LOGI(TAG, "socket set keep-count failed %d", errno);
+                }
+            }
 
             my_fds[x].inuse = true;
             my_fds[x].fd_type = fd_type;
@@ -699,7 +727,7 @@ void ser2sockd_server_task(void *pvParameters)
                 /* see if any of the fd's need attention */
                 n = select(FD_SETSIZE, &read_fdset, &write_fdset, &except_fdset, &wait);
                 if (n == -1) {
-                    ESP_LOGE(TAG, "An error occured during select() errno: %i '%s'", errno, strerror(errno));
+                    ESP_LOGE(TAG, "An error occurred during select() errno: %i '%s'", errno, strerror(errno));
                     continue;
                 }
                 /* poll our exception fdset */

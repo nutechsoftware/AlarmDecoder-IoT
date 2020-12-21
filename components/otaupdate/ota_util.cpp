@@ -49,6 +49,7 @@ static const char *TAG = "AD2OTA";
 #include "ad2_utils.h"
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
+#include "device_control.h"
 
 // specific includes
 #include "ota_util.h"
@@ -118,7 +119,7 @@ static void ota_task_func(void * pvParameter)
     }
 
     ESP_LOGI(TAG, "Prepare to restart system!");
-    esp_restart();
+    hal_restart();
 }
 
 /**

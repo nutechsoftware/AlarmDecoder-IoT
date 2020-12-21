@@ -28,8 +28,7 @@
 #define PORT 10000
 #define MAX_CLIENTS 4
 #define MAX_FIFO_BUFFERS 30
-#define MAXCONNECTIONS MAX_CLIENTS+2
-
+#define MAXCONNECTIONS MAX_CLIENTS+1
 
 #define SD2D_COMMAND          "ser2sockd"
 #define S2SD_SUBCMD_ENABLE    "enable"
