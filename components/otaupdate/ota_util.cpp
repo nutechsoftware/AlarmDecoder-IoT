@@ -304,7 +304,9 @@ static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
     unsigned int public_key_len = public_key_end - public_key_start;
 
     mbedtls_pk_init( &pk );
-    ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)t.c_str(), public_key_len + 1 ); // Include 1 byte for null terminator required by mbedtls
+    // Make sure our key is a null terminated string and send the null to the parser.
+    std::string t((const char *)public_key, public_key_len);
+    ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)t.c_str(), t.length() + 1 );
     if (ret != 0) {
         ESP_LOGE(TAG, "%s: Parse error: 0x%04X", __func__, ret);
         goto clean_up;
@@ -450,7 +452,7 @@ esp_err_t ota_https_update_device()
 
     esp_ota_handle_t update_handle = 0;
     const esp_partition_t *update_partition = NULL;
-    ESP_LOGI(TAG, "%s: Starting OTA", __func__);
+    ESP_LOGI(TAG, "%s: Starting OTA upgrade", __func__);
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
         ESP_LOGE(TAG, "%s: Passive OTA partition not found", __func__);
@@ -697,7 +699,7 @@ static void ota_polling_task_func(void *arg)
         ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
 
         if (ota_task_handle != NULL) {
-            ESP_LOGI(TAG, "Device is updating");
+            ESP_LOGI(TAG, "Device is currently updating skipping checks for now.");
             continue;
         }
 
