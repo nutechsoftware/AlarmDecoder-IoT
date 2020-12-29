@@ -542,6 +542,18 @@ void app_main()
     // Register AD2 CLI commands.
     register_ad2_cli_cmd();
 
+    // Load AD2IoT operating mode [Socket|UART] and argument
+    std::string ad2_mode;
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_MODE_SLOT, nullptr, ad2_mode);
+
+    // Load AD2 connection type Com|Socket
+    g_ad2_mode = ad2_mode[0];
+    // If the hardware is local UART start it now.
+    if (g_ad2_mode == 'C') {
+        init_ad2_uart_client();
+    }
+
     // Start the CLI.
     // Press ENTER to halt and stay in CLI only.
     uart_cli_main();
@@ -563,18 +575,9 @@ void app_main()
         }
     }
 
-    // Load AD2IoT operating mode [Socket|UART] and argument
-    std::string ad2_mode;
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, nullptr, ad2_mode);
-    g_ad2_mode = ad2_mode[0];
-
-    // If the hardware is local UART start it now.
-    if (g_ad2_mode == 'C') {
-        init_ad2_uart_client();
-    } else if (g_ad2_mode == 'S') {
+    if (g_ad2_mode == 'S') {
         ad2_printf_host("Delaying start of ad2source SOCKET after network is up.\r\n");
-    } else {
+    } else if(g_ad2_mode != 'C') {
         ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
         ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
     }
