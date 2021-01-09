@@ -533,7 +533,7 @@ static struct cli_command cmd_list[] = {
     {
         (char*)AD2_TERM,(char*)
         "- Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.\r\n\r\n"
-        "  ```" AD2_TERM "[reset]```\r\n\r\n"
+        "  ```" AD2_TERM " [reset]```\r\n\r\n"
         "  Note: To exit press ... three times fast.\r\n", _cli_cmd_ad2term_event
     },
     {
