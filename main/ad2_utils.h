@@ -32,6 +32,9 @@
 // Active network IP layer
 #define AD2_CONNECTED (1 << 1)
 
+// Debugging NVS
+//#define DEBUG_NVS
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -62,6 +65,9 @@ std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
 int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining = false);
 void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);
+std::string ad2_make_bearer_auth_header(const std::string& apikey);
+std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password);
+std::string ad2_urlencode(const std::string str);
 int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
 void ad2_lcase(std::string &str);
 void ad2_ucase(std::string &str);

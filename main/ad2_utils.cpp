@@ -37,6 +37,9 @@
 #include "esp_log.h"
 static const char *TAG = "AD2UTIL";
 
+// mbedtls
+#include "mbedtls/base64.h"
+
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
@@ -47,6 +50,87 @@ static const char *TAG = "AD2UTIL";
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+
+/**
+ * build Bearer auth string from api key
+ */
+std::string ad2_make_bearer_auth_header(const std::string& apikey)
+{
+    return "Authorization: Bearer " + apikey;
+}
+
+/**
+ * @brief build auth string from user and pass.
+ *
+ * @arg [in]user std::string * to user.
+ * @arg [in]password std::string * to password.
+ *
+ * @return std::string basic auth string
+ *
+ */
+std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password)
+{
+
+    size_t toencodeLen = user.length() + password.length() + 2;
+    size_t out_len = 0;
+    char toencode[toencodeLen];
+    unsigned char outbuffer[(toencodeLen + 2 - ((toencodeLen + 2) % 3)) / 3 * 4 + 1];
+
+    memset(toencode, 0, toencodeLen);
+
+    snprintf(
+        toencode,
+        toencodeLen,
+        "%s:%s",
+        user.c_str(),
+        password.c_str()
+    );
+
+    mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
+    outbuffer[out_len] = '\0';
+
+    std::string encoded_string = std::string((char *)outbuffer);
+    return "Authorization: Basic " + encoded_string;
+}
+
+/**
+ * @brief url encode a string making it safe for http protocols.
+ *
+ * @arg [in]str std::string to url encode.
+ *
+ * @return std::string url encoded string
+ *
+ */
+std::string ad2_urlencode(const std::string str)
+{
+    std::string encoded = "";
+    char c;
+    char code0;
+    char code1;
+    for (int i = 0; i < str.length(); i++) {
+        c = str[i];
+        if (c == ' ') {
+            encoded += '+';
+        } else if (isalnum(c)) {
+            encoded += c;
+        } else {
+            code1 = (c & 0xf) + '0';
+            if ((c & 0xf) > 9) {
+                code1 = (c & 0xf) - 10 + 'A';
+            }
+            c = (c >> 4) & 0xf;
+            code0 = c + '0';
+            if (c > 9) {
+                code0 = c - 10 + 'A';
+            }
+            encoded += '%';
+            encoded += code0;
+            encoded += code1;
+        }
+    }
+    return encoded;
+}
 
 /**
  * @brief find value by name in query string config data
@@ -397,12 +481,18 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, const char *s, std::s
 
     // Open NVS
     nvs_handle my_handle;
+#ifdef DEBUG_NVS
+    ESP_LOGI(TAG, "%s: opening key(%s)", __func__, key);
+#endif
     err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         size_t size;
         std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
+#ifdef DEBUG_NVS
+        ESP_LOGI(TAG, "%s: reading sub key(%s)", __func__, tkey.c_str());
+#endif
         // get size including terminator.
         err = nvs_get_str(my_handle, tkey.c_str(), NULL, &size);
         if (err == ESP_OK && size) {
@@ -435,13 +525,18 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, const char *s, const 
 
     // Open NVS
     nvs_handle my_handle;
+#ifdef DEBUG_NVS
+    ESP_LOGI(TAG, "%s: opening key(%s)", __func__, key);
+#endif
     err = nvs_open(key, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         std::string tkey;
         tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-
+#ifdef DEBUG_NVS
+        ESP_LOGI(TAG, "%s: saving sub key(%s)", __func__, tkey.c_str());
+#endif
         if (value == NULL) {
             err = nvs_erase_key(my_handle, tkey.c_str());
         } else {
