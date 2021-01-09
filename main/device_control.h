@@ -99,6 +99,7 @@ void hal_init_network_stack();
 void hal_init_wifi(std::string &args);
 void hal_init_eth(std::string &args);
 void hal_host_uart_init();
+void hal_ad2_reset();
 #ifdef __cplusplus
 }
 #endif

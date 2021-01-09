@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+## [1.0.6 P4] - 2021-01-08
+- [ ] CORE: ad2term arg to reset AD2 device and then start the terminal. Any argument string will send hold the reset line on the AD2pHat board low for 1 second as the terminal is started causing the AD2* to hard reset. Useful when firmware on the AD2* gets corrupted and its hard to get into the boot loader.
 ## [1.0.6 P3] - 2021-01-08
 - [X] CORE: Consolidate some common functions from Twilio and Pushover clients into ad2_utils functions.
 - [X] PUSHOVER: New notification component Pushover.net. A simple HTTPS request much like SendGrid or Twilio but I prefer this command format and will be changing other commands to match soon.

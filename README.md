@@ -134,9 +134,9 @@ Configure the notifications using the notification components CLI commands.
 
       Note: value -1 will remove an entry.
 
-  - Connect directly to the AD2* source and halt processing.
+  - Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.
 
-    ```ad2term```
+    ```ad2term [reset]```
 
     Note: To exit send a period ```.``` three times fast.
 
