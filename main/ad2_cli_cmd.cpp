@@ -215,6 +215,12 @@ static void _cli_cmd_ad2term_event(char *string)
     g_StopMainTask = 2;
     portEXIT_CRITICAL(&spinlock);
 
+    // if argument provided then assert reset pin on AD2pHAT board on GPIO
+    std::string arg;
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
+        hal_ad2_reset();
+    }
+
     // proccess data from AD2* and send to UART0
     // any data on UART0 send to AD2*
     uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
@@ -526,8 +532,8 @@ static struct cli_command cmd_list[] = {
     },
     {
         (char*)AD2_TERM,(char*)
-        "- Connect directly to the AD2* source and halt processing.\r\n\r\n"
-        "  ```" AD2_TERM "```\r\n\r\n"
+        "- Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.\r\n\r\n"
+        "  ```" AD2_TERM "[reset]```\r\n\r\n"
         "  Note: To exit press ... three times fast.\r\n", _cli_cmd_ad2term_event
     },
     {

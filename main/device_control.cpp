@@ -719,6 +719,19 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
+/**
+ * @brief assert reset pin on AD2pHAT board long enough to reboot the uP.
+ * TODO: First release of the carrier uses GPIO 32. This may move on the final product.
+ */
+void hal_ad2_reset()
+{
+    gpio_pad_select_gpio(GPIO_NUM_32);
+    gpio_set_direction(GPIO_NUM_32, GPIO_MODE_OUTPUT);
+    gpio_set_level(GPIO_NUM_32, 0);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    gpio_set_level(GPIO_NUM_32, 1);
+}
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
