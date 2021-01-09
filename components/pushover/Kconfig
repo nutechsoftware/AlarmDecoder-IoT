@@ -1,0 +1,7 @@
+menu "Pushover.net client"
+    config PUSHOVER_CLIENT
+        bool "Pushover.net client"
+        default n
+        help
+            Enable Pushover.net notification client
+endmenu

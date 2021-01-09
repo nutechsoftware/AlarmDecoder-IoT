@@ -76,21 +76,21 @@ static const char *TAG = "TWILIO";
 #include "mbedtls/ssl_cache.h"
 #endif
 
-QueueHandle_t  sendQ=NULL;
-mbedtls_entropy_context entropy;
-mbedtls_ctr_drbg_context ctr_drbg;
+QueueHandle_t  sendQ_tw=NULL;
+mbedtls_entropy_context twilio_entropy;
+mbedtls_ctr_drbg_context twilio_ctr_drbg;
 mbedtls_ssl_config twilio_conf;
 mbedtls_ssl_context twilio_ssl;
 mbedtls_x509_crt api_twilio_com_cacert;
 mbedtls_ssl_config sendgrid_conf;
 mbedtls_ssl_context sendgrid_ssl;
 mbedtls_x509_crt api_sendgrid_com_cacert;
-mbedtls_net_context server_fd;
+mbedtls_net_context twilio_server_fd;
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
 mbedtls_ssl_cache_context cache;
 #endif
 
-std::vector<AD2EventSearch *> AD2EventSearches;
+std::vector<AD2EventSearch *> twilio_AD2EventSearches;
 
 
 /**
@@ -107,76 +107,7 @@ extern const uint8_t sendgrid_root_pem_start[] asm("_binary_sendgrid_root_pem_st
 extern const uint8_t sendgrid_root_pem_end[]   asm("_binary_sendgrid_root_pem_end");
 
 /**
- * url_encode
- */
-std::string urlencode(std::string str)
-{
-    std::string encoded = "";
-    char c;
-    char code0;
-    char code1;
-    for (int i = 0; i < str.length(); i++) {
-        c = str[i];
-        if (c == ' ') {
-            encoded += '+';
-        } else if (isalnum(c)) {
-            encoded += c;
-        } else {
-            code1 = (c & 0xf) + '0';
-            if ((c & 0xf) > 9) {
-                code1 = (c & 0xf) - 10 + 'A';
-            }
-            c = (c >> 4) & 0xf;
-            code0 = c + '0';
-            if (c > 9) {
-                code0 = c - 10 + 'A';
-            }
-            encoded += '%';
-            encoded += code0;
-            encoded += code1;
-        }
-    }
-    return encoded;
-}
-
-/**
- * build auth string from user and pass
- */
-std::string get_basic_auth_header(const std::string& user, const std::string& password)
-{
-
-    size_t toencodeLen = user.length() + password.length() + 2;
-    size_t out_len = 0;
-    char toencode[toencodeLen];
-    unsigned char outbuffer[(toencodeLen + 2 - ((toencodeLen + 2) % 3)) / 3 * 4 + 1];
-
-    memset(toencode, 0, toencodeLen);
-
-    snprintf(
-        toencode,
-        toencodeLen,
-        "%s:%s",
-        user.c_str(),
-        password.c_str()
-    );
-
-    mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
-    outbuffer[out_len] = '\0';
-
-    std::string encoded_string = std::string((char *)outbuffer);
-    return "Authorization: Basic " + encoded_string;
-}
-
-/**
- * build Bearer auth string from api key
- */
-std::string get_bearer_auth_header(const std::string& apikey)
-{
-    return "Authorization: Bearer " + apikey;
-}
-
-/**
- * i()
+ * build a request string for the twilio api.
  */
 std::string build_twilio_request_string(std::string sid,
                                         std::string token, std::string body, char type)
@@ -192,7 +123,7 @@ std::string build_twilio_request_string(std::string sid,
         apiPath = "Messages.json";
     }
 
-    std::string auth_header = get_basic_auth_header(sid, token);
+    std::string auth_header = ad2_make_basic_auth_header(sid, token);
     std::string http_request =
         "POST /" + std::string(TWILIO_API_VERSION) + "/Accounts/" + sid + "/" + apiPath + " HTTP/1.0\r\n" +
         "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
@@ -207,7 +138,7 @@ std::string build_twilio_request_string(std::string sid,
 }
 
 /**
- * build_sendgrid_bodY()
+ * build a body string for the sendgrid api.()
  */
 std::string build_sendgrid_body(std::string from, std::string to, std::string arg)
 {
@@ -266,7 +197,7 @@ std::string build_sendgrid_request_string(std::string apikey, std::string body)
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
 
-    std::string auth_header = get_bearer_auth_header(apikey);
+    std::string auth_header = ad2_make_bearer_auth_header(apikey);
     std::string http_request = "POST https://api.sendgrid.com/v3/mail/send HTTP/1.1\r\n";
     http_request +=
         "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
@@ -289,7 +220,7 @@ extern "C" {
  */
 void twilio_add_queue(std::string &sid, std::string &token, std::string &from, std::string &to, char type, std::string &arg)
 {
-    if (sendQ) {
+    if (sendQ_tw) {
         twilio_message_data_t *message_data = NULL;
         message_data = (twilio_message_data_t *)malloc(sizeof(twilio_message_data_t));
         message_data->sid = strdup(sid.c_str());
@@ -298,7 +229,7 @@ void twilio_add_queue(std::string &sid, std::string &token, std::string &from, s
         message_data->to =  strdup(to.c_str());
         message_data->type = type;
         message_data->arg = strdup(arg.c_str());
-        xQueueSend(sendQ,(void *)&message_data,(TickType_t )0);
+        xQueueSend(sendQ_tw,(void *)&message_data,(TickType_t )0);
     } else {
         ESP_LOGE(TAG, "Invalid queue handle");
     }
@@ -315,12 +246,12 @@ void twilio_consumer_task(void *pvParameter)
 {
     ESP_LOGI(TAG,"queue consumer loop start");
     while(1) {
-        if(sendQ == NULL) {
+        if(sendQ_tw == NULL) {
             ESP_LOGW(TAG, "sendQ is not ready task ending");
             break;
         }
         twilio_message_data_t *message_data = NULL;
-        if ( xQueueReceive(sendQ,&message_data,portMAX_DELAY) ) {
+        if ( xQueueReceive(sendQ_tw,&message_data,portMAX_DELAY) ) {
             ESP_LOGI(TAG, "Calling twilio notification.");
             twilio_send_task((void *)message_data);
             ESP_LOGI(TAG, "Completed requests stack free %d", uxTaskGetStackHighWaterMark(NULL));
@@ -347,8 +278,8 @@ void twilio_free()
     mbedtls_x509_crt_free( &api_sendgrid_com_cacert );
     mbedtls_ssl_config_free( &sendgrid_conf );
 
-    mbedtls_ctr_drbg_free( &ctr_drbg);
-    mbedtls_entropy_free( &entropy );
+    mbedtls_ctr_drbg_free( &twilio_ctr_drbg);
+    mbedtls_entropy_free( &twilio_entropy );
 }
 
 /**
@@ -401,8 +332,8 @@ void twilio_send_task(void *pvParameters)
     case TWILIO_NOTIFY_MESSAGE[0]:
         _api_server_address = TWILIO_API_SERVER;
         _api_server_port = TWILIO_API_PORT;
-        body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
-               "&Body=" + urlencode(arg);
+        body = "To=" + ad2_urlencode(to) + "&From=" + ad2_urlencode(from) + \
+               "&Body=" + ad2_urlencode(arg);
         // build request string including basic auth headers
         http_request = build_twilio_request_string(sid, token, body, TWILIO_NOTIFY_MESSAGE[0]);
         _ssl = &twilio_ssl;
@@ -412,8 +343,8 @@ void twilio_send_task(void *pvParameters)
     case TWILIO_NOTIFY_CALL[0]:
         _api_server_address = TWILIO_API_SERVER;
         _api_server_port = TWILIO_API_PORT;
-        body = "To=" + urlencode(to) + "&From=" + urlencode(from) + \
-               "&Twiml=" + urlencode(arg);
+        body = "To=" + ad2_urlencode(to) + "&From=" + ad2_urlencode(from) + \
+               "&Twiml=" + ad2_urlencode(arg);
         // build request string including basic auth headers
         http_request = build_twilio_request_string(sid, token, body, TWILIO_NOTIFY_CALL[0]);
         _ssl = &twilio_ssl;
@@ -443,9 +374,9 @@ void twilio_send_task(void *pvParameters)
 
     // clean up and ready for new request
     mbedtls_ssl_session_reset(_ssl);
-    mbedtls_net_free(&server_fd);
+    mbedtls_net_free(&twilio_server_fd);
 
-    if ((ret = mbedtls_net_connect(&server_fd, _api_server_address,
+    if ((ret = mbedtls_net_connect(&twilio_server_fd, _api_server_address,
                                    _api_server_port, MBEDTLS_NET_PROTO_TCP)) != 0) {
         ESP_LOGE(TAG, "mbedtls_net_connect returned -%x", -ret);
         goto exit;
@@ -453,7 +384,7 @@ void twilio_send_task(void *pvParameters)
 
     ESP_LOGI(TAG, "Connected.");
 
-    mbedtls_ssl_set_bio(_ssl, &server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
+    mbedtls_ssl_set_bio(_ssl, &twilio_server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
 
     ESP_LOGI(TAG, "Performing the SSL/TLS handshake...");
 
@@ -548,7 +479,6 @@ char * TWILIO_SETTINGS [] = {
     (char*)TWILIO_TYPE_CFGKEY,
     (char*)TWILIO_TO_CFGKEY,
     (char*)TWILIO_FROM_CFGKEY,
-    (char*)TWILIO_BODY_CFGKEY,
     0 // EOF
 };
 
@@ -560,12 +490,12 @@ char * TWILIO_SETTINGS [] = {
  * @param [in]arg string pointer event class string.
  *
  */
-void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void ad2_event_cb_twilio(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if (!s || (defs && s->partition == defs->partition)) {
-        ESP_LOGI(TAG, "twilio ad2_event_cb '%i'", (int)arg);
+        ESP_LOGI(TAG, "twilio ad2_event_cb_twilio '%i'", (int)arg);
 
         std::string body;
         if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
@@ -613,7 +543,7 @@ void ad2_event_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * @param [in]arg nullptr.
  *
  */
-void on_search_match_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_search_match_cb_tw(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
     ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
@@ -1020,7 +950,7 @@ void twilio_init()
     mbedtls_ssl_cache_init( &cache );
 #endif
     // init server_fd
-    mbedtls_net_init(&server_fd);
+    mbedtls_net_init(&twilio_server_fd);
 
     // init api.twilio.com ssl connection
     mbedtls_ssl_init(&twilio_ssl);
@@ -1037,16 +967,16 @@ void twilio_init()
     mbedtls_x509_crt_init(&api_sendgrid_com_cacert);
 
     // init entropy
-    mbedtls_entropy_init(&entropy);
+    mbedtls_entropy_init(&twilio_entropy);
 
     // init drbg
-    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_ctr_drbg_init(&twilio_ctr_drbg);
 #if defined(DEBUG_TWILIO_TLS)
     mbedtls_debug_set_threshold( DEBUG_LEVEL );
 #endif
 
     ESP_LOGI(TAG, "Seeding the random number generator");
-    if((res = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+    if((res = mbedtls_ctr_drbg_seed(&twilio_ctr_drbg, mbedtls_entropy_func, &twilio_entropy,
                                     NULL, 0)) != 0) {
         ESP_LOGE(TAG, "mbedtls_ctr_drbg_seed returned %d", res);
         twilio_free();
@@ -1071,7 +1001,7 @@ void twilio_init()
     */
     mbedtls_ssl_conf_authmode(&twilio_conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
     mbedtls_ssl_conf_ca_chain(&twilio_conf, &api_twilio_com_cacert, NULL);
-    mbedtls_ssl_conf_rng(&twilio_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+    mbedtls_ssl_conf_rng(&twilio_conf, mbedtls_ctr_drbg_random, &twilio_ctr_drbg);
 #ifdef CONFIG_MBEDTLS_DEBUG
     mbedtls_esp_enable_debug_log(&twilio_conf, 4);
 #endif
@@ -1124,7 +1054,7 @@ void twilio_init()
     */
     mbedtls_ssl_conf_authmode(&sendgrid_conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
     mbedtls_ssl_conf_ca_chain(&sendgrid_conf, &api_sendgrid_com_cacert, NULL);
-    mbedtls_ssl_conf_rng(&sendgrid_conf, mbedtls_ctr_drbg_random, &ctr_drbg);
+    mbedtls_ssl_conf_rng(&sendgrid_conf, mbedtls_ctr_drbg_random, &twilio_ctr_drbg);
 #ifdef CONFIG_MBEDTLS_DEBUG
     mbedtls_esp_enable_debug_log(&sendgrid_conf, 4);
 #endif
@@ -1160,8 +1090,8 @@ void twilio_init()
     }
 
     ESP_LOGI(TAG, "Starting twilio queue consumer task");
-    sendQ = xQueueCreate(TWILIO_QUEUE_SIZE,sizeof(struct twilio_message_data *));
-    if( sendQ == 0 ) {
+    sendQ_tw = xQueueCreate(TWILIO_QUEUE_SIZE,sizeof(struct twilio_message_data *));
+    if( sendQ_tw == 0 ) {
         ESP_LOGE(TAG, "Failed to create twilio queue.");
     } else {
         xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
@@ -1170,11 +1100,11 @@ void twilio_init()
     // TODO configure to all selection on events to notify on.
 
     // Register callbacks for a few static events for testing.
-    //AD2Parse.subscribeTo(ON_LRR, ad2_event_cb, (void*)ON_LRR);
-    //AD2Parse.subscribeTo(ON_ARM, ad2_event_cb, (void*)ON_ARM);
-    //AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb, (void*)ON_DISARM);
-    //AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb, (void*)ON_FIRE);
-    //AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_event_cb, (void*)ON_ALARM_CHANGE);
+    //AD2Parse.subscribeTo(ON_LRR, ad2_event_cb_twilio, (void*)ON_LRR);
+    //AD2Parse.subscribeTo(ON_ARM, ad2_event_cb_twilio, (void*)ON_ARM);
+    //AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb_twilio, (void*)ON_DISARM);
+    //AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb_twilio, (void*)ON_FIRE);
+    //AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_event_cb_twilio, (void*)ON_ALARM_CHANGE);
 
     // Register search based virtual switches.
     for (int i = 1; i < 99; i++) {
@@ -1232,10 +1162,10 @@ void twilio_init()
                 }
 
                 // Save the search to a list for management.
-                AD2EventSearches.push_back(es1);
+                twilio_AD2EventSearches.push_back(es1);
 
                 // subscribe to the callback for events.
-                AD2Parse.subscribeTo(on_search_match_cb, es1);
+                AD2Parse.subscribeTo(on_search_match_cb_tw, es1);
             }
         }
     }
@@ -1243,7 +1173,7 @@ void twilio_init()
 
 
 #if 0 /* TESTING FIXME */
-    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb, (void*)ON_CHIME_CHANGE);
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb_twilio, (void*)ON_CHIME_CHANGE);
 #endif
 }
 

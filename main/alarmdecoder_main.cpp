@@ -70,6 +70,11 @@
 #include "twilio.h"
 #endif
 
+// twilio support
+#if CONFIG_PUSHOVER_CLIENT
+#include "pushover.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -539,6 +544,11 @@ void app_main()
     twilio_register_cmds();
 #endif
 
+#if CONFIG_PUSHOVER_CLIENT
+    // Register PUSHOVER CLI commands.
+    pushover_register_cmds();
+#endif
+
     // Register AD2 CLI commands.
     register_ad2_cli_cmd();
 
@@ -656,6 +666,10 @@ void app_main()
 #if CONFIG_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
+#endif
+#if CONFIG_PUSHOVER_CLIENT
+    // Initialize pushover client
+    pushover_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.

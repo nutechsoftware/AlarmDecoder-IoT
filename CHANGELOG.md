@@ -5,7 +5,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] WIP
-- [ ] CORE: New notification component Pushover.net. A simple HTTPS request much like SendGrid or Twilio.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
@@ -21,9 +20,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+## [1.0.6 P3] - 2021-01-08
+- [X] CORE: Consolidate some common functions from Twilio and Pushover clients into ad2_utils functions.
+- [X] PUSHOVER: New notification component Pushover.net. A simple HTTPS request much like SendGrid or Twilio but I prefer this command format and will be changing other commands to match soon.
 ## [1.0.6 P2] - 2020-12-29
 - [X] CORE: refactor where serial starts to allow to enter ad2term mode early before any other  code starts. This allows to update firmware over the USB cable in ad2term mode using the GUI app or other AD2* firmware update tool.
-
 ## [1.0.6 P1] - 2020-12-21
 - [X] OTA: Some change in mbedtls happend at some point causing OTA to now fail. Releaseing P1 to fix.
 ## [1.0.6] - 2020-12-19

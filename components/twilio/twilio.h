@@ -42,7 +42,6 @@
 #define TWILIO_TYPE_CFGKEY    "twtype"
 #define TWILIO_TO_CFGKEY      "twto"
 #define TWILIO_FROM_CFGKEY    "twfrom"
-#define TWILIO_BODY_CFGKEY    "twbody"
 #define TWILIO_SAS_CFGKEY     "twsas"
 
 #define MAX_SEARCH_KEYS 9
