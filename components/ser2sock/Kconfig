@@ -1,4 +1,4 @@
-menu "ser2sock server daemon"
+menu "AD2iot * ser2sock server daemon"
     config SER2SOCKD
         bool "ser2sock server daemon"
         default n

@@ -1,4 +1,4 @@
-menu "Twilio client"
+menu "AD2iot * Twilio client"
     config TWILIO_CLIENT
         bool "Twilio client"
         default n

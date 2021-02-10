@@ -765,9 +765,13 @@ void ad2_disarm(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "1");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = ad2_string_printf("K%02i%s", address, code.c_str());
+            // QUIRK: For DSC don't disarm if already disarmed. Unlike Ademoc no specific command AFAIK exists to disarm just the code. If I find one I will change this.
+            if (s->armed_away || s->armed_stay) {
+                msg = ad2_string_printf("K%02i%s", address, code.c_str());
+            } else {
+                ESP_LOGI(TAG,"DSC: Already DISARMED not sending DISARM command");
+            }
         }
-
         ESP_LOGI(TAG,"Sending DISARM command");
         ad2_send(msg);
     } else {
