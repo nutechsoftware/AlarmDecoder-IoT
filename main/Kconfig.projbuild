@@ -1,4 +1,4 @@
-menu "AlarmDecoder IoT Configuration"
+menu "AlarmDecoder IoT Configuration (AD2iot)"
 
 config AD2IOT_USE_WIFI
     bool "Enable WiFi driver"

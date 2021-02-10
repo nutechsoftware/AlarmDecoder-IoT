@@ -1,4 +1,4 @@
-menu "Pushover.net client"
+menu "AD2iot * Pushover.net client"
     config PUSHOVER_CLIENT
         bool "Pushover.net client"
         default n

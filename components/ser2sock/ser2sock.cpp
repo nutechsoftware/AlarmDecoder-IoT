@@ -244,7 +244,6 @@ void ser2sockd_init(void)
     ESP_LOGI(TAG, "Starting ser2sockd");
     xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 
-    // TODO:
 }
 
 
