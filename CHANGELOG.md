@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] CORE: Improve names of components in menu config build.
 - [X] STSTK: DSC panels have no special command to disarm just the code is used. Sending the code while armed disarms and while disarmed will arm. To deal with this quirk on DSC if the panel is already DISARMED and the ST Disarm button is pushed the code will not send anything to the panel.
 ## [Unreleased] WIP
+- [X] CORE: move log mode init.
+- [X] API: Event format string for no match case to show event ID.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
