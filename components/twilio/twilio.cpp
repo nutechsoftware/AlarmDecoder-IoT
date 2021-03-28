@@ -480,8 +480,7 @@ void twilio_send_task(void *pvParameters)
 
     // Simple HTTP response parsing.
     responseStream.str(response);
-    while(std::getline(responseStream >> std::ws, respLine, '\r'))
-    {
+    while(std::getline(responseStream >> std::ws, respLine, '\r')) {
 #if defined(DEBUG_TWILIO)
         ESP_LOGI(TAG, "Response: '%s'", respLine.c_str());
 #endif
@@ -497,7 +496,7 @@ void twilio_send_task(void *pvParameters)
             ESP_LOGI(TAG, "Response error body: '%s'", respLines[respLines.size()-1].c_str());
         }
     } else {
-       ESP_LOGI(TAG, "No response");
+        ESP_LOGI(TAG, "No response");
     }
 
 exit:
