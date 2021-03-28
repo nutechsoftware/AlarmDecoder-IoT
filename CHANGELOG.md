@@ -25,7 +25,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] CORE: Modify changelog(this file) to include info for blame.
 - [QA] TWILIO: Fix syntax use newer format used in pushover module. Add simple HTTP response testing and and reporting to aid in setup.
 - [QA] PUSHOVER & TWILIO: Fix bug in NV storage. Someday cleanup and make the prefix an arg to the NV routines. Would require less use if 'key' var but would it be easier to read?
-
 ## [1.0.6 P5] - 2021-01-10 Sean Mathews @f34rdotcom
 - [X] CORE: Improve names of components in menu config build.
 - [X] STSTK: DSC panels have no special command to disarm just the code is used. Sending the code while armed disarms and while disarmed will arm. To deal with this quirk on DSC if the panel is already DISARMED and the ST Disarm button is pushed the code will not send anything to the panel.
