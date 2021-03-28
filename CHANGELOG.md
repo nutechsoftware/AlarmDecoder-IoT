@@ -3,13 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
-
-## [1.0.6 P5] - 2021-01-10
-- [X] CORE: Improve names of components in menu config build.
-- [X] STSTK: DSC panels have no special command to disarm just the code is used. Sending the code while armed disarms and while disarmed will arm. To deal with this quirk on DSC if the panel is already DISARMED and the ST Disarm button is pushed the code will not send anything to the panel.
-## [Unreleased] WIP
-- [X] CORE: move log mode init.
-- [X] API: Event format string for no match case to show event ID.
+## [Unreleased] Open issues
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
@@ -25,16 +19,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
-## [1.0.6 P4] - 2021-01-08
+## [Unreleased] WIP Sean Mathews @f34rdotcom
+- [X] CORE: Move log mode init.
+- [X] API: Event format string for no match case to show event ID.
+- [X] CORE: Modify changelog(this file) to include info for blame.
+- [QA] TWILIO: Fix syntax use newer format used in pushover module. Add simple HTTP response testing and and reporting to aid in setup.
+- [QA] PUSHOVER & TWILIO: Fix bug in NV storage. Someday cleanup and make the prefix an arg to the NV routines. Would require less use if 'key' var but would it be easier to read?
+
+## [1.0.6 P5] - 2021-01-10 Sean Mathews @f34rdotcom
+- [X] CORE: Improve names of components in menu config build.
+- [X] STSTK: DSC panels have no special command to disarm just the code is used. Sending the code while armed disarms and while disarmed will arm. To deal with this quirk on DSC if the panel is already DISARMED and the ST Disarm button is pushed the code will not send anything to the panel.
+## [1.0.6 P4] - 2021-01-08 Sean Mathews @f34rdotcom
 - [ ] CORE: ad2term arg to reset AD2 device and then start the terminal. Any argument string will send hold the reset line on the AD2pHat board low for 1 second as the terminal is started causing the AD2* to hard reset. Useful when firmware on the AD2* gets corrupted and its hard to get into the boot loader.
-## [1.0.6 P3] - 2021-01-08
+## [1.0.6 P3] - 2021-01-08 Sean Mathews @f34rdotcom
 - [X] CORE: Consolidate some common functions from Twilio and Pushover clients into ad2_utils functions.
 - [X] PUSHOVER: New notification component Pushover.net. A simple HTTPS request much like SendGrid or Twilio but I prefer this command format and will be changing other commands to match soon.
-## [1.0.6 P2] - 2020-12-29
+## [1.0.6 P2] - 2020-12-29 Sean Mathews @f34rdotcom
 - [X] CORE: refactor where serial starts to allow to enter ad2term mode early before any other  code starts. This allows to update firmware over the USB cable in ad2term mode using the GUI app or other AD2* firmware update tool.
-## [1.0.6 P1] - 2020-12-21
+## [1.0.6 P1] - 2020-12-21 Sean Mathews @f34rdotcom
 - [X] OTA: Some change in mbedtls happend at some point causing OTA to now fail. Releaseing P1 to fix.
-## [1.0.6] - 2020-12-19
+## [1.0.6] - 2020-12-19 Sean Mathews @f34rdotcom
 - [X] SER2SOCKD: Add new component ser2sock daemon.
   - [X] README
   - [X] CMD
@@ -43,7 +47,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - [X] QA/TESTING
 - [X] API: Refactor api. Simplify subscriber storage class. Add new subscriber callback type. Added ON_RAW_RX_DATA so subscribers can get a raw AD2* stream needed by ser2sockd to avoid writing in ser2sock client and uart client routines.
 - [X] CORE: Extract ser2sock fragments and move into ser2sock component.
-## [1.0.5] - 2020-12-15
+## [1.0.5] - 2020-12-15 Sean Mathews @f34rdotcom
 - [X] CORE: Tidy: Improve Kconfig menuconfig.
 - [X] API: System specific nibble was a bit. Fixed.
 - [X] API: ON_LOW_BATTERY() toggle ON/OFF with no battery on on test panel. This one keeps poping up...
@@ -60,7 +64,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] TWILIO: Missed log refactor after serialize refactor. No logic changes.
 - [X] TWILIO: Fix ~250 byte memory leak in Twilio json code.. No logic changes.
 - [X] CORE: tidy.
-## [1.0.4] - 2020-11-08
+## [1.0.4] - 2020-11-08 Sean Mathews @f34rdotcom
 - [X] CORE: Tidy QA testing.
 - [X] TWILIO: Improve docs and ```twsas``` command report format as valid commands with comments.
 - [X] TWILIO: Need to add ability to trigger on common states FIRE, ALARM, DISARM, ARM, CHIME etc in new twsas command.
@@ -86,7 +90,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] API: FIX: Improve FIRE and ALARM tracking issue with state toggle.
 - [X] TWILIO: TODO: Add class based command line configurable notifications to Twilio. Allow to enable/disable event messages for different event types.
 
-## [1.0.3 P2 WIP] - 2020-10-31 (no release)
+## [1.0.3 P2 WIP] - 2020-10-31 (no release) Sean Mathews @f34rdotcom
 - [X] API: New class AD2EventSearch and support functions to subscribe. I spent a few days on this. A bit of a unicorn hunt. I could write discrete API and CLI code for every possible message type from the AlarmDecoder protocol but this seems excessive. The task is the same on every message so a single CLI and API to create custom tracking of all messages using REGEX and simple state logic was what I ended up with. This new class when constructed becomes a virtual contact with OPEN/CLOSE/FAULT states. These states are updated based upon user supplied regex patterns and simple user provided logic hints.
 - [X] API: RFX message expand hex to bin for easy parsing.
 - [X] API: Added message type tracking during parse for post processing.
@@ -100,14 +104,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] STSDK: Wired BYPASS to the bypass component contact capability.
 - [X] STSDK: remove battery fault contact from device profile in ST dev portal.
 
-## [1.0.3 P1] - 2020-10-20
+## [1.0.3 P1] - 2020-10-20 Sean Mathews @f34rdotcom
 - [X] CORE: Add command feedback to commands that require a restart to take effect.
 - [X] STSDK: Remove restart for enable. Add warnings about restarting.
 - [X] CORE: Fix: build error JSON.h issue using esp4.x.
 - [X] STSDK: Fix: Not enabling by default.
 - [X] TWILIO: Fix: mbedtls_x509_crt_parse is broken when building esp 4.x with return code -0x2180. The PEM parsing routine expects the last byte to be null but under 4.x build it is `-`. Using EMBED_TXTFILES automatically puts a \0 at the end of the block of memory and it is included in the size of the buffer. This is the setting that is used in the 3.x build component mk file.
 
-## [1.0.3] - 2020-10-19
+## [1.0.3] - 2020-10-19 Sean Mathews @f34rdotcom
 - [X] STSDK: Improve: Connect Panic Alarm and Medical Alarm buttons each requires 3 taps with 5 second timeout.
 - [X] STSDK: Improve: Connect DISARM button.
 - [X] STSDK: Improve: Connect ARM STAY, ARM AWAY buttons.
@@ -132,7 +136,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] CORE: Fix deprecated stsdk api calls.
 - [X] CORE: Fix: building with espidf 4.x Currently testing only on 3.x branch but will switch to 4.x as soon as some warnings are sorted out.
 
-## [1.0.2] - 2020-10-11
+## [1.0.2] - 2020-10-11 Sean Mathews @f34rdotcom
 - [X] CORE: New: Command: ```'netmode <[W,E,N]> <ARGS>'```. If SmartThings is disabled allow control of network settings.
 - [X] CORE: Improve: Add util function ```ad2_query_key_value``` for N/V parsing. Will be used to store settings in NV in a easy to use text only way.
 - [X] CORE: Improve: Filled in empty wifi init function and added ```hal_event_handler```.
@@ -149,16 +153,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] STSDK: Fix: Finish wiring smokeDetector capability and test FIRE alarm to show if smoke/clear events.
 - [X] STSDK: Tidy: Function name fix ```connection_start_task```.
 
-## [1.0.1 p1] - 2020-09-27
+## [1.0.1 p1] - 2020-09-27 Sean Mathews @f34rdotcom
 - [X] - Added support code for 'C' mode connection.
 - [X] - Refactor 'ad2source' command to allow selecting GPIO UARTS TX/RX pins.
 - [X] - New command 'ad2term' to connect directly to AD2* and stop processing.
 - [X] - Adding a ad2_* string util for splitting strings. Still needs const char * override.
 
-## [1.0.1] - 2020-09-25
+## [1.0.1] - 2020-09-25 Sean Mathews @f34rdotcom
 - [X] Code formatting and Travis CI setup on github. What a mess :)... "astyle --style=otbs"
 
-## [1.0.0B] - 2020-09-18
+## [1.0.0B] - 2020-09-18 Sean Mathews @f34rdotcom
 
 Refactor to take all dev work and clean it up into components that can be turned off / on as needed for a given project.
 Changes and tests.
@@ -180,7 +184,7 @@ Changes and tests.
 - [X] OTA: Add subscriber callback for ON_FIRMWARE_VERSION
 - [X] REFACTOR: Started adding event id string formats for human readable.
 
-## [1.0.0] - 2020-09-18
+## [1.0.0] - 2020-09-18 Sean Mathews @f34rdotcom
 
 Initial project release for testing.
 
