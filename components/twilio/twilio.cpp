@@ -463,7 +463,7 @@ void twilio_send_task(void *pvParameters)
         }
 
         // Build response buffer. If over N bytes reject and finish.
-        if (response.length()+ret > 2048) {
+        if (response.length()+ret > 1024 * 4) {
             ESP_LOGI(TAG, "Response buffer full %i.", response.length());
             break;
         }
@@ -532,12 +532,13 @@ void ad2_event_cb_twilio(std::string *msg, AD2VirtualPartitionState *s, void *ar
         if (g_ad2_network_state == AD2_CONNECTED) {
             // load our settings for this event type.
             std::string key;
+
             std::string sid;
-            key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SWITCH_SUBCMD);
+            key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SID_SUBCMD);
             ad2_get_nv_slot_key_string(key.c_str(), AD2_DEFAULT_TWILIO_SLOT, nullptr, sid);
 
             std::string token;
-            key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SID_SUBCMD);
+            key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TOKEN_SUBCMD);
             ad2_get_nv_slot_key_string(key.c_str(), AD2_DEFAULT_TWILIO_SLOT, nullptr, token);
 
             std::string from;
@@ -582,8 +583,9 @@ void on_search_match_cb_tw(std::string *msg, AD2VirtualPartitionState *s, void *
         std::string body = es->out_message;
         // load our settings for this event type.
         std::string key;
+
         std::string sid;
-        key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SWITCH_SUBCMD);
+        key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SID_SUBCMD);
         ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, nullptr, sid);
 
         std::string token;

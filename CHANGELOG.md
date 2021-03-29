@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
+- [ ] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
@@ -23,8 +24,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] CORE: Move log mode init.
 - [X] API: Event format string for no match case to show event ID.
 - [X] CORE: Modify changelog(this file) to include info for blame.
-- [QA] TWILIO: Fix syntax use newer format used in pushover module. Add simple HTTP response testing and and reporting to aid in setup.
-- [QA] PUSHOVER & TWILIO: Fix bug in NV storage. Someday cleanup and make the prefix an arg to the NV routines. Would require less use if 'key' var but would it be easier to read?
+- [X] TWILIO: Fix syntax use newer format used in pushover module. Add simple HTTP response testing and and reporting to aid in setup.
+- [X] PUSHOVER & TWILIO: Fix bug in NV storage. Someday cleanup and make the prefix an arg to the NV routines. Would require less use if 'key' var but would it be easier to read?
+- [X] TWILIO: Update api.twilio.com public key. Uggg! This already changed :(. I need allow update of this key via CLI and I need to find a way to get the key to lookup the root certificate...
 ## [1.0.6 P5] - 2021-01-10 Sean Mathews @f34rdotcom
 - [X] CORE: Improve names of components in menu config build.
 - [X] STSTK: DSC panels have no special command to disarm just the code is used. Sending the code while armed disarms and while disarmed will arm. To deal with this quirk on DSC if the panel is already DISARMED and the ST Disarm button is pushed the code will not send anything to the panel.
