@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
-## [Unreleased] WIP Sean Mathews @f34rdotcom
+## [1.0.6 P6] - 2021-04-05 Sean Mathews @f34rdotcom
 - [X] CORE: Move log mode init.
 - [X] API: Event format string for no match case to show event ID.
 - [X] CORE: Modify changelog(this file) to include info for blame.
