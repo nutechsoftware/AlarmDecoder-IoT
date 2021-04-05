@@ -37,12 +37,14 @@
 #define TWILIO_API_VERSION "2010-04-01"
 #define TWILIO_RATE_LIMIT 2000
 
-#define TWILIO_SID_CFGKEY     "twsid"
-#define TWILIO_TOKEN_CFGKEY   "twtoken"
-#define TWILIO_TYPE_CFGKEY    "twtype"
-#define TWILIO_TO_CFGKEY      "twto"
-#define TWILIO_FROM_CFGKEY    "twfrom"
-#define TWILIO_SAS_CFGKEY     "twsas"
+#define TWILIO_COMMAND        "twilio"
+#define TWILIO_CFG_PREFIX     "tw"
+#define TWILIO_SID_SUBCMD     "sid"
+#define TWILIO_TOKEN_SUBCMD   "token"
+#define TWILIO_FROM_SUBCMD    "from"
+#define TWILIO_TO_SUBCMD      "to"
+#define TWILIO_TYPE_SUBCMD    "type"
+#define TWILIO_SWITCH_SUBCMD  "switch"
 
 #define MAX_SEARCH_KEYS 9
 

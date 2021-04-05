@@ -186,7 +186,7 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
     // convert event to human readable string and state OPEN/CLOSE/FAULT
     std::string emsg;
     if (event_str.find((int)ev) == event_str.end()) {
-        emsg = "EVENT ID %d" + std::to_string(ev);
+        emsg = "EVENT ID " + std::to_string(ev);
     } else {
         emsg = event_str[(int)ev];
     }

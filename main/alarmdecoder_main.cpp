@@ -529,6 +529,9 @@ void app_main()
     ad2_printf_host("Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
+    // load and set the logging level.
+    ad2_set_log_mode(ad2_log_mode());
+
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
@@ -567,9 +570,6 @@ void app_main()
     // Start the CLI.
     // Press ENTER to halt and stay in CLI only.
     uart_cli_main();
-
-    // load and set the logging level.
-    ad2_set_log_mode(ad2_log_mode());
 
     // init the virtual partition database from NV storage
     // see iot_cli_cmd::vpaddr
