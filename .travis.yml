@@ -24,7 +24,7 @@ before_script:
 script:
   - cd $TRAVIS_BUILD_DIR
   - export ARTISTIC_STYLE_OPTIONS=".astylerc"
-  - astyle -Q `find . -name *.cpp -o -name *.h` > astyle.out
+  - astyle *.cpp,*.h > astyle.out
   - TEST=$(cat astyle.out | wc -l)
   - |
       if [[ $TEST -ne 0 ]]; then
