@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
+
+### Sean
+
 - [ ] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
@@ -20,6 +23,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+### AJ
+
+- [x] Add [PlatformIO](https://platformio.org/)
+- [ ] Add a GitHub Action to run a `pio` build on every PR
+- [ ] Migrate `astyle` to GitHub Action
+- [ ] Update README.md to reflect `pio` build changes
+
 ## [1.0.6 P6] - 2021-04-05 Sean Mathews @f34rdotcom
 - [X] CORE: Move log mode init.
 - [X] API: Event format string for no match case to show event ID.
