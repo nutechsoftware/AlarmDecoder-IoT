@@ -1,1 +1,4 @@
 style=otbs
+recursive
+formatted
+exclude=st-device-sdk-c
