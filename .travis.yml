@@ -26,8 +26,9 @@ script:
   - export ARTISTIC_STYLE_OPTIONS=".astylerc"
   - astyle *.cpp,*.h > astyle.out
   - TEST=$(cat astyle.out | wc -l)
+  - ASTYLE_HEADER_LINES=4
   - |
-      if [[ $TEST -ne 0 ]]; then
+      if [[ $(($TEST - $ASTYLE_HEADER_LINES)) -ne 0 ]]; then
         cat astyle.out
         git --no-pager diff
         echo "Please fix style issues as shown above"
