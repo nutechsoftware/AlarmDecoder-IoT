@@ -374,10 +374,13 @@ void ad2_event_cb_pushover(std::string *msg, AD2VirtualPartitionState *s, void *
         if (g_ad2_network_state == AD2_CONNECTED) {
             // load our settings for this event type.
             std::string userkey;
-            ad2_get_nv_slot_key_string(PUSHOVER_USERKEY_CFGKEY, AD2_DEFAULT_PUSHOVER_SLOT, nullptr, userkey);
+            std::string key;
+            key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_USERKEY_CFGKEY);
+            ad2_get_nv_slot_key_string(key.c_str(), AD2_DEFAULT_PUSHOVER_SLOT, nullptr, userkey);
 
             std::string token;
-            ad2_get_nv_slot_key_string(PUSHOVER_TOKEN_CFGKEY, AD2_DEFAULT_PUSHOVER_SLOT, nullptr, token);
+            key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_TOKEN_CFGKEY);
+            ad2_get_nv_slot_key_string(key.c_str(), AD2_DEFAULT_PUSHOVER_SLOT, nullptr, token);
 
             // add to the queue
             ESP_LOGI(TAG, "Adding task to pushover send queue");
@@ -402,11 +405,14 @@ void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *
     if (g_ad2_network_state == AD2_CONNECTED) {
         std::string message = es->out_message;
         // load our settings for this event type.
+        std::string key;
         std::string userkey;
-        ad2_get_nv_slot_key_string(PUSHOVER_USERKEY_CFGKEY, es->INT_ARG, nullptr, userkey);
+        key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_USERKEY_CFGKEY);
+        ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, nullptr, userkey);
 
         std::string token;
-        ad2_get_nv_slot_key_string(PUSHOVER_TOKEN_CFGKEY, es->INT_ARG, nullptr, token);
+        key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_TOKEN_CFGKEY);
+        ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, nullptr, token);
 
         // add to the queue
         ESP_LOGI(TAG, "Adding task to pushover send queue");
