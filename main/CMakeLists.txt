@@ -1,6 +1,31 @@
-# This file was automatically generated for projects
-# without default 'CMakeLists.txt' file.
+idf_component_register(SRCS "alarmdecoder_main.cpp"
+                            "device_control.cpp"
+                            "ad2_cli_cmd.cpp"
+                            "ad2_uart_cli.cpp"
+                            "ad2_utils.cpp"
+                    REQUIRES idf::alarmdecoder-api
+                    REQUIRES idf::pushover
+                    REQUIRES idf::twilio
+		    REQUIRES idf::stsdk
+                    REQUIRES idf::otaupdate
+                    REQUIRES idf::ser2sock
+                    )
 
-FILE(GLOB_RECURSE app_sources ${CMAKE_SOURCE_DIR}/main/*.*)
+set(STDK_IOT_CORE_USE_DEFINED_CONFIG "y")
 
-idf_component_register(SRCS ${app_sources})
+set(STDK_LINK_LIBRARY
+        __idf_libsodium
+        __idf_json
+   )
+
+set(STDK_INCLUDE_PATH
+        "$ENV{IDF_PATH}/components/freertos/include/freertos"
+        "$ENV{IDF_PATH}/components/nvs_flash/include"
+        "$ENV{IDF_PATH}/components/spi_flash/include"
+        "$ENV{IDF_PATH}/components/bootloader_support/include"
+    )
+
+if(CONFIG_STDK_IOT_CORE)
+        add_subdirectory($ENV{STDK_CORE_PATH} iotcore)
+        target_link_libraries(${COMPONENT_LIB} PUBLIC iotcore)
+endif()

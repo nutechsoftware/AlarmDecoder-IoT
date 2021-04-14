@@ -8,9 +8,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] CORE: Improve names of components in menu config build.
 - [X] STSTK: DSC panels have no special command to disarm just the code is used. Sending the code while armed disarms and while disarmed will arm. To deal with this quirk on DSC if the panel is already DISARMED and the ST Disarm button is pushed the code will not send anything to the panel.
 ## [Unreleased] WIP
-
-### Sean:
-
 - [X] CORE: move log mode init.
 - [X] API: Event format string for no match case to show event ID.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
@@ -28,14 +25,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
-- [ ] Triage `pio` build errors
-
-### AJ:
-- [ ] Replace [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) build process with [PlatformIO](https://platformio.org/)
-- [ ] Add a GitHub Action to run a `pio` build on every PR
-- [ ] Migrate `astyle` to GitHub Action
-- [ ] Update README.md to reflect `pio` build changes
-
 ## [1.0.6 P4] - 2021-01-08
 - [ ] CORE: ad2term arg to reset AD2 device and then start the terminal. Any argument string will send hold the reset line on the AD2pHat board low for 1 second as the terminal is started causing the AD2* to hard reset. Useful when firmware on the AD2* gets corrupted and its hard to get into the boot loader.
 ## [1.0.6 P3] - 2021-01-08
