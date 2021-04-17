@@ -6,7 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### Sean
-
+- [X] CORE: README.MD add placeholder for building with platformio and seperate STSDK build.
+- [X] CORE: Working on Platformio build upload problem. The address of 0x10000 is hard coded and it needs to be 0x20000 to match the standard OTA partition schema. Refactor platformio.ini to allow building for different ESP32 boards.
 - [ ] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.

@@ -473,7 +473,10 @@ Configure the notifications using the notification components CLI commands.
         ```
 
 ## Building firmware
-### Setup build environment
+### PlatformIO
+#### TODO: Setup notes.
+### SmartThings device SDK build environment
+#### Setup build environment
 - Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
 - Select the esp32 build environment. Branch v1.4 seems to be the current active branch and uses espidf v4.0.1-317-g50b3e2c81.
 ```
@@ -485,13 +488,13 @@ cd ~/esp
 
 - Place the contents of this his project in ```st-device-sdk-c-ref/apps/esp32/```
 
-### Configure the project
+#### Configure the project
 
 ```
 ./build.sh esp32 AlarmDecoder-STSDK menuconfig
 ```
 
-### Build, Flash, and Run
+#### Build, Flash, and Run
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
