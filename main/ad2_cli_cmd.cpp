@@ -210,10 +210,16 @@ static void _cli_cmd_ad2source_event(char *string)
  */
 static void _cli_cmd_ad2term_event(char *string)
 {
-    ad2_printf_host("Locking main threads. Send '.' 3 times to break out and return.\r\n");
+    ad2_printf_host("Halting command line interface. Send '.' 3 times to break out and return.\r\n");
     portENTER_CRITICAL(&spinlock);
+    // save the main task state for later restore.
+    int save_StopMainTask = g_StopMainTask;
+    // set main task to halted.
     g_StopMainTask = 2;
     portEXIT_CRITICAL(&spinlock);
+
+    // let other tasks have time to stop.
+    vTaskDelay(250 / portTICK_PERIOD_MS);
 
     // if argument provided then assert reset pin on AD2pHAT board on GPIO
     std::string arg;
@@ -225,12 +231,15 @@ static void _cli_cmd_ad2term_event(char *string)
     // any data on UART0 send to AD2*
     uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
 
+    // break sequence state
+    static uint8_t break_count = 0;
+
     while (1) {
 
         // UART source to host
         if (g_ad2_mode == 'C') {
             // Read data from the UART
-            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_PERIOD_MS);
+            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
             if (len == -1) {
                 // An error happend. Sleep for a bit and try again?
                 ESP_LOGE(TAG, "Error reading for UART aborting task.");
@@ -271,7 +280,7 @@ static void _cli_cmd_ad2term_event(char *string)
         }
 
         // Host to AD2*
-        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_PERIOD_MS);
+        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
         if (len == -1) {
             // An error happend. Sleep for a bit and try again?
             ESP_LOGE(TAG, "Error reading for UART aborting task.");
@@ -279,16 +288,22 @@ static void _cli_cmd_ad2term_event(char *string)
         }
         if (len>0) {
 
-            // Detect "..." break sequence.
-            static uint8_t break_count = 0;
-            if (rx_buffer[0] == '.') { // note perfect peek at first byte.
-                break_count++;
-                if (break_count > 2) {
+            // Detect "..." break sequence in stream;
+            for (int t = 0; t < len; t++) {
+                if (rx_buffer[t] == '.') { // note perfect peek at first byte.
+                    break_count++;
+                    if (break_count > 2) {
+                        // break detected we are done!
+                        break;
+                    }
+                } else {
                     break_count = 0;
-                    break;
                 }
-            } else {
+            }
+            // clear break state and exit while if break detected
+            if (break_count > 2) {
                 break_count = 0;
+                break;
             }
 
             // null terminate and send the message to the AD2*
@@ -297,12 +312,13 @@ static void _cli_cmd_ad2term_event(char *string)
             ad2_send(temp);
         }
 
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
-    ad2_printf_host("Resuming main threads.\r\n");
+    ad2_printf_host("Resuming command line interface threads.\r\n");
     portENTER_CRITICAL(&spinlock);
-    g_StopMainTask = 0;
+    // restore last state.
+    g_StopMainTask = save_StopMainTask;
     portEXIT_CRITICAL(&spinlock);
 }
 

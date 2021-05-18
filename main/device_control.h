@@ -98,6 +98,8 @@ void hal_restart();
 void hal_init_network_stack();
 void hal_init_wifi(std::string &args);
 void hal_init_eth(std::string &args);
+void hal_set_wifi_hostname(const char *);
+void hal_set_eth_hostname(const char *);
 void hal_host_uart_init();
 void hal_ad2_reset();
 #ifdef __cplusplus

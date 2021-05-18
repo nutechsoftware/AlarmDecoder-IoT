@@ -269,11 +269,14 @@ static void esp_uart_cli_task(void *pvParameters)
 
     cli_register_command(&help_cmd);
 
+    // break sequence state
+    static uint8_t break_count = 0;
+
     while (1) {
 
         // Read data from the UART
         memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
-        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_RATE_MS);
+        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
 
         if (len < 0) {
             ESP_LOGE(TAG, "%s: uart cli read error.", __func__);
@@ -283,16 +286,12 @@ static void esp_uart_cli_task(void *pvParameters)
 
         for (int i = 0; i < len; i++) {
             switch(rx_buffer[i]) {
-            case '\r':
             case '\n':
-                portENTER_CRITICAL(&spinlock);
-                if (g_StopMainTask == 1) {
-                    // when there is a user input("\n") within a given timeout, this value will be chaned into 2.
-                    // but, if there is no user input within a given timeout, this value will be changed into 0 in order to run the main function
-                    g_StopMainTask = 2;
-                }
-                portEXIT_CRITICAL(&spinlock);
-
+                // silently ignore LF only respond to CR
+                break_count = 0;
+                break;
+            case '\r':
+                break_count = 0;
                 ad2_printf_host("\r\n");
                 if (line_len) {
                     cli_process_command((char *)line);
@@ -304,6 +303,7 @@ static void esp_uart_cli_task(void *pvParameters)
                 break;
 
             case '\b':
+                break_count = 0;
                 //backspace
                 if (line_len > 0) {
                     ad2_printf_host("\b \b");
@@ -312,6 +312,7 @@ static void esp_uart_cli_task(void *pvParameters)
                 break;
 
             case 0x03: //Ctrl + C
+                break_count = 0;
                 ad2_printf_host("^C\r\n");
                 memset(line, 0, MAX_UART_LINE_SIZE);
                 line_len = 0;
@@ -319,6 +320,7 @@ static void esp_uart_cli_task(void *pvParameters)
                 break;
 
             case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
+                break_count = 0;
                 if ( rx_buffer[i+1] == 0x5B ) {
                     switch (rx_buffer[i+2]) {
                     case 0x41: //UP
@@ -354,6 +356,22 @@ static void esp_uart_cli_task(void *pvParameters)
                 break;
 
             default:
+                // detect a break sequence '...'
+                if (g_StopMainTask == 1 && rx_buffer[i] == '.') {
+                    break_count++;
+                    // clear break state and exit while if break detected
+                    if (break_count > 2) {
+                        // break detected block main task from running and continue.
+                        portENTER_CRITICAL(&spinlock);
+                        g_StopMainTask = 2;
+                        portEXIT_CRITICAL(&spinlock);
+                        ad2_printf_host("Startup halted. Use the 'restart' command when finished to start normally.\r\n");
+                        ad2_printf_host(PROMPT_STRING);
+                        break_count = 0;
+                    }
+                } else {
+                    break_count = 0;
+                }
                 //check whether character is valid
                 if ((rx_buffer[i] >= ' ') && (rx_buffer[i] <= '~')) {
                     if (line_len >= MAX_UART_LINE_SIZE - 2) {
@@ -367,6 +385,7 @@ static void esp_uart_cli_task(void *pvParameters)
                 }
             } // switch rx_buffer[i]
         } //buf while loop
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     } //main loop
 
 
@@ -384,11 +403,12 @@ void uart_cli_main()
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    ad2_printf_host("Press enter in the next 5 seconds to stop the init.\r\n");
+    ad2_printf_host("Press '.' three times in the next 5 seconds to stop the init.\r\n");
+    ad2_printf_host(PROMPT_STRING);
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
     ad2_printf_host("Starting main task.\r\n");
-    ad2_printf_host(PROMPT_STRING, sizeof(PROMPT_STRING));
+    ad2_printf_host(PROMPT_STRING);
 
 }
 

@@ -86,9 +86,9 @@ static const char *TAG = "AD2_IoT";
 
 /**
 * Control main task processing
-*  0 : running the main function
-*  1 : stop for a timeout
-*  2 : stop before selecting the go_main function.
+*  0 : running the main function.
+*  1 : halted waiting for timeout to auto resume.
+*  2 : halted.
 */
 int g_StopMainTask = 0;
 
@@ -298,7 +298,7 @@ static void ad2uart_client_task(void *pvParameters)
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
-            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 10 / portTICK_RATE_MS);
+            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
             if (len == -1) {
                 // An error happend. Sleep for a bit and try again?
                 vTaskDelay(5000 / portTICK_PERIOD_MS);
@@ -463,7 +463,15 @@ void init_ad2_uart_client()
     uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     uart_config->rx_flow_ctrl_thresh = 1;
 
-    uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
+    // esp_restart causes issues with UART2 don't set config if reset switch pushed.
+    // https://github.com/espressif/esp-idf/issues/5274
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+    if (esp_reset_reason() != ESP_RST_SW) {
+#endif
+        uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+    }
+#endif
 
     uart_set_pin((uart_port_t)g_ad2_client_handle,
                  tx_pin,   // TX
@@ -471,7 +479,7 @@ void init_ad2_uart_client()
                  UART_PIN_NO_CHANGE, // RTS
                  UART_PIN_NO_CHANGE);// CTS
 
-    uart_driver_install((uart_port_t)g_ad2_client_handle, AD2_UART_RX_BUFF_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
     free(uart_config);
 
     xTaskCreate(ad2uart_client_task, "ad2uart_client", 4096, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
@@ -568,7 +576,7 @@ void app_main()
     }
 
     // Start the CLI.
-    // Press ENTER to halt and stay in CLI only.
+    // Press "..."" to halt startup and stay if a safe mode commadn line only.
     uart_cli_main();
 
     // init the virtual partition database from NV storage

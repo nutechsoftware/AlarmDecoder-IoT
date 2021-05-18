@@ -29,7 +29,6 @@
 #include "esp_wifi.h"
 #include "esp_system.h"
 #include "esp_event.h"
-#include "esp_event_loop.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -66,6 +65,15 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data);
 
 static int HAL_NET_INITIALIZED = false;
+
+// track count of AP client connection attempts.
+static int ap_retry_num = 0;
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#else
+static esp_netif_t* netif = NULL;
+#endif
+
 
 // WiFi event state bits
 const int WIFI_STA_START_BIT 		= BIT0;
@@ -327,7 +335,6 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
                          int32_t event_id, void *event_data)
 {
     wifi_ap_record_t ap_info;
-    int ret;
 
     memset(&ap_info, 0x0, sizeof(wifi_ap_record_t));
     wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
@@ -345,12 +352,8 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         g_ad2_network_state = AD2_OFFLINE;
         break;
     case WIFI_EVENT_STA_CONNECTED:
-        // Set hostname
-        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA,"ad2iot");
-        if(ret != ESP_OK ) {
-            ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
-        }
         ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
+        hal_set_wifi_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
         break;
     case WIFI_EVENT_STA_DISCONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
@@ -361,16 +364,11 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
 
     case WIFI_EVENT_AP_START:
-        // Set hostname
-        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_AP,"ad2iot");
-        if(ret != ESP_OK ) {
-            ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
-        }
-        xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_START");
+        hal_set_wifi_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
+        xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
         xEventGroupSetBits(net_event_group, WIFI_AP_START_BIT);
         break;
-
     case WIFI_EVENT_AP_STOP:
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_STOP");
         xEventGroupSetBits(net_event_group, WIFI_AP_STOP_BIT);
@@ -411,17 +409,12 @@ void hal_init_network_stack()
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_init(nullptr, nullptr));
 #else
-    esp_netif_init();
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 #endif
 
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(esp_event_loop_init(nullptr, nullptr));
-    ESP_ERROR_CHECK(tcpip_adapter_set_default_eth_handlers());
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL));
 
     // create event group
     net_event_group = xEventGroupCreate();
@@ -446,6 +439,17 @@ void hal_init_wifi(std::string &args)
         ESP_LOGE(TAG, "esp_wifi_init failed err=[%d]", esp_ret);
         return;
     }
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL));
+#else
+    netif = esp_netif_create_default_wifi_sta();
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL, NULL));
+#endif
 
     esp_ret = esp_wifi_set_storage(WIFI_STORAGE_RAM);
     if(esp_ret != ESP_OK) {
@@ -493,16 +497,14 @@ void hal_init_wifi(std::string &args)
     }
 
     if (!dhcp) {
+        ESP_LOGI(TAG, "Static IP Mode selected");
+
         // init vars
         std::string ip;
         std::string netmask;
         std::string gateway;
         std::string dns1;
         std::string dns2;
-        tcpip_adapter_ip_info_t ip_info;
-        tcpip_adapter_dns_info_t dns_info;
-        memset(&ip_info, 0, sizeof(ip_info));
-        memset(&dns_info, 0, sizeof(dns_info));
 
         // Parse name value pair settings from args string
         res = ad2_query_key_value(args, "IP", ip);
@@ -511,28 +513,65 @@ void hal_init_wifi(std::string &args)
         res = ad2_query_key_value(args, "DNS1", dns1);
         res = ad2_query_key_value(args, "DNS2", dns2);
 
-        // stop dhcp client service on interface.
-        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+        tcpip_adapter_ip_info_t ip_info;
+        memset(&ip_info, 0, sizeof(tcpip_adapter_ip_info_t));
+        tcpip_adapter_dns_info_t dns_info;
+        memset(&dns_info, 0, sizeof(tcpip_adapter_dns_info_t));
+#else
+        esp_netif_ip_info_t ip_info;
+        memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
+        esp_netif_dns_info_t dns_info;
+        memset(&dns_info, 0, sizeof(esp_netif_dns_info_t));
+#endif
+
+        // Assign static ip/netmask to interface
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+        ip4addr_aton(ip.c_str(), &ip_info.ip);
+        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+#else
+        ip_info.ip.addr = esp_ip4addr_aton(ip.c_str());
+        ip_info.netmask.addr = esp_ip4addr_aton(netmask.c_str());
+#endif
 
         // if gateway defined set it.
         if (gateway.length()) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
             ip4addr_aton(gateway.c_str(), &ip_info.gw);
+#else
+            ip_info.gw.addr = esp_ip4addr_aton(gateway.c_str());
+#endif
         }
 
-        // Assign static ip/netmask to interface
-        ip4addr_aton(ip.c_str(), &ip_info.ip);
-        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+        // stop dhcp client service on interface.
+        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
         ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
+#else
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(netif));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip_info));
+#endif
 
         // assign DNS1 if avail.
         if (dns1.length()) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
             ipaddr_aton(dns1.c_str(), &dns_info.ip);
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
+#else
+            dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info));
+#endif
         }
+
         // assign DNS2 if avail.
         if (dns2.length()) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
             ipaddr_aton(dns2.c_str(), &dns_info.ip);
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
+#else
+            dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info));
+#endif
         }
     } else {
         ESP_LOGI(TAG, "DHCP Mode selected");
@@ -553,15 +592,24 @@ void hal_init_eth(std::string &args)
     int res = 0;
     std::string value;
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    ESP_ERROR_CHECK(tcpip_adapter_set_default_eth_handlers());
+    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL));
+#else
+    esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
+    netif = esp_netif_new(&cfg);
+    esp_eth_set_default_handlers(netif);
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL, NULL));
+#endif
+
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+
     phy_config.phy_addr = CONFIG_AD2IOT_ETH_PHY_ADDR;
     phy_config.reset_gpio_num = CONFIG_AD2IOT_ETH_PHY_RST_GPIO;
     phy_config.reset_timeout_ms = 100;
-    gpio_pad_select_gpio((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO);
-    gpio_set_direction((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_level((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO, 1);
-    vTaskDelay(pdMS_TO_TICKS(10));
 
 #if CONFIG_AD2IOT_USE_INTERNAL_ETHERNET
     mac_config.smi_mdc_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDC_GPIO;
@@ -576,6 +624,12 @@ void hal_init_eth(std::string &args)
     esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
     esp_eth_handle_t eth_handle = NULL;
     ESP_ERROR_CHECK(esp_eth_driver_install(&config, &eth_handle));
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#pragma message "No netif in older espidf not using."
+#else
+    esp_netif_attach(netif, esp_eth_new_netif_glue(eth_handle));
+#endif
 
     // test DHCP or Static configuration
     res = ad2_query_key_value(args, "MODE", value);
@@ -597,10 +651,6 @@ void hal_init_eth(std::string &args)
         std::string gateway;
         std::string dns1;
         std::string dns2;
-        tcpip_adapter_ip_info_t ip_info;
-        tcpip_adapter_dns_info_t dns_info;
-        memset(&ip_info, 0, sizeof(ip_info));
-        memset(&dns_info, 0, sizeof(dns_info));
 
         // Parse name value pair settings from args string
         res = ad2_query_key_value(args, "IP", ip);
@@ -609,28 +659,65 @@ void hal_init_eth(std::string &args)
         res = ad2_query_key_value(args, "DNS1", dns1);
         res = ad2_query_key_value(args, "DNS2", dns2);
 
-        // stop dhcp client service on interface.
-        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+        tcpip_adapter_ip_info_t ip_info;
+        memset(&ip_info, 0, sizeof(tcpip_adapter_ip_info_t));
+        tcpip_adapter_dns_info_t dns_info;
+        memset(&dns_info, 0, sizeof(tcpip_adapter_dns_info_t));
+#else
+        esp_netif_ip_info_t ip_info;
+        memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
+        esp_netif_dns_info_t dns_info;
+        memset(&dns_info, 0, sizeof(esp_netif_dns_info_t));
+#endif
+
+        // Assign static ip/netmask to interface
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+        ip4addr_aton(ip.c_str(), &ip_info.ip);
+        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+#else
+        ip_info.ip.addr = esp_ip4addr_aton(ip.c_str());
+        ip_info.netmask.addr = esp_ip4addr_aton(netmask.c_str());
+#endif
 
         // if gateway defined set it.
         if (gateway.length()) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
             ip4addr_aton(gateway.c_str(), &ip_info.gw);
+#else
+            ip_info.gw.addr = esp_ip4addr_aton(gateway.c_str());
+#endif
         }
 
-        // Assign static ip/netmask to interface
-        ip4addr_aton(ip.c_str(), &ip_info.ip);
-        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
+        // stop dhcp client service on interface and set the ip_info
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
         ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_ETH, &ip_info));
+#else
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(netif));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip_info));
+#endif
 
         // assign DNS1 if avail.
         if (dns1.length()) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
             ipaddr_aton(dns1.c_str(), &dns_info.ip);
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
+#else
+            dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info));
+#endif
         }
+
         // assign DNS2 if avail.
         if (dns2.length()) {
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
             ipaddr_aton(dns2.c_str(), &dns_info.ip);
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
+#else
+            dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info));
+#endif
         }
     } else {
         ESP_LOGI(TAG, "DHCP Mode selected");
@@ -639,6 +726,40 @@ void hal_init_eth(std::string &args)
     ESP_LOGI(TAG, "ETH hardware init finish");
 
     return;
+}
+
+/**
+ * @brief Set wifi adapter hostname
+ */
+void hal_set_wifi_hostname(const char *hostname)
+{
+    esp_err_t ret;
+    ESP_LOGI(TAG, "setting eth hostname to '%s'", hostname);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
+#else
+    ret = esp_netif_set_hostname(netif, hostname);
+#endif
+    if(ret != ESP_OK ) {
+        ESP_LOGE(TAG,"failed to set wifi hostname: %i %i '%s'", ret, errno, strerror(errno));
+    }
+}
+
+/**
+ * @brief Set eth adapter hostname
+ */
+void hal_set_eth_hostname(const char *hostname)
+{
+    esp_err_t ret;
+    ESP_LOGI(TAG, "setting eth hostname to '%s'", hostname);
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH, hostname);
+#else
+    ret = esp_netif_set_hostname(netif, hostname);
+#endif
+    if(ret != ESP_OK ) {
+        ESP_LOGE(TAG,"failed to set eth hostname: %i %i '%s'", ret, errno, strerror(errno));
+    }
 }
 
 /**
@@ -666,14 +787,19 @@ void hal_host_uart_init()
 void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data)
 {
-    ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-    const tcpip_adapter_ip_info_t *ip_info = &event->ip_info;
-
-    ESP_LOGI(TAG, "Ethernet Got IP Address");
+    ESP_LOGI(TAG, "Network Got IP Address");
     ESP_LOGI(TAG, "~~~~~~~~~~~");
-    ESP_LOGI(TAG, "ETHIP:" IPSTR, IP2STR(&ip_info->ip));
-    ESP_LOGI(TAG, "ETHMASK:" IPSTR, IP2STR(&ip_info->netmask));
-    ESP_LOGI(TAG, "ETHGW:" IPSTR, IP2STR(&ip_info->gw));
+    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    const tcpip_adapter_ip_info_t *ip_info = &event->ip_info;
+#else
+    const esp_netif_ip_info_t *ip_info = &event->ip_info;
+#endif
+
+    ESP_LOGI(TAG, "IP: " IPSTR, IP2STR(&ip_info->ip));
+    ESP_LOGI(TAG, "NETMASK: " IPSTR, IP2STR(&ip_info->netmask));
+    ESP_LOGI(TAG, "GW: " IPSTR, IP2STR(&ip_info->gw));
     ESP_LOGI(TAG, "~~~~~~~~~~~");
 
     xEventGroupSetBits(net_event_group, WIFI_STA_CONNECT_BIT);
@@ -686,7 +812,6 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
 void _eth_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data)
 {
-    esp_err_t ret;
     uint8_t mac_addr[6] = {0};
     /* we can get the ethernet driver handle from event data */
     esp_eth_handle_t eth_handle = *(esp_eth_handle_t *)event_data;
@@ -704,11 +829,7 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
         break;
     case ETHERNET_EVENT_START:
         ESP_LOGI(TAG, "Ethernet Started");
-        // Set hostname
-        ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH,"ad2iot");
-        if(ret != ESP_OK ) {
-            ESP_LOGE(TAG,"failed to set hostname: %i %i '%s'", ret, errno, strerror(errno));
-        }
+        hal_set_eth_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
         break;
     case ETHERNET_EVENT_STOP:
         g_ad2_network_state = AD2_OFFLINE;
