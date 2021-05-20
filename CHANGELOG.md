@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Centralize certificates. Enable MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN to use a common certificate bundle and allow to add custom certificates in the new 'certs' folder. This will still require refactoring of all existing components that use a certificate.
 - [X] CORE: Tune tasks for UARTS.
 - [X] CORE: Change to require break sequence '...' to interrupt startup to prevent spurious data down the uart from interrupting normal boot operation.
 - [X] CORE: Improve break detection from ad2term and fix some some uart driver issues I was seeing between espressif v4.2 and v3.2.

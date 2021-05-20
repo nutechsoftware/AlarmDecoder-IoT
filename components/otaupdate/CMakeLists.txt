@@ -5,5 +5,5 @@ idf_component_register(SRCS "ota_util.cpp"
                     REQUIRES idf::esp_https_ota
                     REQUIRES idf::json
                     INCLUDE_DIRS . ../../main/
-                    EMBED_FILES update_root.pem update_public_key.pem)
+                    EMBED_FILES ../../certs/update_root.pem ../../certs/update_public_key.pem)
 project(otaupdate)

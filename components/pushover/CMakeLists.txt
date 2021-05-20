@@ -3,5 +3,5 @@ idf_component_register(SRCS "pushover.cpp"
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::json
                     INCLUDE_DIRS . ../../main/
-                    EMBED_TXTFILES pushover_root.pem)
+                    EMBED_TXTFILES ../../certs/pushover_root.pem)
 project(pushover)
