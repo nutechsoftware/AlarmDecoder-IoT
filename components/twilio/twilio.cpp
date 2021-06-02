@@ -75,6 +75,9 @@ static const char *TAG = "TWILIO";
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
 #include "mbedtls/ssl_cache.h"
 #endif
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+#include "esp_crt_bundle.h"
+#endif
 
 QueueHandle_t  sendQ_tw=NULL;
 mbedtls_entropy_context twilio_entropy;
@@ -93,6 +96,7 @@ mbedtls_ssl_cache_context cache;
 std::vector<AD2EventSearch *> twilio_AD2EventSearches;
 
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 /**
  * @brief Root cert for api.twilio.com and api.sendgrid.com
  *   The PEM file was extracted from the output of this command:
@@ -101,10 +105,11 @@ std::vector<AD2EventSearch *> twilio_AD2EventSearches;
  *  To embed it in the app binary, the PEM file is named
  *  in the component.mk COMPONENT_EMBED_TXTFILES variable.
  */
-extern const uint8_t twilio_root_pem_start[] asm("_binary_twilio_root_pem_start");
-extern const uint8_t twilio_root_pem_end[]   asm("_binary_twilio_root_pem_end");
+extern const uint8_t twilio_root_pem_start[]   asm("_binary_twilio_root_pem_start");
+extern const uint8_t twilio_root_pem_end[]     asm("_binary_twilio_root_pem_end");
 extern const uint8_t sendgrid_root_pem_start[] asm("_binary_sendgrid_root_pem_start");
 extern const uint8_t sendgrid_root_pem_end[]   asm("_binary_sendgrid_root_pem_end");
+#endif
 
 /**
  * build a request string for the twilio api.
@@ -1044,10 +1049,11 @@ void twilio_init()
         return;
     }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     /**
      * api.twilio.com SSL setup
      */
-    ESP_LOGI(TAG, "Loading api.twilio.com CA root certificate...");
+    ESP_LOGI(TAG, "Loading public api.twilio.com CA root certificate...");
     res = mbedtls_x509_crt_parse(&api_twilio_com_cacert, twilio_root_pem_start,
                                  twilio_root_pem_end-twilio_root_pem_start);
     if(res < 0) {
@@ -1055,7 +1061,16 @@ void twilio_init()
         twilio_free();
         return;
     }
+#else
+    res = esp_crt_bundle_attach(&twilio_conf);
 
+    if(res < 0)
+    {
+        ESP_LOGE(TAG, "esp_crt_bundle_attach for api.twilio.com returned -0x%x\n\n", -res);
+        twilio_free();
+        return;
+    }
+#endif
     /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
        a warning if CA verification fails but it will continue to connect.
        You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
@@ -1097,10 +1112,11 @@ void twilio_init()
         return;
     }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     /**
      * api.sendgrid.com SSL setup
      */
-    ESP_LOGI(TAG, "Loading api.sendgrid.com CA root certificate...");
+    ESP_LOGI(TAG, "Loading public api.sendgrid.com CA root certificate...");
     res = mbedtls_x509_crt_parse(&api_sendgrid_com_cacert, sendgrid_root_pem_start,
                                  sendgrid_root_pem_end-sendgrid_root_pem_start);
     if(res < 0) {
@@ -1108,6 +1124,16 @@ void twilio_init()
         twilio_free();
         return;
     }
+#else
+    res = esp_crt_bundle_attach(&sendgrid_conf);
+
+    if(res < 0)
+    {
+        ESP_LOGE(TAG, "esp_crt_bundle_attach for api.sendgrid.com returned -0x%x\n\n", -res);
+        twilio_free();
+        return;
+    }
+#endif
 
     /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
        a warning if CA verification fails but it will continue to connect.
@@ -1155,7 +1181,7 @@ void twilio_init()
     if( sendQ_tw == 0 ) {
         ESP_LOGE(TAG, "Failed to create twilio queue.");
     } else {
-        xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
+        xTaskCreate(&twilio_consumer_task, "twilio_consumer_task", 1024*6, NULL, tskIDLE_PRIORITY+1, NULL);
     }
 
     // TODO configure to all selection on events to notify on.

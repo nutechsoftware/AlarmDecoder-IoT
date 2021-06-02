@@ -29,8 +29,8 @@
 #include <esp_log.h>
 
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
-#define CONFIG_FIRMWARE_VERSOIN_INFO_URL CONFIG_OTA_SERVER_URL"ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_URL CONFIG_OTA_SERVER_URL"signed_alarmdecoder_stsdk_esp32.bin"
+#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
+#define CONFIG_FIRMWARE_UPGRADE_URL CONFIG_OTA_SERVER_URL "signed_alarmdecoder_stsdk_esp32.bin"
 
 #define OTA_SIGNATURE_SIZE 256
 #define OTA_SIGNATURE_FOOTER_SIZE 6
@@ -45,6 +45,8 @@
 #define OTA_UPGRADE_CMD   "upgrade"
 #define OTA_VERSION_CMD   "version"
 
+#define OTA_FIRST_CHECK_DELAY_MS 10*1000
+#define OTA_SOCKET_TIMEOUT 10*1000
 #ifdef __cplusplus
 extern "C" {
 #endif

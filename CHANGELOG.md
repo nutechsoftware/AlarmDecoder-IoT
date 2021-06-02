@@ -6,15 +6,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [X] CORE: Centralize certificates. Enable MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN to use a common certificate bundle and allow to add custom certificates in the new 'certs' folder. This will still require refactoring of all existing components that use a certificate.
+to memory allocation in the mbedTLS component. Need to find a way to reduce memory usage.
+- [ ] CORE: mbedTLS memory usage is high mbedtls_ssl_setup(10k+) and 5k for thread stack. In order to build with ST+TWILIO+SENDGRID+PUSHOVER it required some adjustments 
+- [X] CORE: add "build" to .gitignore for stsdk build process.
+- [X] TWILIO: Increase thread stack by 1k.
+- [X] CORE: Centralize certificates. Enable MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN to use a common certificate bundle and allow to add custom certificates in the new 'certs' folder. When building with older Espressif revert back to older individual certificate management api calls.
+- [X] OTA: Set 10 second timeout on update socket. Change first version test from 30s after boot to 60. Fix a memory leak after failed firmware version connection.
 - [X] CORE: Tune tasks for UARTS.
 - [X] CORE: Change to require break sequence '...' to interrupt startup to prevent spurious data down the uart from interrupting normal boot operation.
-- [X] CORE: Improve break detection from ad2term and fix some some uart driver issues I was seeing between espressif v4.2 and v3.2.
+- [X] CORE: Improve break detection from ad2term and fix some some uart driver issues I was seeing between Espressif v4.2 and v3.2.
 - [X] CORE: README.MD add placeholder for building with platformio and seperate STSDK build.
 - [X] CORE: Fix platformio build upload problem. The address of 0x10000 is hard coded and it needs to be 0x20000 to match the standard OTA partition schema. Refactor platformio.ini to allow building for different ESP32 boards.
-- [X] CORE: Improve building newer PIO espressif32 releases that support newer stable espressif v4.2 or older stable v3.2. Refactor code to better keep the versions of espressif defined inside of compiler switches for ESP_IDF_VERSION_VAL.
+- [X] CORE: Improve building newer PIO Espressif32 releases that support newer stable Espressif v4.2 or older stable v3.2. Refactor code to better keep the versions of Espressif defined inside of compiler switches for ESP_IDF_VERSION_VAL.
 - [X] CORE: Running menuconfig inside of VSCODE using pio does not work. Flashes the menu screen then goes POOF!. For now test in a shell. ( PEBCAC screen size. )
-- [ ] CORE: Audit espressif v3.2 api usage look for more that are soon to be deprecated.
+- [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
 - [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
 - [ ] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.

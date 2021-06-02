@@ -75,6 +75,9 @@ static const char *TAG = "PUSHOVER";
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
 #include "mbedtls/ssl_cache.h"
 #endif
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+#include "esp_crt_bundle.h"
+#endif
 
 QueueHandle_t  sendQ_po=NULL;
 mbedtls_entropy_context pushover_entropy;
@@ -90,6 +93,7 @@ mbedtls_ssl_cache_context cache;
 std::vector<AD2EventSearch *> pushover_AD2EventSearches;
 
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 /**
  * @brief Root cert for api.pushover.net
  *   The PEM file was extracted from the output of this command:
@@ -100,6 +104,7 @@ std::vector<AD2EventSearch *> pushover_AD2EventSearches;
  */
 extern const uint8_t pushover_root_pem_start[] asm("_binary_pushover_root_pem_start");
 extern const uint8_t pushover_root_pem_end[]   asm("_binary_pushover_root_pem_end");
+#endif
 
 /**
  * build_pushover_body()
@@ -822,6 +827,7 @@ void pushover_init()
         return;
     }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     /**
      * api.pushover.net SSL setup
      */
@@ -833,6 +839,16 @@ void pushover_init()
         pushover_free();
         return;
     }
+#else
+    res = esp_crt_bundle_attach(&pushover_conf);
+
+    if(res < 0)
+    {
+        ESP_LOGE(TAG, "esp_crt_bundle_attach for api.pushover.net returned -0x%x\n\n", -res);
+        pushover_free();
+        return;
+    }
+#endif
 
     /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
        a warning if CA verification fails but it will continue to connect.

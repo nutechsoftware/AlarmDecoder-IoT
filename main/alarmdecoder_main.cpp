@@ -131,8 +131,10 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-    ESP_LOGI(TAG, "RAM left %d", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 }
+
+
 
 /**
  * @brief ON_LRR

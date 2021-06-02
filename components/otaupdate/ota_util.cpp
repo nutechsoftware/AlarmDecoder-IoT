@@ -63,12 +63,13 @@ static const char *TAG = "AD2OTA";
 #ifdef __cplusplus
 extern "C" {
 #endif
+extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
+extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
 
-extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
-extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
-
-extern const uint8_t root_pem_start[]	asm("_binary_update_root_pem_start");
-extern const uint8_t root_pem_end[]		asm("_binary_update_root_pem_end");
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+extern const uint8_t update_server_root_pem_start[]  asm("_binary_ota_update_server_root_pem_start");
+extern const uint8_t update_server_root_pem_end[]    asm("_binary_ota_update_server_root_pem_end");
+#endif
 
 // OTA Update task
 TaskHandle_t ota_task_handle = NULL;
@@ -299,13 +300,13 @@ static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
     int ret;
 
     mbedtls_pk_context pk;
-
-    unsigned char *public_key = (unsigned char *) public_key_start;
-    unsigned int public_key_len = public_key_end - public_key_start;
-
     mbedtls_pk_init( &pk );
+
+    unsigned char *firmware_signature_public_key = (unsigned char *) firmware_signature_public_key_start;
+    unsigned int firmware_signature_public_key_len = firmware_signature_public_key_end - firmware_signature_public_key_start;
+
     // Make sure our key is a null terminated string and send the null to the parser.
-    std::string t((const char *)public_key, public_key_len);
+    std::string t((const char *)firmware_signature_public_key, firmware_signature_public_key_len);
     ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)t.c_str(), t.length() + 1 );
     if (ret != 0) {
         ESP_LOGE(TAG, "%s: Parse error: 0x%04X", __func__, ret);
@@ -414,7 +415,10 @@ esp_err_t ota_https_update_device()
 
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
     config->url = CONFIG_FIRMWARE_UPGRADE_URL;
-    config->cert_pem = (char *)root_pem_start;
+    config->timeout_ms = OTA_SOCKET_TIMEOUT;
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    config->cert_pem = (char *)update_server_root_pem_start;
+#endif
     config->event_handler = _http_event_handler;
 
     mbedtls_sha256_context ctx;
@@ -602,8 +606,11 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     esp_err_t ret = ESP_FAIL;
 
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
-    config->url = CONFIG_FIRMWARE_VERSOIN_INFO_URL;
-    config->cert_pem = (char *)root_pem_start;
+    config->url = CONFIG_FIRMWARE_VERSION_INFO_URL;
+    config->timeout_ms = OTA_SOCKET_TIMEOUT;
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+    config->cert_pem = (char *)update_server_root_pem_start;
+#endif
     config->event_handler = _http_event_handler;
 
     esp_http_client_handle_t client = esp_http_client_init(config);
@@ -694,7 +701,7 @@ static void ota_polling_task_func(void *arg)
 {
     while (1) {
 
-        vTaskDelay(30000 / portTICK_PERIOD_MS);
+        vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
 
         ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
 
@@ -715,8 +722,15 @@ static void ota_polling_task_func(void *arg)
         if (ret == ESP_OK) {
             char *available_version = NULL;
             esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
+            if (read_data) {
+                free(read_data);
+                read_data = NULL;
+            }
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "ota_api_get_available_version failed : %d", err);
+                if (available_version) {
+                    free(available_version);
+                }
                 continue;
             }
 
@@ -766,7 +780,7 @@ void ota_init()
         cli_register_command(&ota_cmd_list[i]);
     }
 
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8 * 1024, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**
@@ -774,7 +788,7 @@ void ota_init()
  */
 void ota_do_update(char *arg)
 {
-    xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
+    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**
