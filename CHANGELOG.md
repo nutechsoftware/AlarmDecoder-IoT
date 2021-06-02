@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-to memory allocation in the mbedTLS component. Need to find a way to reduce memory usage.
+- [X] CORE: rename partition.2MB.csv to partition.4MB.csv was already a 4MB partition just wrong filename.
 - [ ] CORE: mbedTLS memory usage is high mbedtls_ssl_setup(10k+) and 5k for thread stack. In order to build with ST+TWILIO+SENDGRID+PUSHOVER it required some adjustments 
 - [X] CORE: add "build" to .gitignore for stsdk build process.
 - [X] TWILIO: Increase thread stack by 1k.
