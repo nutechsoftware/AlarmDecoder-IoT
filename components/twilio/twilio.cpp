@@ -1064,8 +1064,7 @@ void twilio_init()
 #else
     res = esp_crt_bundle_attach(&twilio_conf);
 
-    if(res < 0)
-    {
+    if(res < 0) {
         ESP_LOGE(TAG, "esp_crt_bundle_attach for api.twilio.com returned -0x%x\n\n", -res);
         twilio_free();
         return;
@@ -1127,8 +1126,7 @@ void twilio_init()
 #else
     res = esp_crt_bundle_attach(&sendgrid_conf);
 
-    if(res < 0)
-    {
+    if(res < 0) {
         ESP_LOGE(TAG, "esp_crt_bundle_attach for api.sendgrid.com returned -0x%x\n\n", -res);
         twilio_free();
         return;

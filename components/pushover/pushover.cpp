@@ -842,8 +842,7 @@ void pushover_init()
 #else
     res = esp_crt_bundle_attach(&pushover_conf);
 
-    if(res < 0)
-    {
+    if(res < 0) {
         ESP_LOGE(TAG, "esp_crt_bundle_attach for api.pushover.net returned -0x%x\n\n", -res);
         pushover_free();
         return;
