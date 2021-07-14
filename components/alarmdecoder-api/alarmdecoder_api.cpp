@@ -723,17 +723,26 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // Ademco QUIRK system messages ignore some bits.
                             bool ADEMCO_SYS_MESSAGE = false;
                             if (ad2ps->panel_type == ADEMCO_PANEL) {
-                                if( ALPHAMSG.find("SYSTEM") == 0 ||
-                                        msg[SYSSPECIFIC_BYTE] != '0') {
+                                if(ALPHAMSG.find("SYSTEM") == 0) {
                                     ADEMCO_SYS_MESSAGE = true;
                                 }
 
-                                if ( ADEMCO_SYS_MESSAGE ) {
-                                    // Skip fire bit restore to current so we dont trip an event.
+                                // Skip fire bit on SYSTEM messages restore to current so we dont trip an event.
+                                if (ADEMCO_SYS_MESSAGE) {
                                     FIRE_ALARM = ad2ps->fire_alarm;
+                                }
+
+                                // Restore battery state only track when it is a system message.
+                                // TODO: Can Zone battery state can be tracked for non system messages?
+                                if (ADEMCO_SYS_MESSAGE) {
+                                    // SM20210623 Vista 50PUL battery toggle quirk. Ignore battery messages
+                                    // on system partition messages at mask 0x00000000.
+                                    // Only trust it on partition messages. This needs more testing.
+                                    if (ad2ps->address_mask_filter == 0x00000000) {
+                                        LOW_BATTERY = ad2ps->battery_low;
+                                    }
                                 } else {
-                                    // Restore battery state only track when it is a system message.
-                                    // TODO: Zone battery state can be tracked for non system messages.
+                                    // not system message so restore last state.
                                     LOW_BATTERY = ad2ps->battery_low;
                                 }
                             }
