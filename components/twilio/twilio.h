@@ -22,7 +22,7 @@
  */
 #ifndef _TWILIO_H
 #define _TWILIO_H
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
 //#define DEBUG_TWILIO
 //#define DEBUG_TWILIO_TLS
 #define TWILIO_QUEUE_SIZE 20
@@ -87,6 +87,6 @@ void twilio_add_queue(std::string &sid, std::string &token, std::string &from, s
 #ifdef __cplusplus
 }
 #endif
-#endif /* CONFIG_TWILIO_CLIENT */
+#endif /* CONFIG_AD2IOT_TWILIO_CLIENT */
 #endif /* _TWILIO_H */
 

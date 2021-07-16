@@ -22,7 +22,7 @@
  */
 #ifndef _SER2SOCKD_H
 #define _SER2SOCKD_H
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
 
 /* Constants that aren't configurable in menuconfig */
 #define PORT 10000
@@ -46,6 +46,6 @@ void ser2sockd_sendall(uint8_t *buffer, size_t len);
 #ifdef __cplusplus
 }
 #endif
-#endif /* CONFIG_SER2SOCKD */
+#endif /* CONFIG_AD2IOT_SER2SOCKD */
 #endif /* _SER2SOCKD_H */
 

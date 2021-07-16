@@ -57,7 +57,7 @@ static const char *TAG = "PUSHOVER";
 #include "ad2_uart_cli.h"
 
 // Disable via sdkconfig
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
 
 // specific includes
 #include "pushover.h"
@@ -986,5 +986,5 @@ void pushover_init()
 #ifdef __cplusplus
 } // extern "C"
 #endif
-#endif /*  CONFIG_PUSHOVER_CLIENT */
+#endif /*  CONFIG_AD2IOT_PUSHOVER_CLIENT */
 

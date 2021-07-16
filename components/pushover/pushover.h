@@ -22,7 +22,7 @@
  */
 #ifndef _PUSHOVER_H
 #define _PUSHOVER_H
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
 //#define DEBUG_PUSHOVER
 //#define DEBUG_PUSHOVER_TLS
 #define PUSHOVER_QUEUE_SIZE 20
@@ -74,5 +74,5 @@ void pushover_add_queue(std::string &userkey, std::string &token, std::string &m
 #ifdef __cplusplus
 }
 #endif
-#endif /* CONFIG_PUSHOVER_CLIENT */
+#endif /* CONFIG_AD2IOT_PUSHOVER_CLIENT */
 #endif /* _PUSHOVER_H */

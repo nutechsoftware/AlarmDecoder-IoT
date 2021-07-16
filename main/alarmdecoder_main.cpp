@@ -61,17 +61,17 @@
 #endif
 
 // ser2sockd support
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
 #include "ser2sock.h"
 #endif
 
 // twilio support
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
 #include "twilio.h"
 #endif
 
 // twilio support
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
 #include "pushover.h"
 #endif
 
@@ -233,7 +233,7 @@ void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
     ESP_LOGI(TAG, "ON_LOW_BATTERY_CB: BATTERY(%i)", s->battery_low);
 }
 
-#if defined(CONFIG_SER2SOCKD)
+#if defined(CONFIG_AD2IOT_SER2SOCKD)
 /**
  * @brief ON_RAW_RX_DATA
  * Called when data is sent into the parser.
@@ -547,17 +547,17 @@ void app_main()
     stsdk_register_cmds();
 #endif
 
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
     // Register ser2sock daemon CLI commands.
     ser2sockd_register_cmds();
 #endif
 
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
     // Register TWILIO CLI commands.
     twilio_register_cmds();
 #endif
 
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
     // Register PUSHOVER CLI commands.
     pushover_register_cmds();
 #endif
@@ -673,11 +673,11 @@ void app_main()
         ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
     }
 #endif
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
 #endif
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
     // Initialize pushover client
     pushover_init();
 #endif
@@ -696,7 +696,7 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(CONFIG_SER2SOCKD)
+#if defined(CONFIG_AD2IOT_SER2SOCKD)
     // init ser2sock server
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);

@@ -57,7 +57,7 @@ static const char *TAG = "SER2SOCKD";
 #include "device_control.h"
 
 // Disable via sdkconfig
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
 
 // specific includes
 #include "ser2sock.h"
@@ -757,4 +757,4 @@ CLEAN_UP:
 #ifdef __cplusplus
 } // extern "C"
 #endif
-#endif /*  CONFIG_SER2SOCKD */
+#endif /*  CONFIG_AD2IOT_SER2SOCKD */

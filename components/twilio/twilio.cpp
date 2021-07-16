@@ -57,7 +57,7 @@ static const char *TAG = "TWILIO";
 #include "ad2_uart_cli.h"
 
 // Disable via sdkconfig
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
 
 // specific includes
 #include "twilio.h"
@@ -1270,5 +1270,5 @@ void twilio_init()
 #ifdef __cplusplus
 } // extern "C"
 #endif
-#endif /*  CONFIG_TWILIO_CLIENT */
+#endif /*  CONFIG_AD2IOT_TWILIO_CLIENT */
 

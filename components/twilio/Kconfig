@@ -1,5 +1,5 @@
 menu "AD2iot * Twilio client"
-    config TWILIO_CLIENT
+    config AD2IOT_TWILIO_CLIENT
         bool "Twilio client"
         default n
         help

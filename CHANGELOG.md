@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Cleanup menuconfig removing MQTT references that need to be in component yet to be made. Moved ser2sock settings to ser2sock component.
 - [X] OTA: Cleanup a little and get it working with ESP-IDF v4.3 and older v3.2.
 - [X] PIO: Update to latest release v3.3.0 of platform-espressif32 now with ESP-IDF v4.3!
 - [X] API: Improve tracking quirk on Ademco with system messages.
@@ -24,7 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] CORE: Running menuconfig inside of VSCODE using pio does not work. Flashes the menu screen then goes POOF!. For now test in a shell. ( PEBCAC screen size. )
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
 - [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
-- [ ] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
+- [X] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
