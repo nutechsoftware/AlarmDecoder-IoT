@@ -6,9 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] OTA: Cleanup a little and get it working with ESP-IDF v4.3 and older v3.2.
+- [X] PIO: Update to latest release v3.3.0 of platform-espressif32 now with ESP-IDF v4.3!
 - [X] API: Improve tracking quirk on Ademco with system messages.
 - [X] CORE: rename partition.2MB.csv to partition.4MB.csv was already a 4MB partition just wrong filename.
-- [ ] CORE: mbedTLS memory usage is high mbedtls_ssl_setup(10k+) and 5k for thread stack. In order to build with ST+TWILIO+SENDGRID+PUSHOVER it required some adjustments 
+- [ ] CORE: mbedTLS memory usage is high mbedtls_ssl_setup(10k+) and 5k for thread stack. In order to build with ST+TWILIO+SENDGRID+PUSHOVER it required some adjustments
 - [X] CORE: add "build" to .gitignore for stsdk build process.
 - [X] TWILIO: Increase thread stack by 1k.
 - [X] CORE: Centralize certificates. Enable MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN to use a common certificate bundle and allow to add custom certificates in the new 'certs' folder. When building with older Espressif revert back to older individual certificate management api calls.

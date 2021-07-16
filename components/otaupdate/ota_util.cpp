@@ -65,11 +65,7 @@ extern "C" {
 #endif
 extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
 extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
-
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-extern const uint8_t update_server_root_pem_start[]  asm("_binary_ota_update_server_root_pem_start");
-extern const uint8_t update_server_root_pem_end[]    asm("_binary_ota_update_server_root_pem_end");
-#endif
+extern const uint8_t update_server_root_pem_start[]         asm("_binary_ota_update_server_root_pem_start");
 
 // OTA Update task
 TaskHandle_t ota_task_handle = NULL;
@@ -148,7 +144,8 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
     data = (char*)malloc((size_t) update_info_len + 1);
     if (!data) {
         ESP_LOGE(TAG, "%s: Couldn't allocate memory to add version info", __func__);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto clean_up;
     }
     memcpy(data, update_info, update_info_len);
     data[update_info_len] = '\0';
@@ -412,56 +409,58 @@ esp_err_t ota_https_update_device()
 
     unsigned int content_len;
     unsigned int firmware_len;
+    unsigned char *sig_ptr = NULL;
+    unsigned char *sig = NULL;
+    unsigned int sig_len = 0;
+    unsigned int total_read_len = 0;
+    unsigned int remain_len = 0;
+    unsigned int excess_len = 0;
+    esp_ota_handle_t update_handle = 0;
+    const esp_partition_t *update_partition = NULL;
+    unsigned char md[OTA_CRYPTO_SHA256_LEN] = {0,};
+    esp_err_t ota_write_err = ESP_OK;
+    mbedtls_sha256_context ctx;
+    char *upgrade_data_buf = nullptr;
 
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
     config->url = CONFIG_FIRMWARE_UPGRADE_URL;
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    config->cert_pem = (char *)update_server_root_pem_start;
-#endif
+    config->cert_pem = (const char *)update_server_root_pem_start;
+    config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init( &ctx );
-    if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
-        ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
-        return ESP_FAIL;
-    }
 
     esp_http_client_handle_t client = esp_http_client_init(config);
     if (client == NULL) {
         ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
-        return ESP_FAIL;
+        goto clean_up;
     }
 
     if (esp_http_client_get_transport_type(client) != HTTP_TRANSPORT_OVER_SSL) {
         ESP_LOGE(TAG, "%s: Transport is not over HTTPS", __func__);
-        return ESP_FAIL;
+        goto clean_up;
     }
 
     ret = esp_http_client_open(client, 0);
     if (ret != ESP_OK) {
-        esp_http_client_cleanup(client);
         ESP_LOGE(TAG, "%s: Failed to open HTTP connection: %d", __func__, ret);
-        return ret;
+        goto clean_up;
     }
     content_len = esp_http_client_fetch_headers(client);
     if (content_len <= OTA_DEFAULT_SIGNATURE_BUF_SIZE) {
         ESP_LOGE(TAG, "%s: content size error", __func__);
-        _http_cleanup(client);
-        return ESP_FAIL;
+        ret = ESP_FAIL;
+        goto clean_up;
     }
 
     firmware_len = content_len - (OTA_DEFAULT_SIGNATURE_BUF_SIZE);
 
-    esp_ota_handle_t update_handle = 0;
-    const esp_partition_t *update_partition = NULL;
     ESP_LOGI(TAG, "%s: Starting OTA upgrade", __func__);
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
         ESP_LOGE(TAG, "%s: Passive OTA partition not found", __func__);
-        _http_cleanup(client);
-        return ESP_FAIL;
+        ret = ESP_FAIL;
+        goto clean_up;
     }
     ESP_LOGI(TAG, "%s: Writing to partition subtype %d at offset 0x%x", __func__,
              update_partition->subtype, update_partition->address);
@@ -469,35 +468,33 @@ esp_err_t ota_https_update_device()
     ret = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: esp_ota_begin failed, error=%d", __func__, ret);
-        _http_cleanup(client);
-        return ret;
+        goto clean_up;
     }
     ESP_LOGI(TAG, "%s: esp_ota_begin succeeded. Please Wait. This may take time.", __func__);
 
-    esp_err_t ota_write_err = ESP_OK;
-    char *upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
+    upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
     if (!upgrade_data_buf) {
         ESP_LOGE(TAG, "%s: Couldn't allocate memory to upgrade data buffer", __func__);
-        _http_cleanup(client);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto clean_up;
     }
-    unsigned char *sig_ptr = NULL;
-    unsigned char *sig = NULL;
-    unsigned int sig_len = 0;
-    unsigned int total_read_len = 0;
-    unsigned int remain_len = 0;
-    unsigned int excess_len = 0;
 
     sig = (unsigned char *)malloc(OTA_DEFAULT_SIGNATURE_BUF_SIZE);
     if (!sig) {
         ESP_LOGE(TAG, "%s: Couldn't allocate memory to add sig buffer", __func__);
-        free(upgrade_data_buf);
-        _http_cleanup(client);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto clean_up;
     }
     memset(sig, '\0', OTA_DEFAULT_SIGNATURE_BUF_SIZE);
 
     sig_ptr = sig;
+
+    mbedtls_sha256_init( &ctx );
+    if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
+        ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
+        ret = ESP_FAIL;
+        goto clean_up;
+    }
 
     while (1) {
         int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
@@ -545,14 +542,11 @@ esp_err_t ota_https_update_device()
 
     ESP_LOGI(TAG, "%s: Total binary data length writen: %d", __func__, total_read_len);
 
-    unsigned char md[OTA_CRYPTO_SHA256_LEN] = {0,};
-
     if (mbedtls_sha256_finish_ret( &ctx, md) != 0) {
         ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
         ret = ESP_FAIL;
         goto clean_up;
     }
-    mbedtls_sha256_free(&ctx);
 
     /* Check firmware validation */
     if (_check_firmware_validation((const unsigned char *)md, sig, sig_len) != true) {
@@ -579,6 +573,7 @@ esp_err_t ota_https_update_device()
     ESP_LOGI(TAG, "%s: esp_ota_set_boot_partition succeeded", __func__);
 
 clean_up:
+    mbedtls_sha256_free(&ctx);
 
     if (sig) {
         free(sig);
@@ -588,7 +583,10 @@ clean_up:
         free(upgrade_data_buf);
     }
 
-    _http_cleanup(client);
+    if (client) {
+        _http_cleanup(client);
+        esp_http_client_cleanup(client);
+    }
 
     return ret;
 }
@@ -612,6 +610,7 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     config->cert_pem = (char *)update_server_root_pem_start;
 #endif
     config->event_handler = _http_event_handler;
+   config->cert_pem = (const char *)update_server_root_pem_start;
 
     esp_http_client_handle_t client = esp_http_client_init(config);
     free(config);

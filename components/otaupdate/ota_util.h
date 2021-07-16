@@ -45,7 +45,7 @@
 #define OTA_UPGRADE_CMD   "upgrade"
 #define OTA_VERSION_CMD   "version"
 
-#define OTA_FIRST_CHECK_DELAY_MS 10*1000
+#define OTA_FIRST_CHECK_DELAY_MS 30*1000
 #define OTA_SOCKET_TIMEOUT 10*1000
 #ifdef __cplusplus
 extern "C" {

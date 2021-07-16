@@ -21,7 +21,7 @@
  *
  */
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1066"
+#define FIRMWARE_VERSION      "AD2IOT-1067a"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
