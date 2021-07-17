@@ -1,3 +1,6 @@
+if("${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR}" VERSION_LESS "4.1")
+set(EXTRA_EMBED "ota_update_server_root.pem")
+endif()
 idf_component_register(SRCS "ota_util.cpp"
                     REQUIRES idf::nvs_flash
                     REQUIRES idf::alarmdecoder-api
@@ -5,5 +8,5 @@ idf_component_register(SRCS "ota_util.cpp"
                     REQUIRES idf::esp_https_ota
                     REQUIRES idf::json
                     INCLUDE_DIRS . ../../main/
-                    EMBED_TXTFILES firmware_signature_public_key.pem ota_update_server_root.pem)
+                    EMBED_TXTFILES firmware_signature_public_key.pem ${EXTRA_EMBED})
 project(otaupdate)

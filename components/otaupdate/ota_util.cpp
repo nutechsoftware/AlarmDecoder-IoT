@@ -606,11 +606,9 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
     config->url = CONFIG_FIRMWARE_VERSION_INFO_URL;
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     config->cert_pem = (char *)update_server_root_pem_start;
-#endif
+    config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
-   config->cert_pem = (const char *)update_server_root_pem_start;
 
     esp_http_client_handle_t client = esp_http_client_init(config);
     free(config);
