@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Fix cert bundle build issue if MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH is enabled.
 - [X] CORE: valid public certs are no longer needed but keep these old certs around for building in older ESP-IDF versions by moving to component folder.
 - [X] CORE: Cleanup menuconfig removing MQTT references that need to be in component yet to be made. Moved ser2sock settings to ser2sock component.
 - [X] OTA: Cleanup a little and get it working with ESP-IDF v4.3 and older v3.2.
