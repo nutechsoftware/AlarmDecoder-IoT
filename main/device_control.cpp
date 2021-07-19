@@ -100,10 +100,14 @@ static bool switchBState = SWITCH_OFF;
 void hal_change_switch_a_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_A, SWITCH_OFF);
+#if (GPIO_SWITCH_A != GPIO_NOT_USED)
+        gpio_set_level((gpio_num_t)GPIO_SWITCH_A, SWITCH_OFF);
+#endif
         switchAState = SWITCH_OFF;
     } else {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_A, SWITCH_ON);
+#if (GPIO_SWITCH_A != GPIO_NOT_USED)
+        gpio_set_level((gpio_num_t)GPIO_SWITCH_A, SWITCH_ON);
+#endif
         switchAState = SWITCH_ON;
     }
 }
@@ -119,10 +123,14 @@ void hal_change_switch_a_state(int switch_state)
 void hal_change_switch_b_state(int switch_state)
 {
     if (switch_state == SWITCH_OFF) {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_B, MAINLED_GPIO_OFF);
+#if (GPIO_SWITCH_B != GPIO_NOT_USED)
+        gpio_set_level((gpio_num_t)GPIO_SWITCH_B, MAINLED_GPIO_OFF);
+#endif
         switchBState = SWITCH_OFF;
     } else {
-        gpio_set_level((gpio_num_t)GPIO_OUTPUT_SWITCH_B, MAINLED_GPIO_ON);
+#if (GPIO_SWITCH_B != GPIO_NOT_USED)
+        gpio_set_level((gpio_num_t)GPIO_SWITCH_B, MAINLED_GPIO_ON);
+#endif
         switchBState = SWITCH_ON;
     }
 }
@@ -214,7 +222,9 @@ int hal_get_button_event(int* button_event_type, int* button_event_count)
  */
 void hal_change_led_state(int state)
 {
-    gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, state);
+#if (GPIO_MAINLED != GPIO_NOT_USED)
+    gpio_set_level((gpio_num_t)GPIO_MAINLED, state);
+#endif
 }
 
 /**
@@ -288,34 +298,34 @@ void hal_gpio_init(void)
 {
     gpio_config_t io_conf;
 
+    // output main led if enabled
+#if (GPIO_MAINLED != GPIO_NOT_USED)
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED;
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_MAINLED;
     io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
-    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_OUTPUT_MAINLED_0;
+#if (GPIO_MAINLED_0 != GPIO_NOT_USED)
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_MAINLED_0;
     gpio_config(&io_conf);
+    gpio_set_level((gpio_num_t)GPIO_MAINLED_0, 0);
+#endif
+    gpio_set_level((gpio_num_t)GPIO_MAINLED, MAINLED_GPIO_ON);
+#endif
 
-    io_conf.pin_bit_mask = 1 << GPIO_OUTPUT_NOUSE1;
-    gpio_config(&io_conf);
-    io_conf.pin_bit_mask = (gpio_num_t)1 <<GPIO_OUTPUT_NOUSE2;
-    gpio_config(&io_conf);
-
-
+    // input button if enabled
+#if (GPIO_INPUT_BUTTON != GPIO_NOT_USED)
     io_conf.intr_type = GPIO_INTR_ANYEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = 1 << GPIO_INPUT_BUTTON;
     io_conf.pull_down_en = (BUTTON_GPIO_RELEASED == 0 ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE);
     io_conf.pull_up_en = (BUTTON_GPIO_RELEASED == 1 ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE);
     gpio_config(&io_conf);
-
     gpio_set_intr_type((gpio_num_t)GPIO_INPUT_BUTTON, GPIO_INTR_ANYEDGE);
+#endif
 
     gpio_install_isr_service(0);
-
-    gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED, MAINLED_GPIO_ON);
-    gpio_set_level((gpio_num_t)GPIO_OUTPUT_MAINLED_0, 0);
 }
 
 /**
@@ -432,6 +442,19 @@ void hal_init_wifi(std::string &args)
 {
     esp_err_t esp_ret;
     ESP_LOGI(TAG, "WiFi hardware init start");
+
+    // Disable power to the LAN8210A chip on the ESP32-POE-ISO to save 120ma of power.
+#if (CONFIG_AD2IOT_ETH_PHY_POWER_GPIO != GPIO_NOT_USED)
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << CONFIG_AD2IOT_ETH_PHY_POWER_GPIO;
+    gpio_config(&io_conf);
+    gpio_set_level((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO, SWITCH_OFF);
+#endif
+
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     esp_ret = esp_wifi_init(&cfg);
@@ -591,6 +614,36 @@ void hal_init_eth(std::string &args)
     ESP_LOGI(TAG, "ETH hardware init start");
     int res = 0;
     std::string value;
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+
+#if 0 // FIXME Ethernet broken not sure if issue in newer ESP-IDF or what I did. I Expect the prior.
+    // High impedance to MODE select pins on LAN8710A MODEX pins.
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_ETH_PHY_MODE0;
+    gpio_config(&io_conf);
+    gpio_set_level((gpio_num_t)GPIO_ETH_PHY_MODE0, SWITCH_OFF);
+
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_ETH_PHY_MODE1;
+    gpio_config(&io_conf);
+    gpio_set_level((gpio_num_t)GPIO_ETH_PHY_MODE1, SWITCH_OFF);
+
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_ETH_PHY_MODE2;
+    gpio_config(&io_conf);
+    gpio_set_level((gpio_num_t)GPIO_ETH_PHY_MODE2, SWITCH_OFF);
+#endif
+
+    // Enable power to the PHY chip on the ESP32-POE-ISO.
+#if (CONFIG_AD2IOT_ETH_PHY_POWER_GPIO != GPIO_NOT_USED)
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << CONFIG_AD2IOT_ETH_PHY_POWER_GPIO;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    gpio_config(&io_conf);
+    gpio_set_level((gpio_num_t)CONFIG_AD2IOT_ETH_PHY_POWER_GPIO, SWITCH_ON);
+    vTaskDelay(pdMS_TO_TICKS(10));
+#endif
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ESP_ERROR_CHECK(tcpip_adapter_set_default_eth_handlers());
@@ -846,11 +899,15 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
  */
 void hal_ad2_reset()
 {
-    gpio_pad_select_gpio(GPIO_NUM_32);
-    gpio_set_direction(GPIO_NUM_32, GPIO_MODE_OUTPUT);
-    gpio_set_level(GPIO_NUM_32, 0);
+    gpio_pad_select_gpio(GPIO_AD2_RESET);
+    gpio_set_direction(GPIO_AD2_RESET, GPIO_MODE_OUTPUT);
+#if (GPIO_AD2_RESET != GPIO_NOT_USED)
+    gpio_set_level(GPIO_AD2_RESET, 0);
+#endif
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    gpio_set_level(GPIO_NUM_32, 1);
+#if (GPIO_AD2_RESET != GPIO_NOT_USED)
+    gpio_set_level(GPIO_AD2_RESET, 1);
+#endif
 }
 
 #ifdef __cplusplus
