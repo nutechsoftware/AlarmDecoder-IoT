@@ -75,6 +75,11 @@
 #include "pushover.h"
 #endif
 
+// web server UI support
+#if CONFIG_AD2IOT_WEBSERVER_UI
+#include "webUI.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -680,6 +685,10 @@ void app_main()
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
     // Initialize pushover client
     pushover_init();
+#endif
+#if CONFIG_AD2IOT_WEBSERVER_UI
+    // Initialize WEB SEVER USER INTERFACE
+    webUI_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.

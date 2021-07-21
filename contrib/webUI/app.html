@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>App</title>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+	<link rel="stylesheet" href="app.css">
+	<link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+</head>
+
+<body>
+	<div id="app">
+		<section id="navigation">
+			<ul>
+				<li><a href="#">Dashboard</a></li>
+				<li><a href="#">Activity</a></li>
+				<li><a href="#">Apps</a></li>
+			</ul>
+		</section>
+
+		<div id="main">
+			<section id="status" class="ready">
+				<div>
+					<span id="status_icon" class="icon house with_lock"></span>
+					<h2 id="status_text">READY</h2>
+				</div>
+			</section>
+			<div id="controls_and_zones">
+				<section id="controls">
+					<a href="#" class="control large">
+						<div>
+							<div class="icon house with_key"></div><br>
+							<span>AWAY</span>
+						</div>
+					</a>
+					<a href="#" class="control large">
+						<div>
+							<div class="icon house with_key"></div><br>
+							<span>STAY</span>
+						</div>
+					</a>
+					<div class="control large has_children">
+						<a href="#" class="control small">
+							<div>
+								<div class="icon police"></div><br>
+								<span>PANIC</span>
+							</div>
+						</a>
+						<a href="#" class="control small">
+							<div>
+								<div class="icon fire"></div><br>
+								<span>FIRE</span>
+							</div>
+						</a>
+						<a href="#" class="control small tap_1 tap_2">
+							<div>
+								<div class="icon aux"></div><br>
+								<span>AUX</span>
+							</div>
+						</a>
+						<a href="#" class="control small">
+							<div>
+								<div class="icon refresh"></div><br>
+								<span>REFRESH</span>
+							</div>
+						</a>
+					</div>
+				</section>
+				<section id="zones">
+					<div class="zone">
+						<a href="#"><span>12</span></a>
+					</div>
+					<div class="zone">
+						<a href="#"><span>16</span></a>
+					</div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
+				</section>
+			</div>
+		</div>
+	</div>
+  <div style="overflow:scroll;height:30px" id="divOut">Not connected...</div>
+</body>
+<script src="app.js"></script>
+</html>
