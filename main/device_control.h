@@ -68,9 +68,10 @@
 
 // OLIMEX ESP-POE*
 /// uSD
-#define GPIO_uSD_CLK GPIO_NUM_14
-#define GPIO_uSD_CMD GPIO_NUM_15
-#define GPIO_uSD_D0 GPIO_NUM_2
+#define GPIO_uSD_CLK GPIO_NUM_14   // CLK/SCLK - HS2_CLK
+#define GPIO_uSD_CMD GPIO_NUM_15   // CMD/DI - MOSI
+#define GPIO_uSD_D0 GPIO_NUM_2     // DAT0/DO - HS2_DATA0 MISO
+#define GPIO_uSD_CS GPIO_NOT_USED  // N/A tie to open pin for now :(
 /// LAN8710A
 #define GPIO_ETH_PHY_POWER GPIO_NUM_12
 #define GPIO_ETH_PHY_MODE0 GPIO_NUM_25
