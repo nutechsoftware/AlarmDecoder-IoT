@@ -634,6 +634,9 @@ void hal_init_eth(std::string &args)
     io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_ETH_PHY_MODE2;
     gpio_config(&io_conf);
     gpio_set_level((gpio_num_t)GPIO_ETH_PHY_MODE2, SWITCH_OFF);
+
+    GPIO_uSD_D0
+
 #endif
 
     // Enable power to the PHY chip on the ESP32-POE-ISO.
