@@ -173,6 +173,81 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
 }
 
 /**
+ * Structure holding server handle
+ * and internal socket fd in order
+ * to use out of request send
+ */
+struct async_resp_arg {
+    httpd_handle_t hd;
+    int fd;
+};
+
+/**
+ * async send function, which we put into the httpd work queue
+ */
+static void ws_test_async_send(void *arg)
+{
+    static const char * data = "Async data";
+    struct async_resp_arg *resp_arg = (async_resp_arg *)arg;
+    httpd_handle_t hd = resp_arg->hd;
+    int fd = resp_arg->fd;
+    httpd_ws_frame_t ws_pkt;
+    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+    ws_pkt.payload = (uint8_t*)data;
+    ws_pkt.len = strlen(data);
+    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+
+    httpd_ws_send_frame_async(hd, fd, &ws_pkt);
+    free(resp_arg);
+}
+
+/**
+ *  HTTP GET websocket handler for api access.
+ */
+esp_err_t ad2ws_handler(httpd_req_t *req)
+{
+    //return ESP_OK;
+    uint8_t buf[128] = { 0 };
+    httpd_ws_frame_t ws_pkt;
+    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+    ws_pkt.payload = buf;
+    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 128);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
+        return ret;
+    }
+    ESP_LOGI(TAG, "websocket packet with message: %s", ws_pkt.payload);
+    ESP_LOGI(TAG, "packet type: %d", ws_pkt.type);
+
+    if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
+
+        const char key_sync[] = "!SYNC:";
+        if(strncmp((char*)ws_pkt.payload, key_sync, strlen(key_sync)) == 0) {
+            ESP_LOGI(TAG, "Got !SYNC request");
+            // trigger an async send using httpd_queue_work
+            struct async_resp_arg *resp_arg = (async_resp_arg *)malloc(sizeof(struct async_resp_arg));
+            resp_arg->hd = req->handle;
+            resp_arg->fd = httpd_req_to_sockfd(req);
+            return httpd_queue_work(req->handle, ws_test_async_send, resp_arg);
+        }
+
+        const char key_ping[] = "!PING:";
+        if(strncmp((char*)ws_pkt.payload, key_ping, strlen(key_ping)) == 0) {
+            // send back a !PONG reply
+            const char resp[] = "!PONG:00000000";
+            memcpy(buf, resp, strlen(resp));
+            ret = httpd_ws_send_frame(req, &ws_pkt);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "httpd_ws_send_frame failed with %d", ret);
+            }
+        }
+    }
+
+    return ret;
+}
+
+/**
  *  HTTP GET handler for downloading files from uSD card.
  */
 esp_err_t file_get_handler(httpd_req_t *req)
@@ -374,21 +449,32 @@ void webUI_init(void)
         return;
     }
 
-    // Start the httpd server
+    // Configure the web server and handlers.
     httpd_handle_t server = NULL;
     httpd_config_t server_config = HTTPD_DEFAULT_CONFIG();
+    server_config.uri_match_fn = httpd_uri_match_wildcard;
+
+    httpd_uri_t ad2ws_server = {
+        .uri       = "/ad2ws",
+        .method    = HTTP_GET,
+        .handler   = ad2ws_handler,
+        .user_ctx  = NULL,
+        .is_websocket = true
+    };
     httpd_uri_t file_server = {
         .uri       = "/*",
         .method    = HTTP_GET,
         .handler   = file_get_handler,
-        .user_ctx  = NULL
+        .user_ctx  = NULL,
+        .is_websocket = false
     };
-    server_config.uri_match_fn = httpd_uri_match_wildcard;
 
+    // Start the httpd server and handlers.
     ESP_LOGI(TAG, "Starting web services on port: %d", server_config.server_port);
     if (httpd_start(&server, &server_config) == ESP_OK) {
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
+        httpd_register_uri_handler(server, &ad2ws_server);
         httpd_register_uri_handler(server, &file_server);
         // All good return.
         return;
