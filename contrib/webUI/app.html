@@ -28,38 +28,38 @@
 			</section>
 			<div id="controls_and_zones">
 				<section id="controls">
-					<a href="#" class="control large">
+					<a nohref id="b1Href" class="control large" style="cursor:pointer;color:blue;text-decoration:underline">
 						<div>
-							<div class="icon house with_key"></div><br>
-							<span>AWAY</span>
+							<div id="b1_icon" class="icon house with_key"></div><br>
+							<h2 id="b1_text">AWAY</h2>
 						</div>
 					</a>
-					<a href="#" class="control large">
+					<a nohref id="b2Href" class="control large" style="cursor:pointer;color:blue;text-decoration:underline">
 						<div>
-							<div class="icon house with_key"></div><br>
-							<span>STAY</span>
+							<div id="b2_icon" class="icon house with_key"></div><br>
+							<h2 id="b2_text">STAY</h2>
 						</div>
 					</a>
 					<div class="control large has_children">
-						<a href="#" class="control small">
+						<a nohref id="panicHref" class="control small" style="cursor:pointer;color:blue;text-decoration:underline">
 							<div>
 								<div class="icon police"></div><br>
 								<span>PANIC</span>
 							</div>
 						</a>
-						<a href="#" class="control small">
+						<a nohref id="fireHref" class="control small" style="cursor:pointer;color:blue;text-decoration:underline">
 							<div>
 								<div class="icon fire"></div><br>
 								<span>FIRE</span>
 							</div>
 						</a>
-						<a href="#" class="control small tap_1 tap_2">
+						<a nohref id="auxHref" class="control small" style="cursor:pointer;color:blue;text-decoration:underline">
 							<div>
 								<div class="icon aux"></div><br>
 								<span>AUX</span>
 							</div>
 						</a>
-						<a href="#" class="control small">
+						<a nohref id="refreshHref" class="control small" style="cursor:pointer;color:blue;text-decoration:underline">
 							<div>
 								<div class="icon refresh"></div><br>
 								<span>REFRESH</span>
@@ -68,12 +68,8 @@
 					</div>
 				</section>
 				<section id="zones">
-					<div class="zone">
-						<a href="#"><span>12</span></a>
-					</div>
-					<div class="zone">
-						<a href="#"><span>16</span></a>
-					</div>
+					<div class="zone empty"></div>
+					<div class="zone empty"></div>
 					<div class="zone empty"></div>
 					<div class="zone empty"></div>
 					<div class="zone empty"></div>

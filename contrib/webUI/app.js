@@ -6,53 +6,93 @@ var panel_states =  {
   },
   "armed_away":{
     "status_class":"armed",
-    "icon_class":"icon house with_lock",
-    "label":"Armed (away)"
+    "icon_class":"icon house with_key",
+    "label":"Armed (away)",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_walker",
+    "b2_label": "EXIT"
   },
   "armed_away_exit":{
     "status_class":"armed",
     "icon_class":"icon house with_walker",
-    "label":"Armed (exit&nbsp;now)"
+    "label":"Armed (exit&nbsp;now)",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_lock",
+    "b2_label": "DISARM"
   },
-  "armed_home":{
+  "armed_stay":{
     "status_class":"armed",
-    "icon_class":"icon house with_lock",
-    "label":"Armed (home)"
+    "icon_class":"icon house with_key",
+    "label":"Armed (stay)",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_walker",
+    "b2_label": "EXIT"
   },
-  "armed_home_exit":{
+  "armed_stay_exit":{
     "status_class":"armed",
     "icon_class":"icon house with_walker",
-    "label":"Armed (exit&nbsp;now)"
+    "label":"Armed (exit&nbsp;now)",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_lock",
+    "b2_label": "DISARM"
   },
   "armed_night":{
     "status_class":"armed",
-    "icon_class":"icon house with_lock",
-    "label":"Armed (night)"
+    "icon_class":"icon house with_key",
+    "label":"Armed (night)",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_walker",
+    "b2_label": "EXIT"
   },
   "armed_night_exit":{
     "status_class":"armed",
     "icon_class":"icon house with_walker",
-    "label":"Armed (exit&nbsp;now)"
+    "label":"Armed (exit&nbsp;now)",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_walker",
+    "b2_label": "EXIT"
   },
   "alarming":{
     "status_class":"alarming",
-    "icon_class":"icon house with_lock",
-    "label":"Alarming!"
+    "icon_class":"icon house with_key",
+    "label":"Alarming!",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_lock",
+    "b2_label": "DISARM"
   },
   "fire":{
     "status_class":"alarming",
-    "icon_class":"icon house with_lock",
-    "label":"Fire!"
+    "icon_class":"icon house with_key",
+    "label":"Fire!",
+    "b1_icon_class": "icon house with_lock",
+    "b1_label": "DISARM",
+    "b2_icon_class": "icon house with_lock",
+    "b2_label": "DISARM"
   },
   "ready":{
     "status_class":"ready",
-    "icon_class":"icon house with_key",
-    "label":"Ready"
+    "icon_class":"icon house with_lock",
+    "label":"Ready",
+    "b1_icon_class": "icon house with_key",
+    "b1_label": "AWAY",
+    "b2_icon_class": "icon house with_key",
+    "b2_label": "STAY"
   },
   "notready":{
     "status_class":"not_ready",
-    "icon_class":"icon house with_key",
-    "label":"Not Ready"
+    "icon_class":"icon house with_lock",
+    "label":"Not Ready",
+    "b1_icon_class": "icon house with_key",
+    "b1_label": "AWAY",
+    "b2_icon_class": "icon house with_key",
+    "b2_label": "STAY"
   }
 }
 panel_states.get = function(key) {
@@ -61,30 +101,23 @@ panel_states.get = function(key) {
 const elem = id => document.getElementById(id);
 const divOut = elem("divOut");
 
-var Debugger = function(klass) {
+ var Debugger = function(klass) {
   this.debug = {}
-  if (klass.logLevels) {
+  if (klass.isDebug) {
     for (var m in console)
-      if (typeof console[m] == 'function') {
-        if (klass.logLevels.includes(m)) {
-          this.debug[m] = console[m].bind(window.console, klass.toString()+": ");
-        } else {
-          this.debug[m] = function(){};
-        }
-      }
-  } else {
+      if (typeof console[m] == "function")
+        this.debug[m] = console[m].bind(window.console, klass.toString()+": ");
+  }else{
     for (var m in console)
-      if (typeof console[m] == 'function')
-        this.debug[m] = function(){};
+      if (typeof console[m] == "function")
+        this.debug[m] = function(){}
   }
-  console.log(this.debug);
   return this.debug;
 }
 
 class AD2ws {
   constructor() {
-      /* logs to enable options: ['trace', 'debug', 'info', 'warn', 'error'] */
-      this.logLevels = ['info', 'warn', 'error'];
+      this.isDebug = true;
       this.debug = Debugger(this);
       this.addressMask = 0xffffffff;
       this.connecting = false;
@@ -108,9 +141,9 @@ class AD2ws {
         // Note: append _exit if exit_now state is set
         this.mode = "armed_away" + (this.ad2emb_state.exit_now ? "_exit" : "");
       } else
-      if (this.ad2emb_state.armed_home) {
+      if (this.ad2emb_state.armed_stay) {
         // Note: append _exit if exit_now state is set
-        this.mode = "armed_home" + (this.ad2emb_state.exit_now ? "_exit" : "");
+        this.mode = "armed_stay" + (this.ad2emb_state.exit_now ? "_exit" : "");
       } else
       if (this.ad2emb_state.alarm_sounding) {
         this.mode = "alarming";
@@ -119,26 +152,28 @@ class AD2ws {
       }
     }
     var ps = panel_states.get(this.mode);
-    var statusObj = document.getElementById("status");
-    var iconObj = document.getElementById("status_icon");
-    var textObj = document.getElementById("status_text");
-    statusObj.className = ps.status_class;
-    iconObj.className = ps.icon_class;
-    textObj.innerHTML = ps.label;
+    document.getElementById("status").className = ps.status_class;
+    document.getElementById("status_icon").className = ps.icon_class;
+    document.getElementById("status_text").innerHTML = ps.label;
+    document.getElementById("b1_icon").className = ps.b1_icon_class;
+    document.getElementById("b1_text").innerHTML = ps.b1_label;
+    document.getElementById("b2_icon").className = ps.b2_icon_class;
+    document.getElementById("b2_text").innerHTML = ps.b2_label;
   }
 
   /* FIXME: docs on simple ws request api */
   /* connect WS to AD2 IoT device and stay connected. */
   wsConnect() {
       if (this.ws === null) {
+          var wsHost = document.location.host;
           this.debug.info("Connecting.");
           divOut.innerHTML = "<p>Connecting.</p>";
           this.connecting = true;
-          this.ws = new WebSocket("ws://" + document.location.host + "/ad2ws");
+          this.ws = new WebSocket("ws://" + wsHost + "/ad2ws");
 
           /* FIXME: need send request for update on state */
           this.ws.onopen = e => {
-              this.debug.trace("onopen");
+              this.debug.info("onopen");
               this.connecting = false;
               this.connected = true;
               divOut.innerHTML = "<p>Connected.</p>";
@@ -148,11 +183,12 @@ class AD2ws {
           };
           /* FIXME: needs more cow bell */
           this.ws.onmessage = e => {
-              this.debug.trace("onmessage. '" + e.data + "'");
+              this.debug.info("onmessage. '" + e.data + "'");
               if (e.data[0] == "{") {
                 this.ad2emb_state = JSON.parse(e.data);
               }
               if (e.data[0] == "!") {
+                this.debug.info("received PONG host is alive.");
                 // !PONG:0000000
               }
               this.updateUI();
@@ -184,11 +220,11 @@ class AD2ws {
 
   /* check the ws connection */
   wsCheck() {
-    this.debug.trace("wsCheck");
+    this.debug.info("wsCheck");
     if (this.ws !== null) {
       if (this.ws.readyState === WebSocket.OPEN) {
-        this.debug.trace("sending ping.");
-        this.debug.trace(this.ws);
+        this.debug.info("sending ping.");
+        this.debug.info(this.ws);
         this.wsSendMessage("!PING:"+this.addressMask);
       }
     }
@@ -202,6 +238,29 @@ class AD2ws {
   }
 };
 
+document.getElementById("b1Href").onclick = function() {
+  debug.info("button B1 pressed");
+};
+
+document.getElementById("b2Href").onclick = function() {
+  debug.info("button B2 pressed");
+};
+
+document.getElementById("panicHref").onclick = function() {
+  debug.info("button panic panic alarm pressed");
+};
+
+document.getElementById("fireHref").onclick = function() {
+  debug.info("button fire alarm pressed");
+};
+
+document.getElementById("auxHref").onclick = function() {
+  debug.info("button aux alarm pressed");
+};
+
+document.getElementById("refreshHref").onclick = function() {
+  debug.info("button refresh pressed");
+};
 
 let ad2ws = new AD2ws();
 ad2ws.wsConnect();

@@ -166,6 +166,13 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
 }
+#controls .control > div h2 {
+  margin: 0;
+  font-size: 20px;
+  background-color: rgba(0,0,0,0.1);
+  padding: 5px 15px;
+  border-radius: 3px;
+}
 #controls .control.tap_1 {
   background-color: #ffb94a;
   border-color: #ffa008;

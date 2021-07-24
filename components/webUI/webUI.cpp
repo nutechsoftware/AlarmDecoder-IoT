@@ -22,12 +22,17 @@
  */
 // AlarmDecoder std includes
 #include "alarmdecoder_main.h"
+#include "ad2_settings.h"
+#include "ad2_utils.h"
 
 // esp networking etc.
 #include <lwip/netdb.h>
 #include "esp_http_server.h"
 #include "esp_vfs_fat.h"
 #include "driver/sdmmc_host.h"
+
+// cJSON component (esp-idf REQUIRES json)
+#include "cJSON.h"
 
 // AlarmDecoder IoT hardware settings.
 #include "device_control.h"
@@ -55,6 +60,10 @@ static const char *TAG = "WEBUI";
 /* helper macro to test for extenions */
 #define IS_FILE_EXT(filename, ext) \
     (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
+
+// Global handle to httpd server
+httpd_handle_t server = NULL;
+
 
 // C++
 
@@ -183,22 +192,84 @@ struct async_resp_arg {
 };
 
 /**
- * async send function, which we put into the httpd work queue
+ * get the AlarmDecoder IoT device and alarm state json string.
  */
-static void ws_test_async_send(void *arg)
+cJSON *get_alarmdecoder_state_json(AD2VirtualPartitionState *s)
 {
-    static const char * data = "Async data";
-    struct async_resp_arg *resp_arg = (async_resp_arg *)arg;
-    httpd_handle_t hd = resp_arg->hd;
-    int fd = resp_arg->fd;
-    httpd_ws_frame_t ws_pkt;
-    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-    ws_pkt.payload = (uint8_t*)data;
-    ws_pkt.len = strlen(data);
-    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+    cJSON *root = cJSON_CreateObject();
 
-    httpd_ws_send_frame_async(hd, fd, &ws_pkt);
-    free(resp_arg);
+    // Add this boards info to the object
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    cJSON_AddStringToObject(root, "firmware_version", FIRMWARE_VERSION);
+    cJSON_AddNumberToObject(root, "cpu_model", chip_info.model);
+    cJSON_AddNumberToObject(root, "cpu_revision", chip_info.revision);
+    cJSON_AddNumberToObject(root, "cpu_cores", chip_info.cores);
+    cJSON *cjson_cpu_features = cJSON_CreateArray();
+    if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "WiFi" ));
+    }
+    if (chip_info.features & CHIP_FEATURE_BLE) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BLE" ));
+    }
+    if (chip_info.features & CHIP_FEATURE_BT) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BT" ));
+    }
+    cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
+    cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
+    std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
+    cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
+
+    if (s && !s->unknown_state) {
+        cJSON_AddBoolToObject(root, "ready", s->ready);
+        cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
+        cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
+        cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
+        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
+        cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
+        cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
+        cJSON_AddBoolToObject(root, "chime_on", s->chime_on);
+        cJSON_AddBoolToObject(root, "alarm_event_occurred", s->alarm_event_occurred);
+        cJSON_AddBoolToObject(root, "alarm_sounding", s->alarm_sounding);
+        cJSON_AddBoolToObject(root, "battery_low", s->battery_low);
+        cJSON_AddBoolToObject(root, "entry_delay_off", s->entry_delay_off);
+        cJSON_AddBoolToObject(root, "fire_alarm", s->fire_alarm);
+        cJSON_AddBoolToObject(root, "system_issue", s->system_issue);
+        cJSON_AddBoolToObject(root, "perimeter_only", s->perimeter_only);
+        cJSON_AddBoolToObject(root, "exit_now", s->exit_now);
+        cJSON_AddNumberToObject(root, "system_specific", s->system_specific);
+        cJSON_AddNumberToObject(root, "beeps", s->beeps);
+        cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
+        cJSON_AddStringToObject(root, "last_alpha_messages", s->last_alpha_message.c_str());
+        cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
+    }
+    return root;
+}
+
+/**
+ * async send function to send current alarmstate which we put into the httpd work queue
+ */
+static void ws_alarmstate_async_send(void *arg)
+{
+    // build the standard json AD2IoT device and alarm state object.
+    AD2VirtualPartitionState *s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    cJSON *root = get_alarmdecoder_state_json(s);
+
+    if (root) {
+        cJSON_AddStringToObject(root, "event", "SYNC");
+        const char *sys_info = cJSON_Print(root);
+        struct async_resp_arg *resp_arg = (async_resp_arg *)arg;
+        httpd_handle_t hd = resp_arg->hd;
+        int fd = resp_arg->fd;
+        httpd_ws_frame_t ws_pkt;
+        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+        ws_pkt.payload = (uint8_t*)sys_info;
+        ws_pkt.len = strlen(sys_info);
+        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+        httpd_ws_send_frame_async(hd, fd, &ws_pkt);
+        free((void *)sys_info);
+        cJSON_Delete(root);
+    }
 }
 
 /**
@@ -224,12 +295,12 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
 
         const char key_sync[] = "!SYNC:";
         if(strncmp((char*)ws_pkt.payload, key_sync, strlen(key_sync)) == 0) {
-            ESP_LOGI(TAG, "Got !SYNC request");
+            ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state.");
             // trigger an async send using httpd_queue_work
             struct async_resp_arg *resp_arg = (async_resp_arg *)malloc(sizeof(struct async_resp_arg));
             resp_arg->hd = req->handle;
             resp_arg->fd = httpd_req_to_sockfd(req);
-            return httpd_queue_work(req->handle, ws_test_async_send, resp_arg);
+            return httpd_queue_work(req->handle, ws_alarmstate_async_send, resp_arg);
         }
 
         const char key_ping[] = "!PING:";
@@ -420,6 +491,48 @@ esp_err_t file_get_handler(httpd_req_t *req)
 }
 
 /**
+ * @brief on state change
+ * Called when the alarm panel state changes for tracked states.
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    // @brief Only listen to events for the default partition we are watching.
+    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    if ((s && defs) && s->partition == defs->partition) {
+        ESP_LOGI(TAG, "on_state_change partition(%i) event(%s) message('%s')", defs->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
+        size_t fds = 16;
+        int client_fds[16];
+        httpd_handle_t hd = server;
+        httpd_get_client_list(hd, &fds, client_fds); //todo handle error
+
+        cJSON *root = get_alarmdecoder_state_json(s);
+        cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
+        const char *sys_info = cJSON_Print(root);
+
+        httpd_ws_frame_t ws_pkt;
+        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+        ws_pkt.payload = (uint8_t*)sys_info;
+        ws_pkt.len = strlen(sys_info);
+        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+
+        if (root) {
+            for (int i=0; i<fds; i++) {
+                if (httpd_ws_get_fd_info(hd, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET) {
+                    httpd_ws_send_frame_async(hd, client_fds[i], &ws_pkt);
+                }
+            }
+        }
+        free((void *)sys_info);
+        cJSON_Delete(root);
+    }
+}
+
+/**
  * AD2IoT Component webUI init
  */
 void webUI_init(void)
@@ -450,7 +563,6 @@ void webUI_init(void)
     }
 
     // Configure the web server and handlers.
-    httpd_handle_t server = NULL;
     httpd_config_t server_config = HTTPD_DEFAULT_CONFIG();
     server_config.uri_match_fn = httpd_uri_match_wildcard;
 
@@ -476,6 +588,17 @@ void webUI_init(void)
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &ad2ws_server);
         httpd_register_uri_handler(server, &file_server);
+        // Subscribe to AlarmDecoder events
+        AD2Parse.subscribeTo(ON_ARM, on_state_change, (void *)ON_ARM);
+        AD2Parse.subscribeTo(ON_DISARM, on_state_change, (void *)ON_DISARM);
+        AD2Parse.subscribeTo(ON_CHIME_CHANGE, on_state_change, (void *)ON_CHIME_CHANGE);
+        AD2Parse.subscribeTo(ON_FIRE, on_state_change, (void *)ON_FIRE);
+        AD2Parse.subscribeTo(ON_POWER_CHANGE, on_state_change, (void *)ON_POWER_CHANGE);
+        AD2Parse.subscribeTo(ON_READY_CHANGE, on_state_change, (void *)ON_READY_CHANGE);
+        AD2Parse.subscribeTo(ON_LOW_BATTERY, on_state_change, (void *)ON_LOW_BATTERY);
+        AD2Parse.subscribeTo(ON_ALARM_CHANGE, on_state_change, (void *)ON_ALARM_CHANGE);
+        AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+        AD2Parse.subscribeTo(ON_EXIT_CHANGE, on_state_change, (void *)ON_EXIT_CHANGE);
         // All good return.
         return;
     }
