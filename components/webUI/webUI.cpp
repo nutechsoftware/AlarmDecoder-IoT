@@ -278,10 +278,10 @@ static void ws_alarmstate_async_send(void *arg)
 esp_err_t ad2ws_handler(httpd_req_t *req)
 {
     //return ESP_OK;
-    uint8_t buf[128] = { 0 };
+    uint8_t rx_buf[128] = { 0 };
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-    ws_pkt.payload = buf;
+    ws_pkt.payload = rx_buf;
     ws_pkt.type = HTTPD_WS_TYPE_TEXT;
     esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 128);
     if (ret != ESP_OK) {
@@ -292,9 +292,8 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "packet type: %d", ws_pkt.type);
 
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
-
-        const char key_sync[] = "!SYNC:";
-        if(strncmp((char*)ws_pkt.payload, key_sync, strlen(key_sync)) == 0) {
+        std::string key_sync = "!SYNC:";
+        if(strncmp((char*)ws_pkt.payload, key_sync.c_str(), key_sync.length()) == 0) {
             ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state.");
             // trigger an async send using httpd_queue_work
             struct async_resp_arg *resp_arg = (async_resp_arg *)malloc(sizeof(struct async_resp_arg));
@@ -303,11 +302,12 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
             return httpd_queue_work(req->handle, ws_alarmstate_async_send, resp_arg);
         }
 
-        const char key_ping[] = "!PING:";
-        if(strncmp((char*)ws_pkt.payload, key_ping, strlen(key_ping)) == 0) {
+        std::string key_ping = "!PING:";
+        if(strncmp((char*)ws_pkt.payload, key_ping.c_str(), key_ping.length()) == 0) {
             // send back a !PONG reply
-            const char resp[] = "!PONG:00000000";
-            memcpy(buf, resp, strlen(resp));
+            std::string pong = "!PONG:00000000";
+            ws_pkt.payload = (uint8_t *)pong.c_str();
+            ws_pkt.len = pong.length();
             ret = httpd_ws_send_frame(req, &ws_pkt);
             if (ret != ESP_OK) {
                 ESP_LOGE(TAG, "httpd_ws_send_frame failed with %d", ret);
@@ -571,14 +571,18 @@ void webUI_init(void)
         .method    = HTTP_GET,
         .handler   = ad2ws_handler,
         .user_ctx  = NULL,
-        .is_websocket = true
+        .is_websocket = true,
+        .handle_ws_control_frames = false,
+        .supported_subprotocol = nullptr
     };
     httpd_uri_t file_server = {
         .uri       = "/*",
         .method    = HTTP_GET,
         .handler   = file_get_handler,
         .user_ctx  = NULL,
-        .is_websocket = false
+        .is_websocket = false,
+        .handle_ws_control_frames = false,
+        .supported_subprotocol = nullptr
     };
 
     // Start the httpd server and handlers.
