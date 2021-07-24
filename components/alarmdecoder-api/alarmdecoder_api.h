@@ -482,6 +482,9 @@ public:
         {ON_CRC,                "CRC"},
         {ON_VER,                "VER"},
         {ON_ERR,                "ERR"},
+        {ON_EXIT_CHANGE,        "EXIT"},
+        {ON_SEARCH_MATCH,       "SEARCH"},
+        {ON_FIRMWARE_VERSION,   "VERSION"},
     };
 
     std::map<int, const std::string> state_str = {

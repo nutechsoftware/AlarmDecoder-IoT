@@ -717,7 +717,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool ZONE_BYPASSED = is_bit_set(BYPASS_BYTE, msg.c_str());
 
                             // Get section #4 alpha message and upper case for later searching
-                            string ALPHAMSG = msg.substr(SECTION_4_START,32);
+                            string ALPHAMSG = msg.substr(SECTION_4_START, 32);
                             transform(ALPHAMSG.begin(), ALPHAMSG.end(), ALPHAMSG.begin(), ::toupper);
 
                             // Ademco QUIRK system messages ignore some bits.
@@ -879,17 +879,17 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = (uint8_t) (msg[SYSSPECIFIC_BYTE] - '0') & 0xff;
-                            ad2ps->beeps = msg[BEEPMODE_BYTE];
+                            ad2ps->beeps = msg[BEEPMODE_BYTE] - '0';
 
-                            // Extract the numeric value from section #2
-                            ad2ps->last_numeric_message = strtol(msg.substr(SECTION_2_START, SECTION_2_START+3).c_str(), 0, 10);
+                            // Extract the numeric value from section #2 HEX & DEC mix keep as string.
+                            ad2ps->last_numeric_message = msg.substr(SECTION_2_START, 3);
 
                             // Extract the 32 char Alpha message from section #4.
-                            ad2ps->last_alpha_message = msg.substr(SECTION_4_START, SECTION_4_START+32);
+                            ad2ps->last_alpha_message = msg.substr(SECTION_4_START, 32);
 
                             // Extract the cursor location and type from section #3
-                            ad2ps->display_cursor_type = (uint8_t) strtol(msg.substr(CURSOR_TYPE_POS, CURSOR_TYPE_POS+2).c_str(), 0, 16);
-                            ad2ps->display_cursor_location = (uint8_t) strtol(msg.substr(CURSOR_POS, CURSOR_POS+2).c_str(), 0, 16);
+                            ad2ps->display_cursor_type = (uint8_t) strtol(msg.substr(CURSOR_TYPE_POS, 2).c_str(), 0, 16);
+                            ad2ps->display_cursor_location = (uint8_t) strtol(msg.substr(CURSOR_POS, 2).c_str(), 0, 16);
 
 
                             // Debugging / testing output

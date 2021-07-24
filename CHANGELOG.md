@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] API: Fixed a few bugs in the parser from I think when I switched from Arduino Strings to std::strings where the use of substr is different.
 - [ ] WEBUI: New module ported from ArduinoAlarmDecoder. TODO: websocket and ACL.
 - [X] CORE: Did some work on the GPIO/HAL. This still needs work and hardware testing with ethernet, uSD and AD2pHAT.
 - [X] CORE: Fix cert bundle build issue if MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH is enabled.
