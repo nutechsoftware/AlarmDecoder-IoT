@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X[ OTA: Add ability to fetch firmware by build flags. The default is 'stsdk' but now I can publish a 'webui' build with ST disabled and websockets enabled.
 - [X] WEBUI: Continued work. Disable WebSocket code if not available such as with STSDK building. UI now supports multiple partitions by specifying 'vpaddr' and 'code' on the query string and the UI will use the AD2IoT configuration settings for the 'vpaddr' and 'code'. Connected buttons to ARM AWAY/STAY, DISARM, EXIT.
 - [X] API: Fixed a few bugs in the parser from I think when I switched from Arduino Strings to std::strings where the use of substr is different.
 - [X] WEBUI: New module ported from ArduinoAlarmDecoder with websocket, templates and IPv4 ACL control for access. 24hr 86,400 web request load test PASS! Wiring up html and js code. Status works and screen updates in real time to show alarm state. Buttons roughed in but not sending anything yet.

@@ -30,7 +30,8 @@
 
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
 #define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_URL CONFIG_OTA_SERVER_URL "signed_alarmdecoder_stsdk_esp32.bin"
+#define CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS "stsdk"
+#define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
 #define OTA_SIGNATURE_SIZE 256
 #define OTA_SIGNATURE_FOOTER_SIZE 6
@@ -56,7 +57,7 @@ extern TaskHandle_t ota_task_handle;
 int ota_get_polling_period_day();
 void ota_nvs_flash_init();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
-esp_err_t ota_https_update_device();
+esp_err_t ota_https_update_device(const char *buildflags);
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
 void ota_do_update(char *arg);
 void ota_do_version(char *arg);

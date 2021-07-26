@@ -105,11 +105,23 @@ static void _task_fatal_error()
  * from a verified signed firmware from an https server with
  * known keys.
  */
-static void ota_task_func(void * pvParameter)
+static void ota_task_func(void * command)
 {
-    ESP_LOGI(TAG, "Starting OTA");
+    // The argument if present is the build flag. If not then default to CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS
+    std::string buildflags;
+    if (command != nullptr) {
+        ad2_copy_nth_arg(buildflags, (char *)command, 1);
+        free(command);
+    }
 
-    esp_err_t ret = ota_https_update_device();
+    ad2_trim(buildflags);
+    if ( buildflags.length()==0 ) {
+        buildflags = CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS;
+    }
+
+    ESP_LOGI(TAG, "Starting OTA with build flags '%s'.", buildflags.c_str());
+
+    esp_err_t ret = ota_https_update_device(buildflags.c_str());
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Firmware Upgrades Failed (%d)", ret);
         _task_fatal_error();
@@ -401,12 +413,12 @@ clean_up:
  *
  * @return esp_err_t results.
  */
-esp_err_t ota_https_update_device()
+esp_err_t ota_https_update_device(const char *buildflags)
 {
-    ESP_LOGI(TAG, "%s: ota_https_update_device", __func__);
+    ESP_LOGI(TAG, "%s: starting update", __func__);
 
     esp_err_t ret = ESP_FAIL;
-
+    bool b_ctx_init = false;
     unsigned int content_len;
     unsigned int firmware_len;
     unsigned char *sig_ptr = NULL;
@@ -423,7 +435,8 @@ esp_err_t ota_https_update_device()
     char *upgrade_data_buf = nullptr;
 
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
-    config->url = CONFIG_FIRMWARE_UPGRADE_URL;
+    std::string fwfile = ad2_string_printf(CONFIG_FIRMWARE_UPGRADE_URL_FMT, buildflags);
+    config->url = fwfile.c_str();
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
     config->cert_pem = (const char *)update_server_root_pem_start;
     config->transport_type = HTTP_TRANSPORT_OVER_SSL;
@@ -490,6 +503,8 @@ esp_err_t ota_https_update_device()
     sig_ptr = sig;
 
     mbedtls_sha256_init( &ctx );
+    b_ctx_init = true;
+
     if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
         ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
         ret = ESP_FAIL;
@@ -573,7 +588,9 @@ esp_err_t ota_https_update_device()
     ESP_LOGI(TAG, "%s: esp_ota_set_boot_partition succeeded", __func__);
 
 clean_up:
-    mbedtls_sha256_free(&ctx);
+    if (b_ctx_init) {
+        mbedtls_sha256_free(&ctx);
+    }
 
     if (sig) {
         free(sig);
@@ -585,7 +602,6 @@ clean_up:
 
     if (client) {
         _http_cleanup(client);
-        esp_http_client_cleanup(client);
     }
 
     return ret;
@@ -783,9 +799,13 @@ void ota_init()
 /**
  * @brief Initiate and OTA update
  */
-void ota_do_update(char *arg)
+void ota_do_update(char *command)
 {
-    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
+    if (ota_task_handle != NULL) {
+        ESP_LOGI(TAG, "Device is currently updating.");
+        return;
+    }
+    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**
