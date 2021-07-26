@@ -62,8 +62,17 @@ static const char *TAG = "WEBUI";
     (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 // Global handle to httpd server
+httpd_config_t server_config = HTTPD_DEFAULT_CONFIG();
 httpd_handle_t server = NULL;
 
+
+/**
+ * @brief websocket session storage structure.
+ */
+struct ws_session_storage {
+    int vpaddr;
+    int code;
+};
 
 // C++
 
@@ -122,7 +131,13 @@ void uptimeString(std::string &tstring)
 }
 
 /**
- * Given a file name get the extension and return a mime type.
+ * @brief Given a file name set the request session response type.
+ *
+ * @param [in]httpd_req_t *req
+ * @param [in]const char *filename
+ *
+ * @return esp_err_t
+ *
  */
 static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filename)
 {
@@ -151,8 +166,16 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
 }
 
 /**
- *  Copies the full path into destination buffer and returns
- * pointer to path (skipping the preceding base path)
+ * @brief Copies the full path into destination buffer and returns
+ * pointer to relative path after the base_path.
+ *
+ * @param [in]char *dest
+ * @param [in]const char *base_path
+ * @param [in]const char *uri
+ * @param [in]size_t destsize
+ *
+ * @return stat const char*
+ *
  */
 static const char* get_path_from_uri(char *dest, const char *base_path, const char *uri, size_t destsize)
 {
@@ -182,17 +205,26 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
 }
 
 /**
- * Structure holding server handle
- * and internal socket fd in order
- * to use out of request send
+ * @brief Free session context memory.
+ *
+ * @param [in]void *ctx.
+ *
  */
-struct async_resp_arg {
-    httpd_handle_t hd;
-    int fd;
-};
+void free_ws_session_storage(void *ctx)
+{
+    // sanity check.
+    if (ctx) {
+        free(ctx);
+    }
+}
 
 /**
- * get the AlarmDecoder IoT device and alarm state json string.
+ * @brief Generate a JSON string for the given AD2VirtualPartitionState pointer.
+ *
+ * @param [in]AD2VirtualPartitionState * to use for json object.
+ *
+ * @return cJSON*
+ *
  */
 cJSON *get_alarmdecoder_state_json(AD2VirtualPartitionState *s)
 {
@@ -246,38 +278,55 @@ cJSON *get_alarmdecoder_state_json(AD2VirtualPartitionState *s)
     return root;
 }
 
+#if CONFIG_HTTPD_WS_SUPPORT
 /**
- * async send function to send current alarmstate which we put into the httpd work queue
+ * @brief Send current alarm state to web socket connection. Lookup
+ * ws_session_storage for this connection from user_ctx
+ *
+ * @param [in]void * socket fd for this connection cast as void *.
+ *
  */
 static void ws_alarmstate_async_send(void *arg)
 {
-    // build the standard json AD2IoT device and alarm state object.
-    AD2VirtualPartitionState *s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-    cJSON *root = get_alarmdecoder_state_json(s);
-
-    if (root) {
-        cJSON_AddStringToObject(root, "event", "SYNC");
-        const char *sys_info = cJSON_Print(root);
-        struct async_resp_arg *resp_arg = (async_resp_arg *)arg;
-        httpd_handle_t hd = resp_arg->hd;
-        int fd = resp_arg->fd;
-        httpd_ws_frame_t ws_pkt;
-        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-        ws_pkt.payload = (uint8_t*)sys_info;
-        ws_pkt.len = strlen(sys_info);
-        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-        httpd_ws_send_frame_async(hd, fd, &ws_pkt);
-        free((void *)sys_info);
-        cJSON_Delete(root);
+    ESP_LOGI(TAG, "ws_alarmstate_async_send: %i", (int)arg);
+    int wsfd = (int)arg;
+    if (wsfd) {
+        // lookup session context from socket id.
+        struct ws_session_storage *sess = (ws_session_storage *)httpd_sess_get_ctx(server, wsfd);
+        if (sess) {
+            // get the partition state based upon the virtual partition ID on the AD2IoT firmware.
+            AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpaddr);
+            if (s) {
+                // build the standard json AD2IoT device and alarm state object.
+                cJSON *root = get_alarmdecoder_state_json(s);
+                if (root) {
+                    ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpaddr);
+                    cJSON_AddStringToObject(root, "event", "SYNC");
+                    const char *sys_info = cJSON_Print(root);
+                    httpd_ws_frame_t ws_pkt;
+                    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+                    ws_pkt.payload = (uint8_t*)sys_info;
+                    ws_pkt.len = strlen(sys_info);
+                    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+                    httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
+                    free((void *)sys_info);
+                    cJSON_Delete(root);
+                }
+            }
+        }
     }
 }
 
 /**
- *  HTTP GET websocket handler for api access.
+ * @brief HTTP GET websocket handler for api access.
+ *
+ * @param [in]httpd_req_t *
+ *
+ * @return esp_err_t
+ *
  */
 esp_err_t ad2ws_handler(httpd_req_t *req)
 {
-    //return ESP_OK;
     uint8_t rx_buf[128] = { 0 };
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
@@ -288,18 +337,29 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
         ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
         return ret;
     }
-    ESP_LOGI(TAG, "websocket packet with message: %s", ws_pkt.payload);
-    ESP_LOGI(TAG, "packet type: %d", ws_pkt.type);
+    ESP_LOGI(TAG, "websocket packet with message: %s and type %d", ws_pkt.payload, ws_pkt.type);
 
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
+
+        // Register and return current state.
         std::string key_sync = "!SYNC:";
         if(strncmp((char*)ws_pkt.payload, key_sync.c_str(), key_sync.length()) == 0) {
-            ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state.");
+            /* Create session's context if not already available */
+            if (!req->sess_ctx) {
+                req->sess_ctx = malloc(sizeof(ws_session_storage));  /*!< Pointer to context data */
+                req->free_ctx = free_ws_session_storage;             /*!< Function to free context data */
+            }
+            std::string args((char *)&ws_pkt.payload[key_sync.length()]);
+            std::vector<std::string> args_v;
+            ad2_tokenize(args, ',', args_v);
+            int vpaddr = atoi(args_v[0].c_str());
+            int code = atoi(args_v[1].c_str());
+            ((ws_session_storage *)req->sess_ctx)->vpaddr = vpaddr;
+            ((ws_session_storage *)req->sess_ctx)->code = code;
+            ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state for virtual partition %i.", vpaddr);
+
             // trigger an async send using httpd_queue_work
-            struct async_resp_arg *resp_arg = (async_resp_arg *)malloc(sizeof(struct async_resp_arg));
-            resp_arg->hd = req->handle;
-            resp_arg->fd = httpd_req_to_sockfd(req);
-            return httpd_queue_work(req->handle, ws_alarmstate_async_send, resp_arg);
+            return httpd_queue_work(req->handle, ws_alarmstate_async_send, (void *)httpd_req_to_sockfd(req));
         }
 
         std::string key_ping = "!PING:";
@@ -313,13 +373,37 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
                 ESP_LOGE(TAG, "httpd_ws_send_frame failed with %d", ret);
             }
         }
-    }
 
+        std::string key_send = "!SEND:";
+        if(strncmp((char*)ws_pkt.payload, key_send.c_str(), key_send.length()) == 0) {
+            std::string sendbuf = (char *)&ws_pkt.payload[key_send.length()];
+            int vpaddr = ((ws_session_storage *)req->sess_ctx)->vpaddr;
+            int code = ((ws_session_storage *)req->sess_ctx)->code;
+
+            if (sendbuf.rfind("<DISARM>", 0) == 0) {
+                ad2_disarm(code, vpaddr);
+            } else if (sendbuf.rfind("<STAY>", 0) == 0) {
+                ad2_arm_stay(code, vpaddr);
+            } else if (sendbuf.rfind("<AWAY>", 0) == 0) {
+                ad2_arm_away(code, vpaddr);
+            } else if (sendbuf.rfind("<EXIT>", 0) == 0) {
+                ad2_exit_now(vpaddr);
+            } else {
+                ESP_LOGI(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
+            }
+        }
+    }
     return ret;
 }
+#endif
 
 /**
- *  HTTP GET handler for downloading files from uSD card.
+ * @brief HTTP GET handler for downloading files from uSD card.
+ *
+ * @param [in]httpd_req_t *
+ *
+ * @return esp_err_t
+ *
  */
 esp_err_t file_get_handler(httpd_req_t *req)
 {
@@ -491,49 +575,50 @@ esp_err_t file_get_handler(httpd_req_t *req)
 }
 
 /**
- * @brief on state change
- * Called when the alarm panel state changes for tracked states.
+ * @brief Generic callback for all AlarmDecoder API event subscriptions.
  *
  * @param [in]msg std::string panel message.
- * @param [in]s nullptr
- * @param [in]arg nullptr.
+ * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
  *
  */
 void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-    if ((s && defs) && s->partition == defs->partition) {
-        ESP_LOGI(TAG, "on_state_change partition(%i) event(%s) message('%s')", defs->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
-        size_t fds = 16;
-        int client_fds[16];
-        httpd_handle_t hd = server;
-        httpd_get_client_list(hd, &fds, client_fds); //todo handle error
+#if CONFIG_HTTPD_WS_SUPPORT
+    ESP_LOGI(TAG, "on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
+    size_t fds = server_config.max_open_sockets;
+    int client_fds[fds];
+    httpd_handle_t hd = server;
+    httpd_get_client_list(hd, &fds, client_fds);
+    for (int i=0; i<fds; i++) {
+        if (httpd_ws_get_fd_info(hd, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET) {
+            struct ws_session_storage *sess = (ws_session_storage *)httpd_sess_get_ctx(server, client_fds[i]);
+            if (sess) {
+                // get the partition state based upon the virtual partition requested.
+                AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpaddr);
+                if (temps && s->partition == temps->partition) {
+                    cJSON *root = get_alarmdecoder_state_json(s);
+                    cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
+                    const char *sys_info = cJSON_Print(root);
 
-        cJSON *root = get_alarmdecoder_state_json(s);
-        cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
-        const char *sys_info = cJSON_Print(root);
-
-        httpd_ws_frame_t ws_pkt;
-        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-        ws_pkt.payload = (uint8_t*)sys_info;
-        ws_pkt.len = strlen(sys_info);
-        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-
-        if (root) {
-            for (int i=0; i<fds; i++) {
-                if (httpd_ws_get_fd_info(hd, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET) {
+                    httpd_ws_frame_t ws_pkt;
+                    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+                    ws_pkt.payload = (uint8_t*)sys_info;
+                    ws_pkt.len = strlen(sys_info);
+                    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
                     httpd_ws_send_frame_async(hd, client_fds[i], &ws_pkt);
+                    free((void *)sys_info);
+                    cJSON_Delete(root);
                 }
             }
         }
-        free((void *)sys_info);
-        cJSON_Delete(root);
     }
+#endif
 }
 
 /**
- * AD2IoT Component webUI init
+ * @brief AD2IoT Component webUI init
+ *
  */
 void webUI_init(void)
 {
@@ -563,9 +648,9 @@ void webUI_init(void)
     }
 
     // Configure the web server and handlers.
-    httpd_config_t server_config = HTTPD_DEFAULT_CONFIG();
     server_config.uri_match_fn = httpd_uri_match_wildcard;
 
+#if CONFIG_HTTPD_WS_SUPPORT
     httpd_uri_t ad2ws_server = {
         .uri       = "/ad2ws",
         .method    = HTTP_GET,
@@ -575,14 +660,17 @@ void webUI_init(void)
         .handle_ws_control_frames = false,
         .supported_subprotocol = nullptr
     };
+#endif
     httpd_uri_t file_server = {
         .uri       = "/*",
         .method    = HTTP_GET,
         .handler   = file_get_handler,
         .user_ctx  = NULL,
+#if CONFIG_HTTPD_WS_SUPPORT
         .is_websocket = false,
         .handle_ws_control_frames = false,
         .supported_subprotocol = nullptr
+#endif
     };
 
     // Start the httpd server and handlers.
@@ -590,7 +678,9 @@ void webUI_init(void)
     if (httpd_start(&server, &server_config) == ESP_OK) {
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
+#if CONFIG_HTTPD_WS_SUPPORT
         httpd_register_uri_handler(server, &ad2ws_server);
+#endif
         httpd_register_uri_handler(server, &file_server);
         // Subscribe to AlarmDecoder events
         AD2Parse.subscribeTo(ON_ARM, on_state_change, (void *)ON_ARM);
