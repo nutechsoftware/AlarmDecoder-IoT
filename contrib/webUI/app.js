@@ -168,6 +168,9 @@ class AD2ws {
       return;
 
     /* simple state machine for now to set status class */
+    if (this.ad2emb_state.alarm_sounding || this.ad2emb_state.fire_alarm) {
+      this.mode = "alarming";
+    } else
     if (this.ad2emb_state.ready) {
       this.mode = "ready";
     } else {
@@ -178,11 +181,6 @@ class AD2ws {
       if (this.ad2emb_state.armed_stay) {
         /* Note: append _exit if exit_now state is set */
         this.mode = "armed_stay" + (this.ad2emb_state.exit_now ? "_exit" : "");
-      } else
-      if (this.ad2emb_state.alarm_sounding) {
-        this.mode = "alarming";
-      } else {
-        this.mode = "notready";
       }
     }
 
@@ -224,6 +222,7 @@ class AD2ws {
           /* Parse web socket message from the AD2Iot device */
           this.ws.onmessage = e => {
               if (e.data[0] == "{") {
+                this.debug.info("Received AD2IoT alarm state: " + e.data);
                 this.ad2emb_state = JSON.parse(e.data);
               }
               if (e.data[0] == "!") {
