@@ -134,6 +134,23 @@ class AD2ws {
 
     const divStatus = elem("divStatus");
 
+    // alarm button click handler.
+    function alarmClick(obj, clicks, command) {
+      switch(clicks) {
+        case 1:
+          obj.classList.add("tap_1"); obj.classList.remove("tap_2");
+          break;
+        case 2:
+          obj.classList.remove("tap_1"); obj.classList.add("tap_2");
+          break;
+        case 3:
+          ad2ws.sendCommand(command);
+        default:
+          auxHrefClicks = 0;
+          obj.classList.remove("tap_1"); obj.classList.remove("tap_2");
+      }
+    }
+
     /**
      * bind onclick events to the UI buttons
      */
@@ -145,16 +162,34 @@ class AD2ws {
       ad2ws.sendCommand(elem("b2_text").innerHTML);
     };
 
+    var panicHrefClicks = 0;
+    var panicHrefTimer;
     elem("panicHref").onclick = function() {
-      debug.info("button panic panic alarm pressed");
+      var obj = this;
+      panicHrefClicks++;
+      alarmClick(this, panicHrefClicks, "PANIC_ALARM");
+      clearTimeout(panicHrefTimer);
+      panicHrefTimer = setTimeout(function(){ panicHrefClicks=0; alarmClick(obj, panicHrefClicks, '');}, 3000);
     };
 
+    var fireHrefClicks = 0;
+    var fireHrefTimer;
     elem("fireHref").onclick = function() {
-      debug.info("button fire alarm pressed");
+      var obj = this;
+      fireHrefClicks++;
+      alarmClick(this, fireHrefClicks, "FIRE_ALARM");
+      clearTimeout(fireHrefTimer);
+      fireHrefTimer = setTimeout(function(){ fireHrefClicks=0; alarmClick(obj, fireHrefClicks, "");}, 3000);
     };
 
+    var auxHrefClicks = 0;
+    var auxHrefTimer;
     elem("auxHref").onclick = function() {
-      debug.info("button aux alarm pressed");
+      var obj = this;
+      auxHrefClicks++;
+      alarmClick(this, auxHrefClicks, "AUX_ALARM");
+      clearTimeout(auxHrefTimer);
+      auxHrefTimer = setTimeout(function(){ auxHrefClicks=0; alarmClick(obj, auxHrefClicks, "");}, 3000);
     };
 
     elem("refreshHref").onclick = function() {

@@ -174,12 +174,12 @@ body {
   border-radius: 3px;
 }
 #controls .control.tap_1 {
-  background-color: #ffb94a;
-  border-color: #ffa008;
+  background-color: #ffa81e;
+  border-color: #ffa81e;
 }
 #controls .control.tap_2 {
-  background-color: #ffc3c2;
-  border-color: #ce0300;
+  background-color: #ff4000;
+  border-color: #ff4000;
 }
 #controls .control.large {
   width: calc(33.33% - 6px);

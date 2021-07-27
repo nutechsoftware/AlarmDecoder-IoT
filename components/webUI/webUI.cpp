@@ -388,6 +388,12 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
                 ad2_arm_away(codeID, vpartID);
             } else if (sendbuf.rfind("<EXIT>", 0) == 0) {
                 ad2_exit_now(vpartID);
+            } else if (sendbuf.rfind("<AUX_ALARM>", 0) == 0) {
+                ad2_aux_alarm(codeID, vpartID);
+            } else if (sendbuf.rfind("<PANIC_ALARM>", 0) == 0) {
+                ad2_panic_alarm(codeID, vpartID);
+            } else if (sendbuf.rfind("<FIRE_ALARM>", 0) == 0) {
+                ad2_fire_alarm(codeID, vpartID);
             } else {
                 ESP_LOGI(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
             }
