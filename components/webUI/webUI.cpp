@@ -428,6 +428,11 @@ esp_err_t file_get_handler(httpd_req_t *req)
     // copy string into something more flexible.
     std::string filepath(temppath);
 
+    // Switch / with /index.html
+    if (filepath.back() == '/') {
+        filepath += "index.html";
+    }
+
     // Special case check for pre compressed files.
     std::string gzfile = filepath + ".gz";
     if (stat(gzfile.c_str(), &file_stat) == 0) {

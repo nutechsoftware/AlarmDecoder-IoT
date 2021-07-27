@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.0.7] - 2021-06-26 Sean Mathews @f34rdotcom
  - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)
+ - [X] SM - WEBUI: Fix default index.html page. Continued improvements.
  - [X] SM - CORE: Remove some deprecated flags from sdkconfig.defaults.
  - [X] SM - CORE: change command vpaddr to vpart as it is less confusing. Updated README commands for upgrade, fixed some spelling, rename vpaddr command to vpart.
  - [X] SM - WEBUI: Wired up the refresh button. Change arguments for webUI to be vpartID and codeID to match api calls such as ad2_disarm.

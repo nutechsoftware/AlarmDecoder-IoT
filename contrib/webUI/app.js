@@ -116,11 +116,12 @@ var Debugger = function(klass) {
 const elem = id => document.getElementById(id);
 
 class AD2ws {
-  constructor(vpartID, codeID) {
+  constructor(vpartID, codeID, wsHost) {
       this.isDebug = true;
       this.debug = Debugger(this);
       this.vpartID = vpartID;
       this.codeID = codeID;
+      this.wsHost = wsHost;
       this.connecting = false;
       this.connected = false;
       this.ws = null;
@@ -187,73 +188,82 @@ class AD2ws {
       }
     }
 
-    /* retrieve the panel state for this mode and apply to the UI. */
-    debug.info("Setting the UI mode to " + this.mode);
-    var ps = panel_states.get(this.mode);
-    elem("status").className = ps.status_class;
-    elem("status_icon").className = ps.icon_class;
-    elem("status_text").innerHTML = ps.label;
-    elem("b1_icon").className = ps.b1_icon_class;
-    elem("b1_text").innerHTML = ps.b1_label;
-    elem("b2_icon").className = ps.b2_icon_class;
-    elem("b2_text").innerHTML = ps.b2_label;
+    // Update panel attributes if the mode changed.
+    if (this.mode != this.last_mode) {
+      this.last_mode = this.mode;
+
+      /* retrieve the panel state for this mode and apply to the UI main panel. */
+      debug.info("Setting the UI mode to '" + this.mode +"'");
+      var ps = panel_states.get(this.mode);
+      elem("status").className = ps.status_class;
+      elem("status_icon").className = ps.icon_class;
+      elem("status_text").innerHTML = ps.label;
+      elem("b1_icon").className = ps.b1_icon_class;
+      elem("b1_text").innerHTML = ps.b1_label;
+      elem("b2_icon").className = ps.b2_icon_class;
+      elem("b2_text").innerHTML = ps.b2_label;
+    }
   }
 
   /* FIXME: docs on simple ws request api */
   /* connect WS to AD2 IoT device and stay connected. */
   wsConnect() {
       if (this.ws === null) {
-          var wsHost = document.location.host;
-          this.debug.info("Connecting.");
-          divStatus.innerHTML = "<p>Connecting.</p>";
-          this.connecting = true;
-          this.ws = new WebSocket("ws://" + wsHost + "/ad2ws");
+        var wshost = document.location.host;
+        if (wshost === "") {
+          wshost = this.wsHost;
+        }
+        var url = "ws://" + wshost + "/ad2ws";
+        this.debug.info("Connecting to ws url: "+url);
+        divStatus.innerHTML = "<p>Connecting.</p>";
+        this.connecting = true;
+        this.ws = new WebSocket(url);
 
-          /* On open send SYNC request for the virtual partition id */
-          this.ws.onopen = e => {
-              this.debug.info("Web socket open");
+        /* On open send SYNC request for the virtual partition id */
+        this.ws.onopen = e => {
+            this.debug.info("Web socket open");
+            this.connecting = false;
+            this.connected = true;
+            divStatus.innerHTML = "<p>Connected.</p>";
+            this.wsSendSync();
+        };
+        /* Parse web socket message from the AD2Iot device */
+        this.ws.onmessage = e => {
+            if (e.data[0] == "{") {
+              this.debug.info("Received AD2IoT alarm state: " + e.data);
+              this.ad2emb_state = JSON.parse(e.data);
+            }
+            if (e.data[0] == "!") {
+              if (e.data.startsWith("!PONG:")) {
+                this.debug.info("Received 'PONG' AD2IoT web socket is alive.");
+              } else {
+                this.debug.info("Received unknown message from AD2IoT web socket: " + e.data);
+              }
+            }
+            this.updateUI();
+        }
+        /* reconnect on lost connection. */
+        this.ws.onclose = e => {
+            this.debug.info("Web socket closed");
+            this.ws = null;
+            divStatus.innerHTML = "<p>Closed.</p>";
+            if (this.connecting) {
               this.connecting = false;
-              this.connected = true;
-              divStatus.innerHTML = "<p>Connected.</p>";
-              this.wsSendSync();
-          };
-          /* Parse web socket message from the AD2Iot device */
-          this.ws.onmessage = e => {
-              if (e.data[0] == "{") {
-                this.debug.info("Received AD2IoT alarm state: " + e.data);
-                this.ad2emb_state = JSON.parse(e.data);
-              }
-              if (e.data[0] == "!") {
-                if (e.data.startsWith("!PONG:")) {
-                  this.debug.info("Received 'PONG' AD2IoT web socket is alive.");
-                } else {
-                  this.debug.info("Received unknown message from AD2IoT web socket: " + e.data);
-                }
-              }
-              this.updateUI();
-          }
-          /* reconnect on lost connection. */
-          this.ws.onclose = e => {
-              this.debug.info("Web socket closed");
-              this.ws = null;
-              divStatus.innerHTML = "<p>Closed.</p>";
-              if (this.connecting) {
-                this.connecting = false;
-                this.debug.info("was connecting.");
-              }
-              if (this.connected) {
-                  this.connected = false;
-                  divStatus.innerHTML+="<p>Disconnected.</p>";
-              }
-              setTimeout(function() {
-                ad2ws.wsConnect();
-              }, 1000);
-          }
-          /* on errors */
-          this.ws.onerror = e => {
-              this.debug.error(e);
-              this.ws.close();
-          }
+              this.debug.info("was connecting.");
+            }
+            if (this.connected) {
+                this.connected = false;
+                divStatus.innerHTML+="<p>Disconnected.</p>";
+            }
+            setTimeout(function() {
+              ad2ws.wsConnect();
+            }, 1000);
+        }
+        /* on errors */
+        this.ws.onerror = e => {
+            this.debug.error(e);
+            this.ws.close();
+        }
       }
   }
 
@@ -272,7 +282,6 @@ class AD2ws {
     if (this.ws !== null) {
       if (this.ws.readyState === WebSocket.OPEN) {
         this.debug.info("sending ping.");
-        this.debug.info(this.ws);
         this.wsSendMessage("!PING:00000000");
       }
     }
@@ -326,9 +335,20 @@ if( (szvalue = getQueryStringParameterByName("codeID")) === null ) {
   codeID = parseInt(szvalue);
 };
 
+/**
+ * Allow for debugging by use a different host for the websocket than the source of this html.
+ */
+var wsHost = null;
+if( (szvalue = getQueryStringParameterByName("wsHost")) === null ) {
+  console.info("No 'wsHost' value provided in URI using default source host.");
+} else {
+  console.info("Loading 'wsHost' value from URI.");
+  wsHost = szvalue;
+};
+
 console.info("Starting the AD2IoT Virtual Keypad using vpart id: "+ vpartID + " and code id: " + codeID);
 /* Initialize the AD2ws class for the address */
-let ad2ws = new AD2ws(vpartID, codeID);
+let ad2ws = new AD2ws(vpartID, codeID, wsHost);
 
 /* Initialize the UI */
 ad2ws.initUI();
