@@ -70,8 +70,8 @@ httpd_handle_t server = NULL;
  * @brief websocket session storage structure.
  */
 struct ws_session_storage {
-    int vpaddr;
-    int code;
+    int vpartID;
+    int codeID;
 };
 
 // C++
@@ -295,12 +295,12 @@ static void ws_alarmstate_async_send(void *arg)
         struct ws_session_storage *sess = (ws_session_storage *)httpd_sess_get_ctx(server, wsfd);
         if (sess) {
             // get the partition state based upon the virtual partition ID on the AD2IoT firmware.
-            AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpaddr);
+            AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpartID);
             if (s) {
                 // build the standard json AD2IoT device and alarm state object.
                 cJSON *root = get_alarmdecoder_state_json(s);
                 if (root) {
-                    ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpaddr);
+                    ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
                     cJSON_AddStringToObject(root, "event", "SYNC");
                     const char *sys_info = cJSON_Print(root);
                     httpd_ws_frame_t ws_pkt;
@@ -352,11 +352,11 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
             std::string args((char *)&ws_pkt.payload[key_sync.length()]);
             std::vector<std::string> args_v;
             ad2_tokenize(args, ',', args_v);
-            int vpaddr = atoi(args_v[0].c_str());
-            int code = atoi(args_v[1].c_str());
-            ((ws_session_storage *)req->sess_ctx)->vpaddr = vpaddr;
-            ((ws_session_storage *)req->sess_ctx)->code = code;
-            ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state for virtual partition %i.", vpaddr);
+            int codeID = atoi(args_v[1].c_str());
+            int vpartID = atoi(args_v[0].c_str());
+            ((ws_session_storage *)req->sess_ctx)->codeID = codeID;
+            ((ws_session_storage *)req->sess_ctx)->vpartID = vpartID;
+            ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state for virtual partition %i.", vpartID);
 
             // trigger an async send using httpd_queue_work
             return httpd_queue_work(req->handle, ws_alarmstate_async_send, (void *)httpd_req_to_sockfd(req));
@@ -377,17 +377,17 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
         std::string key_send = "!SEND:";
         if(strncmp((char*)ws_pkt.payload, key_send.c_str(), key_send.length()) == 0) {
             std::string sendbuf = (char *)&ws_pkt.payload[key_send.length()];
-            int vpaddr = ((ws_session_storage *)req->sess_ctx)->vpaddr;
-            int code = ((ws_session_storage *)req->sess_ctx)->code;
+            int codeID = ((ws_session_storage *)req->sess_ctx)->codeID;
+            int vpartID = ((ws_session_storage *)req->sess_ctx)->vpartID;
 
             if (sendbuf.rfind("<DISARM>", 0) == 0) {
-                ad2_disarm(code, vpaddr);
+                ad2_disarm(codeID, vpartID);
             } else if (sendbuf.rfind("<STAY>", 0) == 0) {
-                ad2_arm_stay(code, vpaddr);
+                ad2_arm_stay(codeID, vpartID);
             } else if (sendbuf.rfind("<AWAY>", 0) == 0) {
-                ad2_arm_away(code, vpaddr);
+                ad2_arm_away(codeID, vpartID);
             } else if (sendbuf.rfind("<EXIT>", 0) == 0) {
-                ad2_exit_now(vpaddr);
+                ad2_exit_now(vpartID);
             } else {
                 ESP_LOGI(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
             }
@@ -595,7 +595,7 @@ void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
             struct ws_session_storage *sess = (ws_session_storage *)httpd_sess_get_ctx(server, client_fds[i]);
             if (sess) {
                 // get the partition state based upon the virtual partition requested.
-                AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpaddr);
+                AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpartID);
                 if (temps && s->partition == temps->partition) {
                     cJSON *root = get_alarmdecoder_state_json(s);
                     cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());

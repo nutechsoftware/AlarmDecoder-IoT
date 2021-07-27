@@ -587,16 +587,16 @@ void app_main()
     uart_cli_main();
 
     // init the virtual partition database from NV storage
-    // see iot_cli_cmd::vpaddr
+    // see iot_cli_cmd::vpart
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         int x = -1;
-        ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, n, 0, &x);
+        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
             uint32_t amask = 1;
             amask <<= x-1;
             AD2Parse.getAD2PState(&amask, true);
-            ESP_LOGI(TAG, "init vpaddr slot %i mask %i", n, x);
+            ESP_LOGI(TAG, "init vpart slot %i mask %i", n, x);
         }
     }
 

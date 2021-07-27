@@ -673,7 +673,7 @@ void ad2_arm_away(int codeId, int vpartId)
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -714,7 +714,7 @@ void ad2_arm_stay(int codeId, int vpartId)
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -727,7 +727,7 @@ void ad2_arm_stay(int codeId, int vpartId)
         } else if (s->panel_type == DSC_PANEL) {
             msg = "<S4>";
         }
-        ESP_LOGI(TAG,"Sending ARM STAY command");
+        ESP_LOGI(TAG,"Sending ARM STAY command to address %i using code '%s'", address, code.c_str());
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -754,7 +754,7 @@ void ad2_disarm(int codeId, int vpartId)
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -799,7 +799,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -837,7 +837,7 @@ void ad2_fire_alarm(int codeId, int vpartId)
 
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
     msg = ad2_string_printf("K%02i<S1>", address);
@@ -863,7 +863,7 @@ void ad2_panic_alarm(int codeId, int vpartId)
 
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
     msg = ad2_string_printf("K%02i<S2>", address);
@@ -890,7 +890,7 @@ void ad2_aux_alarm(int codeId, int vpartId)
 
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
     msg = ad2_string_printf("K%02i<S3>", address);
@@ -916,7 +916,7 @@ void ad2_exit_now(int vpartId)
 {
 
     int address = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &address);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
     std::string msg;
 
@@ -1022,7 +1022,7 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
 {
     AD2VirtualPartitionState * s = nullptr;
     int x = -1;
-    ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, vpartId, nullptr, &x);
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &x);
     // if we found a NV record then initialize the AD2PState for the mask.
     if (x != -1) {
         s = AD2Parse.getAD2PState(x, false);

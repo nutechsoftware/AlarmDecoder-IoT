@@ -774,7 +774,9 @@ static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
         "- Preform an OTA upgrade now download and install new flash.\r\n\r\n"
-        "  ```" OTA_UPGRADE_CMD "```\r\n\r\n", ota_do_update
+        "  ```" OTA_UPGRADE_CMD " [buildflag]```\r\n\r\n"
+        "  - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.\r\n\r\n"
+        "    See release page for details on available builds.\r\n\r\n", ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)

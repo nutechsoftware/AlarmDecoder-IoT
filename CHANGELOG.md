@@ -5,36 +5,41 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
+## [1.0.7] - 2021-06-26 Sean Mathews @f34rdotcom
+ - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)
+ - [X] SM - CORE: Remove some deprecated flags from sdkconfig.defaults.
+ - [X] SM - CORE: change command vpaddr to vpart as it is less confusing. Updated README commands for upgrade, fixed some spelling, rename vpaddr command to vpart.
+ - [X] SM - WEBUI: Wired up the refresh button. Change arguments for webUI to be vpartID and codeID to match api calls such as ad2_disarm.
+ - [X] SM - WEBUI: Found and fixed some issues found during testing multi partition and fire alarm conditions.
+ - [X] SM - STSDK: Testing with latest release of st-device-sdk-c-ref v1.7 on July 26, 2021. It has been 7 months since the last release. No issues noted so far. Still using and older ESP-IDF v4.0.1-319-g79493f083 with no websocket support. With platformio build we are using v4.3.
+ - [X] SM - OTA: Add ability to fetch firmware by build flags. The default is 'stsdk' but now I can publish a 'webui' build with ST disabled and websockets enabled.
+ - [X] SM - WEBUI: Continued work. Disable WebSocket code if not available such as with STSDK building. UI now supports multiple partitions by specifying 'vpaddr' and 'code' on the query string and the UI will use the AD2IoT configuration settings for the 'vpaddr' and 'code'. Connected buttons to ARM AWAY/STAY, DISARM, EXIT.
+ - [X] SM - API: Fixed a few bugs in the parser from I think when I switched from Arduino Strings to std::strings where the use of substr is different.
+ - [X] SM - WEBUI: New module ported from ArduinoAlarmDecoder with websocket, templates and IPv4 ACL control for access. 24hr 86,400 web request load test PASS! Wiring up html and js code. Status works and screen updates in real time to show alarm state. Buttons roughed in but not sending anything yet.
+ - [X] SM - CORE: Did some work on the GPIO/HAL. This still needs work and hardware testing with ethernet, uSD and AD2pHAT.
+ - [X] SM - CORE: Fix cert bundle build issue if MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH is enabled.
+ - [X] SM - CORE: valid public certs are no longer needed but keep these old certs around for building in older ESP-IDF versions by moving to component folder.
+ - [X] SM - CORE: Cleanup menuconfig removing MQTT references that need to be in component yet to be made. Moved ser2sock settings to ser2sock component.
+ - [X] SM - OTA: Cleanup a little and get it working with ESP-IDF v4.3 and older v3.2.
+ - [X] SM - PIO: Update to latest release v3.3.0 of platform-espressif32 now with ESP-IDF v4.3!
+ - [X] SM - API: Improve tracking quirk on Ademco with system messages.
+ - [X] SM - CORE: rename partition.2MB.csv to partition.4MB.csv was already a 4MB partition just wrong filename.
+ - [X] SM - CORE: add "build" to .gitignore for stsdk build process.
+ - [X] SM - TWILIO: Increase thread stack by 1k.
+ - [X] SM - CORE: Centralize certificates. Enable MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN to use a common certificate bundle and allow to add custom certificates in the new 'certs' folder. When building with older Espressif revert back to older individual certificate management api calls.
+ - [X] SM - OTA: Set 10 second timeout on update socket. Change first version test from 30s after boot to 60. Fix a memory leak after failed firmware version connection.
+ - [X] SM - CORE: Tune tasks for UARTS.
+ - [X] SM - CORE: Change to require break sequence '...' to interrupt startup to prevent spurious data down the uart from interrupting normal boot operation.
+ - [X] SM - CORE: Improve break detection from ad2term and fix some some uart driver issues I was seeing between Espressif v4.2 and v3.2.
+ - [X] SM - CORE: README.MD add placeholder for building with platformio and seperate STSDK build.
+ - [X] SM - CORE: Fix platformio build upload problem. The address of 0x10000 is hard coded and it needs to be 0x20000 to match the standard OTA partition schema. Refactor platformio.ini to allow building for different ESP32 boards.
+ - [X] SM - CORE: Improve building newer PIO Espressif32 releases that support newer stable Espressif v4.2 or older stable v3.2. Refactor code to better keep the versions of Espressif defined inside of compiler switches for ESP_IDF_VERSION_VAL.
+ - [X] SM - CORE: Running menuconfig inside of VSCODE using pio does not work. Flashes the menu screen then goes POOF!. For now test in a shell. ( PEBCAC screen size. )
+ - [X] SM - CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
+
 ### SM - Sean Mathews coder at f34r.com
-- [X] WEBUI: Found and fixed some issues found during testing multi partition and fire alarm conditions.
-- [X] STSDK: Testing with latest release of st-device-sdk-c-ref v1.7 on July 26, 2021. It has been 7 months since the last release. No issues noted so far. Still using and older ESP-IDF v4.0.1-319-g79493f083 with no websocket support. With platformio build we are using v4.3.
-- [X[ OTA: Add ability to fetch firmware by build flags. The default is 'stsdk' but now I can publish a 'webui' build with ST disabled and websockets enabled.
-- [X] WEBUI: Continued work. Disable WebSocket code if not available such as with STSDK building. UI now supports multiple partitions by specifying 'vpaddr' and 'code' on the query string and the UI will use the AD2IoT configuration settings for the 'vpaddr' and 'code'. Connected buttons to ARM AWAY/STAY, DISARM, EXIT.
-- [X] API: Fixed a few bugs in the parser from I think when I switched from Arduino Strings to std::strings where the use of substr is different.
-- [X] WEBUI: New module ported from ArduinoAlarmDecoder with websocket, templates and IPv4 ACL control for access. 24hr 86,400 web request load test PASS! Wiring up html and js code. Status works and screen updates in real time to show alarm state. Buttons roughed in but not sending anything yet.
-- [X] CORE: Did some work on the GPIO/HAL. This still needs work and hardware testing with ethernet, uSD and AD2pHAT.
-- [X] CORE: Fix cert bundle build issue if MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH is enabled.
-- [X] CORE: valid public certs are no longer needed but keep these old certs around for building in older ESP-IDF versions by moving to component folder.
-- [X] CORE: Cleanup menuconfig removing MQTT references that need to be in component yet to be made. Moved ser2sock settings to ser2sock component.
-- [X] OTA: Cleanup a little and get it working with ESP-IDF v4.3 and older v3.2.
-- [X] PIO: Update to latest release v3.3.0 of platform-espressif32 now with ESP-IDF v4.3!
-- [X] API: Improve tracking quirk on Ademco with system messages.
-- [X] CORE: rename partition.2MB.csv to partition.4MB.csv was already a 4MB partition just wrong filename.
-- [ ] CORE: mbedTLS memory usage is high mbedtls_ssl_setup(10k+) and 5k for thread stack. In order to build with ST+TWILIO+SENDGRID+PUSHOVER it required some adjustments
-- [X] CORE: add "build" to .gitignore for stsdk build process.
-- [X] TWILIO: Increase thread stack by 1k.
-- [X] CORE: Centralize certificates. Enable MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN to use a common certificate bundle and allow to add custom certificates in the new 'certs' folder. When building with older Espressif revert back to older individual certificate management api calls.
-- [X] OTA: Set 10 second timeout on update socket. Change first version test from 30s after boot to 60. Fix a memory leak after failed firmware version connection.
-- [X] CORE: Tune tasks for UARTS.
-- [X] CORE: Change to require break sequence '...' to interrupt startup to prevent spurious data down the uart from interrupting normal boot operation.
-- [X] CORE: Improve break detection from ad2term and fix some some uart driver issues I was seeing between Espressif v4.2 and v3.2.
-- [X] CORE: README.MD add placeholder for building with platformio and seperate STSDK build.
-- [X] CORE: Fix platformio build upload problem. The address of 0x10000 is hard coded and it needs to be 0x20000 to match the standard OTA partition schema. Refactor platformio.ini to allow building for different ESP32 boards.
-- [X] CORE: Improve building newer PIO Espressif32 releases that support newer stable Espressif v4.2 or older stable v3.2. Refactor code to better keep the versions of Espressif defined inside of compiler switches for ESP_IDF_VERSION_VAL.
-- [X] CORE: Running menuconfig inside of VSCODE using pio does not work. Flashes the menu screen then goes POOF!. For now test in a shell. ( PEBCAC screen size. )
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
 - [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
-- [X] CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
@@ -52,8 +57,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
 
 ### AJ
-
-- [x] Add [PlatformIO](https://platformio.org/)
 - [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes

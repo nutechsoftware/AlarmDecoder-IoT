@@ -1467,7 +1467,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
         }
         on_chime_change_cb(&statestr, s, nullptr);
     } else {
-        ESP_LOGE(TAG, "vpaddr[%u] not found", AD2_DEFAULT_VPA_SLOT);
+        ESP_LOGE(TAG, "vpart[%u] not found", AD2_DEFAULT_VPA_SLOT);
     }
 }
 

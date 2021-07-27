@@ -11,12 +11,12 @@ var panel_states =  {
     "b1_icon_class": "icon house with_lock",
     "b1_label": "DISARM",
     "b2_icon_class": "icon house with_walker",
-    "b2_label": "EXIT"
+    "b2_label": "DISARM"
   },
   "armed_away_exit":{
     "status_class":"armed",
     "icon_class":"icon house with_walker",
-    "label":"Armed (exit&nbsp;now)",
+    "label":"Armed (away&nbsp;exit&nbsp;now)",
     "b1_icon_class": "icon house with_lock",
     "b1_label": "DISARM",
     "b2_icon_class": "icon house with_lock",
@@ -34,7 +34,7 @@ var panel_states =  {
   "armed_stay_exit":{
     "status_class":"armed",
     "icon_class":"icon house with_walker",
-    "label":"Armed (exit&nbsp;now)",
+    "label":"Armed (stay&nbsp;exit&nbsp;now)",
     "b1_icon_class": "icon house with_lock",
     "b1_label": "DISARM",
     "b2_icon_class": "icon house with_lock",
@@ -70,7 +70,7 @@ var panel_states =  {
   "fire":{
     "status_class":"alarming",
     "icon_class":"icon house with_key",
-    "label":"Fire!",
+    "label":"Fire Alarm",
     "b1_icon_class": "icon house with_lock",
     "b1_label": "DISARM",
     "b2_icon_class": "icon house with_lock",
@@ -116,11 +116,11 @@ var Debugger = function(klass) {
 const elem = id => document.getElementById(id);
 
 class AD2ws {
-  constructor(vpartition, vcode) {
+  constructor(vpartID, codeID) {
       this.isDebug = true;
       this.debug = Debugger(this);
-      this.vpartition = vpartition;
-      this.vcode = vcode;
+      this.vpartID = vpartID;
+      this.codeID = codeID;
       this.connecting = false;
       this.connected = false;
       this.ws = null;
@@ -157,7 +157,7 @@ class AD2ws {
     };
 
     elem("refreshHref").onclick = function() {
-      debug.info("button refresh pressed");
+      ad2ws.wsSendSync();
     };
   }
 
@@ -168,8 +168,11 @@ class AD2ws {
       return;
 
     /* simple state machine for now to set status class */
-    if (this.ad2emb_state.alarm_sounding || this.ad2emb_state.fire_alarm) {
+    if (this.ad2emb_state.alarm_sounding) {
       this.mode = "alarming";
+    } else
+    if (this.ad2emb_state.fire_alarm) {
+      this.mode = "fire";
     } else
     if (this.ad2emb_state.ready) {
       this.mode = "ready";
@@ -212,12 +215,7 @@ class AD2ws {
               this.connecting = false;
               this.connected = true;
               divStatus.innerHTML = "<p>Connected.</p>";
-
-              /*
-               * Request the current AD2EMB AlarmDecoder state and inform the server
-               * of our address or partition to be connected to.
-               */
-              this.wsSendMessage("!SYNC:"+this.vpartition+","+this.vcode);
+              this.wsSendSync();
           };
           /* Parse web socket message from the AD2Iot device */
           this.ws.onmessage = e => {
@@ -257,6 +255,15 @@ class AD2ws {
               this.ws.close();
           }
       }
+  }
+
+ /**
+  * Request the current AD2EMB AlarmDecoder state and inform the server
+  * of our address or partition to be connected to.
+  */
+  wsSendSync() {
+    this.debug.info("wsSendSync");
+    this.wsSendMessage("!SYNC:"+this.vpartID+","+this.codeID);
   }
 
   /* check the ws connection */
@@ -301,27 +308,27 @@ function getQueryStringParameterByName(name, url = window.location.href) {
 }
 
 /**
- * Use commands 'vpaddr' and 'code' to configure the virtual keypad and code slot.
+ * Use commands 'vpart' and 'code' to configure the virtual keypad and code slot.
  *  https://github.com/nutechsoftware/AlarmDecoder-STSDK#base-commands
  */
-var vpaddr = 0; var code = 0;
+var vpartID = 0; var codeID = 0;
 var szvalue = null;
-if( (szvalue = getQueryStringParameterByName("vpaddr")) === null ) {
-  console.info("No 'vpaddr' value provided in URI using default value.");
+if( (szvalue = getQueryStringParameterByName("vpartID")) === null ) {
+  console.info("No 'vpartID' value provided in URI using default value.");
 } else {
-  console.info("Loading 'vpaddr' value from URI.");
-  vpaddr = parseInt(szvalue);
+  console.info("Loading 'vpartID' value from URI.");
+  vpartID = parseInt(szvalue);
 };
-if( (szvalue = getQueryStringParameterByName("code")) === null ) {
-  console.info("No 'code' id value provided in URI using default value.");
+if( (szvalue = getQueryStringParameterByName("codeID")) === null ) {
+  console.info("No 'codeID' id value provided in URI using default value.");
 } else {
-  console.info("Loading 'code' id value from URI.");
-  code = parseInt(szvalue);
+  console.info("Loading 'codeID' id value from URI.");
+  codeID = parseInt(szvalue);
 };
 
-console.info("Starting the AD2IoT Virtual Keypad on vpaddr: "+ vpaddr + " code: " + code);
+console.info("Starting the AD2IoT Virtual Keypad using vpart id: "+ vpartID + " and code id: " + codeID);
 /* Initialize the AD2ws class for the address */
-let ad2ws = new AD2ws(vpaddr, code);
+let ad2ws = new AD2ws(vpartID, codeID);
 
 /* Initialize the UI */
 ad2ws.initUI();

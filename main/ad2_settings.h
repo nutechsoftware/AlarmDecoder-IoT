@@ -42,7 +42,7 @@
 #define AD2_MAX_MODE_ARG_SIZE 80
 
 // @brief Parent Key to store virtual partition slots
-#define VPADDR_CONFIG_KEY     "vpa"
+#define VPART_CONFIG_KEY     "vpa"
 
 // @brief Parent Key to store code slots
 #define CODES_CONFIG_KEY      "codes"

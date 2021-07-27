@@ -59,7 +59,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Set the USER code for a given slot.
+ * @brief Set the alarm code for a given code slot/id.
  *
  * @param [in]string command buffer pointer.
  *
@@ -103,20 +103,20 @@ static void _cli_cmd_code_event(char *string)
 }
 
 /**
- * @brief Set the Virtual Partition address code for a given slot.
+ * @brief Set the Address for a given virtual partition slot/id.
  *
  * @param [in]string command buffer pointer.
  *
- * @note command: vpaddr <slot> <address>
+ * @note command: vpart <slot> <address>
  *   Valid slots are from 0 to AD2_MAX_VPARTITION
  *   where slot 0 is the default.
  *
  *   example.
- *     AD2IOT # vpaddr c 2
- *     AD2IOT # vpaddr s 192.168.1.2:10000
+ *     AD2IOT # vpart c 2
+ *     AD2IOT # vpart s 192.168.1.2:10000
  *
  */
-static void _cli_cmd_vpaddr_event(char *string)
+static void _cli_cmd_vpart_event(char *string)
 {
     std::string buf;
     int slot = 0;
@@ -130,17 +130,17 @@ static void _cli_cmd_vpaddr_event(char *string)
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                ad2_printf_host("Setting vpaddr in slot %i to '%i'...\r\n", slot, address);
-                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, address);
+                ad2_printf_host("Setting vpart in slot %i to '%i'...\r\n", slot, address);
+                ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, address);
             } else {
                 // delete entry
-                ad2_printf_host("Deleting vpaddr in slot %i...\r\n", slot);
-                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, -1);
+                ad2_printf_host("Deleting vpart in slot %i...\r\n", slot);
+                ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, -1);
             }
         } else {
             // show contents of this slot
-            ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, &address);
-            ad2_printf_host("The vpaddr in slot %i is %i\r\n", slot, address);
+            ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, &address);
+            ad2_printf_host("The vpart in slot %i is %i\r\n", slot, address);
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
@@ -510,23 +510,23 @@ static struct cli_command cmd_list[] = {
         "    Note: value -1 will remove an entry.\r\n", _cli_cmd_code_event
     },
     {
-        (char*)AD2_VPADDR,(char*)
+        (char*)AD2_VPART,(char*)
         "- Manage virtual partitions.\r\n\r\n"
-        "  ```" AD2_VPADDR " {id} {value}```\r\n\r\n"
+        "  ```" AD2_VPART " {id} {value}```\r\n\r\n"
         "  - {id}\r\n"
         "    - The virtual partition ID. 0 is the default.\r\n"
         "  - [value]\r\n"
         "    - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n\r\n"
         "  Examples\r\n"
         "    - Set default address mask to 18 for an Ademco system.\r\n"
-        "      - " AD2_VPADDR " 0 18\r\n"
+        "      - " AD2_VPART " 0 18\r\n"
         "    - Set default send partition to 1 for a DSC system.\r\n"
-        "      - " AD2_VPADDR " 0 1\r\n"
+        "      - " AD2_VPART " 0 1\r\n"
         "    - Show address for partition 2.\r\n"
-        "      - " AD2_VPADDR " 2\r\n"
+        "      - " AD2_VPART " 2\r\n"
         "    - Remove virtual partition in slot 2.\r\n"
-        "      - " AD2_VPADDR " 2 -1\r\n\r\n"
-        "    Note: address -1 will remove an entry.\r\n", _cli_cmd_vpaddr_event
+        "      - " AD2_VPART " 2 -1\r\n\r\n"
+        "    Note: address -1 will remove an entry.\r\n", _cli_cmd_vpart_event
     },
     {
         (char*)AD2_SOURCE,(char*)
