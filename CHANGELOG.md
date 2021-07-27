@@ -5,6 +5,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
+### SM - Sean Mathews coder at f34r.com
+- [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
+- [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
+- [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
+- [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
+- [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
+- [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
+- [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
+- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
+- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [ ] API: Add countdown tracking for DSC/Ademco exit mode
+- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
+- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
+- [ ] CORE: TODO: Ethernet hardware enable.
+- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
+- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
+- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
+- [ ] STSDK: TODO: Add SmartThings Zone devices.
+
+### AJ
+- [ ] Add a GitHub Action to run a `pio` build on every PR
+- [ ] Migrate `astyle` to GitHub Action
+- [ ] Update README.md to reflect `pio` build changes
+
 ## [1.0.7] - 2021-06-26 Sean Mathews @f34rdotcom
  - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)
  - [X] SM - CORE: Remove some deprecated flags from sdkconfig.defaults.
@@ -36,30 +60,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  - [X] SM - CORE: Improve building newer PIO Espressif32 releases that support newer stable Espressif v4.2 or older stable v3.2. Refactor code to better keep the versions of Espressif defined inside of compiler switches for ESP_IDF_VERSION_VAL.
  - [X] SM - CORE: Running menuconfig inside of VSCODE using pio does not work. Flashes the menu screen then goes POOF!. For now test in a shell. ( PEBCAC screen size. )
  - [X] SM - CORE: Certificate store or some way to avoid having to store fixed static public keys for twilio, pushover and other REST api plugins.
-
-### SM - Sean Mathews coder at f34r.com
-- [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
-- [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
-- [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
-- [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
-- [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
-- [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
-- [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
-- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
-- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
-- [ ] API: Add countdown tracking for DSC/Ademco exit mode
-- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
-- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
-- [ ] CORE: TODO: Ethernet hardware enable.
-- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
-- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
-- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
-- [ ] STSDK: TODO: Add SmartThings Zone devices.
-
-### AJ
-- [ ] Add a GitHub Action to run a `pio` build on every PR
-- [ ] Migrate `astyle` to GitHub Action
-- [ ] Update README.md to reflect `pio` build changes
 
 ## [1.0.6 P6] - 2021-04-05 Sean Mathews @f34rdotcom
 - [X] CORE: Move log mode init.
