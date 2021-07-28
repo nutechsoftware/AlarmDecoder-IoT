@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
 
-## [1.0.7] - 2021-06-26 Sean Mathews @f34rdotcom
+## [1.0.7] - 2021-06-26 Sean Mathews - coder @f34rdotcom
  - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)
  - [X] SM - WEBUI: Connect panic buttons with 3 second resetting timers.
  - [X] SM - WEBUI: Fix default index.html page. Continued improvements.
