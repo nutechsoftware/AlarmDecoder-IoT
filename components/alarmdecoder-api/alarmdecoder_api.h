@@ -32,8 +32,6 @@
 #include <bits/stdc++.h>
 #include <map>
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 using namespace std;
 

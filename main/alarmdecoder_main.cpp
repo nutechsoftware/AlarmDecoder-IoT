@@ -30,6 +30,10 @@
 #include <alarmdecoder_api.h>
 
 // esp includes
+// esp includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "driver/uart.h"
 #include <lwip/netdb.h>
 #include "esp_system.h"
@@ -108,8 +112,8 @@ int g_ad2_client_handle = -1;
 // global ad2 connection mode ['S'ocket | 'C'om port]
 uint8_t g_ad2_mode = 0;
 
-// global network connection state
-int g_ad2_network_state = AD2_OFFLINE;
+// global ad2 network EventGroup
+EventGroupHandle_t g_ad2_net_event_group = nullptr;
 
 // Device LED mode
 int noti_led_mode = LED_ANIMATION_MODE_IDLE;
@@ -301,7 +305,7 @@ static void ad2uart_client_task(void *pvParameters)
 
     while (1) {
         // do not process if main halted or network disconnected.
-        if (!g_StopMainTask && g_ad2_network_state == AD2_CONNECTED) {
+        if (!g_StopMainTask && hal_get_network_connected()) {
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
@@ -330,7 +334,7 @@ static void ser2sock_client_task(void *pvParameters)
 {
 
     while (1) {
-        if (g_ad2_network_state == AD2_CONNECTED) {
+        if (hal_get_network_connected()) {
             // load settings from NVS
             // host stored in slot 1
             std::string buf;
@@ -416,7 +420,7 @@ static void ser2sock_client_task(void *pvParameters)
                         AD2Parse.put(rx_buffer, len);
                     }
                 }
-                if (g_ad2_network_state != AD2_CONNECTED) {
+                if (!hal_get_network_connected()) {
                     break;
                 }
                 vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -547,6 +551,9 @@ void app_main()
     // load and set the logging level.
     ad2_set_log_mode(ad2_log_mode());
 
+    // create event group
+    g_ad2_net_event_group = xEventGroupCreate();
+
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
@@ -583,7 +590,7 @@ void app_main()
     }
 
     // Start the CLI.
-    // Press "..."" to halt startup and stay if a safe mode commadn line only.
+    // Press "..."" to halt startup and stay if a safe mode command line only.
     uart_cli_main();
 
     // init the virtual partition database from NV storage

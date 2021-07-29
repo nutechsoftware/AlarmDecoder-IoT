@@ -1322,9 +1322,9 @@ void iot_status_cb(iot_status_t status,
     // Because ST takes control of the WiFi
     // let everyone know it is up and connected.
     if (status == IOT_STATUS_CONNECTING) {
-        g_ad2_network_state = AD2_CONNECTED;
+        hal_set_network_connected(true);
     } else {
-        g_ad2_network_state = AD2_OFFLINE;
+        hal_set_network_connected(false);
     }
 
     switch(status) {

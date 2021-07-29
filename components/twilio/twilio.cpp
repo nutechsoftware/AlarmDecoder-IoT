@@ -55,6 +55,7 @@ static const char *TAG = "TWILIO";
 #include "ad2_utils.h"
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
+#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_TWILIO_CLIENT
@@ -534,7 +535,7 @@ void ad2_event_cb_twilio(std::string *msg, AD2VirtualPartitionState *s, void *ar
             body = AD2Parse.event_str[(int)arg];
         }
 
-        if (g_ad2_network_state == AD2_CONNECTED) {
+        if (hal_get_network_connected()) {
             // load our settings for this event type.
             std::string key;
 
@@ -584,7 +585,7 @@ void on_search_match_cb_tw(std::string *msg, AD2VirtualPartitionState *s, void *
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
     ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
-    if (g_ad2_network_state == AD2_CONNECTED) {
+    if (hal_get_network_connected()) {
         std::string body = es->out_message;
         // load our settings for this event type.
         std::string key;

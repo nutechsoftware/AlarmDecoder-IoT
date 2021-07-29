@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.0.7] - 2021-06-26 Sean Mathews - coder @f34rdotcom
  - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)
+ - [X] SM - CORE: Improve network state management. Remove g_ad2_network_state. Tested by disconnecting network etc. Still need to improve storing of events for Twilio, Pushover when network is down for just just dropping new events if network is down. Put webUI inside of a thread to monitor for disconnects and restart if needed.
  - [X] SM - WEBUI: Connect panic buttons with 3 second resetting timers.
  - [X] SM - WEBUI: Fix default index.html page. Continued improvements.
  - [X] SM - CORE: Remove some deprecated flags from sdkconfig.defaults.

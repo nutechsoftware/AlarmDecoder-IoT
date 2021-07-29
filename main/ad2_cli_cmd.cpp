@@ -253,7 +253,7 @@ static void _cli_cmd_ad2term_event(char *string)
 
             // Socket source
         } else if (g_ad2_mode == 'S') {
-            if (g_ad2_network_state == AD2_CONNECTED) {
+            if (hal_get_network_connected()) {
                 int len = recv(g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 0);
 
                 // test if error occurred

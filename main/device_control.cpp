@@ -59,10 +59,15 @@ static const char *TAG = "HAL";
 extern "C" {
 #endif
 
+// forward decl for private event handlers.
 void _eth_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data);
+void _wifi_event_handler(void *arg, esp_event_base_t event_base,
+                         int32_t event_id, void *event_data);
 void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data);
+void _lost_ip_event_handler(void *arg, esp_event_base_t event_base,
+                            int32_t event_id, void *event_data);
 
 static int HAL_NET_INITIALIZED = false;
 
@@ -76,14 +81,12 @@ static esp_netif_t* netif = NULL;
 
 
 // WiFi event state bits
-const int WIFI_STA_START_BIT 		= BIT0;
-const int WIFI_STA_CONNECT_BIT		= BIT1;
-const int WIFI_STA_DISCONNECT_BIT	= BIT2;
-const int WIFI_AP_START_BIT 		= BIT3;
-const int WIFI_AP_STOP_BIT 			= BIT4;
-const int WIFI_EVENT_BIT_ALL = BIT0|BIT1|BIT2|BIT3|BIT4;
-
-static EventGroupHandle_t net_event_group;
+const int NET_STA_START_BIT 		= BIT0;
+const int NET_STA_CONNECT_BIT		= BIT1;
+const int NET_STA_DISCONNECT_BIT	= BIT2;
+const int NET_AP_START_BIT 		= BIT3;
+const int NET_AP_STOP_BIT 		= BIT4;
+const int NET_EVENT_BIT_ALL = BIT0|BIT1|BIT2|BIT3|BIT4;
 
 static bool switchAState = SWITCH_OFF;
 static bool switchBState = SWITCH_OFF;
@@ -351,15 +354,12 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
 
     switch(event_id) {
     case WIFI_EVENT_STA_START:
-        xEventGroupSetBits(net_event_group, WIFI_STA_START_BIT);
+        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_START_BIT);
         esp_wifi_connect();
-        g_ad2_network_state = AD2_OFFLINE;
         break;
-
     case WIFI_EVENT_STA_STOP:
         ESP_LOGI(TAG, "SYSTEM_EVENT_STA_STOP");
-        xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
-        g_ad2_network_state = AD2_OFFLINE;
+        xEventGroupClearBits(g_ad2_net_event_group, NET_EVENT_BIT_ALL);
         break;
     case WIFI_EVENT_STA_CONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
@@ -367,21 +367,20 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
     case WIFI_EVENT_STA_DISCONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
-        xEventGroupSetBits(net_event_group, WIFI_STA_DISCONNECT_BIT);
+        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_DISCONNECT_BIT);
         esp_wifi_connect();
-        xEventGroupClearBits(net_event_group, WIFI_STA_CONNECT_BIT);
-        g_ad2_network_state = AD2_OFFLINE;
+        xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
         break;
 
     case WIFI_EVENT_AP_START:
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_START");
         hal_set_wifi_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
-        xEventGroupClearBits(net_event_group, WIFI_EVENT_BIT_ALL);
-        xEventGroupSetBits(net_event_group, WIFI_AP_START_BIT);
+        xEventGroupClearBits(g_ad2_net_event_group, NET_EVENT_BIT_ALL);
+        xEventGroupSetBits(g_ad2_net_event_group, NET_AP_START_BIT);
         break;
     case WIFI_EVENT_AP_STOP:
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_STOP");
-        xEventGroupSetBits(net_event_group, WIFI_AP_STOP_BIT);
+        xEventGroupSetBits(g_ad2_net_event_group, NET_AP_STOP_BIT);
         break;
     case WIFI_EVENT_AP_STACONNECTED:
         ESP_LOGI(TAG, "station:" MACSTR " join, AID=%d",
@@ -394,7 +393,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
                  MAC2STR(event->mac),
                  event->aid);
 
-        xEventGroupSetBits(net_event_group, WIFI_AP_STOP_BIT);
+        xEventGroupSetBits(g_ad2_net_event_group, NET_AP_STOP_BIT);
         break;
 
     default:
@@ -425,9 +424,6 @@ void hal_init_network_stack()
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 #endif
 
-
-    // create event group
-    net_event_group = xEventGroupCreate();
 
     HAL_NET_INITIALIZED = true;
 
@@ -649,12 +645,14 @@ void hal_init_eth(std::string &args)
     ESP_ERROR_CHECK(tcpip_adapter_set_default_eth_handlers());
     ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL));
 #else
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
     netif = esp_netif_new(&cfg);
     esp_eth_set_default_handlers(netif);
     ESP_ERROR_CHECK(esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL, NULL));
 #endif
 
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
@@ -855,10 +853,19 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "GW: " IPSTR, IP2STR(&ip_info->gw));
     ESP_LOGI(TAG, "~~~~~~~~~~~");
 
-    xEventGroupSetBits(net_event_group, WIFI_STA_CONNECT_BIT);
-    xEventGroupClearBits(net_event_group, WIFI_STA_DISCONNECT_BIT);
-    g_ad2_network_state = AD2_CONNECTED;
+    xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    xEventGroupClearBits(g_ad2_net_event_group, NET_STA_DISCONNECT_BIT);
+}
 
+/** Event handler for IP_EVENT_ETH_LOST_IP */
+void _lost_ip_event_handler(void *arg, esp_event_base_t event_base,
+                            int32_t event_id, void *event_data)
+{
+    ESP_LOGI(TAG, "Network IP Address lost");
+    ESP_LOGI(TAG, "~~~~~~~~~~~");
+
+    xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    xEventGroupSetBits(g_ad2_net_event_group, NET_STA_DISCONNECT_BIT);
 }
 
 /** Event handler for Ethernet events */
@@ -870,6 +877,15 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
     esp_eth_handle_t eth_handle = *(esp_eth_handle_t *)event_data;
 
     switch (event_id) {
+    case ETHERNET_EVENT_START:
+        ESP_LOGI(TAG, "Ethernet starting");
+        hal_set_eth_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
+        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_START_BIT);
+        break;
+    case ETHERNET_EVENT_STOP:
+        ESP_LOGI(TAG, "Ethernet stopping");
+        xEventGroupClearBits(g_ad2_net_event_group, NET_EVENT_BIT_ALL);
+        break;
     case ETHERNET_EVENT_CONNECTED:
         esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, mac_addr);
         ESP_LOGI(TAG, "Ethernet Link Up");
@@ -877,16 +893,9 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
                  mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
         break;
     case ETHERNET_EVENT_DISCONNECTED:
-        g_ad2_network_state = AD2_OFFLINE;
         ESP_LOGI(TAG, "Ethernet Link Down");
-        break;
-    case ETHERNET_EVENT_START:
-        ESP_LOGI(TAG, "Ethernet Started");
-        hal_set_eth_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
-        break;
-    case ETHERNET_EVENT_STOP:
-        g_ad2_network_state = AD2_OFFLINE;
-        ESP_LOGI(TAG, "Ethernet Stopped");
+        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_DISCONNECT_BIT);
+        xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
         break;
     default:
         break;
@@ -910,6 +919,26 @@ void hal_ad2_reset()
 #endif
 }
 
+/**
+ * @brief Set CONNECTED state.
+ */
+bool hal_get_network_connected()
+{
+    return xEventGroupGetBits(g_ad2_net_event_group) & NET_STA_CONNECT_BIT;
+}
+
+/**
+ * @brief get CONNECTED state.
+ */
+void hal_set_network_connected(bool set)
+{
+    ESP_LOGI(TAG, "hal_set_network_connected %i", set);
+    if (set) {
+        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    } else {
+        xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    }
+}
 #ifdef __cplusplus
 } // extern "C"
 #endif

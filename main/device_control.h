@@ -136,6 +136,8 @@ void hal_set_wifi_hostname(const char *);
 void hal_set_eth_hostname(const char *);
 void hal_host_uart_init();
 void hal_ad2_reset();
+bool hal_get_network_connected();
+void hal_set_network_connected(bool);
 #ifdef __cplusplus
 }
 #endif

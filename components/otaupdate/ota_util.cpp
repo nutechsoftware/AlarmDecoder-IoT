@@ -723,7 +723,7 @@ static void ota_polling_task_func(void *arg)
             continue;
         }
 
-        if (g_ad2_network_state != AD2_CONNECTED) {
+        if (!hal_get_network_connected()) {
             ESP_LOGI(TAG, "Device update check aborted. No internet connection.");
             continue;
         }
