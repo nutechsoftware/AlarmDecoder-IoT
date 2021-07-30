@@ -1,6 +1,6 @@
 # HTML5 WebSocket based user interface app.html
-<p><img style="border:5px double black;"  src="EXAMPLE-PANEL-READY.jpg" width="200" border=1>
-<img style="border:5px double black;"  src="EXAMPLE-PANEL-READY-LANDSCAPE.jpg" width="410" border=1></p>
+<p><img style="border:5px double black;"  src="EXAMPLE-PANEL-READY.jpg" width="200">
+<img style="border:5px double black;"  src="EXAMPLE-PANEL-READY-LANDSCAPE.jpg" width="410"></p>
 
 ## Setup.
 Copy the contents of flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single MSDOS partition. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
