@@ -55,9 +55,10 @@ static const char *TAG = "PUSHOVER";
 #include "ad2_utils.h"
 #include "ad2_settings.h"
 #include "ad2_uart_cli.h"
+#include "device_control.h"
 
 // Disable via sdkconfig
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
 
 // specific includes
 #include "pushover.h"
@@ -75,6 +76,9 @@ static const char *TAG = "PUSHOVER";
 #if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
 #include "mbedtls/ssl_cache.h"
 #endif
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+#include "esp_crt_bundle.h"
+#endif
 
 QueueHandle_t  sendQ_po=NULL;
 mbedtls_entropy_context pushover_entropy;
@@ -90,6 +94,7 @@ mbedtls_ssl_cache_context cache;
 std::vector<AD2EventSearch *> pushover_AD2EventSearches;
 
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 /**
  * @brief Root cert for api.pushover.net
  *   The PEM file was extracted from the output of this command:
@@ -100,6 +105,7 @@ std::vector<AD2EventSearch *> pushover_AD2EventSearches;
  */
 extern const uint8_t pushover_root_pem_start[] asm("_binary_pushover_root_pem_start");
 extern const uint8_t pushover_root_pem_end[]   asm("_binary_pushover_root_pem_end");
+#endif
 
 /**
  * build_pushover_body()
@@ -371,7 +377,7 @@ void ad2_event_cb_pushover(std::string *msg, AD2VirtualPartitionState *s, void *
             message = AD2Parse.event_str[(int)arg];
         }
 
-        if (g_ad2_network_state == AD2_CONNECTED) {
+        if (hal_get_network_connected()) {
             // load our settings for this event type.
             std::string userkey;
             std::string key;
@@ -402,7 +408,7 @@ void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
     ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
-    if (g_ad2_network_state == AD2_CONNECTED) {
+    if (hal_get_network_connected()) {
         std::string message = es->out_message;
         // load our settings for this event type.
         std::string key;
@@ -822,6 +828,7 @@ void pushover_init()
         return;
     }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     /**
      * api.pushover.net SSL setup
      */
@@ -833,6 +840,15 @@ void pushover_init()
         pushover_free();
         return;
     }
+#else
+    res = esp_crt_bundle_attach(&pushover_conf);
+
+    if(res < 0) {
+        ESP_LOGE(TAG, "esp_crt_bundle_attach for api.pushover.net returned -0x%x\n\n", -res);
+        pushover_free();
+        return;
+    }
+#endif
 
     /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
        a warning if CA verification fails but it will continue to connect.
@@ -971,5 +987,5 @@ void pushover_init()
 #ifdef __cplusplus
 } // extern "C"
 #endif
-#endif /*  CONFIG_PUSHOVER_CLIENT */
+#endif /*  CONFIG_AD2IOT_PUSHOVER_CLIENT */
 

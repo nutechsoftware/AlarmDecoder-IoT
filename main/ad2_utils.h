@@ -26,12 +26,6 @@
 // Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
 
-// No active network IP layer
-#define AD2_OFFLINE (1 << 0)
-
-// Active network IP layer
-#define AD2_CONNECTED (1 << 1)
-
 // Debugging NVS
 //#define DEBUG_NVS
 

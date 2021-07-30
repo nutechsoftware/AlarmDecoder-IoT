@@ -30,6 +30,10 @@
 #include <alarmdecoder_api.h>
 
 // esp includes
+// esp includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "driver/uart.h"
 #include <lwip/netdb.h>
 #include "esp_system.h"
@@ -61,18 +65,23 @@
 #endif
 
 // ser2sockd support
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
 #include "ser2sock.h"
 #endif
 
 // twilio support
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
 #include "twilio.h"
 #endif
 
 // twilio support
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
 #include "pushover.h"
+#endif
+
+// web server UI support
+#if CONFIG_AD2IOT_WEBSERVER_UI
+#include "webUI.h"
 #endif
 
 #ifdef __cplusplus
@@ -86,9 +95,9 @@ static const char *TAG = "AD2_IoT";
 
 /**
 * Control main task processing
-*  0 : running the main function
-*  1 : stop for a timeout
-*  2 : stop before selecting the go_main function.
+*  0 : running the main function.
+*  1 : halted waiting for timeout to auto resume.
+*  2 : halted.
 */
 int g_StopMainTask = 0;
 
@@ -103,8 +112,8 @@ int g_ad2_client_handle = -1;
 // global ad2 connection mode ['S'ocket | 'C'om port]
 uint8_t g_ad2_mode = 0;
 
-// global network connection state
-int g_ad2_network_state = AD2_OFFLINE;
+// global ad2 network EventGroup
+EventGroupHandle_t g_ad2_net_event_group = nullptr;
 
 // Device LED mode
 int noti_led_mode = LED_ANIMATION_MODE_IDLE;
@@ -131,8 +140,10 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-    ESP_LOGI(TAG, "RAM left %d", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 }
+
+
 
 /**
  * @brief ON_LRR
@@ -231,7 +242,7 @@ void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
     ESP_LOGI(TAG, "ON_LOW_BATTERY_CB: BATTERY(%i)", s->battery_low);
 }
 
-#if defined(CONFIG_SER2SOCKD)
+#if defined(CONFIG_AD2IOT_SER2SOCKD)
 /**
  * @brief ON_RAW_RX_DATA
  * Called when data is sent into the parser.
@@ -294,11 +305,11 @@ static void ad2uart_client_task(void *pvParameters)
 
     while (1) {
         // do not process if main halted or network disconnected.
-        if (!g_StopMainTask && g_ad2_network_state == AD2_CONNECTED) {
+        if (!g_StopMainTask && hal_get_network_connected()) {
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
-            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 10 / portTICK_RATE_MS);
+            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
             if (len == -1) {
                 // An error happend. Sleep for a bit and try again?
                 vTaskDelay(5000 / portTICK_PERIOD_MS);
@@ -323,7 +334,7 @@ static void ser2sock_client_task(void *pvParameters)
 {
 
     while (1) {
-        if (g_ad2_network_state == AD2_CONNECTED) {
+        if (hal_get_network_connected()) {
             // load settings from NVS
             // host stored in slot 1
             std::string buf;
@@ -409,7 +420,7 @@ static void ser2sock_client_task(void *pvParameters)
                         AD2Parse.put(rx_buffer, len);
                     }
                 }
-                if (g_ad2_network_state != AD2_CONNECTED) {
+                if (!hal_get_network_connected()) {
                     break;
                 }
                 vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -463,7 +474,15 @@ void init_ad2_uart_client()
     uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     uart_config->rx_flow_ctrl_thresh = 1;
 
-    uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
+    // esp_restart causes issues with UART2 don't set config if reset switch pushed.
+    // https://github.com/espressif/esp-idf/issues/5274
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+    if (esp_reset_reason() != ESP_RST_SW) {
+#endif
+        uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+    }
+#endif
 
     uart_set_pin((uart_port_t)g_ad2_client_handle,
                  tx_pin,   // TX
@@ -471,7 +490,7 @@ void init_ad2_uart_client()
                  UART_PIN_NO_CHANGE, // RTS
                  UART_PIN_NO_CHANGE);// CTS
 
-    uart_driver_install((uart_port_t)g_ad2_client_handle, AD2_UART_RX_BUFF_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
     free(uart_config);
 
     xTaskCreate(ad2uart_client_task, "ad2uart_client", 4096, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
@@ -532,22 +551,25 @@ void app_main()
     // load and set the logging level.
     ad2_set_log_mode(ad2_log_mode());
 
+    // create event group
+    g_ad2_net_event_group = xEventGroupCreate();
+
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
 #endif
 
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
     // Register ser2sock daemon CLI commands.
     ser2sockd_register_cmds();
 #endif
 
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
     // Register TWILIO CLI commands.
     twilio_register_cmds();
 #endif
 
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
     // Register PUSHOVER CLI commands.
     pushover_register_cmds();
 #endif
@@ -568,20 +590,20 @@ void app_main()
     }
 
     // Start the CLI.
-    // Press ENTER to halt and stay in CLI only.
+    // Press "..."" to halt startup and stay if a safe mode command line only.
     uart_cli_main();
 
     // init the virtual partition database from NV storage
-    // see iot_cli_cmd::vpaddr
+    // see iot_cli_cmd::vpart
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         int x = -1;
-        ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, n, 0, &x);
+        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
             uint32_t amask = 1;
             amask <<= x-1;
             AD2Parse.getAD2PState(&amask, true);
-            ESP_LOGI(TAG, "init vpaddr slot %i mask %i", n, x);
+            ESP_LOGI(TAG, "init vpart slot %i mask %i", n, x);
         }
     }
 
@@ -663,13 +685,17 @@ void app_main()
         ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
     }
 #endif
-#if CONFIG_TWILIO_CLIENT
+#if CONFIG_AD2IOT_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
 #endif
-#if CONFIG_PUSHOVER_CLIENT
+#if CONFIG_AD2IOT_PUSHOVER_CLIENT
     // Initialize pushover client
     pushover_init();
+#endif
+#if CONFIG_AD2IOT_WEBSERVER_UI
+    // Initialize WEB SEVER USER INTERFACE
+    webUI_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
@@ -686,7 +712,7 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(CONFIG_SER2SOCKD)
+#if defined(CONFIG_AD2IOT_SER2SOCKD)
     // init ser2sock server
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);

@@ -23,34 +23,68 @@
 #ifndef _DEVICE_CONTROL_H
 #define _DEVICE_CONTROL_H
 
+#define GPIO_NOT_USED GPIO_NUM_MAX
+
 // Defaults to ESP32 DEVKIT V4
 //#define CONFIG_TARGET_OLIMEX_ESP32_EVB
 //#define CONFIG_TARGET_WEMOS_D1_R32
-#ifdef CONFIG_TARGET_WEMOS_D1_R32
-#define GPIO_INPUT_BUTTON 18
-#define GPIO_OUTPUT_MAINLED 16
-#define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
-#define GPIO_OUTPUT_NOUSE1 17
-#define GPIO_OUTPUT_NOUSE2 25
-#define GPIO_OUTPUT_SWITCH_A GPIO_NUM_MAX
-#define GPIO_OUTPUT_SWITCH_B GPIO_NUM_MAX
-#elif CONFIG_TARGET_OLIMEX_ESP32_EVB
+#define CONFIG_TARGET_OLIMEX_ESP32_POE_ISO
+
+#if defined(CONFIG_TARGET_WEMOS_D1_R32)
+#define GPIO_INPUT_BUTTON GPIO_NOT_USED
+#define GPIO_MAINLED GPIO_NOT_USED
+#define GPIO_MAINLED_0 GPIO_NOT_USED /* use as current sink */
+#define GPIO_SWITCH_A GPIO_NOT_USED
+#define GPIO_SWITCH_B GPIO_NOT_USED
+#elif defined(CONFIG_TARGET_OLIMEX_ESP32_EVB)
+#define GPIO_INPUT_BUTTON GPIO_NOT_USED
+#define GPIO_MAINLED GPIO_NOT_USED
+#define GPIO_MAINLED_0 GPIO_NOT_USED /* use as current sink */
+#define GPIO_SWITCH_A GPIO_NOT_USED
+#define GPIO_SWITCH_B GPIO_NOT_USED
+#elif defined(CONFIG_TARGET_OLIMEX_ESP32_POE_ISO)
 #define GPIO_INPUT_BUTTON 0
-#define GPIO_OUTPUT_MAINLED 12
-#define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
-#define GPIO_OUTPUT_NOUSE1 14
-#define GPIO_OUTPUT_NOUSE2 27
-#define GPIO_OUTPUT_SWITCH_A GPIO_NUM_MAX
-#define GPIO_OUTPUT_SWITCH_B GPIO_NUM_MAX
+#define GPIO_MAINLED GPIO_NOT_USED
+#define GPIO_MAINLED_0 GPIO_NOT_USED /* use as current sink */
+#define GPIO_SWITCH_A GPIO_NOT_USED
+#define GPIO_SWITCH_B GPIO_NOT_USED
 #else // ESP32_DEVKITC_V4
-#define GPIO_INPUT_BUTTON 0
-#define GPIO_OUTPUT_MAINLED 12
-#define GPIO_OUTPUT_MAINLED_0 26 /* use as ground */
-#define GPIO_OUTPUT_NOUSE1 14
-#define GPIO_OUTPUT_NOUSE2 27
-#define GPIO_OUTPUT_SWITCH_A GPIO_NUM_MAX
-#define GPIO_OUTPUT_SWITCH_B GPIO_NUM_MAX
+#define GPIO_INPUT_BUTTON GPIO_NOT_USED
+#define GPIO_MAINLED GPIO_NOT_USED
+#define GPIO_MAINLED_0 GPIO_NOT_USED /* use as current sink */
+#define GPIO_SWITCH_A GPIO_NOT_USED
+#define GPIO_SWITCH_B GPIO_NOT_USED
 #endif
+
+// AD2IoT - ESP32-POE-ISO-V1-ADAPTER
+/// AD2pHat Reset pin assert LOW to reboot.
+#define GPIO_AD2_RESET GPIO_NUM_32
+/// AD2pHat heartbeat monitor pin
+#define GPIO_AD2_MONITOR GPIO_NUM_33
+/// ESP32 TX PIN -> AD2_RX
+#define GPIO_AD2_RX GPIO_NUM_4
+/// ESP32 RX PIN <- AD2_TX
+#define GPIO_AD2_TX GPIO_NUM_36
+
+// OLIMEX ESP-POE*
+/// uSD
+#define GPIO_uSD_CLK GPIO_NUM_14   // CLK/SCLK - HS2_CLK
+#define GPIO_uSD_CMD GPIO_NUM_15   // CMD/DI - MOSI
+#define GPIO_uSD_D0 GPIO_NUM_2     // DAT0/DO - HS2_DATA0 MISO
+#define GPIO_uSD_CS GPIO_NOT_USED  // N/A tie to open pin for now :(
+/// LAN8710A
+#define GPIO_ETH_PHY_POWER GPIO_NUM_12
+#define GPIO_ETH_PHY_MODE0 GPIO_NUM_25
+#define GPIO_ETH_PHY_MODE1 GPIO_NUM_26
+#define GPIO_ETH_PHY_MODE2 GPIO_NUM_27
+#define GPIO_ETH_PHY_EMAC_TX_EN GPIO_NUM_21
+#define GPIO_ETH_PHY_EMAC_TXD0 GPIO_NUM_19
+#define GPIO_ETH_PHY_EMAC_TXD1 GPIO_NUM_22
+#define GPIO_ETH_PHY_EMAC_CLK GPIO_NUM_17
+#define GPIO_ETH_PHY_MDC GPIO_NUM_23
+#define GPIO_ETH_PHY_MDIO GPIO_NUM_18
+
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,8 +132,12 @@ void hal_restart();
 void hal_init_network_stack();
 void hal_init_wifi(std::string &args);
 void hal_init_eth(std::string &args);
+void hal_set_wifi_hostname(const char *);
+void hal_set_eth_hostname(const char *);
 void hal_host_uart_init();
 void hal_ad2_reset();
+bool hal_get_network_connected();
+void hal_set_network_connected(bool);
 #ifdef __cplusplus
 }
 #endif

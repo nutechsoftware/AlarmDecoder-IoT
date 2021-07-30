@@ -42,8 +42,8 @@ extern int g_ad2_client_handle;
 // global ad2 connection mode ['S'ocket | 'C'om port]
 extern uint8_t g_ad2_mode;
 
-// global network connection state
-extern int g_ad2_network_state;
+// global eventgroup for network sync and control.
+extern EventGroupHandle_t g_ad2_net_event_group;
 
 #ifdef __cplusplus
 }
