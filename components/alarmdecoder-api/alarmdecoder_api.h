@@ -32,8 +32,6 @@
 #include <bits/stdc++.h>
 #include <map>
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
 using namespace std;
 
@@ -482,6 +480,9 @@ public:
         {ON_CRC,                "CRC"},
         {ON_VER,                "VER"},
         {ON_ERR,                "ERR"},
+        {ON_EXIT_CHANGE,        "EXIT"},
+        {ON_SEARCH_MATCH,       "SEARCH"},
+        {ON_FIRMWARE_VERSION,   "VERSION"},
     };
 
     std::map<int, const std::string> state_str = {

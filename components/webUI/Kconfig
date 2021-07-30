@@ -1,0 +1,7 @@
+menu "AD2iot * WEB Server UI"
+    config AD2IOT_WEBSERVER_UI
+        bool "WEB Server user interface"
+        default n
+        help
+            Enable simple web server alarm keypad and control panel.
+endmenu

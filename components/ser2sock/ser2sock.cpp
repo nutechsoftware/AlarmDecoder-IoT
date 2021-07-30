@@ -57,7 +57,7 @@ static const char *TAG = "SER2SOCKD";
 #include "device_control.h"
 
 // Disable via sdkconfig
-#if CONFIG_SER2SOCKD
+#if CONFIG_AD2IOT_SER2SOCKD
 
 // specific includes
 #include "ser2sock.h"
@@ -437,7 +437,7 @@ static bool _poll_exception_fdset(fd_set *except_fdset)
             if (FD_ISSET(my_fds[n].fd,except_fdset)) {
                 if (my_fds[n].fd_type == CLIENT_SOCKET) {
                     did_work = true;
-                    ESP_LOGE(TAG, "Exception occured on socket fd slot %i closing the socket.",n);
+                    ESP_LOGE(TAG, "Exception occurred on socket fd slot %i closing the socket.",n);
                     _cleanup_fd(n);
                 }
             }
@@ -653,7 +653,7 @@ void ser2sockd_server_task(void *pvParameters)
     ESP_LOGI(TAG, "ser2sock server task starting.");
 
     for (;;) {
-        if (g_ad2_network_state == AD2_CONNECTED) {
+        if (hal_get_network_connected()) {
             ESP_LOGI(TAG, "network up creating listening socket");
             if (addr_family == AF_INET) {
                 struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
@@ -744,10 +744,15 @@ void ser2sockd_server_task(void *pvParameters)
                 if (!did_work) {
                     vTaskDelay(10 / portTICK_PERIOD_MS);
                 }
+                /* if network goes away then we are done */
+                if (!hal_get_network_connected()) {
+                    goto CLEAN_UP;
+                }
             }
-
 CLEAN_UP:
-            close(listen_sock);
+            for (n = 0; n < MAXCONNECTIONS; n++) {
+                _cleanup_fd(n);
+            }
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -757,4 +762,4 @@ CLEAN_UP:
 #ifdef __cplusplus
 } // extern "C"
 #endif
-#endif /*  CONFIG_SER2SOCKD */
+#endif /*  CONFIG_AD2IOT_SER2SOCKD */

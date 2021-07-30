@@ -1,0 +1,168 @@
+openapi: 3.0.0
+info:
+  title: AlarmDecoder Embedded API(AD2EMB)
+  description: Learn more about the <b>AlarmDecoder AD2EMB</b> project on the <a href="https://github.com/nutechsoftware/ArduinoAlarmDecoder">github project page</a>.
+  version: "1.2.0-oas3"
+  contact:
+    email: alarmdecoder@support.nutech.com
+    name: AlarmDecoder
+    url: https://www.alarmdecoder.com/
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+tags:
+  - name: event notification
+    description: Manage subscriptions to event push notifications.
+servers:
+  - url: /api/alarmdecoder
+    description: Base AD2EMB REST API path http://alarmdecoder.local/api/alarmdecoder
+paths:
+  /events:
+    post:
+      description: Subscribe to event push notifications.
+      security:
+        - apiKeyHeader: []
+        - apiKeyQuery: []
+      tags:
+        - event notification
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoContent'
+        '401':
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlarmStatusError'
+    delete:
+      description: Unsubscribe from event push notifications.
+      security:
+        - apiKeyHeader: []
+        - apiKeyQuery: []
+      tags:
+        - event notification
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+        '401':
+          description: Not authorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlarmStatusError'
+components:
+  securitySchemes:
+    apiKeyHeader:
+      description: API Key passed via Authorization Header.
+      type: apiKey
+      in: header
+      name: Authorization
+    apiKeyQuery:
+      description: API Key passed via query string.
+      type: apiKey
+      in: query
+      name: apikey
+  schemas:
+    AlarmStatus:
+      properties:
+        type:
+          type: string
+        power:
+          type: boolean
+        ready:
+          type: boolean
+        alarming:
+          type: boolean
+        bypassed:
+          type: boolean
+        armed_away:
+          type: boolean
+        armed_home:
+          type: boolean
+        alarm_fire:
+          type: boolean
+        battery:
+          type: boolean
+        alarm_panic:
+          type: boolean
+        chime:
+          type: boolean
+        perimeter_only:
+          type: boolean
+        entry_delay_off:
+          type: boolean
+        exit_now:
+          type: boolean
+        relays:
+          type: array
+          items:
+            type: object
+            properties:
+              address:
+                type: integer
+              channel:
+                type: integer
+              value:
+                type: integer
+        faults:
+          type: array
+          items:
+            type: object
+            properties:
+              zone:
+                type: integer
+              state:
+                type: integer
+      example:
+        type: Ademco
+        power: true
+        ready: false
+        alarming: false
+        armed: false
+        bypassed: false
+        armed_away: false
+        armed_home: false
+        alarm_fire: false
+        battery: false
+        alarm_panic: false
+        chime: false
+        perimeter_only: false
+        entry_delay_off: false
+        exit_now: false
+        relays:
+          - address: 18
+            channel: 1
+            value: 80
+        faults:
+          - '1': 1
+          - '2': 1
+    AlarmStatusError:
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+      example:
+        error:
+          code: 401
+          message: An Error has occurred!
+    AlarmDecoderSend:
+      properties:
+        keys:
+          type: string
+      example:
+        keys: '41121'
+    NoContent:
+      properties: {}

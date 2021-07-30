@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+   <specVersion>
+      <major>1</major>
+      <minor>1</minor>
+   </specVersion>
+   <device>
+      <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+      <friendlyName>AlarmDecoder Embedded IoT</friendlyName>
+      <presentationURL>/</presentationURL>
+      <modelName>AD2ESP32</modelName>
+      <modelNumber>2.0</modelNumber>
+      <modelURL>https://github.com/nutechsoftware/ArduinoAlarmDecoder</modelURL>
+      <manufacturer>Nu Tech Software, Solutions, Inc.</manufacturer>
+      <manufacturerURL>http://www.AlarmDecoder.com/</manufacturerURL>
+      <UDN>uuid:${5}</UDN>
+      <serialNumber>00000000</serialNumber>
+      <iconList>
+         <icon>
+            <mimetype>image/png</mimetype>
+            <height>32</height>
+            <width>32</width>
+            <depth>24</depth>
+            <url>ad2icon.png</url>
+         </icon>
+      </iconList>
+      <serviceList>
+         <service>
+            <serviceType>urn:schemas-upnp-org:service:AlarmDecoder:1</serviceType>
+            <serviceId>urn:upnp-org:serviceId:AlarmDecoder:1</serviceId>
+            <SCPDURL>AlarmDecoder.xml</SCPDURL>
+            <eventSubURL>/api/alarmdecoder/event</eventSubURL>
+            <controlURL>/api/alarmdecoder</controlURL>
+         </service>
+      </serviceList>
+   </device>
+</root>

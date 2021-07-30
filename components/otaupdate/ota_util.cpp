@@ -63,12 +63,9 @@ static const char *TAG = "AD2OTA";
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-extern const uint8_t public_key_start[]	asm("_binary_update_public_key_pem_start");
-extern const uint8_t public_key_end[]		asm("_binary_update_public_key_pem_end");
-
-extern const uint8_t root_pem_start[]	asm("_binary_update_root_pem_start");
-extern const uint8_t root_pem_end[]		asm("_binary_update_root_pem_end");
+extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
+extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
+extern const uint8_t update_server_root_pem_start[]         asm("_binary_ota_update_server_root_pem_start");
 
 // OTA Update task
 TaskHandle_t ota_task_handle = NULL;
@@ -108,11 +105,23 @@ static void _task_fatal_error()
  * from a verified signed firmware from an https server with
  * known keys.
  */
-static void ota_task_func(void * pvParameter)
+static void ota_task_func(void * command)
 {
-    ESP_LOGI(TAG, "Starting OTA");
+    // The argument if present is the build flag. If not then default to CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS
+    std::string buildflags;
+    if (command != nullptr) {
+        ad2_copy_nth_arg(buildflags, (char *)command, 1);
+        free(command);
+    }
 
-    esp_err_t ret = ota_https_update_device();
+    ad2_trim(buildflags);
+    if ( buildflags.length()==0 ) {
+        buildflags = CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS;
+    }
+
+    ESP_LOGI(TAG, "Starting OTA with build flags '%s'.", buildflags.c_str());
+
+    esp_err_t ret = ota_https_update_device(buildflags.c_str());
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Firmware Upgrades Failed (%d)", ret);
         _task_fatal_error();
@@ -147,7 +156,8 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
     data = (char*)malloc((size_t) update_info_len + 1);
     if (!data) {
         ESP_LOGE(TAG, "%s: Couldn't allocate memory to add version info", __func__);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto clean_up;
     }
     memcpy(data, update_info, update_info_len);
     data[update_info_len] = '\0';
@@ -299,13 +309,13 @@ static int _pk_verify(const unsigned char *sig, const unsigned char *hash)
     int ret;
 
     mbedtls_pk_context pk;
-
-    unsigned char *public_key = (unsigned char *) public_key_start;
-    unsigned int public_key_len = public_key_end - public_key_start;
-
     mbedtls_pk_init( &pk );
+
+    unsigned char *firmware_signature_public_key = (unsigned char *) firmware_signature_public_key_start;
+    unsigned int firmware_signature_public_key_len = firmware_signature_public_key_end - firmware_signature_public_key_start;
+
     // Make sure our key is a null terminated string and send the null to the parser.
-    std::string t((const char *)public_key, public_key_len);
+    std::string t((const char *)firmware_signature_public_key, firmware_signature_public_key_len);
     ret = mbedtls_pk_parse_public_key( &pk, (const unsigned char *)t.c_str(), t.length() + 1 );
     if (ret != 0) {
         ESP_LOGE(TAG, "%s: Parse error: 0x%04X", __func__, ret);
@@ -403,61 +413,67 @@ clean_up:
  *
  * @return esp_err_t results.
  */
-esp_err_t ota_https_update_device()
+esp_err_t ota_https_update_device(const char *buildflags)
 {
-    ESP_LOGI(TAG, "%s: ota_https_update_device", __func__);
+    ESP_LOGI(TAG, "%s: starting update", __func__);
 
     esp_err_t ret = ESP_FAIL;
-
+    bool b_ctx_init = false;
     unsigned int content_len;
     unsigned int firmware_len;
+    unsigned char *sig_ptr = NULL;
+    unsigned char *sig = NULL;
+    unsigned int sig_len = 0;
+    unsigned int total_read_len = 0;
+    unsigned int remain_len = 0;
+    unsigned int excess_len = 0;
+    esp_ota_handle_t update_handle = 0;
+    const esp_partition_t *update_partition = NULL;
+    unsigned char md[OTA_CRYPTO_SHA256_LEN] = {0,};
+    esp_err_t ota_write_err = ESP_OK;
+    mbedtls_sha256_context ctx;
+    char *upgrade_data_buf = nullptr;
 
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
-    config->url = CONFIG_FIRMWARE_UPGRADE_URL;
-    config->cert_pem = (char *)root_pem_start;
+    std::string fwfile = ad2_string_printf(CONFIG_FIRMWARE_UPGRADE_URL_FMT, buildflags);
+    config->url = fwfile.c_str();
+    config->timeout_ms = OTA_SOCKET_TIMEOUT;
+    config->cert_pem = (const char *)update_server_root_pem_start;
+    config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
-    mbedtls_sha256_context ctx;
-    mbedtls_sha256_init( &ctx );
-    if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
-        ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
-        return ESP_FAIL;
-    }
 
     esp_http_client_handle_t client = esp_http_client_init(config);
     if (client == NULL) {
         ESP_LOGE(TAG, "%s: Failed to initialise HTTP connection", __func__);
-        return ESP_FAIL;
+        goto clean_up;
     }
 
     if (esp_http_client_get_transport_type(client) != HTTP_TRANSPORT_OVER_SSL) {
         ESP_LOGE(TAG, "%s: Transport is not over HTTPS", __func__);
-        return ESP_FAIL;
+        goto clean_up;
     }
 
     ret = esp_http_client_open(client, 0);
     if (ret != ESP_OK) {
-        esp_http_client_cleanup(client);
         ESP_LOGE(TAG, "%s: Failed to open HTTP connection: %d", __func__, ret);
-        return ret;
+        goto clean_up;
     }
     content_len = esp_http_client_fetch_headers(client);
     if (content_len <= OTA_DEFAULT_SIGNATURE_BUF_SIZE) {
         ESP_LOGE(TAG, "%s: content size error", __func__);
-        _http_cleanup(client);
-        return ESP_FAIL;
+        ret = ESP_FAIL;
+        goto clean_up;
     }
 
     firmware_len = content_len - (OTA_DEFAULT_SIGNATURE_BUF_SIZE);
 
-    esp_ota_handle_t update_handle = 0;
-    const esp_partition_t *update_partition = NULL;
     ESP_LOGI(TAG, "%s: Starting OTA upgrade", __func__);
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
         ESP_LOGE(TAG, "%s: Passive OTA partition not found", __func__);
-        _http_cleanup(client);
-        return ESP_FAIL;
+        ret = ESP_FAIL;
+        goto clean_up;
     }
     ESP_LOGI(TAG, "%s: Writing to partition subtype %d at offset 0x%x", __func__,
              update_partition->subtype, update_partition->address);
@@ -465,35 +481,35 @@ esp_err_t ota_https_update_device()
     ret = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: esp_ota_begin failed, error=%d", __func__, ret);
-        _http_cleanup(client);
-        return ret;
+        goto clean_up;
     }
     ESP_LOGI(TAG, "%s: esp_ota_begin succeeded. Please Wait. This may take time.", __func__);
 
-    esp_err_t ota_write_err = ESP_OK;
-    char *upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
+    upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
     if (!upgrade_data_buf) {
         ESP_LOGE(TAG, "%s: Couldn't allocate memory to upgrade data buffer", __func__);
-        _http_cleanup(client);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto clean_up;
     }
-    unsigned char *sig_ptr = NULL;
-    unsigned char *sig = NULL;
-    unsigned int sig_len = 0;
-    unsigned int total_read_len = 0;
-    unsigned int remain_len = 0;
-    unsigned int excess_len = 0;
 
     sig = (unsigned char *)malloc(OTA_DEFAULT_SIGNATURE_BUF_SIZE);
     if (!sig) {
         ESP_LOGE(TAG, "%s: Couldn't allocate memory to add sig buffer", __func__);
-        free(upgrade_data_buf);
-        _http_cleanup(client);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto clean_up;
     }
     memset(sig, '\0', OTA_DEFAULT_SIGNATURE_BUF_SIZE);
 
     sig_ptr = sig;
+
+    mbedtls_sha256_init( &ctx );
+    b_ctx_init = true;
+
+    if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
+        ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
+        ret = ESP_FAIL;
+        goto clean_up;
+    }
 
     while (1) {
         int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
@@ -541,14 +557,11 @@ esp_err_t ota_https_update_device()
 
     ESP_LOGI(TAG, "%s: Total binary data length writen: %d", __func__, total_read_len);
 
-    unsigned char md[OTA_CRYPTO_SHA256_LEN] = {0,};
-
     if (mbedtls_sha256_finish_ret( &ctx, md) != 0) {
         ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
         ret = ESP_FAIL;
         goto clean_up;
     }
-    mbedtls_sha256_free(&ctx);
 
     /* Check firmware validation */
     if (_check_firmware_validation((const unsigned char *)md, sig, sig_len) != true) {
@@ -575,6 +588,9 @@ esp_err_t ota_https_update_device()
     ESP_LOGI(TAG, "%s: esp_ota_set_boot_partition succeeded", __func__);
 
 clean_up:
+    if (b_ctx_init) {
+        mbedtls_sha256_free(&ctx);
+    }
 
     if (sig) {
         free(sig);
@@ -584,7 +600,9 @@ clean_up:
         free(upgrade_data_buf);
     }
 
-    _http_cleanup(client);
+    if (client) {
+        _http_cleanup(client);
+    }
 
     return ret;
 }
@@ -602,8 +620,10 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     esp_err_t ret = ESP_FAIL;
 
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
-    config->url = CONFIG_FIRMWARE_VERSOIN_INFO_URL;
-    config->cert_pem = (char *)root_pem_start;
+    config->url = CONFIG_FIRMWARE_VERSION_INFO_URL;
+    config->timeout_ms = OTA_SOCKET_TIMEOUT;
+    config->cert_pem = (char *)update_server_root_pem_start;
+    config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
     esp_http_client_handle_t client = esp_http_client_init(config);
@@ -694,7 +714,7 @@ static void ota_polling_task_func(void *arg)
 {
     while (1) {
 
-        vTaskDelay(30000 / portTICK_PERIOD_MS);
+        vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
 
         ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
 
@@ -703,7 +723,7 @@ static void ota_polling_task_func(void *arg)
             continue;
         }
 
-        if (g_ad2_network_state != AD2_CONNECTED) {
+        if (!hal_get_network_connected()) {
             ESP_LOGI(TAG, "Device update check aborted. No internet connection.");
             continue;
         }
@@ -715,8 +735,15 @@ static void ota_polling_task_func(void *arg)
         if (ret == ESP_OK) {
             char *available_version = NULL;
             esp_err_t err = ota_api_get_available_version(read_data, read_data_len, &available_version);
+            if (read_data) {
+                free(read_data);
+                read_data = NULL;
+            }
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "ota_api_get_available_version failed : %d", err);
+                if (available_version) {
+                    free(available_version);
+                }
                 continue;
             }
 
@@ -747,7 +774,9 @@ static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
         "- Preform an OTA upgrade now download and install new flash.\r\n\r\n"
-        "  ```" OTA_UPGRADE_CMD "```\r\n\r\n", ota_do_update
+        "  ```" OTA_UPGRADE_CMD " [buildflag]```\r\n\r\n"
+        "  - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.\r\n\r\n"
+        "    See release page for details on available builds.\r\n\r\n", ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)
@@ -766,15 +795,19 @@ void ota_init()
         cli_register_command(&ota_cmd_list[i]);
     }
 
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8096, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8 * 1024, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**
  * @brief Initiate and OTA update
  */
-void ota_do_update(char *arg)
+void ota_do_update(char *command)
 {
-    xTaskCreate(&ota_task_func, "ota_task_func", 8096, NULL, tskIDLE_PRIORITY+2, &ota_task_handle);
+    if (ota_task_handle != NULL) {
+        ESP_LOGI(TAG, "Device is currently updating.");
+        return;
+    }
+    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**

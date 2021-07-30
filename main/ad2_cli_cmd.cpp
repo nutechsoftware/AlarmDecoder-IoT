@@ -59,7 +59,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Set the USER code for a given slot.
+ * @brief Set the alarm code for a given code slot/id.
  *
  * @param [in]string command buffer pointer.
  *
@@ -103,20 +103,20 @@ static void _cli_cmd_code_event(char *string)
 }
 
 /**
- * @brief Set the Virtual Partition address code for a given slot.
+ * @brief Set the Address for a given virtual partition slot/id.
  *
  * @param [in]string command buffer pointer.
  *
- * @note command: vpaddr <slot> <address>
+ * @note command: vpart <slot> <address>
  *   Valid slots are from 0 to AD2_MAX_VPARTITION
  *   where slot 0 is the default.
  *
  *   example.
- *     AD2IOT # vpaddr c 2
- *     AD2IOT # vpaddr s 192.168.1.2:10000
+ *     AD2IOT # vpart c 2
+ *     AD2IOT # vpart s 192.168.1.2:10000
  *
  */
-static void _cli_cmd_vpaddr_event(char *string)
+static void _cli_cmd_vpart_event(char *string)
 {
     std::string buf;
     int slot = 0;
@@ -130,17 +130,17 @@ static void _cli_cmd_vpaddr_event(char *string)
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                ad2_printf_host("Setting vpaddr in slot %i to '%i'...\r\n", slot, address);
-                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, address);
+                ad2_printf_host("Setting vpart in slot %i to '%i'...\r\n", slot, address);
+                ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, address);
             } else {
                 // delete entry
-                ad2_printf_host("Deleting vpaddr in slot %i...\r\n", slot);
-                ad2_set_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, -1);
+                ad2_printf_host("Deleting vpart in slot %i...\r\n", slot);
+                ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, -1);
             }
         } else {
             // show contents of this slot
-            ad2_get_nv_slot_key_int(VPADDR_CONFIG_KEY, slot, nullptr, &address);
-            ad2_printf_host("The vpaddr in slot %i is %i\r\n", slot, address);
+            ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, &address);
+            ad2_printf_host("The vpart in slot %i is %i\r\n", slot, address);
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
@@ -210,10 +210,16 @@ static void _cli_cmd_ad2source_event(char *string)
  */
 static void _cli_cmd_ad2term_event(char *string)
 {
-    ad2_printf_host("Locking main threads. Send '.' 3 times to break out and return.\r\n");
+    ad2_printf_host("Halting command line interface. Send '.' 3 times to break out and return.\r\n");
     portENTER_CRITICAL(&spinlock);
+    // save the main task state for later restore.
+    int save_StopMainTask = g_StopMainTask;
+    // set main task to halted.
     g_StopMainTask = 2;
     portEXIT_CRITICAL(&spinlock);
+
+    // let other tasks have time to stop.
+    vTaskDelay(250 / portTICK_PERIOD_MS);
 
     // if argument provided then assert reset pin on AD2pHAT board on GPIO
     std::string arg;
@@ -225,12 +231,15 @@ static void _cli_cmd_ad2term_event(char *string)
     // any data on UART0 send to AD2*
     uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
 
+    // break sequence state
+    static uint8_t break_count = 0;
+
     while (1) {
 
         // UART source to host
         if (g_ad2_mode == 'C') {
             // Read data from the UART
-            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_PERIOD_MS);
+            int len = uart_read_bytes((uart_port_t)g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
             if (len == -1) {
                 // An error happend. Sleep for a bit and try again?
                 ESP_LOGE(TAG, "Error reading for UART aborting task.");
@@ -244,7 +253,7 @@ static void _cli_cmd_ad2term_event(char *string)
 
             // Socket source
         } else if (g_ad2_mode == 'S') {
-            if (g_ad2_network_state == AD2_CONNECTED) {
+            if (hal_get_network_connected()) {
                 int len = recv(g_ad2_client_handle, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 0);
 
                 // test if error occurred
@@ -271,7 +280,7 @@ static void _cli_cmd_ad2term_event(char *string)
         }
 
         // Host to AD2*
-        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 20 / portTICK_PERIOD_MS);
+        int len = uart_read_bytes(UART_NUM_0, rx_buffer, AD2_UART_RX_BUFF_SIZE - 1, 5 / portTICK_PERIOD_MS);
         if (len == -1) {
             // An error happend. Sleep for a bit and try again?
             ESP_LOGE(TAG, "Error reading for UART aborting task.");
@@ -279,16 +288,22 @@ static void _cli_cmd_ad2term_event(char *string)
         }
         if (len>0) {
 
-            // Detect "..." break sequence.
-            static uint8_t break_count = 0;
-            if (rx_buffer[0] == '.') { // note perfect peek at first byte.
-                break_count++;
-                if (break_count > 2) {
+            // Detect "..." break sequence in stream;
+            for (int t = 0; t < len; t++) {
+                if (rx_buffer[t] == '.') { // note perfect peek at first byte.
+                    break_count++;
+                    if (break_count > 2) {
+                        // break detected we are done!
+                        break;
+                    }
+                } else {
                     break_count = 0;
-                    break;
                 }
-            } else {
+            }
+            // clear break state and exit while if break detected
+            if (break_count > 2) {
                 break_count = 0;
+                break;
             }
 
             // null terminate and send the message to the AD2*
@@ -297,12 +312,13 @@ static void _cli_cmd_ad2term_event(char *string)
             ad2_send(temp);
         }
 
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
-    ad2_printf_host("Resuming main threads.\r\n");
+    ad2_printf_host("Resuming command line interface threads.\r\n");
     portENTER_CRITICAL(&spinlock);
-    g_StopMainTask = 0;
+    // restore last state.
+    g_StopMainTask = save_StopMainTask;
     portEXIT_CRITICAL(&spinlock);
 }
 
@@ -494,23 +510,23 @@ static struct cli_command cmd_list[] = {
         "    Note: value -1 will remove an entry.\r\n", _cli_cmd_code_event
     },
     {
-        (char*)AD2_VPADDR,(char*)
+        (char*)AD2_VPART,(char*)
         "- Manage virtual partitions.\r\n\r\n"
-        "  ```" AD2_VPADDR " {id} {value}```\r\n\r\n"
+        "  ```" AD2_VPART " {id} {value}```\r\n\r\n"
         "  - {id}\r\n"
         "    - The virtual partition ID. 0 is the default.\r\n"
         "  - [value]\r\n"
         "    - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n\r\n"
         "  Examples\r\n"
         "    - Set default address mask to 18 for an Ademco system.\r\n"
-        "      - " AD2_VPADDR " 0 18\r\n"
+        "      - " AD2_VPART " 0 18\r\n"
         "    - Set default send partition to 1 for a DSC system.\r\n"
-        "      - " AD2_VPADDR " 0 1\r\n"
+        "      - " AD2_VPART " 0 1\r\n"
         "    - Show address for partition 2.\r\n"
-        "      - " AD2_VPADDR " 2\r\n"
+        "      - " AD2_VPART " 2\r\n"
         "    - Remove virtual partition in slot 2.\r\n"
-        "      - " AD2_VPADDR " 2 -1\r\n\r\n"
-        "    Note: address -1 will remove an entry.\r\n", _cli_cmd_vpaddr_event
+        "      - " AD2_VPART " 2 -1\r\n\r\n"
+        "    Note: address -1 will remove an entry.\r\n", _cli_cmd_vpart_event
     },
     {
         (char*)AD2_SOURCE,(char*)

@@ -1,3 +1,5 @@
+if(DEFINED ENV{STDK_CORE_PATH})
+message(AUTHOR_WARNING "**** Registering AlarmDecoder idf component 'stsdk'.")
 idf_component_register(SRCS "stsdk_main.cpp"
                             "caps_battery.c"
                             "caps_powerSource.c"
@@ -15,3 +17,6 @@ idf_component_register(SRCS "stsdk_main.cpp"
                     REQUIRES idf::otaupdate
                     INCLUDE_DIRS . ../../main/ $ENV{STDK_CORE_PATH}/src/include/)
 project(stsdk)
+else()
+message(AUTHOR_WARNING "**** Not currently possible to build 'stsdk' component outside of the STSDK build.py tool.")
+endif()

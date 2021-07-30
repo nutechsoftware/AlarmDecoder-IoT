@@ -5,21 +5,31 @@
 
 ## Overview
 
-This project provides a framework for building an IoT network appliance to monitor and control one or many alarm systems.
+This project provides an example framework for building an IoT network appliance to monitor and control one or many alarm systems.
 
-By integrating the AD2pHAT from AlarmDecoder.com and a compatible ESP32 SoC based board the resulting device connects a compatible alarm system to a public or private MQTT server for monitoring. The device can also be configured to initiate SIP voice calls, SMS messages, or e-mail when a user defined alarm state is triggered. The typical time from the device firmware start to being delivery of a state event is less than 10 seconds. Typical latency between an alarm event and message delivery is 20ms on a local network.
+The [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) integrates the AD2pHAT from AlarmDecoder.com and a ESP32-POE-ISO. The result is a device that easily connects to a compatible alarm system and publishes the alarm state to a public or private MQTT server for monitoring. The device can also be configured to initiate SIP voice calls, SMS messages, or e-mail when a user defined alarm state is triggered. The typical time from the device firmware start to being delivery of a state event is less than 10 seconds. Typical latency between an alarm event and message delivery is 20ms on a local network.
 
 The device firmware is stored in the onboard non-volatile flash making the device resistant to corruption. With OTA update support the flash can be securely loaded with the latest version in just a few seconds over HTTPS.
 
 ## Tested and recommended hardware
-* ESP32-DevKitC-32E. WiFi only applications.
 * ESP-POE-ISO. Ethernet+WiFi applications.
+* ESP32-DevKitC-32E. WiFi only applications.
 
 ## Firmware
-TODO: HOWTO flash the latest available firmware or compile this project from source. [Building firmware](#Building-firmware)
+The firmware is already compiled for the ESP32-POE-ISO board and is available in the release page or via OTA(over-the-air) update. Currently the firmware is built with the following build flags 'stsdk' and 'webui'.
+
+To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
+
+    upgrade webui
 
 
-## SmartThings app integration
+See the README-FLASH.MD inside the release file for instructions on flash the firmware over the ESP32-POE-ISO USB.
+
+### SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
+- Components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings
+
+This is the default buildflag. This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
+
 A few options are available as the AD2IoT device moves toward being certified and directly available in the SmartThings app. In order to Discover and adopt the AD2IoT device it needs to be visible in the "My Testing Devices" under the "Adding device" panel.
 
 First you will need to [enable Developer Mode in the app
@@ -32,6 +42,14 @@ https://smartthings.developer.samsung.com/partner/enroll
 
 - Use the SmartThings/Samsung developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
 
+### webUI build (webui) - alarmdecoder_webui_esp32.bin
+- Components: Pushover, Twilio, Sendgrid, ser2sock, webUI
+<img style="border:5px double black;"  src="contrib/webUI/EXAMPLE-PANEL-READY.jpg" width="200">
+
+
+This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThings driver is disabled and the webui component is enabled.
+
+Copy the contents of flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single MSDOS partition. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
 
 ## Configure the AD2IoT device.
  - Connect the ESP32 development board USB to a host computer and run a terminal program to connect to the virtual com port using 115200 baud.
@@ -49,8 +67,12 @@ Choose one of the following configurations.
 
 Configure the notifications using the notification components CLI commands.
 
-## AD2Iot CLI command reference
-### Base commands
+## AD2Iot CLI - command line interface
+Currently all configuration is done over the the ESP32 usb serial port. For drivers see the [ESP32-POE-ISO product page](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware). The USB port also provides power so disconnect the device from the alarm using the quick connect terminal block and and connect the device to a computer using a USB 2.0 A-Male to Micro B Cable for configuration using the command line interface.
+
+　<font color='red'>Do not connect the [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) to alarm panel power when connected to a computer.</font> If connection from both PC and alarm at the same time is needed be sure to connect to the alarm panel power first then connect to the PC last. The power from the panel when first connected to the AD2IoT will provide an unstable 5v output for a few microseconds. This unstable voltage can be sent back through the USB to the host computer causing the host to detect the voltage fault and halt.
+
+### Standard commands
   - Show the list of commands or give more detail on a specific command.
 
     ```help [command]```
@@ -74,7 +96,11 @@ Configure the notifications using the notification components CLI commands.
 
   - Preform an OTA upgrade now download and install new flash.
 
-    ```upgrade```
+    ```upgrade [buildflag]```
+
+    - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.
+
+      See release page for details on available builds.
 
   - Report the current and available version.
 
@@ -89,7 +115,7 @@ Configure the notifications using the notification components CLI commands.
       - [W]iFi: Enable WiFi network driver.
       - [E]thernet: Enable ethernet network driver.
     - [arg]
-      - Argument string name value pairs sepearted by &.
+      - Argument string name value pairs separated by &.
         - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD
 
     Examples
@@ -142,7 +168,7 @@ Configure the notifications using the notification components CLI commands.
 
   - Manage virtual partitions.
 
-    ```vpaddr {id} {value}```
+    ```vpart {id} {value}```
 
     - {id}
       - The virtual partition ID. 0 is the default.
@@ -151,13 +177,13 @@ Configure the notifications using the notification components CLI commands.
 
     Examples
       - Set default address mask to 18 for an Ademco system.
-        - vpaddr 0 18
+        - vpart 0 18
       - Set default send partition to 1 for a DSC system.
-        - vpaddr 0 1
+        - vpart 0 1
       - Show address for partition 2.
-        - vpaddr 2
+        - vpart 2
       - Remove virtual partition in slot 2.
-        - vpaddr 2 -1
+        - vpart 2 -1
 
       Note: address -1 will remove an entry.
 
@@ -190,7 +216,7 @@ Configure the notifications using the notification components CLI commands.
           - Example: ser2sockd enable Y
       - [acl] Set / Get ACL list
         - {arg1}: ACL LIST
-          -  String of CIDR values seperated by commas.
+          -  String of CIDR values separated by commas.
           - Default: Empty string disables ACL list
           - Example: ser2sockd acl 192.168.0.123/32,192.168.1.0/24
 
@@ -262,7 +288,7 @@ Configure the notifications using the notification components CLI commands.
       - [R] AUTO Reset.
         - {arg1}:  time in ms 0 to disable
       - [T] Message type filter.
-        - {arg1}: Message type list seperated by ',' or empty to disables filter.
+        - {arg1}: Message type list separated by ',' or empty to disables filter.
           - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]
             - For EVENT type the message will be generated by the API and not the AD2
       - [P] Pre filter REGEX or empty to disable.
@@ -337,7 +363,7 @@ Configure the notifications using the notification components CLI commands.
       - [R] AUTO Reset.
         - {arg1}:  time in ms 0 to disable
       - [T] Message type filter.
-        - {arg1}: Message type list seperated by ',' or empty to disables filter.
+        - {arg1}: Message type list separated by ',' or empty to disables filter.
           - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]
             - For EVENT type the message will be generated by the API and not the AD2
       - [P] Pre filter REGEX or empty to disable.
@@ -473,7 +499,10 @@ Configure the notifications using the notification components CLI commands.
         ```
 
 ## Building firmware
-### Setup build environment
+### PlatformIO
+#### TODO: Setup notes.
+### SmartThings device SDK build environment
+#### Setup build environment
 - Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
 - Select the esp32 build environment. Branch v1.4 seems to be the current active branch and uses espidf v4.0.1-317-g50b3e2c81.
 ```
@@ -485,13 +514,13 @@ cd ~/esp
 
 - Place the contents of this his project in ```st-device-sdk-c-ref/apps/esp32/```
 
-### Configure the project
+#### Configure the project
 
 ```
 ./build.sh esp32 AlarmDecoder-STSDK menuconfig
 ```
 
-### Build, Flash, and Run
+#### Build, Flash, and Run
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
