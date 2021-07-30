@@ -90,9 +90,9 @@ var panel_states =  {
     "icon_class":"icon house with_lock",
     "label":"Not Ready",
     "b1_icon_class": "icon house with_key",
-    "b1_label": "AWAY",
+    "b1_label": "DISARM",
     "b2_icon_class": "icon house with_key",
-    "b2_label": "STAY"
+    "b2_label": "DISARM"
   }
 }
 panel_states.get = function(key) {
@@ -220,6 +220,8 @@ class AD2ws {
       if (this.ad2emb_state.armed_stay) {
         /* Note: append _exit if exit_now state is set */
         this.mode = "armed_stay" + (this.ad2emb_state.exit_now ? "_exit" : "");
+      } else {
+        this.mode = "notready";
       }
     }
 
