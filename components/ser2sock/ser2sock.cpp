@@ -47,8 +47,6 @@
 #include "driver/uart.h"
 #include "esp_log.h"
 
-static const char *TAG = "SER2SOCKD";
-
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
@@ -58,6 +56,7 @@ static const char *TAG = "SER2SOCKD";
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_SER2SOCKD
+static const char *TAG = "SER2SOCKD";
 
 // specific includes
 #include "ser2sock.h"

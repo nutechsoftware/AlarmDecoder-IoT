@@ -47,8 +47,6 @@
 #include "driver/uart.h"
 #include "esp_log.h"
 
-static const char *TAG = "TWILIO";
-
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
@@ -58,6 +56,7 @@ static const char *TAG = "TWILIO";
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_TWILIO_CLIENT
+static const char *TAG = "TWILIO";
 
 // specific includes
 #include "twilio.h"

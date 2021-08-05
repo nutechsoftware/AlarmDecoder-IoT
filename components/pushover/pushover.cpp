@@ -47,8 +47,6 @@
 #include "driver/uart.h"
 #include "esp_log.h"
 
-static const char *TAG = "PUSHOVER";
-
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
 #include "ad2_utils.h"
@@ -58,6 +56,7 @@ static const char *TAG = "PUSHOVER";
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
+static const char *TAG = "PUSHOVER";
 
 // specific includes
 #include "pushover.h"
