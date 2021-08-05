@@ -84,6 +84,11 @@
 #include "webUI.h"
 #endif
 
+// MQTT client support
+#if CONFIG_AD2IOT_MQTT_CLIENT
+#include "ad2mqtt.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -589,6 +594,11 @@ void app_main()
     pushover_register_cmds();
 #endif
 
+#if CONFIG_AD2IOT_MQTT_CLIENT
+    // Register MQTT CLI commands.
+    mqtt_register_cmds();
+#endif
+
     // Register AD2 CLI commands.
     register_ad2_cli_cmd();
 
@@ -697,6 +707,10 @@ void app_main()
 #if CONFIG_AD2IOT_WEBSERVER_UI
     // Initialize WEB SEVER USER INTERFACE
     webUI_init();
+#endif
+#if CONFIG_AD2IOT_MQTT_CLIENT
+    // Initialize MQTT client
+    mqtt_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.

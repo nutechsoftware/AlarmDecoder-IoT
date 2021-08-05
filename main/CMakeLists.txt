@@ -11,6 +11,7 @@ idf_component_register(SRCS "alarmdecoder_main.cpp"
                     REQUIRES idf::otaupdate
                     REQUIRES idf::ser2sock
                     REQUIRES idf::webUI
+                    REQUIRES idf::ad2mqtt
                     )
 
 set(STDK_IOT_CORE_USE_DEFINED_CONFIG "y")
