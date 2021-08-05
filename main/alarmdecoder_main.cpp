@@ -33,6 +33,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "esp_tls.h"
 #include "driver/uart.h"
 #include <lwip/netdb.h>
 #include "esp_system.h"
@@ -514,6 +515,8 @@ void app_main()
     hal_host_uart_init();
 
     ad2_printf_host(AD2_SIGNON, FIRMWARE_VERSION);
+
+    ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
 
     // Dump hardware info
     esp_chip_info_t chip_info;

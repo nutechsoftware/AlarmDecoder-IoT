@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Init the global ca store early.
 - [X] CORE: Initialize virtual partitions before connecting to AD2*.
 - [X] CORE: Refactor some common use calls into ad2_utils and refactor JSON library includes. Fix some callback names to be specific to avoid collisions.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
