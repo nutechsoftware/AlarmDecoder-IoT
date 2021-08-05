@@ -133,6 +133,43 @@ std::string ad2_urlencode(const std::string str)
     return encoded;
 }
 
+
+/**
+ * @brief Generate a UUID based upon the ESP32 wifi hardware mac address.
+ *
+ * @arg [in]uint32_t Sub ID.
+ * @arg [in]ret std::string& to the result.
+ *
+ * UUID
+ *  Length fixed 36 characters
+ *  format args
+ *   AD2EMBEDXYYYYYY
+ *   X: app specific ID
+ *   Y: unique 32 bit value from WIFI MAC address.
+ *
+ */
+#define AD2IOT_UUID_FORMAT   "41443245-4d42-4544-44%02x-%02x%02x%02x%02x%02x%02x"
+
+void ad2_genUUID(uint8_t n, std::string& ret)
+{
+    static uint8_t chipid[6] = {0,0,0,0,0,0};
+    // assuming first byte wont never be 0x00
+    if (chipid[0] == 0x00) {
+        esp_read_mac(chipid, ESP_MAC_WIFI_STA);
+    }
+
+    char _uuid[37];
+    snprintf(_uuid, sizeof(_uuid), AD2IOT_UUID_FORMAT,
+             (uint16_t) ((n) & 0xff),
+             (uint16_t) ((chipid[0]) & 0xff),
+             (uint16_t) ((chipid[1]) & 0xff),
+             (uint16_t) ((chipid[2]) & 0xff),
+             (uint16_t) ((chipid[3]) & 0xff),
+             (uint16_t) ((chipid[4]) & 0xff),
+             (uint16_t) ((chipid[5]) & 0xff));
+    ret = _uuid;
+}
+
 /**
  * @brief find value by name in query string config data
  *    param1=val1&param2=val2
@@ -1009,7 +1046,7 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
 }
 
 /**
- * @brief send RAW string to the AD2 devices.
+ * @brief Get partition state by virtual partitition ID
  *
  * @param [in]vpartId Address slot for address to use for
  * returning partition info. The AlarmDecoderParser class tracks
@@ -1030,6 +1067,67 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
     }
     return s;
 }
+
+/**
+ * @brief Generate a standardized JSON string for the given AD2VirtualPartitionState pointer.
+ *
+ * @param [in]AD2VirtualPartitionState * to use for json object.
+ *
+ * @return cJSON*
+ *
+ */
+cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
+{
+    cJSON *root = cJSON_CreateObject();
+
+    // Add this boards info to the object
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    cJSON_AddStringToObject(root, "firmware_version", FIRMWARE_VERSION);
+    cJSON_AddNumberToObject(root, "cpu_model", chip_info.model);
+    cJSON_AddNumberToObject(root, "cpu_revision", chip_info.revision);
+    cJSON_AddNumberToObject(root, "cpu_cores", chip_info.cores);
+    cJSON *cjson_cpu_features = cJSON_CreateArray();
+    if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "WiFi" ));
+    }
+    if (chip_info.features & CHIP_FEATURE_BLE) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BLE" ));
+    }
+    if (chip_info.features & CHIP_FEATURE_BT) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BT" ));
+    }
+    cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
+    cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
+    std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
+    cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
+
+    if (s && !s->unknown_state) {
+        cJSON_AddBoolToObject(root, "ready", s->ready);
+        cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
+        cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
+        cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
+        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
+        cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
+        cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
+        cJSON_AddBoolToObject(root, "chime_on", s->chime_on);
+        cJSON_AddBoolToObject(root, "alarm_event_occurred", s->alarm_event_occurred);
+        cJSON_AddBoolToObject(root, "alarm_sounding", s->alarm_sounding);
+        cJSON_AddBoolToObject(root, "battery_low", s->battery_low);
+        cJSON_AddBoolToObject(root, "entry_delay_off", s->entry_delay_off);
+        cJSON_AddBoolToObject(root, "fire_alarm", s->fire_alarm);
+        cJSON_AddBoolToObject(root, "system_issue", s->system_issue);
+        cJSON_AddBoolToObject(root, "perimeter_only", s->perimeter_only);
+        cJSON_AddBoolToObject(root, "exit_now", s->exit_now);
+        cJSON_AddNumberToObject(root, "system_specific", s->system_specific);
+        cJSON_AddNumberToObject(root, "beeps", s->beeps);
+        cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
+        cJSON_AddStringToObject(root, "last_alpha_messages", s->last_alpha_message.c_str());
+        cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
+    }
+    return root;
+}
+
 
 /**
  * @brief return the current network mode value

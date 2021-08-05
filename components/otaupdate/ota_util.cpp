@@ -54,7 +54,6 @@ static const char *TAG = "AD2OTA";
 // specific includes
 #include "ota_util.h"
 
-#include "cJSON.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/rsa.h"
 #include "mbedtls/pk.h"

@@ -23,6 +23,9 @@
 #ifndef _AD2_UTILS_H
 #define _AD2_UTILS_H
 
+// required
+#include "cJSON.h"
+
 // Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
 
@@ -45,6 +48,7 @@ void ad2_aux_alarm(int codeId, int vpartId);
 void ad2_exit_now(int vpartId);
 void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
+cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *);
 void ad2_printf_host(const char *format, ...);
 void ad2_snprintf_host(const char *fmt, size_t size, ...);
 char ad2_network_mode(std::string &args);
@@ -62,6 +66,7 @@ std::string ad2_to_string(int n);
 std::string ad2_make_bearer_auth_header(const std::string& apikey);
 std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password);
 std::string ad2_urlencode(const std::string str);
+void ad2_genUUID(uint8_t n, std::string& ret);
 int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
 void ad2_lcase(std::string &str);
 void ad2_ucase(std::string &str);

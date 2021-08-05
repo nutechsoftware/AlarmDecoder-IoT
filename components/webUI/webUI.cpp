@@ -36,9 +36,6 @@
 #include "esp_vfs_fat.h"
 #include "driver/sdmmc_host.h"
 
-// cJSON component (esp-idf REQUIRES json)
-#include "cJSON.h"
-
 // AlarmDecoder IoT hardware settings.
 #include "device_control.h"
 
@@ -52,12 +49,6 @@ static const char *TAG = "WEBUI";
 /**
  * SSDP SECRETS/SETTINGS
  */
-// UUID
-// Length fixed 36 characters
-// format args
-// 1-3: esp32 chip id
-// 4-7: unique 32 bit value
-#define AD2IOT_UUID_FORMAT   "41443245-4d42-4544-44%02x-%02x%02x%02x%02x%02x%02x"
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (255)
@@ -91,26 +82,6 @@ extern "C" {
 // Currently not functional with esp-idf development platform only Arduino so some mods were needed.
 #include "TinyTemplateEngine.h"
 #include "TinyTemplateEngineFileReader.h"
-
-/**
- * generate AD2* uuid
- */
-void genUUID(uint32_t n, std::string &ret)
-{
-    uint8_t chipid[6];
-    esp_read_mac(chipid, ESP_MAC_WIFI_STA);
-
-    char _uuid[37];
-    snprintf(_uuid, sizeof(_uuid), AD2IOT_UUID_FORMAT,
-             (uint16_t) ((chipid[0]) & 0xff),
-             (uint16_t) ((chipid[1]) & 0xff),
-             (uint16_t) ((chipid[2]) & 0xff),
-             (uint16_t) ((n      >> 24) & 0xff),
-             (uint16_t) ((n      >> 16) & 0xff),
-             (uint16_t) ((n      >>  8) & 0xff),
-             (uint16_t) ((n           ) & 0xff));
-    ret = _uuid;
-}
 
 /**
  * generate uptime string
@@ -223,66 +194,6 @@ void free_ws_session_storage(void *ctx)
     }
 }
 
-/**
- * @brief Generate a JSON string for the given AD2VirtualPartitionState pointer.
- *
- * @param [in]AD2VirtualPartitionState * to use for json object.
- *
- * @return cJSON*
- *
- */
-cJSON *get_alarmdecoder_state_json(AD2VirtualPartitionState *s)
-{
-    cJSON *root = cJSON_CreateObject();
-
-    // Add this boards info to the object
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-    cJSON_AddStringToObject(root, "firmware_version", FIRMWARE_VERSION);
-    cJSON_AddNumberToObject(root, "cpu_model", chip_info.model);
-    cJSON_AddNumberToObject(root, "cpu_revision", chip_info.revision);
-    cJSON_AddNumberToObject(root, "cpu_cores", chip_info.cores);
-    cJSON *cjson_cpu_features = cJSON_CreateArray();
-    if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "WiFi" ));
-    }
-    if (chip_info.features & CHIP_FEATURE_BLE) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BLE" ));
-    }
-    if (chip_info.features & CHIP_FEATURE_BT) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BT" ));
-    }
-    cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
-    cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
-    std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
-    cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
-
-    if (s && !s->unknown_state) {
-        cJSON_AddBoolToObject(root, "ready", s->ready);
-        cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
-        cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
-        cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
-        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
-        cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
-        cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
-        cJSON_AddBoolToObject(root, "chime_on", s->chime_on);
-        cJSON_AddBoolToObject(root, "alarm_event_occurred", s->alarm_event_occurred);
-        cJSON_AddBoolToObject(root, "alarm_sounding", s->alarm_sounding);
-        cJSON_AddBoolToObject(root, "battery_low", s->battery_low);
-        cJSON_AddBoolToObject(root, "entry_delay_off", s->entry_delay_off);
-        cJSON_AddBoolToObject(root, "fire_alarm", s->fire_alarm);
-        cJSON_AddBoolToObject(root, "system_issue", s->system_issue);
-        cJSON_AddBoolToObject(root, "perimeter_only", s->perimeter_only);
-        cJSON_AddBoolToObject(root, "exit_now", s->exit_now);
-        cJSON_AddNumberToObject(root, "system_specific", s->system_specific);
-        cJSON_AddNumberToObject(root, "beeps", s->beeps);
-        cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
-        cJSON_AddStringToObject(root, "last_alpha_messages", s->last_alpha_message.c_str());
-        cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
-    }
-    return root;
-}
-
 #if CONFIG_HTTPD_WS_SUPPORT
 /**
  * @brief Send current alarm state to web socket connection. Lookup
@@ -304,11 +215,12 @@ static void ws_alarmstate_async_send(void *arg)
                 AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpartID);
                 if (s) {
                     // build the standard json AD2IoT device and alarm state object.
-                    cJSON *root = get_alarmdecoder_state_json(s);
+                    cJSON *root = ad2_get_partition_state_json(s);
                     if (root) {
                         ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
                         cJSON_AddStringToObject(root, "event", "SYNC");
-                        const char *sys_info = cJSON_Print(root);
+                        char *sys_info = cJSON_Print(root);
+                        cJSON_Minify(sys_info);
                         httpd_ws_frame_t ws_pkt;
                         memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
                         ws_pkt.payload = (uint8_t*)sys_info;
@@ -528,7 +440,7 @@ esp_err_t file_get_handler(httpd_req_t *req)
 
         // UUID MACRO ${5}
         std::string szUUID;
-        genUUID(0, szUUID);
+        ad2_genUUID(0x0, szUUID);
 
         const char* values[] = {
             szVersion.c_str(), // match ${0}
@@ -600,10 +512,10 @@ esp_err_t file_get_handler(httpd_req_t *req)
  * @param [in]arg cast as int for event type (ON_ARM,,,).
  *
  */
-void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
 #if CONFIG_HTTPD_WS_SUPPORT
-    ESP_LOGI(TAG, "on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
+    ESP_LOGI(TAG, "webui_on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
     size_t fds = server_config.max_open_sockets;
     int client_fds[fds];
     if (server && hal_get_network_connected()) {
@@ -615,10 +527,10 @@ void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
                     // get the partition state based upon the virtual partition requested.
                     AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpartID);
                     if (temps && s->partition == temps->partition) {
-                        cJSON *root = get_alarmdecoder_state_json(s);
+                        cJSON *root = ad2_get_partition_state_json(s);
                         cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
-                        const char *sys_info = cJSON_Print(root);
-
+                        char *sys_info = cJSON_Print(root);
+                        cJSON_Minify(sys_info);
                         httpd_ws_frame_t ws_pkt;
                         memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
                         ws_pkt.payload = (uint8_t*)sys_info;
@@ -706,16 +618,16 @@ void webui_server_task(void *pvParameters)
 #endif
                 httpd_register_uri_handler(server, &file_server);
                 // Subscribe to AlarmDecoder events
-                AD2Parse.subscribeTo(ON_ARM, on_state_change, (void *)ON_ARM);
-                AD2Parse.subscribeTo(ON_DISARM, on_state_change, (void *)ON_DISARM);
-                AD2Parse.subscribeTo(ON_CHIME_CHANGE, on_state_change, (void *)ON_CHIME_CHANGE);
-                AD2Parse.subscribeTo(ON_FIRE, on_state_change, (void *)ON_FIRE);
-                AD2Parse.subscribeTo(ON_POWER_CHANGE, on_state_change, (void *)ON_POWER_CHANGE);
-                AD2Parse.subscribeTo(ON_READY_CHANGE, on_state_change, (void *)ON_READY_CHANGE);
-                AD2Parse.subscribeTo(ON_LOW_BATTERY, on_state_change, (void *)ON_LOW_BATTERY);
-                AD2Parse.subscribeTo(ON_ALARM_CHANGE, on_state_change, (void *)ON_ALARM_CHANGE);
-                AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
-                AD2Parse.subscribeTo(ON_EXIT_CHANGE, on_state_change, (void *)ON_EXIT_CHANGE);
+                AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
+                AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
+                AD2Parse.subscribeTo(ON_CHIME_CHANGE, webui_on_state_change, (void *)ON_CHIME_CHANGE);
+                AD2Parse.subscribeTo(ON_FIRE, webui_on_state_change, (void *)ON_FIRE);
+                AD2Parse.subscribeTo(ON_POWER_CHANGE, webui_on_state_change, (void *)ON_POWER_CHANGE);
+                AD2Parse.subscribeTo(ON_READY_CHANGE, webui_on_state_change, (void *)ON_READY_CHANGE);
+                AD2Parse.subscribeTo(ON_LOW_BATTERY, webui_on_state_change, (void *)ON_LOW_BATTERY);
+                AD2Parse.subscribeTo(ON_ALARM_CHANGE, webui_on_state_change, (void *)ON_ALARM_CHANGE);
+                AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, webui_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+                AD2Parse.subscribeTo(ON_EXIT_CHANGE, webui_on_state_change, (void *)ON_EXIT_CHANGE);
             } else {
                 // error long 10s sleep.
                 ESP_LOGI(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));

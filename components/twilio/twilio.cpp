@@ -46,7 +46,6 @@
 #include <lwip/netdb.h>
 #include "driver/uart.h"
 #include "esp_log.h"
-#include "cJSON.h"
 
 static const char *TAG = "TWILIO";
 
