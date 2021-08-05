@@ -30,7 +30,6 @@
 #include <alarmdecoder_api.h>
 
 // esp includes
-// esp includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -554,6 +553,19 @@ void app_main()
     // create event group
     g_ad2_net_event_group = xEventGroupCreate();
 
+    // init the virtual partition database from NV storage
+    // see iot_cli_cmd::vpart
+    // Address 0 is reserved for system partition
+    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
+        int x = -1;
+        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
+        // if we found a NV record then initialize the AD2PState for the mask.
+        if (x != -1) {
+            AD2Parse.getAD2PState(x, true);
+            ESP_LOGI(TAG, "init vpart slot %i mask address %i", n, x);
+        }
+    }
+
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
@@ -592,20 +604,6 @@ void app_main()
     // Start the CLI.
     // Press "..."" to halt startup and stay if a safe mode command line only.
     uart_cli_main();
-
-    // init the virtual partition database from NV storage
-    // see iot_cli_cmd::vpart
-    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
-        int x = -1;
-        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
-        // if we found a NV record then initialize the AD2PState for the mask.
-        if (x != -1) {
-            uint32_t amask = 1;
-            amask <<= x-1;
-            AD2Parse.getAD2PState(&amask, true);
-            ESP_LOGI(TAG, "init vpart slot %i mask %i", n, x);
-        }
-    }
 
     if (g_ad2_mode == 'S') {
         ad2_printf_host("Delaying start of ad2source SOCKET after network is up.\r\n");
