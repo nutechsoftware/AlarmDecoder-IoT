@@ -67,3 +67,6 @@
 
 // Signon message
 #define AD2_SIGNON "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
+
+// The virtual mount prefix for all file operations.
+#define AD2_MOUNT_POINT "/sdcard"

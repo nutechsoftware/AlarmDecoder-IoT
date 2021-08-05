@@ -138,6 +138,7 @@ void hal_host_uart_init();
 void hal_ad2_reset();
 bool hal_get_network_connected();
 void hal_set_network_connected(bool);
+void hal_init_sd_card();
 #ifdef __cplusplus
 }
 #endif

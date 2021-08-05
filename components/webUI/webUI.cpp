@@ -33,8 +33,6 @@
 // esp networking etc.
 #include <lwip/netdb.h>
 #include "esp_http_server.h"
-#include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
 
 // AlarmDecoder IoT hardware settings.
 #include "device_control.h"
@@ -43,8 +41,6 @@
 #if CONFIG_AD2IOT_WEBSERVER_UI
 static const char *TAG = "WEBUI";
 
-// Define the virtual mount prefix for all file operations.
-#define MOUNT_POINT "/sdcard"
 
 /**
  * SSDP SECRETS/SETTINGS
@@ -52,6 +48,9 @@ static const char *TAG = "WEBUI";
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (255)
+
+/* helper macro MIN */
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 /* helper macro to test for extenions */
 #define IS_FILE_EXT(filename, ext) \
@@ -339,9 +338,9 @@ esp_err_t file_get_handler(httpd_req_t *req)
 
     struct stat file_stat;
 
-    // extract the full file path using MOUNT_POINT as the root.
+    // extract the full file path using AD2_MOUNT_POINT as the root.
     char temppath[FILE_PATH_MAX];
-    const char *filename = get_path_from_uri(temppath,  MOUNT_POINT,
+    const char *filename = get_path_from_uri(temppath,  AD2_MOUNT_POINT,
                            req->uri, sizeof(temppath));
     if (!filename) {
         ESP_LOGE(TAG, "Filename is too long");
@@ -370,9 +369,9 @@ esp_err_t file_get_handler(httpd_req_t *req)
         // Check if _NOT_ exists swap for 404.html
         if (stat(filepath.c_str(), &file_stat) != 0) {
             // not found check if we have a custom 404.html file in our document root.
-            filepath = MOUNT_POINT "/404.html";
+            filepath = AD2_MOUNT_POINT "/404.html";
             if (stat(filepath.c_str(), &file_stat) != 0) {
-                httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "file not found");
+                httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "file not found.<br>Connect a uSD card with a FAT32 partition and the html content in the root directory before the device starts.");
                 return ESP_FAIL; // close socket
             }
             // set status and continue processing 404.html file
@@ -555,29 +554,6 @@ void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *
 void webui_server_task(void *pvParameters)
 {
     esp_err_t err;
-
-    // Setup for Mount of uSD over SPI on the OLIMEX ESP-POE-ISO that is wired for a 1 bit data bus.
-    const char mount_point[] = MOUNT_POINT;
-    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-    host.flags = SDMMC_HOST_FLAG_1BIT;
-    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    slot_config.width = 1;
-
-    gpio_set_pull_mode(GPIO_uSD_CMD, GPIO_FLOATING);
-    gpio_set_pull_mode(GPIO_uSD_D0, GPIO_FLOATING);
-    gpio_set_pull_mode(GPIO_uSD_CLK, GPIO_FLOATING);
-
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
-    mount_config.format_if_mount_failed = false;
-    mount_config.max_files = 5;
-
-    ESP_LOGI(TAG, "Mounting uSD card");
-    sdmmc_card_t *card = NULL;
-    err = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
-        return;
-    }
 
     // Configure the web server and handlers.
     server_config.uri_match_fn = httpd_uri_match_wildcard;

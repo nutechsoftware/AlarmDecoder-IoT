@@ -574,6 +574,9 @@ void app_main()
         }
     }
 
+    // Initialize any attached sd card.
+    hal_init_sd_card();
+
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();

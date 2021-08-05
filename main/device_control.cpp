@@ -36,6 +36,8 @@
 #include "esp_log.h"
 #include "esp_eth.h"
 #include "esp_idf_version.h"
+#include "esp_vfs_fat.h"
+#include "driver/sdmmc_host.h"
 #include "device_control.h"
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 #include "tcpip_adapter.h"
@@ -939,6 +941,37 @@ void hal_set_network_connected(bool set)
         xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
     }
 }
+
+/**
+ * @brief Initialize the uSD reader if one is connected.
+ */
+void hal_init_sd_card() {
+   esp_err_t err;
+
+    // Setup for Mount of uSD over SPI on the OLIMEX ESP-POE-ISO that is wired for a 1 bit data bus.
+    const char mount_point[] = AD2_MOUNT_POINT;
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    host.flags = SDMMC_HOST_FLAG_1BIT;
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    slot_config.width = 1;
+
+    gpio_set_pull_mode(GPIO_uSD_CMD, GPIO_FLOATING);
+    gpio_set_pull_mode(GPIO_uSD_D0, GPIO_FLOATING);
+    gpio_set_pull_mode(GPIO_uSD_CLK, GPIO_FLOATING);
+
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
+    mount_config.format_if_mount_failed = false;
+    mount_config.max_files = 5;
+
+    ESP_LOGI(TAG, "Mounting uSD card");
+    sdmmc_card_t *card = NULL;
+    err = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
+        return;
+    }
+}
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
