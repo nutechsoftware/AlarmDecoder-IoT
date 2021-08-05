@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] API: On first state message only fire off one event 'READY'. This prevents multiple events from firing on the first state message from the panel. Subscribe to at minimum READY event changes to be sure to catch the first event on connection to the panel.
 - [X] CORE: Init the global ca store early.
 - [X] CORE: Initialize virtual partitions before connecting to AD2*.
 - [X] CORE: Refactor some common use calls into ad2_utils and refactor JSON library includes. Fix some callback names to be specific to avoid collisions.

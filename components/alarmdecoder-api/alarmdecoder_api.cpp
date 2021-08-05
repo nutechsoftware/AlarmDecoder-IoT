@@ -772,17 +772,10 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 }
                             }
 
-                            // if this is the first state update then send ARMED/READY states
+                            // If this is the first state update then ONLY send READY state as a SYNC is is
+                            // necessary to at minimum subscribe to READY to be sure to stay in sync at startup.
                             if ( ad2ps->unknown_state ) {
-                                SEND_FIRE_CHANGE = true;
                                 SEND_READY_CHANGE = true;
-                                SEND_ARMED_CHANGE = true;
-                                SEND_CHIME_CHANGE = true;
-                                SEND_POWER_CHANGE = true;
-                                SEND_BATTERY_CHANGE = true;
-                                SEND_ALARM_CHANGE = true;
-                                SEND_ZONE_BYPASSED_CHANGE = true;
-                                SEND_EXIT_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
                                 // fire state change send
