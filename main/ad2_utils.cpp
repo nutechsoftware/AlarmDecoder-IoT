@@ -137,15 +137,10 @@ bool ad2_acl_check::find(std::string ip)
     }
     ad2_remove_ws(ip);
     uint32_t addr = 0;
-    int a, b, c, d;
-    if (std::sscanf(ip.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) == 4) {
-        addr = a << 24;
-        addr |= b << 16;
-        addr |= c << 8;
-        addr |= d;
-        return find(addr);
+    if (!this->_ipaddr(ip, addr)) {
+        return false;
     }
-    return false;
+    return find(addr);
 }
 
 // @brief test if an IP uint_32_t value is inside of any of the know network ranges.
