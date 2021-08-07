@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] SER2SOCKD: Added ACL logic and wired the acl command to allow an ACL string to be saved and parsed rejecting clients that don't match.
+- [X] CORE: ad2_tokenize change to allow multiple tokens. Was having issues so I reverted back to strtok.
+- [X] CORE: Added ad2_acl_check class to ad2_utils.
 - [X] CORE: Move uSD card init from webUI into device_control and init at startup with error handling.
 - [X] CORE: Minor cleanup warnings and add exclude for build to astylerc exclude.
 - [X] MQTT: New component an MQTT client using ESP-MQTT with user defined events and topics and optional QOS level 2 using a uSD card for persistent storage. TLS is causing issues with random lockups but works with clear text connections. Still needs work but its a good start.

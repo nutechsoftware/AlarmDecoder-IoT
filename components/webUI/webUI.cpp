@@ -269,7 +269,7 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
             }
             std::string args((char *)&ws_pkt.payload[key_sync.length()]);
             std::vector<std::string> args_v;
-            ad2_tokenize(args, ',', args_v);
+            ad2_tokenize(args, ", ", args_v);
             int codeID = atoi(args_v[1].c_str());
             int vpartID = atoi(args_v[0].c_str());
             ((ws_session_storage *)req->sess_ctx)->codeID = codeID;

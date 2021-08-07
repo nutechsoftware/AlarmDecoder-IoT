@@ -218,7 +218,7 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
         - {arg1}: ACL LIST
           -  String of CIDR values separated by commas.
           - Default: Empty string disables ACL list
-          - Example: ser2sockd acl 192.168.0.123/32,192.168.1.0/24
+          - Example: ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
 
 ### SmartThings STSDK IoT commands
   - Enable SmartThings component

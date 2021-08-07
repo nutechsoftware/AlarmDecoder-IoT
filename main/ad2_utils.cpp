@@ -54,6 +54,117 @@ extern "C" {
 
 
 /**
+ * @brief Parse an acl string and add to our list of networks.
+ *
+ * @details Split ACL string on ',' then test if each section is a CIDR '/XX', range '-'
+ * or single IP. Calculate the appropriate uint32_t Start and End address values and append it to
+ * allowed_networks vector.
+ *
+ * Split on '/' for CIDR '-' for IP range or just a single IP.
+ *   Example ACL string: "192.168.0.0/24, 192.168.1.1-192.168.1.3, 192.168.2.1"
+ *
+ * @arg [in]acl std::string * Pointer to std::string with ACL list.
+ *
+ * @return int results.   0 ad2_acl_check.ACL_FORMAT_OK
+ *                       -1 ad2_acl_check.ACL_ERR_BADFORMAT_CIDR
+ *                       -2 ad2_acl_check.ACL_ERR_BADFORMAT_IP
+ */
+int ad2_acl_check::add(std::string& acl)
+{
+    std::vector<std::string> tokens;
+    // Remove all white space.
+    ad2_remove_ws(acl);
+
+    // Split on commas.
+    ad2_tokenize(acl, ",", tokens);
+    for (auto &token : tokens) {
+
+        /// Test for CIDR notation '\' 192.168.0.0/24
+        if (token.find('/') != std::string::npos) {
+            // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-32
+            uint8_t iCIDR = std::stoi(token.substr(token.find("/") + 1));
+            if (iCIDR > 32 || iCIDR < 1) {
+                return this->ACL_ERR_BADFORMAT_CIDR;
+            }
+            std::string ip = token.substr(0, token.find("/"));
+            uint32_t addr = 0;
+            if (!this->_ipaddr(ip, addr)) {
+                return ACL_ERR_BADFORMAT_IP;
+            }
+            // Build our start and end addresses using the CIDR mask.
+            uint32_t mask = 0xffffffff << (32 - iCIDR);
+            allowed_networks.push_back({addr & mask, addr | (~mask)});
+        } else {
+
+            // Test for RANGE notation '-' 192.168.0.10-192.168.0.100'
+            if (token.find('-') != std::string::npos) {
+                // Start address
+                std::string szstart = token.substr(0, token.find("-"));
+                uint32_t saddr = 0;
+                if (!this->_ipaddr(szstart, saddr)) {
+                    return this->ACL_ERR_BADFORMAT_IP;
+                }
+                // End address
+                std::string szend = token.substr(token.find("-") + 1);
+                uint32_t eaddr = 0;
+                if (!this->_ipaddr(szend, eaddr)) {
+                    return this->ACL_ERR_BADFORMAT_IP;
+                }
+                // Currently start needs to be less than end.
+                if (saddr <= eaddr) {
+                    allowed_networks.push_back({saddr, eaddr});
+                }
+            } else {
+
+                // Test for SINGLE address.
+                uint32_t addr = 0;
+                if (!this->_ipaddr(token, addr)) {
+                    return this->ACL_ERR_BADFORMAT_IP;
+                }
+                allowed_networks.push_back({addr, addr});
+            }
+        }
+    }
+    return this->ACL_FORMAT_OK;
+}
+
+// @brief test if an IP string is inside of any of the know network ranges.
+bool ad2_acl_check::find(std::string ip)
+{
+    // If no ACLs exist then skip ACL testing and everything passes.
+    if (!allowed_networks.size()) {
+        return true;
+    }
+    ad2_remove_ws(ip);
+    uint32_t addr = 0;
+    int a, b, c, d;
+    if (std::sscanf(ip.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) == 4) {
+        addr = a << 24;
+        addr |= b << 16;
+        addr |= c << 8;
+        addr |= d;
+        return find(addr);
+    }
+    return false;
+}
+
+// @brief test if an IP uint_32_t value is inside of any of the know network ranges.
+bool ad2_acl_check::find(uint32_t ip)
+{
+    // If no ACLs exist then skip ACL testing and everything passes.
+    if (!allowed_networks.size()) {
+        return true;
+    }
+    for(auto acl: allowed_networks) {
+        if (ip >=acl.first && ip <= acl.second) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+/**
  * build Bearer auth string from api key
  */
 std::string ad2_make_bearer_auth_header(const std::string& apikey)
@@ -303,20 +414,20 @@ std::string ad2_to_string(int n)
  * @brief split string to vector on token
  *
  * @param [in]str std::string input string
- * @param [in]delim const char delimeter
+ * @param [in]delim char * delimeters ex. ", " comma and space.
  * @param [in]out pointer to output std::vector of std:strings
  *
  */
-void ad2_tokenize(std::string const &str, const char delim,
+void ad2_tokenize(std::string const &str, const char* delimiters,
                   std::vector<std::string> &out)
 {
-    // construct a stream from the string
-    std::stringstream ss(str);
-
-    std::string s;
-    while (std::getline(ss, s, delim)) {
-        out.push_back(s);
+    char *_str = strdup(str.c_str());
+    char *token = std::strtok(_str, delimiters);
+    while (token) {
+        out.push_back(std::string(token));
+        token = std::strtok(nullptr, delimiters);
     }
+    free(_str);
 }
 
 /**
@@ -445,6 +556,20 @@ void ad2_trim(std::string &s)
 {
     ad2_ltrim(s);
     ad2_rtrim(s);
+}
+
+/**
+ * @brief Remove all white space from a string.
+ *
+ * @param [in]s std::string &.
+ */
+void ad2_remove_ws(std::string& s )
+{
+    std::string str_no_ws ;
+    for( char c : s ) if( !std::isspace(c) ) {
+            str_no_ws += c ;
+        }
+    s = str_no_ws;
 }
 
 /**

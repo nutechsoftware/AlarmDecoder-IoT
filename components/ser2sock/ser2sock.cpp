@@ -46,6 +46,7 @@
 #include <lwip/netdb.h>
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "esp_netif.h"
 
 // AlarmDecoder includes
 #include "alarmdecoder_main.h"
@@ -110,6 +111,9 @@ int listen_sock = -1;
 struct sockaddr_in serv_addr;
 struct sockaddr_in peer_addr;
 
+/* ACL control */
+ad2_acl_check ser2sock_acl;
+
 /**
  * ser2sock command list and enum.
  */
@@ -156,6 +160,7 @@ static void _cli_cmd_ser2sockd_event(char *string)
         }
         if(subcmd.compare(S2SD_SUBCMD[i]) == 0) {
             std::string arg;
+            std::string acl;
             switch(i) {
             /**
              * Enable/Disable ser2sock daemon.
@@ -176,7 +181,19 @@ static void _cli_cmd_ser2sockd_event(char *string)
              * ser2sock daemon IP/CIDR ACL list.
              */
             case S2SD_SUBCMD_ACL_ID:
-                ad2_printf_host("Not yet implemented.\r\n");
+                // If no arg then return ACL list
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    ser2sock_acl.clear();
+                    int res = ser2sock_acl.add(arg);
+                    if (res == ser2sock_acl.ACL_FORMAT_OK) {
+                        ad2_set_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                    } else {
+                        ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
+                    }
+                }
+                // show contents of this slot
+                ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
+                ad2_printf_host("ser2sockd 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
                 break;
@@ -203,7 +220,7 @@ static struct cli_command ser2sockd_cmd_list[] = {
         "      - {arg1}: ACL LIST\r\n"
         "      -  String of CIDR values seperated by commas.\r\n"
         "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.123/32,192.168.1.0/24\r\n\r\n", _cli_cmd_ser2sockd_event
+        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4\r\n\r\n", _cli_cmd_ser2sockd_event
     }
 };
 
@@ -223,6 +240,16 @@ void ser2sockd_register_cmds()
  */
 void ser2sockd_init(void)
 {
+    // load and parse ACL if set.
+    std::string acl;
+    ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
+    if (acl.length()) {
+        int res = ser2sock_acl.add(acl);
+        if (res != ser2sock_acl.ACL_FORMAT_OK) {
+            ESP_LOGI(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
+        }
+    }
+
     int enabled = 0;
     ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &enabled);
 
@@ -541,15 +568,25 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                     if (newsockfd != -1) {
                         /* reset our added id to a bad state */
                         added_slot = -2;
-                        added_slot = _add_fd(newsockfd, CLIENT_SOCKET);
-                        if (added_slot >= 0) {
-                            ESP_LOGI(TAG, "Socket connected slot %i from %s", added_slot, inet_ntoa(peer_addr.sin_addr));
-                            did_work = true;
-                        } else {
-                            ESP_LOGI(TAG,"add slot error %i", added_slot);
+
+                        /* ACL test */
+                        std::string IP = inet_ntoa(peer_addr.sin_addr);
+                        if (!ser2sock_acl.find(IP)) {
+                            struct linger lo = { 1, 0 };
+                            setsockopt(newsockfd, SOL_SOCKET, SO_LINGER, &lo, sizeof(lo));
                             close(newsockfd);
-                            if(added_slot == -1) {
-                                ESP_LOGI(TAG, "Socket refused because no more space");
+                            ESP_LOGI(TAG, "Rejecting client connection from '%s'", IP.c_str());
+                        } else {
+                            added_slot = _add_fd(newsockfd, CLIENT_SOCKET);
+                            if (added_slot >= 0) {
+                                ESP_LOGI(TAG, "Socket connected slot %i from %s", added_slot, inet_ntoa(peer_addr.sin_addr));
+                                did_work = true;
+                            } else {
+                                ESP_LOGI(TAG,"add slot error %i", added_slot);
+                                close(newsockfd);
+                                if(added_slot == -1) {
+                                    ESP_LOGI(TAG, "Socket refused because no more space");
+                                }
                             }
                         }
                     } else {

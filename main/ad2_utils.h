@@ -61,7 +61,7 @@ std::string ad2_string_printf(const char *fmt, ...);
 std::string ad2_string_vaprintf(const char *fmt, va_list args);
 std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
 int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining = false);
-void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
+void ad2_tokenize(std::string const &str, const char* delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);
 std::string ad2_make_bearer_auth_header(const std::string& apikey);
 std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password);
@@ -74,6 +74,50 @@ bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replac
 void ad2_ltrim(std::string &s);
 void ad2_rtrim(std::string &s);
 void ad2_trim(std::string &s);
+void ad2_remove_ws(std::string &s);
+
+/**
+ *  @brief ACL parser and test class
+ *
+ *  @details Simple parser for ACL strings and testing for matches given
+ *  an IP string or the uint32_t value of an IP.
+ *     Example ACL String: '192.168.0.0/24, 192.168.1.1-192.168.1.2'
+ */
+class ad2_acl_check
+{
+public:
+    int add(std::string& acl);
+    bool find(std::string ip);
+    bool find(uint32_t ip);
+    void clear()
+    {
+        allowed_networks.clear();
+    };
+
+    enum {
+        ACL_FORMAT_OK = 0,
+        ACL_ERR_BADFORMAT_CIDR = -1,
+        ACL_ERR_BADFORMAT_IP = -2
+    };
+
+private:
+    // @brief parse ip address string to uint32_t value.
+    bool _ipaddr(std::string& ip, uint32_t& addr)
+    {
+        int a, b, c, d;
+        if (std::sscanf(ip.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) != 4) {
+            return false;
+        } else {
+            addr = a << 24;
+            addr |= b << 16;
+            addr |= c << 8;
+            addr |= d;
+        };
+        return true;
+    };
+    // @brief list of allowed network start and end addresses.
+    vector<pair<int,int>> allowed_networks;
+};
 
 // NV Storage utilities
 

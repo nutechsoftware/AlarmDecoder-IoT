@@ -347,7 +347,7 @@ static void ser2sock_client_task(void *pvParameters)
                                        AD2MODE_CONFIG_ARG_SLOT, nullptr, buf);
 
             std::vector<std::string> out;
-            ad2_tokenize(buf, ':', out);
+            ad2_tokenize(buf, ":", out);
 
             // data sanity tests
             bool connectok = false;
@@ -464,7 +464,7 @@ void init_ad2_uart_client()
                                AD2MODE_CONFIG_ARG_SLOT, nullptr, port_pins);
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
-    ad2_tokenize(port_pins, ':', out);
+    ad2_tokenize(port_pins, ":", out);
     ESP_LOGI(TAG, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
     int tx_pin = atoi(out[0].c_str());
     int rx_pin = atoi(out[1].c_str());

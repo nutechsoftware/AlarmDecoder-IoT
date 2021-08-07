@@ -945,8 +945,9 @@ void hal_set_network_connected(bool set)
 /**
  * @brief Initialize the uSD reader if one is connected.
  */
-void hal_init_sd_card() {
-   esp_err_t err;
+void hal_init_sd_card()
+{
+    esp_err_t err;
 
     // Setup for Mount of uSD over SPI on the OLIMEX ESP-POE-ISO that is wired for a 1 bit data bus.
     const char mount_point[] = AD2_MOUNT_POINT;

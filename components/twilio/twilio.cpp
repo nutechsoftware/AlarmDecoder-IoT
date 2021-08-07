@@ -1214,7 +1214,7 @@ void twilio_init()
                 std::string notify_types_sz = "";
                 std::vector<std::string> notify_types_v;
                 ad2_get_nv_slot_key_string(key.c_str(), i, SK_TYPE_LIST, notify_types_sz);
-                ad2_tokenize(notify_types_sz, ',', notify_types_v);
+                ad2_tokenize(notify_types_sz, ", ", notify_types_v);
                 for (auto &sztype : notify_types_v) {
                     ad2_trim(sztype);
                     auto x = AD2Parse.message_type_id.find(sztype);
