@@ -3,12 +3,14 @@ idf_component_register(SRCS "alarmdecoder_main.cpp"
                             "ad2_cli_cmd.cpp"
                             "ad2_uart_cli.cpp"
                             "ad2_utils.cpp"
+                    REQUIRES idf::esp-tls
                     REQUIRES idf::json
+                    REQUIRES idf::fatfs
+		    REQUIRES idf::stsdk
                     REQUIRES idf::alarmdecoder-api
+                    REQUIRES idf::otaupdate
                     REQUIRES idf::pushover
                     REQUIRES idf::twilio
-		    REQUIRES idf::stsdk
-                    REQUIRES idf::otaupdate
                     REQUIRES idf::ser2sock
                     REQUIRES idf::webUI
                     REQUIRES idf::ad2mqtt

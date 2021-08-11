@@ -20,39 +20,20 @@
  *  limitations under the License.
  *
  */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
+
 static const char *TAG = "AD2CLICMD";
 
-// AlarmDecoder includes
+// AlarmDecoder std includes
 #include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
+
+// esp component includes
+#include "driver/uart.h"
 
 // specific includes
 #include "ad2_cli_cmd.h"
-
 
 #ifdef __cplusplus
 extern "C" {

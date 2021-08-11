@@ -21,62 +21,66 @@
 *  limitations under the License.
 *
 */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// stdc++
-#include <string>
-#include <sstream>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
-
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
 static const char *TAG = "PUSHOVER";
 
-// specific includes
-#include "pushover.h"
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-// mbedtls
-#include "mbedtls/base64.h"
-#include "mbedtls/platform.h"
+// esp component includes
 #include "mbedtls/net_sockets.h"
-#include "mbedtls/esp_debug.h"
-#include "mbedtls/ssl.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/error.h"
-#include "mbedtls/certs.h"
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-#include "mbedtls/ssl_cache.h"
-#endif
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
-#include "esp_crt_bundle.h"
-#endif
+#include "mbedtls/ssl.h"
+#include "mbedtls/esp_debug.h"
+
+// specific includes
+#include "pushover.h"
+
+//#define DEBUG_PUSHOVER
+//#define DEBUG_PUSHOVER_TLS
+#define PUSHOVER_QUEUE_SIZE 20
+#define AD2_DEFAULT_PUSHOVER_SLOT 0
+
+/* Constants that aren't configurable in menuconfig */
+#define PUSHOVER_API_SERVER "api.pushover.net"
+#define PUSHOVER_API_PORT "443"
+
+#define PUSHOVER_API_VERSION "1"
+#define PUSHOVER_RATE_LIMIT 2000
+
+#define PUSHOVER_COMMAND        "pushover"
+#define PUSHOVER_PREFIX         "po"
+#define PUSHOVER_TOKEN_CFGKEY   "apptoken"
+#define PUSHOVER_USERKEY_CFGKEY "userkey"
+#define PUSHOVER_SAS_CFGKEY     "switch"
+
+#define MAX_SEARCH_KEYS 9
+
+// NV storage sub key values for virtual search switch
+#define SK_NOTIFY_SLOT       "N"
+#define SK_DEFAULT_STATE     "D"
+#define SK_AUTO_RESET        "R"
+#define SK_TYPE_LIST         "T"
+#define SK_PREFILTER_REGEX   "P"
+#define SK_OPEN_REGEX_LIST   "O"
+#define SK_CLOSED_REGEX_LIST "C"
+#define SK_FAULT_REGEX_LIST  "F"
+#define SK_OPEN_OUTPUT_FMT   "o"
+#define SK_CLOSED_OUTPUT_FMT "c"
+#define SK_FAULT_OUTPUT_FMT  "f"
+
+typedef struct pushover_message_data {
+    char *token;
+    char *userkey;
+    char *message;
+} pushover_message_data_t;
 
 QueueHandle_t  sendQ_po=NULL;
 mbedtls_entropy_context pushover_entropy;
@@ -85,11 +89,8 @@ mbedtls_ssl_config pushover_conf;
 mbedtls_ssl_context pushover_ssl;
 mbedtls_x509_crt api_pushover_net_cacert;
 mbedtls_net_context pushover_server_fd;
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-mbedtls_ssl_cache_context cache;
-#endif
 
-std::vector<AD2EventSearch *> pushover_AD2EventSearches;
+static std::vector<AD2EventSearch *> pushover_AD2EventSearches;
 
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
@@ -138,6 +139,10 @@ std::string build_pushover_request_string(std::string body)
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// forward decl
+void pushover_send_task(void *pvParameters);
+void pushover_add_queue(std::string &userkey, std::string &token, std::string &message);
 
 /**
  * pushover_add_queue()
@@ -796,9 +801,6 @@ void pushover_init()
 {
     int res = 0;
 
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_cache_init( &cache );
-#endif
     // init server_fd
     mbedtls_net_init(&pushover_server_fd);
 
@@ -857,12 +859,6 @@ void pushover_init()
     mbedtls_ssl_conf_rng(&pushover_conf, mbedtls_ctr_drbg_random, &pushover_ctr_drbg);
 #ifdef CONFIG_MBEDTLS_DEBUG
     mbedtls_esp_enable_debug_log(&pushover_conf, 4);
-#endif
-
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_conf_session_cache( &pushover_conf, &cache,
-                                    mbedtls_ssl_cache_get,
-                                    mbedtls_ssl_cache_set );
 #endif
 
     ESP_LOGI(TAG, "Setting api.pushover.net hostname for TLS session...");
@@ -977,7 +973,7 @@ void pushover_init()
 
     ESP_LOGI(TAG, "Found and configured %i virtual switches.", subscribers);
 
-#if 0 /* TESTING FIXME */
+#if 0 /* For TESTING */
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb_pushover, (void*)ON_CHIME_CHANGE);
 #endif
 }

@@ -139,6 +139,8 @@ void hal_ad2_reset();
 bool hal_get_network_connected();
 void hal_set_network_connected(bool);
 void hal_init_sd_card();
+void hal_get_socket_client_ip(int sockfd, std::string& IP);
+void hal_get_socket_local_ip(int sockfd, std::string& IP);
 #ifdef __cplusplus
 }
 #endif

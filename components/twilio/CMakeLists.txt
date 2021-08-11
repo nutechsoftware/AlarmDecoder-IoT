@@ -3,7 +3,7 @@ set(EXTRA_EMBED1 "sendgrid_root.pem")
 set(EXTRA_EMBED2 "twilio_root.pem")
 endif()
 idf_component_register(SRCS "twilio.cpp"
-                    REQUIRES idf::nvs_flash
+                    REQUIRES idf::esp-tls
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::json
                     INCLUDE_DIRS . ../../main/

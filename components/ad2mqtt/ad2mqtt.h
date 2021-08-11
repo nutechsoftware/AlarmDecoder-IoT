@@ -25,29 +25,6 @@
 #define _MQTT_H
 #if CONFIG_AD2IOT_MQTT_CLIENT
 
-/* Constants that aren't configurable in menuconfig */
-#define MQTT_COMMAND        "mqtt"
-#define MQTT_PREFIX         "mq"
-#define MQTT_URL_CFGKEY     "url"
-#define MQTT_SAS_CFGKEY     "switch"
-
-#define MAX_SEARCH_KEYS 9
-
-// NV storage sub key values for virtual search switch
-#define SK_NOTIFY_SLOT       "N"
-#define SK_DEFAULT_STATE     "D"
-#define SK_AUTO_RESET        "R"
-#define SK_TYPE_LIST         "T"
-#define SK_PREFILTER_REGEX   "P"
-#define SK_OPEN_REGEX_LIST   "O"
-#define SK_CLOSED_REGEX_LIST "C"
-#define SK_FAULT_REGEX_LIST  "F"
-#define SK_OPEN_OUTPUT_FMT   "o"
-#define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_FAULT_OUTPUT_FMT  "f"
-
-#define MQTT_TOPIC_PREFIX "ad2iot"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

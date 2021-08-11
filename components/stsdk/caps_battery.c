@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_BATT";
 
 #include "st_dev.h"
 #include "caps_battery.h"
-
-static const char *TAG = "CAPS_BATT";
 
 static int caps_battery_get_battery_value(caps_battery_data_t *caps_data)
 {

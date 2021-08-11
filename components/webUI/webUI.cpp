@@ -1,5 +1,5 @@
 /**
- *  @file    webUI.h
+ *  @file    webUI.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    07/17/2021
  *
@@ -22,29 +22,29 @@
  */
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-
-// AlarmDecoder std includes
-#include "alarmdecoder_main.h"
-#include "ad2_settings.h"
-#include "ad2_utils.h"
-
-// esp networking etc.
-#include <lwip/netdb.h>
-#include "esp_http_server.h"
-
-// AlarmDecoder IoT hardware settings.
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_WEBSERVER_UI
 static const char *TAG = "WEBUI";
 
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-/**
- * SSDP SECRETS/SETTINGS
- */
+// esp component includes
+#include "esp_http_server.h"
+
+// specific includes
+
+/* Constants that aren't configurable in menuconfig */
+#define PORT 10000
+#define MAX_CLIENTS 4
+#define MAX_FIFO_BUFFERS 30
+#define MAXCONNECTIONS MAX_CLIENTS+1
+
+#define WEBUI_COMMAND          "webui"
+#define WEBUI_SUBCMD_ENABLE    "enable"
+#define WEBUI_SUBCMD_ACL       "acl"
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (255)
@@ -60,6 +60,22 @@ static const char *TAG = "WEBUI";
 httpd_config_t server_config = HTTPD_DEFAULT_CONFIG();
 httpd_handle_t server = nullptr;
 
+/* ACL control */
+ad2_acl_check webui_acl;
+
+/**
+ * WebUI command list and enum.
+ */
+char * WEBUI_SUBCMD [] = {
+    (char*)WEBUI_SUBCMD_ENABLE,
+    (char*)WEBUI_SUBCMD_ACL,
+    0 // EOF
+};
+
+enum {
+    WEBUI_SUBCMD_ENABLE_ID = 0,
+    WEBUI_SUBCMD_ACL_ID,
+};
 
 /**
  * @brief websocket session storage structure.
@@ -405,10 +421,7 @@ esp_err_t file_get_handler(httpd_req_t *req)
     // FIXME: add function will use it more than 1 time.
     // apply template if set
     if (apply_template) {
-        char ipstr[INET6_ADDRSTRLEN];
         int sockfd = httpd_req_to_sockfd(req);
-        struct sockaddr_in6 addr;   // esp_http_server uses IPv6 addressing
-        socklen_t addr_size = sizeof(addr);
 
         // build standard template values FIXME: function dynamic.
         // Version MACRO ${0}
@@ -418,21 +431,13 @@ esp_err_t file_get_handler(httpd_req_t *req)
         std::string szTime;
         uptimeString(szTime);
 
-        // Local IP MACRO ${2}
-        if (getsockname(sockfd, (struct sockaddr *)&addr, &addr_size) < 0) {
-            ESP_LOGE(TAG, "Error getting local IP");
-        }
-        /// Convert to IPv4 string
-        inet_ntop(AF_INET, &addr.sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
-        std::string szLocalIP = ipstr; //req->getClientIP().toString();
+        // socket Local address string MACRO ${2}
+        std::string szLocalIP;
+        hal_get_socket_local_ip(sockfd, szLocalIP);
 
-        // Client IP MACRO ${3}
-        if (getpeername(sockfd, (struct sockaddr *)&addr, &addr_size) < 0) {
-            ESP_LOGE(TAG, "Error getting client IP");
-        }
-        /// Convert to IPv4 string
-        inet_ntop(AF_INET, &addr.sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
-        std::string szClientIP = ipstr; //req->getClientIP().toString();
+        // socket Client address string MACRO ${3}
+        std::string szClientIP;
+        hal_get_socket_client_ip(sockfd, szClientIP);
 
         // Request protocol MACRO ${4}
         std::string szProt = "HTTP"; // (req->isSecure() ? "HTTPS" : "HTTP");
@@ -547,6 +552,27 @@ void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *
 }
 
 /**
+ * @brief callback after accept before any R/W on a client.
+ * Test if we want this connection return ESP_OK to keep ESP_FAIL to reject.
+ */
+esp_err_t http_acl_test(httpd_handle_t hd, int sockfd)
+{
+    std::string IP;
+    // Get a string for the client address connected to this IP.
+    hal_get_socket_client_ip(sockfd, IP);
+    /* ACL test */
+    if (!webui_acl.find(IP)) {
+        ESP_LOGI(TAG, "Rejecting client connection from '%s'", IP.c_str());
+        // FIXME: Not able to make it close clean. If I dont send something the the browser
+        // will try again. Sending here is a problem because it will close before sending yet it helps?
+        std::string Err = "HTTP/1.0 403 Forbidden\r\n\r\n\r\nAccess denied check ACL list\r\n";
+        send(sockfd, Err.c_str(), Err.length(), 0);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+/**
  * @brief webui server task
  *
  * @param [in]pvParameters currently not used NULL.
@@ -557,7 +583,7 @@ void webui_server_task(void *pvParameters)
 
     // Configure the web server and handlers.
     server_config.uri_match_fn = httpd_uri_match_wildcard;
-
+    server_config.open_fn = http_acl_test;
 #if CONFIG_HTTPD_WS_SUPPORT
     httpd_uri_t ad2ws_server = {
         .uri       = "/ad2ws",
@@ -630,12 +656,138 @@ void webui_server_task(void *pvParameters)
 }
 
 /**
+ * WebUI generic command event processing
+ *  command: [COMMAND] <id> <arg>
+ * ex.
+ *   [COMMAND] 0 arg...
+ */
+static void _cli_cmd_webui_event(char *string)
+{
+
+    // key value validation
+    std::string cmd;
+    ad2_copy_nth_arg(cmd, string, 0);
+    ad2_lcase(cmd);
+
+    if(cmd.compare(WEBUI_COMMAND) != 0) {
+        ad2_printf_host("What?\r\n");
+        return;;
+    }
+
+    // key value validation
+    std::string subcmd;
+    ad2_copy_nth_arg(subcmd, string, 1);
+    ad2_lcase(subcmd);
+
+    int i;
+    for(i = 0;; ++i) {
+        if (WEBUI_SUBCMD[i] == 0) {
+            ad2_printf_host("What?\r\n");
+            break;
+        }
+        if(subcmd.compare(WEBUI_SUBCMD[i]) == 0) {
+            std::string arg;
+            std::string acl;
+            switch(i) {
+            /**
+             * Enable/Disable WebUI daemon.
+             */
+            case WEBUI_SUBCMD_ENABLE_ID:
+                ESP_LOGI(TAG, "%s: enable/disable " WEBUI_COMMAND, __func__);
+                if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+                    ad2_set_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                }
+
+                // show contents of this slot
+                int i;
+                ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &i);
+                ad2_printf_host("WebUI daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                break;
+            /**
+             * WebUI daemon IP/CIDR ACL list.
+             */
+            case WEBUI_SUBCMD_ACL_ID:
+                // If no arg then return ACL list
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    webui_acl.clear();
+                    int res = webui_acl.add(arg);
+                    if (res == webui_acl.ACL_FORMAT_OK) {
+                        ad2_set_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                    } else {
+                        ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
+                    }
+                }
+                // show contents of this slot
+                ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
+                ad2_printf_host(WEBUI_COMMAND " 'acl' set to '%s'.\r\n", acl.c_str());
+                break;
+            default:
+                break;
+            }
+            break;
+        }
+    }
+}
+
+/**
+ * @brief command list for module
+ */
+static struct cli_command webui_cmd_list[] = {
+    {
+        (char*)WEBUI_COMMAND,(char*)
+        "- WebUI daemon component command\r\n"
+        "  ```" WEBUI_COMMAND " {sub command} {arg}```\r\n"
+        "  - {sub command}\r\n"
+        "    - [" WEBUI_SUBCMD_ENABLE "] Enable / Disable WebUI daemon\r\n"
+        "      -  {arg1}: [Y]es [N]o\r\n"
+        "        - [N] Default state\r\n"
+        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ENABLE " Y\r\n"
+        "    - [" WEBUI_SUBCMD_ACL "] Set / Get ACL list\r\n"
+        "      - {arg1}: ACL LIST\r\n"
+        "      -  String of CIDR values seperated by commas.\r\n"
+        "        - Default: Empty string disables ACL list\r\n"
+        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4\r\n\r\n", _cli_cmd_webui_event
+    }
+};
+
+/**
+ * @brief Register componet cli commands.
+ */
+void webui_register_cmds()
+{
+    // Register webui CLI commands
+    for (int i = 0; i < ARRAY_SIZE(webui_cmd_list); i++) {
+        cli_register_command(&webui_cmd_list[i]);
+    }
+}
+
+/**
  * @brief AD2IoT Component webUI init
  *
  */
-void webUI_init(void)
+void webui_init(void)
 {
-    ESP_LOGI(TAG, "Starting webui task");
+    // load and parse ACL if set.
+    std::string acl;
+    ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
+    if (acl.length()) {
+        int res = webui_acl.add(acl);
+        if (res != webui_acl.ACL_FORMAT_OK) {
+            ESP_LOGI(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
+        }
+    }
+
+    int enabled = 0;
+    ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &enabled);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!enabled) {
+        ESP_LOGI(TAG, "webui disabled");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Starting webui");
     xTaskCreate(&webui_server_task, "webui_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 

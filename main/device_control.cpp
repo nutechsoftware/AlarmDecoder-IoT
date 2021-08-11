@@ -20,42 +20,23 @@
  *  limitations under the License.
  *
  */
-
-
-#include <string.h>
-#include <string>
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "esp_wifi.h"
-#include "esp_system.h"
-#include "esp_event.h"
-#include "freertos/queue.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
-#include "driver/uart.h"
-#include "esp_log.h"
-#include "esp_eth.h"
-#include "esp_idf_version.h"
-#include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-#include "device_control.h"
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-#include "tcpip_adapter.h"
-#else
-#include "esp_netif.h"
-#endif
 
-#if CONFIG_AD2IOT_ETH_PHY_LAN8720
-//#include "eth_phy/phy_lan8720.h"
-//#define DEFAULT_ETHERNET_PHY_CONFIG phy_lan8720_default_ethernet_config
-#endif
+static const char *TAG = "UARTCLI";
 
+// AlarmDecoder std includes
 #include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "device_control.h"
 
-static const char *TAG = "HAL";
+// esp component includes
+#include "driver/uart.h"
+#include "esp_vfs_fat.h"
+#include "esp_wifi.h"
+#include "driver/sdmmc_host.h"
+#include "esp_eth.h"
+
+// specific includes
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,7 +59,7 @@ static int ap_retry_num = 0;
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 #else
-static esp_netif_t* netif = NULL;
+static esp_netif_t* g_netif = NULL;
 #endif
 
 
@@ -365,6 +346,9 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
     case WIFI_EVENT_STA_CONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
+#if CONFIG_LWIP_IPV6
+        esp_netif_create_ip6_linklocal(g_netif);
+#endif
         hal_set_wifi_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
         break;
     case WIFI_EVENT_STA_DISCONNECTED:
@@ -466,10 +450,16 @@ void hal_init_wifi(std::string &args)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL));
+#if CONFIG_LWIP_IPV6
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL));
+#endif
 #else
-    netif = esp_netif_create_default_wifi_sta();
+    g_netif = esp_netif_create_default_wifi_sta();
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL, NULL));
+#if CONFIG_LWIP_IPV6
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL, NULL));
+#endif
 #endif
 
     esp_ret = esp_wifi_set_storage(WIFI_STORAGE_RAM);
@@ -569,8 +559,8 @@ void hal_init_wifi(std::string &args)
         ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
         ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
 #else
-        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(netif));
-        ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip_info));
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(g_netif));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(g_netif, &ip_info));
 #endif
 
         // assign DNS1 if avail.
@@ -580,7 +570,7 @@ void hal_init_wifi(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_MAIN, &dns_info));
 #endif
         }
 
@@ -591,7 +581,7 @@ void hal_init_wifi(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
 #endif
         }
     } else {
@@ -650,8 +640,8 @@ void hal_init_eth(std::string &args)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL));
 #else
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
-    netif = esp_netif_new(&cfg);
-    esp_eth_set_default_handlers(netif);
+    g_netif = esp_netif_new(&cfg);
+    esp_eth_set_default_handlers(g_netif);
     ESP_ERROR_CHECK(esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL, NULL));
@@ -681,7 +671,7 @@ void hal_init_eth(std::string &args)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 #pragma message "No netif in older espidf not using."
 #else
-    esp_netif_attach(netif, esp_eth_new_netif_glue(eth_handle));
+    esp_netif_attach(g_netif, esp_eth_new_netif_glue(eth_handle));
 #endif
 
     // test DHCP or Static configuration
@@ -747,8 +737,8 @@ void hal_init_eth(std::string &args)
         ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
         ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_ETH, &ip_info));
 #else
-        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(netif));
-        ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip_info));
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(g_netif));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(g_netif, &ip_info));
 #endif
 
         // assign DNS1 if avail.
@@ -758,7 +748,7 @@ void hal_init_eth(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_MAIN, &dns_info));
 #endif
         }
 
@@ -769,7 +759,7 @@ void hal_init_eth(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
 #endif
         }
     } else {
@@ -791,7 +781,7 @@ void hal_set_wifi_hostname(const char *hostname)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
 #else
-    ret = esp_netif_set_hostname(netif, hostname);
+    ret = esp_netif_set_hostname(g_netif, hostname);
 #endif
     if(ret != ESP_OK ) {
         ESP_LOGE(TAG,"failed to set wifi hostname: %i %i '%s'", ret, errno, strerror(errno));
@@ -808,7 +798,7 @@ void hal_set_eth_hostname(const char *hostname)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH, hostname);
 #else
-    ret = esp_netif_set_hostname(netif, hostname);
+    ret = esp_netif_set_hostname(g_netif, hostname);
 #endif
     if(ret != ESP_OK ) {
         ESP_LOGE(TAG,"failed to set eth hostname: %i %i '%s'", ret, errno, strerror(errno));
@@ -840,19 +830,43 @@ void hal_host_uart_init()
 void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data)
 {
-    ESP_LOGI(TAG, "Network Got IP Address");
+    std::string IF = "";
+    std::string IP = "";
+    std::string MASK = "";
+    std::string GW = "";
+
+    ESP_LOGI(TAG, "Network assigned new address");
     ESP_LOGI(TAG, "~~~~~~~~~~~");
-    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+#if CONFIG_LWIP_IPV6
+    if (event_id == IP_EVENT_GOT_IP6) {
+        ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
+        IP = ad2_string_printf(IPV6STR,IPV62STR(event->ip6_info.ip));
+        IF = esp_netif_get_desc(event->esp_netif);
+    } else {
+#endif
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    const tcpip_adapter_ip_info_t *ip_info = &event->ip_info;
+        const tcpip_adapter_ip_info_t *ip_info = &event->ip_info;
 #else
-    const esp_netif_ip_info_t *ip_info = &event->ip_info;
+        const esp_netif_ip_info_t *ip_info = &event->ip_info;
+        IF = esp_netif_get_desc(event->esp_netif);
+#endif
+        IP = ad2_string_printf(IPSTR, IP2STR(&ip_info->ip));
+        MASK = ad2_string_printf(IPSTR, IP2STR(&ip_info->netmask));
+        GW = ad2_string_printf(IPSTR, IP2STR(&ip_info->gw));
+#if CONFIG_LWIP_IPV6
+    }
 #endif
 
-    ESP_LOGI(TAG, "IP: " IPSTR, IP2STR(&ip_info->ip));
-    ESP_LOGI(TAG, "NETMASK: " IPSTR, IP2STR(&ip_info->netmask));
-    ESP_LOGI(TAG, "GW: " IPSTR, IP2STR(&ip_info->gw));
+    ESP_LOGI(TAG, "INTERFACE: %s", IF.c_str());
+    ESP_LOGI(TAG, "IP: %s", IP.c_str());
+    if (MASK.length()) {
+        ESP_LOGI(TAG, "NETMASK: %s", MASK.c_str());
+    }
+    if (GW.length()) {
+        ESP_LOGI(TAG, "GW: %s", GW.c_str());
+    }
     ESP_LOGI(TAG, "~~~~~~~~~~~");
 
     xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
@@ -893,6 +907,9 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "Ethernet Link Up");
         ESP_LOGI(TAG, "Ethernet HW Addr %02x:%02x:%02x:%02x:%02x:%02x",
                  mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+#if CONFIG_LWIP_IPV6
+        esp_netif_create_ip6_linklocal(g_netif);
+#endif
         break;
     case ETHERNET_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "Ethernet Link Down");
@@ -972,6 +989,86 @@ void hal_init_sd_card()
         return;
     }
 }
+
+/* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */
+#define WEBUI_IN6_IS_ADDR_V4MAPPED(a) \
+    ((((a)->un.u32_addr[0]) == 0) && \
+    (((a)->un.u32_addr[1]) == 0) && \
+    (((a)->un.u32_addr[2]) == 0xffff0000))
+
+/**
+ * @brief Return a string of the client address from a socket.
+ */
+void hal_get_socket_client_ip(int sockfd, std::string& IP)
+{
+#if CONFIG_LWIP_IPV6
+    char ipstr[INET6_ADDRSTRLEN];
+    socklen_t addr_size;
+    struct sockaddr_storage address = {};
+    addr_size = sizeof(address);
+    if (!getpeername(sockfd, (sockaddr *) &address,  &addr_size)) {
+        // IPv6 driver supports both IPv4 and IPv6 using the same buffer. Cast it.
+        if (address.ss_family == AF_INET6) {
+            struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)(&address);
+            if (WEBUI_IN6_IS_ADDR_V4MAPPED(&(addr6->sin6_addr))) {
+                IP = inet_ntop(AF_INET, &addr6->sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
+            } else {
+                IP = inet_ntop(AF_INET6, &addr6->sin6_addr, ipstr, sizeof(ipstr));
+            }
+        } else {
+            // cast to sockaddr_in to use.
+            struct sockaddr_in* peer_addr = (struct sockaddr_in*)&address;
+            IP = inet_ntop(AF_INET, &peer_addr->sin_addr, ipstr, sizeof(ipstr));
+        }
+    }
+#else // CONFIG_LWIP_IPV4 ONLY
+    socklen_t addr_size;
+    struct sockaddr_in addr;
+    char ipstr[INET_ADDRSTRLEN];
+    addr_size = sizeof(struct sockaddr_in);
+    if (!getpeername(sockfd, (sockaddr *) &addr,  &addr_size)) {
+        IP = inet_ntop(AF_INET, &addr.sin_addr, ipstr, sizeof(ipstr));
+    }
+#endif
+}
+
+/**
+ * @brief Return a string of the local address from a socket.
+ */
+/* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */
+void hal_get_socket_local_ip(int sockfd, std::string& IP)
+{
+#if CONFIG_LWIP_IPV6
+    char ipstr[INET6_ADDRSTRLEN];
+    socklen_t addr_size;
+    struct sockaddr_storage address = {};
+    addr_size = sizeof(address);
+    if (!getsockname(sockfd, (sockaddr *) &address,  &addr_size)) {
+        // IPv6 driver supports both IPv4 and IPv6 using the same buffer. Cast it.
+        if (address.ss_family == AF_INET6) {
+            struct sockaddr_in6 *addr6 = (struct sockaddr_in6*)(&address);
+            if (WEBUI_IN6_IS_ADDR_V4MAPPED(&(addr6->sin6_addr))) {
+                IP = inet_ntop(AF_INET, &addr6->sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
+            } else {
+                IP = inet_ntop(AF_INET6, &addr6->sin6_addr, ipstr, sizeof(ipstr));
+            }
+        } else {
+            // cast to sockaddr_in to use.
+            struct sockaddr_in* peer_addr = (struct sockaddr_in*)&address;
+            IP = inet_ntop(AF_INET, &peer_addr->sin_addr, ipstr, sizeof(ipstr));
+        }
+    }
+#else // CONFIG_LWIP_IPV6
+    socklen_t addr_size;
+    struct sockaddr_in addr;
+    char ipstr[INET_ADDRSTRLEN];
+    addr_size = sizeof(struct sockaddr_in);
+    if (!getpeername(sockfd, (sockaddr *) &addr,  &addr_size)) {
+        IP = inet_ntop(AF_INET, &addr.sin_addr, ipstr, sizeof(ipstr));
+    }
+#endif
+}
+
 
 #ifdef __cplusplus
 } // extern "C"

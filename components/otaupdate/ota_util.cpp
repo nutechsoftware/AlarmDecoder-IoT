@@ -21,47 +21,53 @@
  *  limitations under the License.
  *
  */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
+
 static const char *TAG = "AD2OTA";
 
-// AlarmDecoder includes
+// AlarmDecoder std includes
 #include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
 
-// specific includes
-#include "ota_util.h"
-
+// esp component includes
+#include <esp_https_ota.h>
+#include <esp_ota_ops.h>
 #include "mbedtls/sha256.h"
-#include "mbedtls/rsa.h"
-#include "mbedtls/pk.h"
 #include "mbedtls/ssl.h"
+
+#define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
+#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
+#define CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS "stsdk"
+#define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
+
+#define OTA_SIGNATURE_SIZE 256
+#define OTA_SIGNATURE_FOOTER_SIZE 6
+#define OTA_SIGNATURE_PREFACE_SIZE 6
+#define OTA_DEFAULT_SIGNATURE_BUF_SIZE OTA_SIGNATURE_PREFACE_SIZE + OTA_SIGNATURE_SIZE + OTA_SIGNATURE_FOOTER_SIZE
+
+#define OTA_DEFAULT_BUF_SIZE 256
+#define OTA_CRYPTO_SHA256_LEN 32
+
+#define OTA_VERSION_INFO_BUF_SIZE 1024
+
+#define OTA_UPGRADE_CMD   "upgrade"
+#define OTA_VERSION_CMD   "version"
+
+#define OTA_FIRST_CHECK_DELAY_MS 30*1000
+#define OTA_SOCKET_TIMEOUT 10*1000
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// forward decl
+int ota_get_polling_period_day();
+esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
+esp_err_t ota_https_update_device(const char *buildflags);
+esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
+void ota_do_version(char *arg);
+
 extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
 extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
 extern const uint8_t update_server_root_pem_start[]         asm("_binary_ota_update_server_root_pem_start");
@@ -767,6 +773,18 @@ static void ota_polling_task_func(void *arg)
 }
 
 /**
+ * @brief Initiate and OTA update
+ */
+void ota_do_update(char *command)
+{
+    if (ota_task_handle != NULL) {
+        ESP_LOGI(TAG, "Device is currently updating.");
+        return;
+    }
+    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
+}
+
+/**
  * @brief command list for module
  */
 static struct cli_command ota_cmd_list[] = {
@@ -795,18 +813,6 @@ void ota_init()
     }
 
     xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8 * 1024, NULL, tskIDLE_PRIORITY+1, NULL);
-}
-
-/**
- * @brief Initiate and OTA update
- */
-void ota_do_update(char *command)
-{
-    if (ota_task_handle != NULL) {
-        ESP_LOGI(TAG, "Device is currently updating.");
-        return;
-    }
-    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**

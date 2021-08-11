@@ -23,7 +23,32 @@
 #ifndef _ALARMDECODER_MAIN_H
 #define _ALARMDECODER_MAIN_H
 
+// FreeRTOS includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+
+#include "cJSON.h"
+#include <lwip/netdb.h>
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
+#include "esp_crt_bundle.h"
+#endif
+
+/**
+ * AlarmDecoder Arduino library.
+ * https://github.com/nutechsoftware/ArduinoAlarmDecoder
+ */
 #include "alarmdecoder_api.h"
+
+// Common settings
+#include "ad2_settings.h"
+
+// Common utils
+#include "ad2_utils.h"
+
+// HAL
+#include "device_control.h"
+
+#include "ad2_uart_cli.h"
 
 #ifdef __cplusplus
 extern "C" {

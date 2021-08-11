@@ -21,41 +21,30 @@
  *  limitations under the License.
  *
  */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// esp includes
-#include "esp_system.h"
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
 
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "ota_util.h"
-
-// Disable componet via sdkconfig
+// Disable via sdkconfig
 #if CONFIG_STDK_IOT_CORE
 static const char *TAG = "STSDK";
 
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
+
+// esp component includes
+#include "driver/uart.h"
+#include "nvs_flash.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#include "tcpip_adapter.h"
+#else
+#include "esp_netif.h"
+#include "esp_tls.h"
+#endif
+
 // specific includes
 #include "stsdk_main.h"
+#include "ota_util.h"
 
 #ifdef __cplusplus
 extern "C" {

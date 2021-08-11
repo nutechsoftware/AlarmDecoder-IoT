@@ -23,65 +23,13 @@
 #ifndef _TWILIO_H
 #define _TWILIO_H
 #if CONFIG_AD2IOT_TWILIO_CLIENT
-//#define DEBUG_TWILIO
-//#define DEBUG_TWILIO_TLS
-#define TWILIO_QUEUE_SIZE 20
-#define AD2_DEFAULT_TWILIO_SLOT 0
-
-/* Constants that aren't configurable in menuconfig */
-#define SENDGRID_API_SERVER "api.sendgrid.com"
-#define SENDGRID_API_PORT "443"
-
-#define TWILIO_API_SERVER "api.twilio.com"
-#define TWILIO_API_PORT "443"
-#define TWILIO_API_VERSION "2010-04-01"
-#define TWILIO_RATE_LIMIT 2000
-
-#define TWILIO_COMMAND        "twilio"
-#define TWILIO_CFG_PREFIX     "tw"
-#define TWILIO_SID_SUBCMD     "sid"
-#define TWILIO_TOKEN_SUBCMD   "token"
-#define TWILIO_FROM_SUBCMD    "from"
-#define TWILIO_TO_SUBCMD      "to"
-#define TWILIO_TYPE_SUBCMD    "type"
-#define TWILIO_SWITCH_SUBCMD  "switch"
-
-#define MAX_SEARCH_KEYS 9
-
-// NV storage sub key values for virtual search switch
-#define SK_NOTIFY_SLOT       "N"
-#define SK_DEFAULT_STATE     "D"
-#define SK_AUTO_RESET        "R"
-#define SK_TYPE_LIST         "T"
-#define SK_PREFILTER_REGEX   "P"
-#define SK_OPEN_REGEX_LIST   "O"
-#define SK_CLOSED_REGEX_LIST "C"
-#define SK_FAULT_REGEX_LIST  "F"
-#define SK_OPEN_OUTPUT_FMT   "o"
-#define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_FAULT_OUTPUT_FMT  "f"
-
-// Notification types
-#define TWILIO_NOTIFY_MESSAGE "M"
-#define TWILIO_NOTIFY_CALL    "C"
-#define TWILIO_NOTIFY_EMAIL   "E"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct twilio_message_data {
-    char *sid;
-    char *token;
-    char *from;
-    char *to;
-    char type; // 'M' Message 'R' Redirect 'T' Twiml url
-    char *arg;
-} twilio_message_data_t;
-
 void twilio_register_cmds();
 void twilio_init();
-void twilio_send_task(void *pvParameters);
 void twilio_add_queue(std::string &sid, std::string &token, std::string &from, std::string &to, char type, std::string &arg);
 
 #ifdef __cplusplus

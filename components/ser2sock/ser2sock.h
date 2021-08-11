@@ -24,23 +24,12 @@
 #define _SER2SOCKD_H
 #if CONFIG_AD2IOT_SER2SOCKD
 
-/* Constants that aren't configurable in menuconfig */
-#define PORT 10000
-#define MAX_CLIENTS 4
-#define MAX_FIFO_BUFFERS 30
-#define MAXCONNECTIONS MAX_CLIENTS+1
-
-#define SD2D_COMMAND          "ser2sockd"
-#define S2SD_SUBCMD_ENABLE    "enable"
-#define S2SD_SUBCMD_ACL       "acl"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void ser2sockd_register_cmds();
 void ser2sockd_init();
-void ser2sockd_server_task(void *pvParameters);
 void ser2sockd_sendall(uint8_t *buffer, size_t len);
 
 #ifdef __cplusplus

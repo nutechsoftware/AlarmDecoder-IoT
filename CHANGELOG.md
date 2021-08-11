@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] CORE: Design and implement a serialized method of making HTTP request from components through the ad2_? api layer. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections.
+- [X] CORE: Fix ACL CIDR MASK logic so it works for IPv6 and IPv4.
+- [X] CORE: More cleanup of esp-idf component inclusion.
+- [X] CORE: Large refactor to all common headers. Still needs more work but at list it is consistent.
+- [X] CORE: Added helper to hal_ to return Address strings from a socket used for ACL testing.
+- [X] WEBUI: Added support for IPv6 and IPv4 ACL. Supports Range, Single IP, or Mask. 1.2.3.4-1.2.3.5, 1.2.3.4, 1.2.3.4/24, 2001:0db8:85a3:0000::/64
 - [X] SER2SOCKD: Added ACL logic and wired the acl command to allow an ACL string to be saved and parsed rejecting clients that don't match.
 - [X] CORE: ad2_tokenize change to allow multiple tokens. Was having issues so I reverted back to strtok.
 - [X] CORE: Added ad2_acl_check class to ad2_utils.

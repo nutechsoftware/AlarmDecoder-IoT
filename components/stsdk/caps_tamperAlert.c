@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_TAMP";
 
 #include "st_dev.h"
 #include "caps_tamperAlert.h"
-
-static const char *TAG = "CAPS_TAMP";
 
 static int caps_tamperAlert_attr_tamper_str2idx(const char *value)
 {

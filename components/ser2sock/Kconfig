@@ -4,16 +4,4 @@ menu "AD2iot * ser2sock server daemon"
         default n
         help
             Enable ser2sock server daemon
-    config AD2IOT_SER2SOCK_IPV4
-        bool "Enable IPV4"
-        default y
-        depends on AD2IOT_SER2SOCKD
-        help
-            Enable support for IPV4 sockets for ser2sock client/server.
-    config AD2IOT_SER2SOCK_IPV6
-        bool "Enable IPV6"
-        default n
-        depends on AD2IOT_SER2SOCKD
-        help
-            Enable support for IPV6 sockets for ser2sock client/server.
 endmenu

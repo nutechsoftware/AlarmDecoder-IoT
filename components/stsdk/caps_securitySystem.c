@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_SECS";
 
 #include "st_dev.h"
 #include "caps_securitySystem.h"
-
-static const char *TAG = "CAPS_SECS";
 
 static const char *caps_securitySystem_get_alarm_value(caps_securitySystem_data_t *caps_data)
 {

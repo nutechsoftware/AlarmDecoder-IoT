@@ -22,42 +22,27 @@
 *
 */
 
+static const char *TAG = "AD2_IoT";
 
-/**
- * AlarmDecoder Arduino library.
- * https://github.com/nutechsoftware/ArduinoAlarmDecoder
- */
-#include <alarmdecoder_api.h>
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-// esp includes
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_tls.h"
+// esp component includes
 #include "driver/uart.h"
-#include <lwip/netdb.h>
-#include "esp_system.h"
 #include "nvs_flash.h"
-#include "nvs.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#include "tcpip_adapter.h"
+#else
+#include "esp_netif.h"
+#include "esp_tls.h"
+#endif
+// specific includes
 
 // OTA updates
 #include "ota_util.h"
 
-// UART CLI
-#include "ad2_uart_cli.h"
+// Command line interface
 #include "ad2_cli_cmd.h"
-
-// Common settings
-#include "ad2_settings.h"
-
-// HAL
-#include "device_control.h"
-
-// AD2IoT include
-#include "alarmdecoder_main.h"
-
-// common utils
-#include "ad2_utils.h"
 
 // SmartThings direct attached device support
 #if CONFIG_STDK_IOT_CORE
@@ -93,10 +78,10 @@
 extern "C" {
 #endif
 
-/**
- * Constants / Static / Extern
- */
-static const char *TAG = "AD2_IoT";
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#else
+extern esp_netif_t* g_netif;
+#endif
 
 /**
 * Control main task processing
@@ -370,24 +355,23 @@ static void ser2sock_client_task(void *pvParameters)
             int addr_family = 0;
             int ip_protocol = 0;
 
-#if defined(CONFIG_AD2IOT_SER2SOCK_IPV4)
+#if CONFIG_LWIP_IPV6
+            struct sockaddr_in6 dest_addr = {};
+            inet6_aton(host.c_str(), &dest_addr.sin6_addr);
+            dest_addr.sin6_family = AF_INET6;
+            dest_addr.sin6_port = htons(port);
+            dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(NULL);
+            addr_family = AF_INET6;
+            ip_protocol = IPPROTO_IPV6;
+            int size = sizeof(struct sockaddr_in6);
+#else
             struct sockaddr_in dest_addr;
             dest_addr.sin_addr.s_addr = inet_addr(host.c_str());
             dest_addr.sin_family = AF_INET;
             dest_addr.sin_port = htons(port);
             addr_family = AF_INET;
             ip_protocol = IPPROTO_IP;
-#elif defined(CONFIG_AD2IOT_SER2SOCK_IPV6)
-            struct sockaddr_in6 dest_addr = { 0 };
-            inet6_aton(host.c_str(), &dest_addr.sin6_addr);
-            dest_addr.sin6_family = AF_INET6;
-            dest_addr.sin6_port = htons(port);
-            dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(EXAMPLE_INTERFACE);
-            addr_family = AF_INET6;
-            ip_protocol = IPPROTO_IPV6;
-#elif defined(CONFIG_EXAMPLE_SOCKET_IP_INPUT_STDIN)
-            struct sockaddr_in6 dest_addr = { 0 };
-            ESP_ERROR_CHECK(get_addr_from_stdin(port, SOCK_STREAM, &ip_protocol, &addr_family, &dest_addr));
+            int size = sizeof(struct sockaddr_in);
 #endif
             g_ad2_client_handle =  socket(addr_family, SOCK_STREAM, ip_protocol);
             if (g_ad2_client_handle < 0) {
@@ -396,7 +380,7 @@ static void ser2sock_client_task(void *pvParameters)
             }
             ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host.c_str(), port);
 
-            int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
+            int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, size);
             if (err != 0) {
                 ESP_LOGE(TAG, "ser2sock client socket unable to connect: errno %d", errno);
                 break;
@@ -521,7 +505,9 @@ void app_main()
 
     ad2_printf_host(AD2_SIGNON, FIRMWARE_VERSION);
 
+#if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
     ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
+#endif
 
     // Dump hardware info
     esp_chip_info_t chip_info;
@@ -595,6 +581,11 @@ void app_main()
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
     // Register PUSHOVER CLI commands.
     pushover_register_cmds();
+#endif
+
+#if CONFIG_AD2IOT_WEBSERVER_UI
+    // Initialize WEB SEVER USER INTERFACE
+    webui_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_MQTT_CLIENT
@@ -709,7 +700,7 @@ void app_main()
 #endif
 #if CONFIG_AD2IOT_WEBSERVER_UI
     // Initialize WEB SEVER USER INTERFACE
-    webUI_init();
+    webui_init();
 #endif
 #if CONFIG_AD2IOT_MQTT_CLIENT
     // Initialize MQTT client
@@ -730,7 +721,7 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(CONFIG_AD2IOT_SER2SOCKD)
+#if CONFIG_AD2IOT_SER2SOCKD
     // init ser2sock server
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);

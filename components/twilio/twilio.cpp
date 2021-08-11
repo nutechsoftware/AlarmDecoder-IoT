@@ -21,62 +21,78 @@
 *  limitations under the License.
 *
 */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// stdc++
-#include <string>
-#include <sstream>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
-
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_TWILIO_CLIENT
 static const char *TAG = "TWILIO";
 
-// specific includes
-#include "twilio.h"
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-// mbedtls
-#include "mbedtls/base64.h"
-#include "mbedtls/platform.h"
+// esp components includes
 #include "mbedtls/net_sockets.h"
-#include "mbedtls/esp_debug.h"
-#include "mbedtls/ssl.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/error.h"
-#include "mbedtls/certs.h"
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-#include "mbedtls/ssl_cache.h"
-#endif
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
-#include "esp_crt_bundle.h"
-#endif
+#include "mbedtls/ssl.h"
+#include "mbedtls/esp_debug.h"
+
+// specific includes
+
+//#define DEBUG_TWILIO
+//#define DEBUG_TWILIO_TLS
+#define TWILIO_QUEUE_SIZE 20
+#define AD2_DEFAULT_TWILIO_SLOT 0
+
+/* Constants that aren't configurable in menuconfig */
+#define SENDGRID_API_SERVER "api.sendgrid.com"
+#define SENDGRID_API_PORT "443"
+
+#define TWILIO_API_SERVER "api.twilio.com"
+#define TWILIO_API_PORT "443"
+#define TWILIO_API_VERSION "2010-04-01"
+#define TWILIO_RATE_LIMIT 2000
+
+#define TWILIO_COMMAND        "twilio"
+#define TWILIO_CFG_PREFIX     "tw"
+#define TWILIO_SID_SUBCMD     "sid"
+#define TWILIO_TOKEN_SUBCMD   "token"
+#define TWILIO_FROM_SUBCMD    "from"
+#define TWILIO_TO_SUBCMD      "to"
+#define TWILIO_TYPE_SUBCMD    "type"
+#define TWILIO_SWITCH_SUBCMD  "switch"
+
+#define MAX_SEARCH_KEYS 9
+
+// NV storage sub key values for virtual search switch
+#define SK_NOTIFY_SLOT       "N"
+#define SK_DEFAULT_STATE     "D"
+#define SK_AUTO_RESET        "R"
+#define SK_TYPE_LIST         "T"
+#define SK_PREFILTER_REGEX   "P"
+#define SK_OPEN_REGEX_LIST   "O"
+#define SK_CLOSED_REGEX_LIST "C"
+#define SK_FAULT_REGEX_LIST  "F"
+#define SK_OPEN_OUTPUT_FMT   "o"
+#define SK_CLOSED_OUTPUT_FMT "c"
+#define SK_FAULT_OUTPUT_FMT  "f"
+
+// Notification types
+#define TWILIO_NOTIFY_MESSAGE "M"
+#define TWILIO_NOTIFY_CALL    "C"
+#define TWILIO_NOTIFY_EMAIL   "E"
+
+typedef struct twilio_message_data {
+    char *sid;
+    char *token;
+    char *from;
+    char *to;
+    char type; // 'M' Message 'R' Redirect 'T' Twiml url
+    char *arg;
+} twilio_message_data_t;
 
 QueueHandle_t  sendQ_tw=NULL;
 mbedtls_entropy_context twilio_entropy;
@@ -88,9 +104,6 @@ mbedtls_ssl_config sendgrid_conf;
 mbedtls_ssl_context sendgrid_ssl;
 mbedtls_x509_crt api_sendgrid_com_cacert;
 mbedtls_net_context twilio_server_fd;
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-mbedtls_ssl_cache_context cache;
-#endif
 
 std::vector<AD2EventSearch *> twilio_AD2EventSearches;
 
@@ -218,6 +231,9 @@ std::string build_sendgrid_request_string(std::string apikey, std::string body)
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* forward decl */
+void twilio_send_task(void *pvParameters);
 
 /**
  * twilio_add_queue()
@@ -1011,9 +1027,6 @@ void twilio_init()
 {
     int res = 0;
 
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_cache_init( &cache );
-#endif
     // init server_fd
     mbedtls_net_init(&twilio_server_fd);
 
@@ -1080,12 +1093,6 @@ void twilio_init()
     mbedtls_esp_enable_debug_log(&twilio_conf, 4);
 #endif
 
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_conf_session_cache( &twilio_conf, &cache,
-                                    mbedtls_ssl_cache_get,
-                                    mbedtls_ssl_cache_set );
-#endif
-
     ESP_LOGI(TAG, "Setting api.twilio.com hostname for TLS session...");
     /* Hostname set here should match CN in server certificate */
     if((res = mbedtls_ssl_set_hostname(&twilio_ssl, TWILIO_API_SERVER)) != 0) {
@@ -1141,12 +1148,6 @@ void twilio_init()
     mbedtls_ssl_conf_rng(&sendgrid_conf, mbedtls_ctr_drbg_random, &twilio_ctr_drbg);
 #ifdef CONFIG_MBEDTLS_DEBUG
     mbedtls_esp_enable_debug_log(&sendgrid_conf, 4);
-#endif
-
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_conf_session_cache( &sendgrid_conf, &cache,
-                                    mbedtls_ssl_cache_get,
-                                    mbedtls_ssl_cache_set );
 #endif
 
     ESP_LOGI(TAG, "Setting api.sendgrid.com hostname for TLS session...");

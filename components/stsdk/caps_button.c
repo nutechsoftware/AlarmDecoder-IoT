@@ -24,12 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_BUTN";
 
 #include "st_dev.h"
 #include "caps_button.h"
-
-static const char *TAG = "CAPS_BUTN";
-
 
 static const char **caps_button_get_supportedButtonValues_value(caps_button_data_t *caps_data)
 {

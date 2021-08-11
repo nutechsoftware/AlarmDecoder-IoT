@@ -220,6 +220,20 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
           - Default: Empty string disables ACL list
           - Example: ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
 
+### webui daemon command and sub commands
+  - WebUI daemon component command
+    ```webui {sub command} {arg}```
+    - {sub command}
+      - [enable] Enable / Disable WebUI daemon
+        -  {arg1}: [Y]es [N]o
+          - [N] Default state
+          - Example: webui enable Y
+      - [acl] Set / Get ACL list
+        - {arg1}: ACL LIST
+        -  String of CIDR values seperated by commas.
+          - Default: Empty string disables ACL list
+          - Example: webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
+
 ### SmartThings STSDK IoT commands
   - Enable SmartThings component
 

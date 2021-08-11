@@ -20,33 +20,24 @@
  *  limitations under the License.
  *
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/param.h>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
+
 static const char *TAG = "AD2UTIL";
 
-// mbedtls
-#include "mbedtls/base64.h"
-
-// AlarmDecoder includes
+// AlarmDecoder std includes
 #include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
 
+// esp component includes
+#include "driver/uart.h"
+
+// specific includes
 #include "ad2_utils.h"
+
+// esp includes
+#include "nvs_flash.h"
+#include "mbedtls/base64.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,54 +62,77 @@ extern "C" {
  */
 int ad2_acl_check::add(std::string& acl)
 {
+    bool is_ipv4;
+
     std::vector<std::string> tokens;
     // Remove all white space.
     ad2_remove_ws(acl);
 
     // Split on commas.
+    // A, B, C
     ad2_tokenize(acl, ",", tokens);
     for (auto &token : tokens) {
 
-        /// Test for CIDR notation '\' 192.168.0.0/24
+        /// FIXME: Test for CIDR notation '\' 192.168.0.0/24
         if (token.find('/') != std::string::npos) {
-            // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-32
+            // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-128
             uint8_t iCIDR = std::stoi(token.substr(token.find("/") + 1));
-            if (iCIDR > 32 || iCIDR < 1) {
+            if (iCIDR > 128 || iCIDR < 1) {
                 return this->ACL_ERR_BADFORMAT_CIDR;
             }
+
+            // Load IP address string into addr. If it is IPv4 pad left bits with 1's
             std::string ip = token.substr(0, token.find("/"));
-            uint32_t addr = 0;
-            if (!this->_ipaddr(ip, addr)) {
+            ad2_addr addr = {};
+            if (!this->_szIPaddrParse(ip, addr, is_ipv4)) {
                 return ACL_ERR_BADFORMAT_IP;
             }
-            // Build our start and end addresses using the CIDR mask.
-            uint32_t mask = 0xffffffff << (32 - iCIDR);
-            allowed_networks.push_back({addr & mask, addr | (~mask)});
+
+            // CIDR to 128bit mask.
+            // The address and mask is in Network Byte Order(Big-endian)
+            ad2_addr mask  = {};
+            memset((uint8_t*)&mask.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+            this->_addr_SHIFT_LEFT(mask, (is_ipv4 ? 32 : 128)-iCIDR);
+
+            // 128bit Start address prefill with 1's
+            ad2_addr addr_start = {};
+            memset((uint8_t*)&addr_start.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+
+            // 128 bit End address prefill with 0's
+            ad2_addr addr_end = {};
+            memset((uint8_t*)&addr_end.u8_addr[0], 0x0, sizeof(((struct ad2_addr*)0)->u8_addr));
+
+            // 32 bit version (start = addr & mask; end = addr | (~mask))
+            this->_addr_AND(addr_start, addr, mask);
+            this->_addr_NOT(mask);
+            this->_addr_OR(addr_end, addr, mask);
+
+            // Save the allowed ACL range.
+            allowed_networks.push_back({addr_start, addr_end});
         } else {
 
             // Test for RANGE notation '-' 192.168.0.10-192.168.0.100'
             if (token.find('-') != std::string::npos) {
                 // Start address
                 std::string szstart = token.substr(0, token.find("-"));
-                uint32_t saddr = 0;
-                if (!this->_ipaddr(szstart, saddr)) {
+                ad2_addr saddr = {};
+                if (!this->_szIPaddrParse(szstart, saddr, is_ipv4)) {
                     return this->ACL_ERR_BADFORMAT_IP;
                 }
                 // End address
                 std::string szend = token.substr(token.find("-") + 1);
-                uint32_t eaddr = 0;
-                if (!this->_ipaddr(szend, eaddr)) {
+                ad2_addr eaddr = {};
+                if (!this->_szIPaddrParse(szend, eaddr, is_ipv4)) {
                     return this->ACL_ERR_BADFORMAT_IP;
                 }
                 // Currently start needs to be less than end.
-                if (saddr <= eaddr) {
-                    allowed_networks.push_back({saddr, eaddr});
-                }
+                // FIXME if (saddr <= eaddr) {
+                allowed_networks.push_back({saddr, eaddr});
             } else {
 
-                // Test for SINGLE address.
-                uint32_t addr = 0;
-                if (!this->_ipaddr(token, addr)) {
+                // Single IP just use it for the Start and End..
+                ad2_addr addr = {};
+                if (!this->_szIPaddrParse(token, addr, is_ipv4)) {
                     return this->ACL_ERR_BADFORMAT_IP;
                 }
                 allowed_networks.push_back({addr, addr});
@@ -129,33 +143,124 @@ int ad2_acl_check::add(std::string& acl)
 }
 
 // @brief test if an IP string is inside of any of the know network ranges.
-bool ad2_acl_check::find(std::string ip)
+bool ad2_acl_check::find(std::string szaddr)
 {
+    bool is_ipv4;
+
     // If no ACLs exist then skip ACL testing and everything passes.
     if (!allowed_networks.size()) {
         return true;
     }
-    ad2_remove_ws(ip);
-    uint32_t addr = 0;
-    if (!this->_ipaddr(ip, addr)) {
+    ad2_remove_ws(szaddr);
+    // storage for IPv4 or IPv6
+    ad2_addr addr = {};
+    if (!this->_szIPaddrParse(szaddr, addr, is_ipv4)) {
         return false;
     }
     return find(addr);
 }
 
-// @brief test if an IP uint_32_t value is inside of any of the know network ranges.
-bool ad2_acl_check::find(uint32_t ip)
+// @brief test if an IP value is inside of any of the know network ranges.
+// Addresses are 16 byte or 4 32bit words. For IPv4 then only one word is used.
+bool ad2_acl_check::find(ad2_addr& addr)
 {
     // If no ACLs exist then skip ACL testing and everything passes.
     if (!allowed_networks.size()) {
         return true;
     }
     for(auto acl: allowed_networks) {
-        if (ip >=acl.first && ip <= acl.second) {
+        if (_in_addr_BETWEEN(addr, acl.first, acl.second)) {
             return true;
         }
     }
     return false;
+}
+
+// @brief parse IPv4/IPv6 address string to ip6_addr value.
+// @return bool ok = true;
+bool ad2_acl_check::_szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is_ipv4)
+{
+    is_ipv4=false;
+
+    // IPv4 has '.'
+    if (szaddr.find('.') != std::string::npos) {
+        is_ipv4=true;
+        // prefix all bits with 1's ::FFFF: to keep a 32 bit IPv4 in a 128bit IPv6 capable container.
+        memset((uint8_t*)&addr.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+        // 32bit IPv4 stored in the last 4 bytes.
+        if (!inet_pton(AF_INET, szaddr.c_str(), &addr.u8_addr[12])) {
+            // reject anything that does not parse.
+            return false;
+        }
+#if CONFIG_LWIP_IPV6
+    } else
+        // IPv6 has ':'
+        if (szaddr.find(':') != std::string::npos) {
+            if (!inet_pton(AF_INET6, szaddr.c_str(), &addr.u8_addr[0])) {
+                // reject anything that does not parse.
+                return false;
+            }
+#endif
+        } else {
+            // reject anything that does not parse.
+            return false;
+        }
+    return true;
+};
+
+// @brief IPv6 or IPv4 math.
+bool ad2_acl_check::_in_addr_BETWEEN(ad2_addr& test, ad2_addr& start, ad2_addr& end)
+{
+    for (int n = 0; n < sizeof(((struct ad2_addr*)0)->u8_addr); n++) {
+        if (test.u8_addr[n] < start.u8_addr[n] || test.u8_addr[n] > end.u8_addr[n]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// @brief shift 128bit big endian value to the left cnt times.
+void ad2_acl_check::_addr_SHIFT_LEFT(ad2_addr& addr, int cnt)
+{
+    int carry_bit = 0, last_carry_bit = 0;
+
+    while(cnt>0) {
+        for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+            // save top bit for carry
+            carry_bit = addr.u8_addr[i] & 0x80 ? 0x01 : 0x00;
+            addr.u8_addr[i]<<=1;
+            if (i < sizeof(((struct ad2_addr*)0)->u8_addr)-1) {
+                // carry top bit to next int.
+                addr.u8_addr[i] |= last_carry_bit;
+            }
+            last_carry_bit = carry_bit;
+        }
+        cnt--;
+    }
+}
+
+// @brief NOT 128bit big endian value.
+void ad2_acl_check::_addr_NOT(ad2_addr& addr)
+{
+    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+        addr.u8_addr[i] = ~addr.u8_addr[i];
+    }
+}
+
+// @brief AND 128bit big endian values.
+void ad2_acl_check::_addr_AND(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
+{
+    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+        out.u8_addr[i] = inA.u8_addr[i] & inB.u8_addr[i];
+    }
+}
+
+// @brief OR 128bit big endian values.
+void ad2_acl_check::_addr_OR(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
+{
+    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+        out.u8_addr[i] = inA.u8_addr[i] | inB.u8_addr[i];
+    }
 }
 
 

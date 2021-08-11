@@ -22,65 +22,48 @@
 *  limitations under the License.
 *
 */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// stdc++
-#include <string>
-#include <sstream>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
-#include "mqtt_client.h"
-#include "esp_tls.h"
-
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_MQTT_CLIENT
 static const char *TAG = "MQTT";
 
-// specific includes
-#include "ad2mqtt.h"
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-// mbedtls
-#include "mbedtls/base64.h"
-#include "mbedtls/platform.h"
-#include "mbedtls/net_sockets.h"
-#include "mbedtls/esp_debug.h"
-#include "mbedtls/ssl.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/error.h"
+// esp component includes
+#include "mqtt_client.h"
 
-std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
+/* Constants that aren't configurable in menuconfig */
+#define MQTT_COMMAND        "mqtt"
+#define MQTT_PREFIX         "mq"
+#define MQTT_URL_CFGKEY     "url"
+#define MQTT_SAS_CFGKEY     "switch"
+
+#define MAX_SEARCH_KEYS 9
+
+// NV storage sub key values for virtual search switch
+#define SK_NOTIFY_SLOT       "N"
+#define SK_DEFAULT_STATE     "D"
+#define SK_AUTO_RESET        "R"
+#define SK_TYPE_LIST         "T"
+#define SK_PREFILTER_REGEX   "P"
+#define SK_OPEN_REGEX_LIST   "O"
+#define SK_CLOSED_REGEX_LIST "C"
+#define SK_FAULT_REGEX_LIST  "F"
+#define SK_OPEN_OUTPUT_FMT   "o"
+#define SK_CLOSED_OUTPUT_FMT "c"
+#define SK_FAULT_OUTPUT_FMT  "f"
+
+#define MQTT_TOPIC_PREFIX "ad2iot"
 
 #define EXAMPLE_BROKER_URI "mqtt://mqtt.eclipseprojects.io"
-esp_mqtt_client_handle_t mqtt_client = nullptr;
 
-std::string mqttclient_UUID;
-
+static esp_mqtt_client_handle_t mqtt_client = nullptr;
+static std::string mqttclient_UUID;
+static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 
 
 #ifdef __cplusplus
@@ -583,7 +566,7 @@ void mqtt_register_cmds()
 void mqtt_init()
 {
 
-#if 1 //FIXME debug logging settings.
+#if 0 //FIXME debug logging settings.
     esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);

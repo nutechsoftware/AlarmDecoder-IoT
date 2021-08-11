@@ -23,8 +23,6 @@
 #ifndef _AD2_UTILS_H
 #define _AD2_UTILS_H
 
-// required
-#include "cJSON.h"
 
 // Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
@@ -76,6 +74,12 @@ void ad2_rtrim(std::string &s);
 void ad2_trim(std::string &s);
 void ad2_remove_ws(std::string &s);
 
+/* @brief container for IP addresses */
+struct ad2_addr {
+    u8_t  u8_addr[16];
+    u32_t padding;
+};
+
 /**
  *  @brief ACL parser and test class
  *
@@ -87,8 +91,8 @@ class ad2_acl_check
 {
 public:
     int add(std::string& acl);
-    bool find(std::string ip);
-    bool find(uint32_t ip);
+    bool find(std::string szaddr);
+    bool find(ad2_addr& addr);
     void clear()
     {
         allowed_networks.clear();
@@ -100,23 +104,33 @@ public:
         ACL_ERR_BADFORMAT_IP = -2
     };
 
+    // @brief debugging
+    void dump(ad2_addr& addr);
+
 private:
-    // @brief parse ip address string to uint32_t value.
-    bool _ipaddr(std::string& ip, uint32_t& addr)
-    {
-        int a, b, c, d;
-        if (std::sscanf(ip.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) != 4) {
-            return false;
-        } else {
-            addr = a << 24;
-            addr |= b << 16;
-            addr |= c << 8;
-            addr |= d;
-        };
-        return true;
-    };
+    // @brief check if addr is between(inclusive) s and e
+    bool _in_addr_BETWEEN(ad2_addr& addr, ad2_addr& start, ad2_addr& end);
+
+    // @brief 128bit left shift.
+    // @note modifies addr
+    void _addr_SHIFT_LEFT(ad2_addr& addr, int cnt);
+
+    // @brief 128bit NOT(~).
+    // @note modifies addr
+    void _addr_NOT(ad2_addr& addr);
+
+    // @brief 128bit AND.
+    void _addr_AND(ad2_addr& out, ad2_addr& addrA, ad2_addr& addrB);
+
+    // @brief 128bit OR.
+    void _addr_OR(ad2_addr& out, ad2_addr& addrA, ad2_addr& addrB);
+
+    // @brief parse IPv4/IPv6 address string to ip6_addr value.
+    // @return bool ok = true;
+    bool _szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is_ipv4);
+
     // @brief list of allowed network start and end addresses.
-    vector<pair<int,int>> allowed_networks;
+    vector<pair<ad2_addr,ad2_addr>> allowed_networks;
 };
 
 // NV Storage utilities

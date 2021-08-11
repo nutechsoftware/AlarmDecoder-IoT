@@ -24,44 +24,13 @@
 #ifndef _OTA_UTIL_H
 #define _OTA_UTIL_H
 
-#include <esp_https_ota.h>
-#include <esp_ota_ops.h>
-#include <esp_log.h>
-
-#define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
-#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS "stsdk"
-#define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
-
-#define OTA_SIGNATURE_SIZE 256
-#define OTA_SIGNATURE_FOOTER_SIZE 6
-#define OTA_SIGNATURE_PREFACE_SIZE 6
-#define OTA_DEFAULT_SIGNATURE_BUF_SIZE OTA_SIGNATURE_PREFACE_SIZE + OTA_SIGNATURE_SIZE + OTA_SIGNATURE_FOOTER_SIZE
-
-#define OTA_DEFAULT_BUF_SIZE 256
-#define OTA_CRYPTO_SHA256_LEN 32
-
-#define OTA_VERSION_INFO_BUF_SIZE 1024
-
-#define OTA_UPGRADE_CMD   "upgrade"
-#define OTA_VERSION_CMD   "version"
-
-#define OTA_FIRST_CHECK_DELAY_MS 30*1000
-#define OTA_SOCKET_TIMEOUT 10*1000
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern TaskHandle_t ota_task_handle;
-
-int ota_get_polling_period_day();
-void ota_nvs_flash_init();
-esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
-esp_err_t ota_https_update_device(const char *buildflags);
-esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
 void ota_do_update(char *arg);
-void ota_do_version(char *arg);
 void ota_init();
+
 #ifdef __cplusplus
 }
 #endif
