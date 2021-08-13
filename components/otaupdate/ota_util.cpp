@@ -790,15 +790,15 @@ void ota_do_update(char *command)
 static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
-        "- Preform an OTA upgrade now download and install new flash.\r\n\r\n"
-        "  ```" OTA_UPGRADE_CMD " [buildflag]```\r\n\r\n"
-        "  - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.\r\n\r\n"
-        "    See release page for details on available builds.\r\n\r\n", ota_do_update
+        "- Preform an OTA upgrade now download and install new flash.\r\n"
+        "  - ```" OTA_UPGRADE_CMD " [buildflag]```\r\n"
+        "    - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.\r\n"
+        "      - See release page for details on available builds.\r\n\r\n", ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)
-        "- Report the current and available version.\r\n\r\n"
-        "  ```" OTA_VERSION_CMD "```\r\n\r\n", ota_do_version
+        "- Report the current and available version.\r\n"
+        "  - ```" OTA_VERSION_CMD "```\r\n\r\n", ota_do_version
     }
 };
 

@@ -47,7 +47,7 @@ static void cli_cmd_help(char *string);
  * @brief command list for module
  */
 static struct cli_command help_cmd = {
-    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n\r\n"
+    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n"
     "  ```" AD2_HELP_CMD " [command]```\r\n\r\n", cli_cmd_help
 };
 

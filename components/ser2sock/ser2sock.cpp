@@ -206,12 +206,12 @@ static struct cli_command ser2sockd_cmd_list[] = {
         "    - [" S2SD_SUBCMD_ENABLE "] Enable / Disable ser2sock daemon\r\n"
         "      -  {arg1}: [Y]es [N]o\r\n"
         "        - [N] Default state\r\n"
-        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ENABLE " Y\r\n"
+        "        - Example: ```" SD2D_COMMAND " " S2SD_SUBCMD_ENABLE " Y```\r\n"
         "    - [" S2SD_SUBCMD_ACL "] Set / Get ACL list\r\n"
         "      - {arg1}: ACL LIST\r\n"
         "      -  String of CIDR values seperated by commas.\r\n"
         "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4\r\n\r\n", _cli_cmd_ser2sockd_event
+        "        - Example: ```" SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n\r\n", _cli_cmd_ser2sockd_event
     }
 };
 

@@ -434,117 +434,117 @@ static void _cli_cmd_butten_event(char *string)
 static struct cli_command cmd_list[] = {
     {
         (char*)AD2_REBOOT,(char*)
-        "- Restart the device.\r\n\r\n"
-        "  ```" AD2_REBOOT "```\r\n\r\n", _cli_cmd_restart_event
+        "- Restart the device.\r\n"
+        "  - ```" AD2_REBOOT "```\r\n", _cli_cmd_restart_event
     },
     {
         (char*)AD2_NETMODE,(char*)
-        "- Manage network connection type.\r\n\r\n"
-        "  ```" AD2_NETMODE " {mode} [args]```\r\n\r\n"
-        "  - {mode}\r\n"
-        "    - [N]one: (default) Do not enable any network let component(s) manage the networking.\r\n"
-        "    - [W]iFi: Enable WiFi network driver.\r\n"
-        "    - [E]thernet: Enable ethernet network driver.\r\n"
-        "  - [arg]\r\n"
-        "    - Argument string name value pairs sepearted by &.\r\n"
-        "      - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD\r\n\r\n"
-        "  Examples\r\n"
+        "- Manage network connection type.\r\n"
+        "  - ```" AD2_NETMODE " {mode} [args]```\r\n"
+        "    - {mode}\r\n"
+        "      - [N]one: (default) Do not enable any network let component(s) manage the networking.\r\n"
+        "      - [W]iFi: Enable WiFi network driver.\r\n"
+        "      - [E]thernet: Enable ethernet network driver.\r\n"
+        "    - [arg]\r\n"
+        "      - Argument string name value pairs sepearted by &.\r\n"
+        "        - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD\r\n"
+        "  - Examples\r\n"
         "    - WiFi DHCP with SID and password.\r\n"
-        "      - netmode W mode=d&sid=example&password=somethingsecret\r\n"
+        "      - ```" AD2_NETMODE " W mode=d&sid=example&password=somethingsecret```\r\n"
         "    - Ethernet DHCP DNS2 override.\r\n"
-        "      - netmode E mode=d&dns2=4.2.2.2\r\n"
+        "      - ```" AD2_NETMODE " E mode=d&dns2=4.2.2.2```\r\n"
         "    - Ethernet Static IPv4 address.\r\n"
-        "      - netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8\r\n"
+        "      - ```" AD2_NETMODE " E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```\r\n\r\n"
         , _cli_cmd_netmode_event
     },
     {
         (char*)AD2_BUTTON,(char*)
-        "- Simulate a button press event.\r\n\r\n"
-        "  ```" AD2_BUTTON " {id} {count} {type}```\r\n\r\n"
-        "  - {id}\r\n"
-        "    - ID of the button to push [A|B].\r\n"
-        "  - {count}\r\n"
-        "    - Number of times the button was pushed.\r\n"
-        "  - {type}\r\n"
-        "    - The type of event 'short' or 'long'.\r\n\r\n"
-        "  Examples\r\n"
+        "- Simulate a button press event.\r\n"
+        "  - ```" AD2_BUTTON " {id} {count} {type}```\r\n"
+        "    - {id}\r\n"
+        "      - ID of the button to push [A|B].\r\n"
+        "    - {count}\r\n"
+        "      - Number of times the button was pushed.\r\n"
+        "    - {type}\r\n"
+        "      - The type of event 'short' or 'long'.\r\n"
+        "  - Examples\r\n"
         "    - Send a single LONG press to button A.\r\n"
-        "      - " AD2_BUTTON " A 1 long\r\n", _cli_cmd_butten_event
+        "      - ```" AD2_BUTTON " A 1 long```\r\n\r\n", _cli_cmd_butten_event
     },
     {
         (char*)AD2_CODE,(char*)
-        "- Manage user codes.\r\n\r\n"
-        "  ```" AD2_CODE " {id} [value]```\r\n\r\n"
-        "  - {id}\r\n"
-        "    - Index of code to evaluate. 0 is default.\r\n"
-        "  - [value]\r\n"
-        "    - A valid alarm code or -1 to remove.\r\n\r\n"
-        "  Examples\r\n"
+        "- Manage user codes.\r\n"
+        "  - ```" AD2_CODE " {id} [value]```\r\n"
+        "    - {id}\r\n"
+        "      - Index of code to evaluate. 0 is default.\r\n"
+        "    - [value]\r\n"
+        "      - A valid alarm code or -1 to remove.\r\n"
+        "  - Examples\r\n"
         "    - Set default code to 1234.\r\n"
-        "      - " AD2_CODE " 0 1234\r\n"
+        "      - ```" AD2_CODE " 0 1234```\r\n"
         "    - Set alarm code for slot 1.\r\n"
-        "      - " AD2_CODE " 1 1234\r\n"
+        "      - ```" AD2_CODE " 1 1234```\r\n"
         "    - Show code in slot #3.\r\n"
-        "      - " AD2_CODE " 3\r\n"
+        "      - ```" AD2_CODE " 3```\r\n"
         "    - Remove code for slot 2.\r\n"
-        "      - " AD2_CODE " 2 -1\r\n\r\n"
-        "    Note: value -1 will remove an entry.\r\n", _cli_cmd_code_event
+        "      - ```" AD2_CODE " 2 -1```\r\n"
+        "        - Note: value -1 will remove an entry.\r\n\r\n", _cli_cmd_code_event
     },
     {
         (char*)AD2_VPART,(char*)
-        "- Manage virtual partitions.\r\n\r\n"
-        "  ```" AD2_VPART " {id} {value}```\r\n\r\n"
-        "  - {id}\r\n"
-        "    - The virtual partition ID. 0 is the default.\r\n"
-        "  - [value]\r\n"
-        "    - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n\r\n"
-        "  Examples\r\n"
+        "- Manage virtual partitions.\r\n"
+        "  - ```" AD2_VPART " {id} {value}```\r\n"
+        "    - {id}\r\n"
+        "      - The virtual partition ID. 0 is the default.\r\n"
+        "    - [value]\r\n"
+        "      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n"
+        "  - Examples\r\n"
         "    - Set default address mask to 18 for an Ademco system.\r\n"
-        "      - " AD2_VPART " 0 18\r\n"
+        "      - ```" AD2_VPART " 0 18```\r\n"
         "    - Set default send partition to 1 for a DSC system.\r\n"
-        "      - " AD2_VPART " 0 1\r\n"
+        "      - ```" AD2_VPART " 0 1```\r\n"
         "    - Show address for partition 2.\r\n"
-        "      - " AD2_VPART " 2\r\n"
+        "      - ```" AD2_VPART " 2```\r\n"
         "    - Remove virtual partition in slot 2.\r\n"
-        "      - " AD2_VPART " 2 -1\r\n\r\n"
-        "    Note: address -1 will remove an entry.\r\n", _cli_cmd_vpart_event
+        "      - ```" AD2_VPART " 2 -1```\r\n"
+        "       - Note: address -1 will remove an entry.\r\n\r\n", _cli_cmd_vpart_event
     },
     {
         (char*)AD2_SOURCE,(char*)
-        "- Manage AlarmDecoder protocol source.\r\n\r\n"
-        "  ```" AD2_SOURCE " [{mode} {arg}]```\r\n\r\n"
-        "  - {mode}\r\n"
-        "    - [S]ocket: Use ser2sock server over tcp for AD2* messages.\r\n"
-        "    - [C]om port: Use local UART for AD2* messages.\r\n"
-        "  - {arg}\r\n"
-        "    - [S]ocket arg: {HOST:PORT}\r\n"
-        "    - [C]om arg: {TXPIN:RXPIN}.\r\n\r\n"
-        "  Examples:\r\n"
+        "- Manage AlarmDecoder protocol source.\r\n"
+        "  - ```" AD2_SOURCE " [{mode} {arg}]```\r\n"
+        "    - {mode}\r\n"
+        "      - [S]ocket: Use ser2sock server over tcp for AD2* messages.\r\n"
+        "      - [C]om port: Use local UART for AD2* messages.\r\n"
+        "    - {arg}\r\n"
+        "      - [S]ocket arg: {HOST:PORT}\r\n"
+        "      - [C]om arg: {TXPIN:RXPIN}.\r\n"
+        "  - Examples:\r\n"
         "    - Show current mode.\r\n"
-        "      - " AD2_SOURCE "\r\n"
+        "      - ```" AD2_SOURCE "```\r\n"
         "    - Set source to ser2sock client at address and port.\r\n"
-        "      - " AD2_SOURCE " SOCK 192.168.1.2:10000\r\n"
+        "      - ```" AD2_SOURCE " SOCK 192.168.1.2:10000```\r\n"
         "    - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.\r\n"
-        "      - " AD2_SOURCE " COM 17:16\r\n", _cli_cmd_ad2source_event
+        "      - ```" AD2_SOURCE " COM 17:16```\r\n\r\n", _cli_cmd_ad2source_event
     },
     {
         (char*)AD2_TERM,(char*)
-        "- Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.\r\n\r\n"
-        "  ```" AD2_TERM " [reset]```\r\n\r\n"
-        "  Note: To exit press ... three times fast.\r\n", _cli_cmd_ad2term_event
+        "- Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.\r\n"
+        "  - ```" AD2_TERM " [reset]```\r\n"
+        "    - Note: To exit press ... three times fast.\r\n\r\n", _cli_cmd_ad2term_event
     },
     {
         (char*)AD2_LOGMODE,(char*)
-        "- Set logging mode.\r\n\r\n"
-        "  ```" AD2_LOGMODE " {level}```\r\n\r\n"
-        "  - {level}\r\n"
-        "       [I] - Informational\r\n"
-        "       [V] - Verbose\r\n"
-        "       [D] - Debugging\r\n"
-        "       [N] - None: (default) Warnings and errors only.\r\n\n\n"
-        "  Examples:\r\n"
+        "- Set logging mode.\r\n"
+        "  - ```" AD2_LOGMODE " {level}```\r\n"
+        "    - {level}\r\n"
+        "      - [I]nformational\r\n"
+        "      - [V]Verbose\r\n"
+        "      - [D]ebugging\r\n"
+        "      - [N]one: (default) Warnings and errors only.\r\n"
+        "  - Examples:\r\n"
         "    - Set logging mode to INFO.\r\n"
-        "      - " AD2_LOGMODE " I\r\n", _cli_cmd_ad2logmode_event
+        "      - ```" AD2_LOGMODE " I```\r\n\r\n", _cli_cmd_ad2logmode_event
     }
 };
 

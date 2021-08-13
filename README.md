@@ -78,9 +78,6 @@ https://smartthings.developer.samsung.com/partner/enroll
 ###  3.2. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
 - Components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT
 
-<img style="border:5px double black;"  src="contrib/webUI/EXAMPLE-PANEL-READY.jpg" width="200">
-
-
 This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThings driver is disabled and the webui component is enabled.
 
 Copy the contents of flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single MSDOS partition. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
@@ -112,9 +109,9 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
 - Set logging mode.
   - ```logmode {level}```
     - {level}
-      - [I]nformational.
-      - [V]erbose.
-      - [D]ebugging. (Only if compiled with DEBUG).
+      - [I]nformational
+      - [V]Verbose
+      - [D]ebugging
       - [N]one: (default) Warnings and errors only.
   - Examples:
     - Set logging mode to INFO.
@@ -123,7 +120,8 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
   - ```restart```
 - Preform an OTA upgrade now download and install new flash.
   - ```upgrade [buildflag]```
-    - [buildflag]: Specify build for the release. default to 'stsdk' if omitted. See release page for details on available builds.
+    - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.
+      - See release page for details on available builds.
 - Report the current and available version.
   - ```version```
 - Manage network connection type.
@@ -133,24 +131,26 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
       - [W]iFi: Enable WiFi network driver.
       - [E]thernet: Enable ethernet network driver.
     - [arg]
-      - Argument string name value pairs separated by &.
+      - Argument string name value pairs sepearted by &.
         - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD
   - Examples
     - WiFi DHCP with SID and password.
-      - netmode W mode=d&sid=example&password=somethingsecret
+      - ```netmode W mode=d&sid=example&password=somethingsecret```
     - Ethernet DHCP DNS2 override.
-      - netmode E mode=d&dns2=4.2.2.2
+      - ```netmode E mode=d&dns2=4.2.2.2```
     - Ethernet Static IPv4 address.
-      - netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8
+      - ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```
 - Simulate a button press event.
-  - ```button {count} {type}```
+  - ```button {id} {count} {type}```
+    - {id}
+      - ID of the button to push [A|B].
     - {count}
       - Number of times the button was pushed.
     - {type}
       - The type of event 'short' or 'long'.
   - Examples
-    - Send a single LONG button press.
-      - button 1 long
+    - Send a single LONG press to button A.
+      - ```button A 1 long```
 - Manage user codes.
   - ```code {id} [value]```
     - {id}
@@ -159,17 +159,17 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
       - A valid alarm code or -1 to remove.
   - Examples
     - Set default code to 1234.
-      - code 0 1234
+      - ```code 0 1234```
     - Set alarm code for slot 1.
-      - code 1 1234
+      - ```code 1 1234```
     - Show code in slot #3.
-      - code 3
+      - ```code 3```
     - Remove code for slot 2.
-      - code 2 -1
+      - ```code 2 -1```
         - Note: value -1 will remove an entry.
 - Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.
   - ```ad2term [reset]```
-    - Note: To exit send a period ```.``` three times fast.
+    - Note: To exit press ... three times fast.
 - Manage virtual partitions.
   - ```vpart {id} {value}```
     - {id}
@@ -196,11 +196,11 @@ Currently all configuration is done over the the ESP32 usb serial port. For driv
       - [C]om arg: {TXPIN:RXPIN}.
   - Examples:
     - Show current mode.
-      - ad2source
+      - ```ad2source```
     - Set source to ser2sock client at address and port.
-      - ad2source SOCK 192.168.1.2:10000
+      - ```ad2source SOCK 192.168.1.2:10000```
     - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.
-      - ad2source COM 17:16
+      - ```ad2source COM 17:16```
 
 ###  5.2. <a name='ser2sock-server-component'></a>Ser2sock server component
 Ser2sock allows sharing of a serial device over a TCP/IP network. It also supports encryption and authentication via OpenSSL. Typically configured for port 10000 several home automation systems are able to use this protocol to talk to the AlarmDecoder device for a raw stream of messages. Please be advised that network scanning of this port can lead to alarm faults. It is best to use the Access Control List feature to only allow specific hosts to communicate directly with the AD2* and the alarm panel.
@@ -219,6 +219,9 @@ Ser2sock allows sharing of a serial device over a TCP/IP network. It also suppor
         - Example: ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
 
 ###  5.3. <a name='web-user-interface-webui-component'></a>Web User Interface webUI component
+This component provides a simple HTML5+WebSocket user interface with realtime alarm status using push messages over WebSocket. Buttons for Arming, Disarming, Exiting, and sending panic events. Panic buttons require pressing the button three times in 5 seconds to help prevent false alarms.<br>
+<img src="contrib/webUI/EXAMPLE-PANEL-READY.jpg" width="200">
+
 ####  5.3.1. <a name='configuration-for-webui-server'></a>Configuration for webUI server
 - ```webui {sub command} {arg}```
   - {sub command}
@@ -232,8 +235,24 @@ Ser2sock allows sharing of a serial device over a TCP/IP network. It also suppor
         - Default: Empty string disables ACL list
         - Example: webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
 
-###  5.4. <a name='smartthings-iot-integration-component'></a>SmartThings IoT integration component
+###  5.4. <a name='smartthings-iot-integration-component'></a>SmartThings Direct Connected device.
+Direct-connected devices connect directly to the SmartThings cloud. The SDK for Direct Connected Devices is equipped to manage all MQTT topics and onboarding requirements, freeing you to focus on the actions and attributes of your device. To facilitate the development of device application in an original chipset SDK, the core device library and the examples were separated into two git repositories. That is, if you want to use the core device library in your original chipset SDK that installed before, you may simply link it to develop a device application in your existing development environment. For more info see https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.
 
+####  Configuration for SmartThings IoT client
+- Enable SmartThings component
+  - ```stenable {bool}```
+    - {bool}: [Y]es/[N]o
+- Sets the SmartThings device_info serialNumber.
+  - ```stserial {serialNumber}```
+  - Example: ```stserial AaBbCcDdEeFfGg...```
+- Sets the SmartThings device_info publicKey.
+  - ```stpublickey {publicKey}```
+  - Example: ```stpublickey AaBbCcDdEeFfGg...```
+- Sets the SmartThings device_info privateKey.
+  - ```stprivatekey {privateKey}```
+  - Example: ```stprivatekey AaBbCcDdEeFfGg...```
+- Cleanup NV data with restart option
+  - ```stcleanup```
 
 ###  5.5. <a name='pushover.net-notification-component'></a>Pushover.net notification component
 Pushover is a platform for sending and receiving push notifications. On the server side, they provide an HTTP API for queueing messages to deliver to devices addressable by User or Group Keys. On the device side, they offer iOS, Android, and Desktop clients to receive those push notifications, show them to the user, and store them for offline viewing. See: https://pushover.net/

@@ -329,32 +329,32 @@ static struct cli_command stsdk_cmd_list[] = {
     {
         (char*)STSDK_ENABLE,(char*)
         "####  Configuration for SmartThings IoT client\r\n"
-        "- Enable SmartThings component\r\n\r\n"
-        "  - ```" STSDK_ENABLE " {bool}```\r\n\r\n"
-        "    - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
+        "- Enable SmartThings component\r\n"
+        "  - ```" STSDK_ENABLE " {bool}```\r\n"
+        "    - {bool}: [Y]es/[N]o\r\n\r\n", _cli_cmd_enable_event
     },
     {
         (char*)STSDK_CLEANUP,(char*)
-        "- Cleanup NV data with restart option\r\n\r\n"
+        "- Cleanup NV data with restart option\r\n"
         "  - ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
     },
     {
         (char*)STSDK_SERIAL,(char*)
-        "- Sets the SmartThings device_info serialNumber.\r\n\r\n"
-        "  - ```" STSDK_SERIAL " {serialNumber}```\r\n\r\n"
-        "    - Example: ```" STSDK_SERIAL " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stserial_event
+        "- Sets the SmartThings device_info serialNumber.\r\n"
+        "  - ```" STSDK_SERIAL " {serialNumber}```\r\n"
+        "  - Example: ```" STSDK_SERIAL " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stserial_event
     },
     {
         (char*)STSDK_PUBKEY,(char*)
-        "- Sets the SmartThings device_info publicKey.\r\n\r\n"
-        "  ```" STSDK_PUBKEY " {publicKey}```\r\n\r\n"
-        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stpublickey_event
+        "- Sets the SmartThings device_info publicKey.\r\n"
+        "  - ```" STSDK_PUBKEY " {publicKey}```\r\n"
+        "  - Example: ```" STSDK_PUBKEY " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stpublickey_event
     },
     {
         (char*)STSDK_PRIVKEY,(char*)
-        "- Sets the SmartThings device_info privateKey.\r\n\r\n"
-        "  ```" STSDK_PRIVKEY " {privateKey}```\r\n\r\n"
-        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stprivatekey_event
+        "- Sets the SmartThings device_info privateKey.\r\n"
+        "  - ```" STSDK_PRIVKEY " {privateKey}```\r\n"
+        "  - Example: ```" STSDK_PRIVKEY " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stprivatekey_event
     },
 };
 
