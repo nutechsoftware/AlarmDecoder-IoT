@@ -101,7 +101,7 @@ Configure the notifications using the notification components CLI commands.
 ##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
 Currently all configuration is done over the the ESP32 usb serial port. For drivers see the [ESP32-POE-ISO product page](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware). The USB port also provides power so disconnect the device from the alarm using the quick connect terminal block and and connect the device to a computer using a USB 2.0 A-Male to Micro B Cable for configuration using the command line interface.
 
-　<font color='red'>Do not connect the [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) to alarm panel power when connected to a computer.</font> If connection from both PC and alarm at the same time is needed be sure to connect to the alarm panel power first then connect to the PC last. The power from the panel when first connected to the AD2IoT will provide an unstable 5v output for a few microseconds. This unstable voltage can be sent back through the USB to the host computer causing the host to detect the voltage fault and halt.
+&#x2757; Do not connect the [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) to alarm panel power when connected to a computer. If connection from both PC and alarm at the same time is needed be sure to connect to the alarm panel power first then connect to the PC last. The power from the panel when first connected to the AD2IoT will provide an unstable 5v output for a few microseconds. This unstable voltage can be sent back through the USB to the host computer causing the host to detect the voltage fault and halt.
 
 ###  5.1. <a name='standard-commands'></a>Standard commands
 - Show the list of commands or give more detail on a specific command.
@@ -355,7 +355,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
       - [c] Close output format string.
       - [f] Fault output format string.
 
-- Examples cli commands to setup a complete virtual contact.
+- Example cli commands to setup a complete virtual contact.
   - Configure notification profiles..
     ```console
     # Profile #0 EMail using api.sendgrid.com
@@ -530,10 +530,10 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
       - [f] Fault output format string.
 
 - Examples
-  - Publish events to <device root>/switches/RF0180036 when the 5800 RF sensor with serial number 1234567 changes state.
+  - Publish events to <device root>/switches/RF0180036 when the 5800 RF sensor with serial number 0123456 changes state.
   ```console
   MQTT SmartSwitch #1 report
-  # Set MQTT topic [N] to 'RF1234567'.
+  # Set MQTT topic [N] to 'RF0123456'.
   mqtt switch 1 N RF1234567
   # Set default virtual switch state [D] to 'CLOSED'(0)
   mqtt switch 1 D 0
@@ -542,17 +542,17 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   # Set message type list [T]
   mqtt switch 1 T RFX
   # Set pre filter REGEX [P]
-  mqtt switch 1 P !RFX:1234567,.*
+  mqtt switch 1 P !RFX:0123456,.*
   # Set 'OPEN' state REGEX Filter [O] #01.
-  mqtt switch 1 O 1 !RFX:1234567,1.......
+  mqtt switch 1 O 1 !RFX:0123456,1.......
   # Set 'CLOSED' state REGEX Filter [C] #01.
-  mqtt switch 1 C 1 !RFX:1234567,0.......
+  mqtt switch 1 C 1 !RFX:0123456,0.......
   # Set 'FAULT' state REGEX Filter [F] #01.
-  mqtt switch 1 F 1 !RFX:1234567,......1.
+  mqtt switch 1 F 1 !RFX:0123456,......1.
   # Set output format string for 'OPEN' state [o].
-  mqtt switch 1 o RF SENSOR 1234567 OPEN
+  mqtt switch 1 o RF SENSOR 0123456 OPEN
   # Set output format string for 'CLOSED' state [c].
-  mqtt switch 1 c RF SENSOR 1234567 CLOSED
+  mqtt switch 1 c RF SENSOR 0123456 CLOSED
   # Set output format string for 'FAULT' stat
   ```
 

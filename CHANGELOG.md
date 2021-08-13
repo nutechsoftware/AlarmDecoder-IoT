@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [ ] CORE: Design and implement a serialized method of making HTTP request from components through the ad2_? api layer. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections.
+- [ ] CORE: Design and implement a serialized method of making HTTP request from components through the ad2_? api layer. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections. I estimate it takes approx 30k per distinct certificate used.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
 - [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
