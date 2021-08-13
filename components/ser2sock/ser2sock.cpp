@@ -200,8 +200,8 @@ static void _cli_cmd_ser2sockd_event(char *string)
 static struct cli_command ser2sockd_cmd_list[] = {
     {
         (char*)SD2D_COMMAND,(char*)
-        "- ser2sock daemon component command\r\n"
-        "  ```" SD2D_COMMAND " {sub command} {arg}```\r\n"
+        "####  Configuration for Ser2sock server\r\n"
+        "- ```" SD2D_COMMAND " {sub command} {arg}```\r\n"
         "  - {sub command}\r\n"
         "    - [" S2SD_SUBCMD_ENABLE "] Enable / Disable ser2sock daemon\r\n"
         "      -  {arg1}: [Y]es [N]o\r\n"

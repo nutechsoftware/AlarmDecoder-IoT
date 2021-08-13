@@ -46,6 +46,7 @@ void ad2_aux_alarm(int codeId, int vpartId);
 void ad2_exit_now(int vpartId);
 void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
+cJSON *ad2_get_ad2iot_device_info_json();
 cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *);
 void ad2_printf_host(const char *format, ...);
 void ad2_snprintf_host(const char *fmt, size_t size, ...);

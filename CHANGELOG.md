@@ -7,21 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### SM - Sean Mathews coder at f34r.com
 - [ ] CORE: Design and implement a serialized method of making HTTP request from components through the ad2_? api layer. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections.
-- [X] CORE: Fix ACL CIDR MASK logic so it works for IPv6 and IPv4.
-- [X] CORE: More cleanup of esp-idf component inclusion.
-- [X] CORE: Large refactor to all common headers. Still needs more work but at list it is consistent.
-- [X] CORE: Added helper to hal_ to return Address strings from a socket used for ACL testing.
-- [X] WEBUI: Added support for IPv6 and IPv4 ACL. Supports Range, Single IP, or Mask. 1.2.3.4-1.2.3.5, 1.2.3.4, 1.2.3.4/24, 2001:0db8:85a3:0000::/64
-- [X] SER2SOCKD: Added ACL logic and wired the acl command to allow an ACL string to be saved and parsed rejecting clients that don't match.
-- [X] CORE: ad2_tokenize change to allow multiple tokens. Was having issues so I reverted back to strtok.
-- [X] CORE: Added ad2_acl_check class to ad2_utils.
-- [X] CORE: Move uSD card init from webUI into device_control and init at startup with error handling.
-- [X] CORE: Minor cleanup warnings and add exclude for build to astylerc exclude.
-- [X] MQTT: New component an MQTT client using ESP-MQTT with user defined events and topics and optional QOS level 2 using a uSD card for persistent storage. TLS is causing issues with random lockups but works with clear text connections. Still needs work but its a good start.
-- [X] API: On first state message only fire off one event 'READY'. This prevents multiple events from firing on the first state message from the panel. Subscribe to at minimum READY event changes to be sure to catch the first event on connection to the panel.
-- [X] CORE: Init the global ca store early.
-- [X] CORE: Initialize virtual partitions before connecting to AD2*.
-- [X] CORE: Refactor some common use calls into ad2_utils and refactor JSON library includes. Fix some callback names to be specific to avoid collisions.
+- [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
 - [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
@@ -44,6 +30,45 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
+
+## [1.0.8-pre] - 2021-08-?? Sean Mathews - coder @f34rdotcom
+### Added
+  - IPv6 support with ACL(Access Control List) for webUI and ser2sockd.
+  - MQTT client
+    - Each client connects under the root topic of ```ad2iot``` with a sub topic level of the devices UUID.
+      - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX```
+    - LWT is used to indicate ```online```/```offline``` ```state``` of client using ```status``` topic below the device root topic.
+      - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/status = {"state": "online"}```
+    - Device specific info is in the ```info``` topic below the device root topic.
+    - Partition state tracking with minimal traffic only when state changes. Each configured partition will be under the ```partitions``` topic below the device root topic.
+      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/partitions/1 =
+{"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
+    - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
+      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
+### Changed
+  - Large cleanup of headers, components, help.
+  - Small changes in startup order and added global ca init early.
+  - Small change to API to prevent ejecting multiple messages when the parser receives its first message. Now just send a READY state change event with all current state bits.
+  - ad2_utils json helper utils refactor.
+### Change log
+- [X] CORE: Help syntax cleanup. Still not happy but it is better.
+- [X] MQTT: Add Last Will and Testament with a "offline" "online" indication for the client. Remove IoT system specific info to Sigon topic.
+- [X] MQTT: Finish wiring 'url' command. Finished wiring up the Virtual Switches sub command 'N' defines topic to publish to. Example ```TEST``` would result in a topic of ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/TEST```.
+- [X] CORE: Fix ACL CIDR MASK logic so it works for IPv6 and IPv4.
+- [X] CORE: More cleanup of esp-idf component inclusion.
+- [X] CORE: Large refactor to all common headers. Still needs more work but at list it is consistent.
+- [X] CORE: Added helper to hal_ to return Address strings from a socket used for ACL testing.
+- [X] WEBUI: Added support for IPv6 and IPv4 ACL. Supports Range, Single IP, or Mask. 1.2.3.4-1.2.3.5, 1.2.3.4, 1.2.3.4/24, 2001:0db8:85a3:0000::/64
+- [X] SER2SOCKD: Added ACL logic and wired the acl command to allow an ACL string to be saved and parsed rejecting clients that don't match.
+- [X] CORE: ad2_tokenize change to allow multiple tokens. Was having issues so I reverted back to strtok.
+- [X] CORE: Added ad2_acl_check class to ad2_utils.
+- [X] CORE: Move uSD card init from webUI into device_control and init at startup with error handling.
+- [X] CORE: Minor cleanup warnings and add exclude for build to astylerc exclude.
+- [X] MQTT: New component an MQTT client using ESP-MQTT with user defined events and topics and optional QOS level 2 using a uSD card for persistent storage. TLS is causing issues with random lockups but works with clear text connections. Still needs work but its a good start.
+- [X] API: On first state message only fire off one event 'READY'. This prevents multiple events from firing on the first state message from the panel. Subscribe to at minimum READY event changes to be sure to catch the first event on connection to the panel.
+- [X] CORE: Init the global ca store early.
+- [X] CORE: Initialize virtual partitions before connecting to AD2*.
+- [X] CORE: Refactor some common use calls into ad2_utils and refactor JSON library includes. Fix some callback names to be specific to avoid collisions.
 
 ## [1.0.7] - 2021-06-26 Sean Mathews - coder @f34rdotcom
  - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)

@@ -1294,14 +1294,12 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
 }
 
 /**
- * @brief Generate a standardized JSON string for the given AD2VirtualPartitionState pointer.
- *
- * @param [in]AD2VirtualPartitionState * to use for json object.
+ * @brief Generate a standardized JSON string for the AD2IoT device details.
  *
  * @return cJSON*
  *
  */
-cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
+cJSON *ad2_get_ad2iot_device_info_json()
 {
     cJSON *root = cJSON_CreateObject();
 
@@ -1326,7 +1324,20 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
     cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
     std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
     cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
+    return root;
+}
 
+/**
+ * @brief Generate a standardized JSON string for the given AD2VirtualPartitionState pointer.
+ *
+ * @param [in]AD2VirtualPartitionState * to use for json object.
+ *
+ * @return cJSON*
+ *
+ */
+cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
+{
+    cJSON *root = cJSON_CreateObject();
     if (s && !s->unknown_state) {
         cJSON_AddBoolToObject(root, "ready", s->ready);
         cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
@@ -1349,6 +1360,8 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
         cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
         cJSON_AddStringToObject(root, "last_alpha_messages", s->last_alpha_message.c_str());
         cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
+    } else {
+        cJSON_AddStringToObject(root, "last_alpha_messages", "Unknown");
     }
     return root;
 }

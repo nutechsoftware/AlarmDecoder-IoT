@@ -328,20 +328,21 @@ char * STSDK_SETTINGS [] = {
 static struct cli_command stsdk_cmd_list[] = {
     {
         (char*)STSDK_ENABLE,(char*)
+        "####  Configuration for SmartThings IoT client\r\n"
         "- Enable SmartThings component\r\n\r\n"
-        "  ```" STSDK_ENABLE " {bool}```\r\n\r\n"
-        "  - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
+        "  - ```" STSDK_ENABLE " {bool}```\r\n\r\n"
+        "    - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
     },
     {
         (char*)STSDK_CLEANUP,(char*)
         "- Cleanup NV data with restart option\r\n\r\n"
-        "  ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
+        "  - ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
     },
     {
         (char*)STSDK_SERIAL,(char*)
         "- Sets the SmartThings device_info serialNumber.\r\n\r\n"
-        "  ```" STSDK_SERIAL " {serialNumber}```\r\n\r\n"
-        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stserial_event
+        "  - ```" STSDK_SERIAL " {serialNumber}```\r\n\r\n"
+        "    - Example: ```" STSDK_SERIAL " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stserial_event
     },
     {
         (char*)STSDK_PUBKEY,(char*)

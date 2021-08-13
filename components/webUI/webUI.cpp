@@ -736,8 +736,8 @@ static void _cli_cmd_webui_event(char *string)
 static struct cli_command webui_cmd_list[] = {
     {
         (char*)WEBUI_COMMAND,(char*)
-        "- WebUI daemon component command\r\n"
-        "  ```" WEBUI_COMMAND " {sub command} {arg}```\r\n"
+        "####  Configuration for web UI server\r\n"
+        "- ```" WEBUI_COMMAND " {sub command} {arg}```\r\n"
         "  - {sub command}\r\n"
         "    - [" WEBUI_SUBCMD_ENABLE "] Enable / Disable WebUI daemon\r\n"
         "      -  {arg1}: [Y]es [N]o\r\n"

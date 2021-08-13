@@ -735,27 +735,28 @@ static void _cli_cmd_pushover_command_router(char *string)
 
 /**
  * @brief command list for module
+ * ### Pushover.net notification component
  */
 static struct cli_command pushover_cmd_list[] = {
     {
         (char*)PUSHOVER_COMMAND,(char*)
-        "### Configuration for pushover.net message notifications.\r\n\r\n"
-        "  - Sets the 'Application Token/Key' for a given notification slot. Multiple slots allow for multiple pushover accounts or applications.\r\n\r\n"
-        "    ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " {slot} {hash}```\r\n\r\n"
+        "#### Configuration for Pushover.net notification\r\n"
+        "- Sets the ```Application Token/Key``` for a given notification slot. Multiple slots allow for multiple pushover accounts or applications.\r\n"
+        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " {slot} {hash}```\r\n"
         "    - {slot}: [N]\r\n"
-        "      - For default use 0.\r\n\r\n"
-        "    - {hash}: Pushover.net 'User Auth Token'.\r\n\r\n"
-        "    Example: " PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " 0 aabbccdd112233..\r\n\r\n"
-        "  - Sets the 'User Key' for a given notification slot.\r\n\r\n"
-        "    ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " {slot} {hash}```\r\n\r\n"
+        "      - For default use 0.\r\n"
+        "    - {hash}: Pushover.net ```User Auth Token```.\r\n"
+        "  - Example: ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " 0 aabbccdd112233..```\r\n"
+        "- Sets the 'User Key' for a given notification slot.\r\n"
+        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " {slot} {hash}```\r\n"
         "    - {slot}: [N]\r\n"
-        "      - For default use 0.\r\n\r\n"
-        "    - {hash}: Pushover 'User Key'.\r\n\r\n"
-        "    Example: " PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " 0 aabbccdd112233..\r\n\r\n"
-        "  - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n\r\n"
-        "    ```" PUSHOVER_COMMAND " " PUSHOVER_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n\r\n"
+        "      - For default use 0.\r\n"
+        "    - {hash}: Pushover ```User Key```.\r\n"
+        "  - Example: ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " 0 aabbccdd112233..```\r\n"
+        "- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n"
+        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n"
         "    - {slot}\r\n"
-        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n\r\n"
+        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
         "      - [N] Notification slot\r\n"
         "        -  Notification settings slot to use for sending this events.\r\n"

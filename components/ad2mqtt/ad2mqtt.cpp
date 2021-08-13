@@ -39,13 +39,14 @@ static const char *TAG = "MQTT";
 /* Constants that aren't configurable in menuconfig */
 #define MQTT_COMMAND        "mqtt"
 #define MQTT_PREFIX         "mq"
+#define MQTT_ENABLE_CFGKEY  "enable"
 #define MQTT_URL_CFGKEY     "url"
 #define MQTT_SAS_CFGKEY     "switch"
 
 #define MAX_SEARCH_KEYS 9
 
 // NV storage sub key values for virtual search switch
-#define SK_NOTIFY_SLOT       "N"
+#define SK_NOTIFY_TOPIC      "N"
 #define SK_DEFAULT_STATE     "D"
 #define SK_AUTO_RESET        "R"
 #define SK_TYPE_LIST         "T"
@@ -58,6 +59,9 @@ static const char *TAG = "MQTT";
 #define SK_FAULT_OUTPUT_FMT  "f"
 
 #define MQTT_TOPIC_PREFIX "ad2iot"
+#define MQTT_LWT_TOPIC_SUFFIX "will"
+#define MQTT_LWT_MESSAGE "offline"
+
 
 #define EXAMPLE_BROKER_URI "mqtt://mqtt.eclipseprojects.io"
 
@@ -65,6 +69,10 @@ static esp_mqtt_client_handle_t mqtt_client = nullptr;
 static std::string mqttclient_UUID;
 static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 
+// Default MQTT message settings excluding LWT.
+#define MQTT_DEF_QOS    1
+#define MQTT_DEF_RETAIN 1
+#define MQTT_DEF_STORE  0
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,6 +96,53 @@ esp_err_t outbox_set_pending(outbox_handle_t outbox, int msg_id, pending_state_t
 #endif
 
 /**
+ * @brief Callback for MQTT_EVENT_CONNECTED event.
+ * Preform subscribe to commands and initial publish to status and info.
+ *
+ * @param [in]client esp_mqtt_client_handle_t
+ */
+void mqtt_on_connect(esp_mqtt_client_handle_t client)
+{
+    std::string topic;
+
+    // Subscribe to command inputs for remote control.
+    topic = MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/commands";
+    esp_mqtt_client_subscribe(client,
+                              topic.c_str(),
+                              MQTT_DEF_QOS);
+
+    // Publish we are Online
+    topic = MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/status";
+    esp_mqtt_client_enqueue(client,
+                            topic.c_str(),
+                            "{\"state\": \"online\"}",
+                            0,
+                            MQTT_DEF_QOS,
+                            MQTT_DEF_RETAIN,
+                            MQTT_DEF_STORE);
+
+    // Publish our device HW/FW info.
+    cJSON *root = ad2_get_ad2iot_device_info_json();
+    topic = MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/info";
+    char *state = cJSON_Print(root);
+    cJSON_Minify(state);
+    esp_mqtt_client_enqueue(client,
+                            topic.c_str(),
+                            state,
+                            0,
+                            MQTT_DEF_QOS,
+                            MQTT_DEF_RETAIN,
+                            MQTT_DEF_STORE);
+    cJSON_Delete(root);
+}
+
+/**
  * @brief mqtt event callback handler.
  *
  * @param [in]handler_args void *
@@ -107,12 +162,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
     switch (event_data->event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        // Subscribe to command inputs
-        topic = MQTT_TOPIC_PREFIX "/";
-        topic+=mqttclient_UUID;
-        topic+="/commands";
-        msg_id = esp_mqtt_client_subscribe(client, topic.c_str(), 0);
-        ESP_LOGI(TAG, "sent subscribe successful for topic/commands, msg_id=%d", msg_id);
+        mqtt_on_connect(client);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -157,15 +207,20 @@ void mqtt_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *a
         ESP_LOGE(TAG, "mqtt_on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
-        sTopic+="/state/";
+        sTopic+="/partitions/";
         sTopic+=ad2_to_string(s->partition);
         cJSON *root = ad2_get_partition_state_json(s);
         cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
-        char *sys_info = cJSON_Print(root);
-        cJSON_Minify(sys_info);
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
         // Non blocking. We must not block AlarmDecoderParser
-        msg_id = esp_mqtt_client_enqueue(mqtt_client, sTopic.c_str(), sys_info, 0, 1, 0, 0);
-        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
+        msg_id = esp_mqtt_client_enqueue(mqtt_client,
+                                         sTopic.c_str(),
+                                         state,
+                                         0,
+                                         MQTT_DEF_QOS,
+                                         MQTT_DEF_RETAIN,
+                                         MQTT_DEF_STORE);
         cJSON_Delete(root);
     }
 }
@@ -195,11 +250,39 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
     ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s'", msg->c_str(), es->out_message.c_str());
-    if (hal_get_network_connected()) {
-        std::string message = es->out_message;
-        // publishing event
+
+    std::string message = es->out_message;
+
+    // Grab the topic using the virtusal switch ID pre saved into INT_ARG
+    std::string topic = "NA";
+    std::string key = std::string(MQTT_PREFIX) + std::string(MQTT_SAS_CFGKEY);
+    ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, SK_NOTIFY_TOPIC, topic);
+    ad2_trim(topic);
+
+    // publishing event
+    int msg_id;
+    if (mqtt_client != nullptr) {
         ESP_LOGI(TAG, "Publishing to MQTT broker '%s'", message.c_str());
+        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        sTopic+=mqttclient_UUID;
+        sTopic+="/switches/";
+        sTopic+=topic;
+        cJSON *root = cJSON_CreateObject();
+        cJSON_AddStringToObject(root, "state", es->out_message.c_str());
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+        // Non blocking. We must not block AlarmDecoderParser
+        msg_id = esp_mqtt_client_enqueue(mqtt_client,
+                                         sTopic.c_str(),
+                                         state,
+                                         0,
+                                         MQTT_DEF_QOS,
+                                         MQTT_DEF_RETAIN,
+                                         MQTT_DEF_STORE);
+        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
+        cJSON_Delete(root);
     }
+
 }
 
 
@@ -207,48 +290,16 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
  * Command support values.
  */
 enum {
-    MQTT_URL_CFGKEY_ID = 0,
+    MQTT_ENABLE_CFGKEY_ID = 0,
+    MQTT_URL_CFGKEY_ID,
     MQTT_SAS_CFGKEY_ID
 };
-char * MQTT_SETTINGS [] = {
+char * MQTT_SUBCMD [] = {
+    (char*)MQTT_ENABLE_CFGKEY,
     (char*)MQTT_URL_CFGKEY,
     (char*)MQTT_SAS_CFGKEY,
     0 // EOF
 };
-
-/**
- * MQTT generic command event processing
- *  command: [COMMAND] [SUB] <id> <arg>
- * ex.
- *   [COMMAND] [SUB] 0 arg...
- */
-static void _cli_cmd_mqtt_event_generic(std::string &subcmd, char *string)
-{
-    int slot = -1;
-    std::string buf;
-
-    // get the sub command value validation
-    ad2_copy_nth_arg(subcmd, string, 1);
-    ad2_lcase(subcmd);
-
-    // build the NV storage key concat prefix to sub command. Take human readable and make it less so.
-    std::string key = std::string(MQTT_PREFIX) + subcmd.c_str();
-    if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
-        slot = strtol(buf.c_str(), NULL, 10);
-    }
-    if (slot >= 0) {
-        if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
-            ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
-            ad2_printf_host("Setting '%s' value finished.\r\n", subcmd.c_str());
-        } else {
-            buf = "";
-            ad2_get_nv_slot_key_string(key.c_str(), slot, nullptr, buf);
-            ad2_printf_host("Current slot #%02i '%s' value '%s'\r\n", slot, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
-        }
-    } else {
-        ad2_printf_host("Missing <slot>\r\n");
-    }
-}
 
 /**
  * MQTT smart alert switch command event processing
@@ -281,12 +332,11 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
 
             /* setting */
             switch(buf[0]) {
-            case SK_NOTIFY_SLOT[0]: // Notification slot
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                tmpsz = i < 0 ? "Clearing" : "Setting";
-                ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host("%s smartswitch #%i to use notification settings from slot #%i.\r\n", tmpsz.c_str(), slot, i);
+            case SK_NOTIFY_TOPIC[0]: // MQTT Topic
+                // consume the arge and to EOL
+                ad2_copy_nth_arg(arg1, instring, 4, true);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
+                ad2_printf_host("Setting smartswitch #%i MQTT topic to '%s'.\r\n", slot, arg1.c_str());
                 break;
             case SK_DEFAULT_STATE[0]: // Default state
                 ad2_copy_nth_arg(arg1, instring, 4);
@@ -366,7 +416,7 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
             // query show contents.
             int i;
             std::string out;
-            std::string args = SK_NOTIFY_SLOT
+            std::string args = SK_NOTIFY_TOPIC
                                SK_DEFAULT_STATE
                                SK_AUTO_RESET
                                SK_TYPE_LIST
@@ -384,11 +434,11 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
             for(char& c : args) {
                 std::string sk = ad2_string_printf("%c", c);
                 switch(c) {
-                case SK_NOTIFY_SLOT[0]:
-                    i = 0; // Default 0
-                    ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host("# Set notification slot [%c] to #%i.\r\n", c, i);
-                    ad2_printf_host("%s %s %i %c %i\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i);
+                case SK_NOTIFY_TOPIC[0]:
+                    out = ""; // Default 0
+                    ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
+                    ad2_printf_host("# Set MQTT topic [%c] to '%s'.\r\n", c, out.c_str());
+                    ad2_printf_host("%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
                     break;
                 case SK_DEFAULT_STATE[0]:
                     i = 0; // Default CLOSED
@@ -478,24 +528,58 @@ static void _cli_cmd_mqtt_command_router(char *string)
 {
     int i;
     std::string subcmd;
+    std::string arg;
 
     // get the sub command value validation
     ad2_copy_nth_arg(subcmd, string, 1);
     ad2_lcase(subcmd);
 
     for(i = 0;; ++i) {
-        if (MQTT_SETTINGS[i] == 0) {
+        if (MQTT_SUBCMD[i] == 0) {
             ad2_printf_host("What?\r\n");
             break;
         }
-        if(subcmd.compare(MQTT_SETTINGS[i]) == 0) {
+        if(subcmd.compare(MQTT_SUBCMD[i]) == 0) {
             switch(i) {
-            case MQTT_URL_CFGKEY_ID:   // 'url' sub command
-                _cli_cmd_mqtt_event_generic(subcmd, string);
+            /**
+             * MQTT Enable / Disable
+             */
+            case MQTT_ENABLE_CFGKEY_ID:   // 'enable' sub command
+                ESP_LOGI(TAG, "%s: enable/disable " MQTT_COMMAND, __func__);
+                arg = "";
+                if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+                    ad2_set_nv_slot_key_int(MQTT_COMMAND, MQTT_ENABLE_CFGKEY_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                }
+
+                // show contents of this setting
+                int i;
+                ad2_get_nv_slot_key_int(MQTT_COMMAND, MQTT_ENABLE_CFGKEY_ID, nullptr, &i);
+                ad2_printf_host("MQTT client is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                 break;
+
+            /**
+             * MQTT Broker URL
+             */
+            case MQTT_URL_CFGKEY_ID:   // 'url' sub command
+                // If arg provided then save.
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    ad2_set_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, arg.c_str());
+                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                } else {
+                    // show contents of this setting
+                    ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, arg);
+                    ad2_printf_host("MQTT Broker 'url' set to '%s'.\r\n", arg.c_str());
+                }
+                break;
+
+            /**
+             * MQTT Virtual switch command
+             */
             case MQTT_SAS_CFGKEY_ID:
                 _cli_cmd_mqtt_smart_alert_switch(subcmd, string);
                 break;
+
             }
             // all done
             break;
@@ -509,22 +593,26 @@ static void _cli_cmd_mqtt_command_router(char *string)
 static struct cli_command mqtt_cmd_list[] = {
     {
         (char*)MQTT_COMMAND,(char*)
-        "### Configuration for MQTT message notifications.\r\n\r\n"
-        "   - Will publish the virtual partition state using the following topic pattern.\r\n\r\n"
-        "       - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/state/Y\r\n\r\n"
-        "       - X: The unique id using the ESP32 WiFi mac address.\r\n\r\n"
-        "       - Y: The virtual partition ID 1-9\r\n\r\n"
-        "  - Sets the URL to the MQTT broker.\r\n\r\n"
-        "    ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " {url}```\r\n\r\n"
-        "    - {url}: MQTT broker URL.\r\n\r\n"
-        "    Example: " MQTT_COMMAND " " MQTT_URL_CFGKEY " mqtt://mqtt.eclipseprojects.io\r\n\r\n"
-        "  - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n\r\n"
-        "    ```" MQTT_COMMAND " " MQTT_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n\r\n"
+        "#### Configuration for MQTT message notifications\r\n"
+        "- Publishes the virtual partition state using the following topic pattern.\r\n"
+        "  - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y\r\n"
+        "  - X: The unique id using the ESP32 WiFi mac address.\r\n"
+        "  - Y: The virtual partition ID 1-9 or a Virtual switch sub topic.\r\n"
+        "- [" MQTT_ENABLE_CFGKEY "] Enable / Disable MQTT client\r\n"
+        "  -  {arg1}: [Y]es [N]o\r\n"
+        "    - [N] Default state\r\n"
+        "  - Example: ```" MQTT_COMMAND " " MQTT_ENABLE_CFGKEY " Y```\r\n"
+        "- Sets the URL to the MQTT broker.\r\n"
+        "  - ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " {url}```\r\n"
+        "    - {url}: MQTT broker URL.\r\n"
+        "  - Example: ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " mqtt://mqtt.eclipseprojects.io```\r\n"
+        "- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n"
+        "  - ```" MQTT_COMMAND " " MQTT_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n"
         "    - {slot}\r\n"
-        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n\r\n"
+        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
-        "      - [N] Notification slot\r\n"
-        "        -  Notification settings slot to use for sending this events.\r\n"
+        "      - [N] Notification sub topic path below the base\r\n"
+        "        -  Example: ```TEST``` full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/TEST```\r\n"
         "      - [D] Default state\r\n"
         "        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
         "      - [R] AUTO Reset.\r\n"
@@ -566,7 +654,7 @@ void mqtt_register_cmds()
 void mqtt_init()
 {
 
-#if 0 //FIXME debug logging settings.
+#if 0 // debug logging settings.
     esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
@@ -575,6 +663,15 @@ void mqtt_init()
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 #endif
 
+    int enabled = 0;
+    ad2_get_nv_slot_key_int(MQTT_COMMAND, MQTT_ENABLE_CFGKEY_ID, nullptr, &enabled);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!enabled) {
+        ESP_LOGI(TAG, "MQTT client disabled");
+        return;
+    }
+
     // generate our client's unique user id. UUID.
     ad2_genUUID(0x10, mqttclient_UUID);
     ESP_LOGI(TAG,"MQTT init UUID: %s", mqttclient_UUID.c_str());
@@ -582,20 +679,50 @@ void mqtt_init()
     // configure and start MQTT client
     esp_err_t err;
 
+    // load and parse the Broker URL if set.
+    std::string brokerURL;
+    ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, brokerURL);
+    if (!brokerURL.length()) {
+        // set default
+        brokerURL = EXAMPLE_BROKER_URI;
+    }
+
+    // Last Will topic
+    std::string LWT_TOPIC = MQTT_TOPIC_PREFIX "/";
+    LWT_TOPIC+=mqttclient_UUID;
+    LWT_TOPIC+="/status";
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
     const esp_mqtt_client_config_t mqtt_cfg = {
         .event_handle = ad2_mqtt_event_handler,
-        .uri = EXAMPLE_BROKER_URI,
-        .client_id = mqttclient_UUID.c_str()
+        .uri = brokerURL.c_str(),
+        .client_id = mqttclient_UUID.c_str(),
+        .lwt_topic = LWT_TOPIC.c_str(),
+        .lwt_msg =  "{\"state\": \"offline\"}",
+        .lwt_qos = 1,    // For LWT use QOS1
+        .lwt_retain = 1  // FOr LWT use Retain
     };
 #pragma GCC diagnostic pop
 
+    // Create and start the client.
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     err = esp_mqtt_client_start(mqtt_client);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_mqtt_client_start return error: %s.", esp_err_to_name(err));
     }
+
+    // Subscribe standard AlarmDecoder events
+    AD2Parse.subscribeTo(ON_ARM, mqtt_on_state_change, (void *)ON_ARM);
+    AD2Parse.subscribeTo(ON_DISARM, mqtt_on_state_change, (void *)ON_DISARM);
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, mqtt_on_state_change, (void *)ON_CHIME_CHANGE);
+    AD2Parse.subscribeTo(ON_FIRE, mqtt_on_state_change, (void *)ON_FIRE);
+    AD2Parse.subscribeTo(ON_POWER_CHANGE, mqtt_on_state_change, (void *)ON_POWER_CHANGE);
+    AD2Parse.subscribeTo(ON_READY_CHANGE, mqtt_on_state_change, (void *)ON_READY_CHANGE);
+    AD2Parse.subscribeTo(ON_LOW_BATTERY, mqtt_on_state_change, (void *)ON_LOW_BATTERY);
+    AD2Parse.subscribeTo(ON_ALARM_CHANGE, mqtt_on_state_change, (void *)ON_ALARM_CHANGE);
+    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, mqtt_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+    AD2Parse.subscribeTo(ON_EXIT_CHANGE, mqtt_on_state_change, (void *)ON_EXIT_CHANGE);
 
     // Register search based virtual switches.
     std::string key = std::string(MQTT_PREFIX) + std::string(MQTT_SAS_CFGKEY);
@@ -603,8 +730,11 @@ void mqtt_init()
     for (int i = 1; i < 99; i++) {
         AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
 
-        // Save the notification slot. That is all we need to complete the task.
+        // Not used.
         es1->PTR_ARG = nullptr;
+
+        // save the NVS Virtual SWITCH ID so we can read the data base later.
+        es1->INT_ARG = i;
 
         // We at least need some output format or skip
         ad2_get_nv_slot_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
@@ -662,18 +792,6 @@ void mqtt_init()
     }
 
     ESP_LOGI(TAG, "Found and configured %i virtual switches.", subscribers);
-
-    // Subscribe standard AlarmDecoder events
-    AD2Parse.subscribeTo(ON_ARM, mqtt_on_state_change, (void *)ON_ARM);
-    AD2Parse.subscribeTo(ON_DISARM, mqtt_on_state_change, (void *)ON_DISARM);
-    AD2Parse.subscribeTo(ON_CHIME_CHANGE, mqtt_on_state_change, (void *)ON_CHIME_CHANGE);
-    AD2Parse.subscribeTo(ON_FIRE, mqtt_on_state_change, (void *)ON_FIRE);
-    AD2Parse.subscribeTo(ON_POWER_CHANGE, mqtt_on_state_change, (void *)ON_POWER_CHANGE);
-    AD2Parse.subscribeTo(ON_READY_CHANGE, mqtt_on_state_change, (void *)ON_READY_CHANGE);
-    AD2Parse.subscribeTo(ON_LOW_BATTERY, mqtt_on_state_change, (void *)ON_LOW_BATTERY);
-    AD2Parse.subscribeTo(ON_ALARM_CHANGE, mqtt_on_state_change, (void *)ON_ALARM_CHANGE);
-    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, mqtt_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
-    AD2Parse.subscribeTo(ON_EXIT_CHANGE, mqtt_on_state_change, (void *)ON_EXIT_CHANGE);
 }
 
 #ifdef __cplusplus

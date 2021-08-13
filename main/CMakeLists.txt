@@ -1,8 +1,7 @@
-idf_component_register(SRCS "alarmdecoder_main.cpp"
+idf_component_register(SRCS "ad2_utils.cpp" "alarmdecoder_main.cpp"
                             "device_control.cpp"
                             "ad2_cli_cmd.cpp"
                             "ad2_uart_cli.cpp"
-                            "ad2_utils.cpp"
                     REQUIRES idf::esp-tls
                     REQUIRES idf::json
                     REQUIRES idf::fatfs
