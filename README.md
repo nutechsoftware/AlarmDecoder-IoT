@@ -83,7 +83,7 @@ This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThing
 Copy the contents of flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single MSDOS partition. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
 
 ##  4. <a name='configure-the-ad2iot-device'></a>Configure the AD2IoT device
- - Connect the ESP32 development board USB to a host computer and run a terminal program to connect to the virtual com port using 115200 baud.
+ - Connect the ESP32 development board USB to a host computer and run a terminal program such as Putty to connect to the virtual com port using 115200 baud. The USB serial port drivers for the ESP32-POE-ISO are here https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware
  - Configure the AD2* Source cli command **'ad2source'**
 
 Choose one of the following configurations.
