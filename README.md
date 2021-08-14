@@ -56,7 +56,9 @@ The firmware is already compiled for the ESP32-POE-ISO board and is available in
 To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
 - ```upgrade webui```
 
-See the README-FLASH.MD inside the release file for instructions on flash the firmware over the ESP32-POE-ISO USB.
+If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release firmware by flashing the ESP32 board manually over the USB port as described in README-FLASH.MD for the latest AD2Iot firmware release.
+
+See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
 
 ###  3.1. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
 - Components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings
