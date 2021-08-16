@@ -629,7 +629,9 @@ I (594) AD2_IoT: init vpart slot 0 mask address 19
 I (594) AD2_IoT: init vpart slot 1 mask address 20
 I (604) UARTCLI: Mounting uSD card
 I (664) AD2_IoT: Initialize AD2 UART client using txpin(4) rxpin(36)
+
 Press '.' three times in the next 5 seconds to stop the init.
+AD2IOT # 
 AD2IOT # Starting main task.
 AD2IOT # AD2IoT 'netmode' set to 'W'.
 I (5674) UARTCLI: network TCP/IP stack init start
@@ -661,17 +663,16 @@ I (5784) wifi_init: WiFi IRAM OP enabled
 I (5784) wifi_init: WiFi RX IRAM OP enabled
 I (5794) UARTCLI: DHCP Mode selected
 I (5794) phy_init: phy_version 4670,719f9f6,Feb 18 2021,17:07:07
-I (5884) wifi:mode : sta (30:ae:a4:9e:71:30)
+I (5884) wifi:mode : sta (01:23:45:67:89:ab)
 I (5894) wifi:enable tsf
 I (5894) UARTCLI: WiFi hardware init done
 I (6254) wifi:new:<4,0>, old:<1,0>, ap:<255,255>, sta:<4,0>, prof:1
 I (6804) wifi:state: init -> auth (b0)
 I (6814) wifi:state: auth -> assoc (0)
 I (6814) wifi:state: assoc -> run (10)
-I (6844) wifi:connected with TARDUS_IoT, aid = 2, channel 4, BW20, bssid = 18:e8:29:97:27:97
+I (6844) wifi:connected with TESTNET, aid = 2, channel 4, BW20, bssid = 01:23:45:67:89:ab
 I (6844) wifi:security: WPA2-PSK, phy: bgn, rssi: -69
 I (6844) wifi:pm start, type: 1
-
 I (6854) UARTCLI: WIFI_EVENT_STA_CONNECTED
 I (6854) UARTCLI: setting eth hostname to 'ad2iot'
 I (6854) wifi:AP's beacon interval = 102400 us, DTIM period = 3
@@ -707,7 +708,7 @@ I (10144) MQTT: MQTT_EVENT_CONNECTED
 I (10444) MQTT: MQTT_EVENT_SUBSCRIBED, msg_id=30505
 I (10564) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
 I (10674) MQTT: MQTT_EVENT_PUBLISHED, msg_id=36865
-W (10764) wifi:<ba-add>idx:1 (ifx:0, 18:e8:29:97:27:97), tid:1, ssn:8, winSize:64
+W (10764) wifi:<ba-add>idx:1 (ifx:0, 01:23:45:67:89:ab), tid:1, ssn:8, winSize:64
 I (10774) MQTT: MQTT_EVENT_PUBLISHED, msg_id=36690
 I (11124) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"****DISARMED****  Ready to Arm  "'
 I (11384) WEBUI: websocket packet with message: !SYNC:0,0 and type 1
