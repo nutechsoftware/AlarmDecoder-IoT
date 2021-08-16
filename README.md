@@ -631,13 +631,13 @@ I (604) UARTCLI: Mounting uSD card
 I (664) AD2_IoT: Initialize AD2 UART client using txpin(4) rxpin(36)
 
 Press '.' three times in the next 5 seconds to stop the init.
-AD2IOT # 
+AD2IOT #
 AD2IOT # Starting main task.
 AD2IOT # AD2IoT 'netmode' set to 'W'.
 I (5674) UARTCLI: network TCP/IP stack init start
 I (5674) UARTCLI: network TCP/IP stack init finish
 I (5674) UARTCLI: WiFi hardware init start
-I (5674) gpio: GPIO[12]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (5674) gpio: GPIO[12]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0
 I (5694) wifi:wifi driver task: 3ffcbe04, prio:23, stack:6656, core=0
 I (5694) system_api: Base MAC address is not set
 I (5704) system_api: read default base MAC address from EFUSE
