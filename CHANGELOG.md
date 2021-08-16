@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Update README.md to reflect `pio` build changes
 
 ## [1.0.8-pre] - 2021-08-?? Sean Mathews - coder @f34rdotcom
+ACL+IPv6, MQTT Client, Refactor headers etc. New simple and flexible ad2_add_http_sendQ serialized async HTTP request API for components.
 ### Added
   - IPv6 support with ACL(Access Control List) for webUI and ser2sockd.
   - MQTT client
@@ -47,7 +48,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
     - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
       - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
-    - New serialized http request ad2_ api ad2_add_http_sendQ() to minimize memory usage to multiple HTTP/HTTPS push notifications.
+    - New serialized async http request ad2_ api ad2_add_http_sendQ() to minimize memory usage to multiple HTTP/HTTPS push notifications.
 ### Changed
   - Large cleanup of headers, components, help.
   - Small changes in startup order and added global ca init early.
