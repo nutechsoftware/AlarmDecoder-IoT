@@ -204,7 +204,9 @@ void mqtt_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *a
 {
     int msg_id;
     if (mqtt_client != nullptr && s) {
+#if 0
         ESP_LOGE(TAG, "mqtt_on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
+#endif
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/partitions/";
