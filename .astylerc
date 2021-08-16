@@ -3,4 +3,3 @@ recursive
 formatted
 ignore-exclude-errors
 exclude=st-device-sdk-c
-exclude=build
