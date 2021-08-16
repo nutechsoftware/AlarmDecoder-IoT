@@ -143,6 +143,15 @@ void ad2_get_nv_slot_key_int(const char *key, int slot, const char *suffix, int 
 void ad2_set_nv_slot_key_string(const char *key, int slot, const char *suffix, const char *value);
 void ad2_get_nv_slot_key_string(const char *key, int slot, const char *suffix, std::string &value);
 
+// ASYNC serialized http request api for components.
+
+/// ad2_http async http request callback. Called before esp_http_client_perform()
+typedef void (*ad2_http_sendQ_ready_cb_t)(esp_http_client_handle_t, esp_http_client_config_t*);
+/// ad2_http async http request callback. Called before after esp_http_client_cleanup()
+typedef void (*ad2_http_sendQ_done_cb_t)(esp_err_t, esp_http_client_handle_t, esp_http_client_config_t*);
+void ad2_init_http_sendQ();
+bool ad2_add_http_sendQ(esp_http_client_config_t*, ad2_http_sendQ_ready_cb_t, ad2_http_sendQ_done_cb_t);
+
 #ifdef __cplusplus
 }
 #endif

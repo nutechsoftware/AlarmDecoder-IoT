@@ -33,6 +33,8 @@
 #include "esp_crt_bundle.h"
 #endif
 
+#include "esp_http_client.h"
+
 /**
  * AlarmDecoder Arduino library.
  * https://github.com/nutechsoftware/ArduinoAlarmDecoder

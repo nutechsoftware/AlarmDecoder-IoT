@@ -6,6 +6,7 @@ idf_component_register(SRCS "ad2_utils.cpp" "alarmdecoder_main.cpp"
                     REQUIRES idf::json
                     REQUIRES idf::fatfs
 		    REQUIRES idf::stsdk
+                    REQUIRES idf::esp_http_client
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::otaupdate
                     REQUIRES idf::pushover

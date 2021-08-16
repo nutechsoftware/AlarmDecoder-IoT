@@ -538,6 +538,7 @@ exit:
 void ad2_event_cb_twilio(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
+    // or events with no partition state such as RFX or LRR messages.
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if (!s || (defs && s->partition == defs->partition)) {
         ESP_LOGI(TAG, "twilio ad2_event_cb_twilio '%i'", (int)arg);

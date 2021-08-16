@@ -56,7 +56,7 @@ The firmware is already compiled for the ESP32-POE-ISO board and is available in
 To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
 - ```upgrade webui```
 
-If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release firmware by flashing the ESP32 board manually over the USB port as described in README-FLASH.MD for the latest AD2Iot firmware release.
+If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release of the AD2IoT firmware over USB.
 
 See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
 

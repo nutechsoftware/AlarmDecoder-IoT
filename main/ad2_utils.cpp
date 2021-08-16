@@ -1367,6 +1367,128 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
 }
 
 
+#define HTTP_SEND_QUEUE_SIZE 20  // More? Less?
+#define HTTP_SEND_RATE_LIMIT 200 // 5/s seems like a reasonable value to start with.
+static QueueHandle_t  _http_sendQ = NULL;
+
+
+typedef struct sendQ_event_data {
+    esp_http_client_config_t *client_config;
+    ad2_http_sendQ_ready_cb_t ready;
+    ad2_http_sendQ_done_cb_t done;
+} sendQ_event_data_t;
+
+/**
+ * @brief HTTP sendQ consumer
+ *
+ * @param [in]pvParameters void *
+ */
+static void _http_sendQ_consumer_task(void *pvParameters)
+{
+    esp_err_t err;
+
+    while(1) {
+        if(_http_sendQ == NULL) {
+            break;
+        }
+        if (!g_StopMainTask && hal_get_network_connected()) {
+            sendQ_event_data_t event_data;
+            if ( xQueueReceive(_http_sendQ, &event_data, portMAX_DELAY) ) {
+#if 1 // STACK REPORT
+                ESP_LOGI(TAG, "http_sendQ consumer stack free %d", uxTaskGetStackHighWaterMark(NULL));
+#endif
+
+                // Initialize a new http client using the client_config..
+                esp_http_client_handle_t http_client;
+                http_client = esp_http_client_init(event_data.client_config);
+
+                // Set the user agent.
+                esp_chip_info_t chip_info;
+                esp_chip_info(&chip_info);
+
+                // Set user agent no including version info.
+                std::string ua = "AD2IoT-HTTP-Client/NOPE (ESP32-r" + ad2_to_string(chip_info.revision) + ")";
+                esp_http_client_set_header(http_client, "User-Agent", ua.c_str());
+
+                // notify compoenet we are about to send and allow to
+                // update connection details including post data etc.
+                event_data.ready(http_client, event_data.client_config);
+
+                // start the connection
+                err = esp_http_client_perform(http_client);
+
+                // Notify client the request finished and the results.
+                event_data.done(err, http_client, event_data.client_config);
+
+                // free the client
+                esp_http_client_cleanup(http_client);
+
+                // sleep our rate limit. Not exactly the rate not factoring in
+                // client connection time but close enough for now.
+                vTaskDelay(HTTP_SEND_RATE_LIMIT/portTICK_PERIOD_MS);
+
+            } else {
+                // sleep for a bit then check the queue again.
+                vTaskDelay(100/portTICK_PERIOD_MS);
+            }
+        }
+    }
+    ESP_LOGW(TAG, "http sendQ ending. HTTP request delivery halted.");
+    vTaskDelete(NULL);
+}
+
+/**
+ * @brief Initialize and start the HTTP request send queue.
+ * Allows for components to POST requests to server ASYNC and serialized with each other.
+ * This prevents memory exhaustion at the cost of a potential slower delivery time.
+ *
+ * @note TODO: Add retry logic. Will take some brain time on this. It would not be good
+ * to deliver a message out of order yet we need to let other components deliver and not be
+ * blocked. Need a queue per component. Maybe have each component manage an internal queue
+ * and if one delivery fails let the component decide how to deal with it.
+ *
+ */
+void ad2_init_http_sendQ()
+{
+    // Init the queue.
+    if(_http_sendQ == NULL) {
+        _http_sendQ = xQueueCreate( HTTP_SEND_QUEUE_SIZE, sizeof(sendQ_event_data_t));
+    }
+
+    // Start the queue consumer task. Keep the stack as small as possible.
+    // 20210815SM: 1520 bytes stack free
+    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024*4, NULL, tskIDLE_PRIORITY+4, NULL);
+}
+
+/**
+ * @brief Add a http client config to the queue
+ *
+ * @param [in]client_config esp_http_client_config_t *
+ * @param [in]ready_cb ad2_http_sendQ_ready_cb_t: Called before esp_http_client_perform()
+ * @param [in]done_cb ad2_http_sendQ_done_cb_t: Called before esp_http_client_cleanup()
+ *
+ */
+bool ad2_add_http_sendQ(esp_http_client_config_t* client_config, ad2_http_sendQ_ready_cb_t ready_cb, ad2_http_sendQ_done_cb_t done_cb)
+{
+    // Save queue data into a structure for storage in the sendQ
+    sendQ_event_data_t event_data = {
+        .client_config = client_config,
+        .ready = ready_cb,
+        .done = done_cb
+    };
+
+    if (_http_sendQ) {
+        // Copy the container into the sendQ
+        if ( xQueueSend( _http_sendQ, (void *)&event_data, (TickType_t )0) != pdPASS) {
+            return false;
+        }
+        return true;
+    } else {
+        ESP_LOGE(TAG, "Invalid queue handle");
+        return false;
+    }
+}
+
 /**
  * @brief return the current network mode value
  *

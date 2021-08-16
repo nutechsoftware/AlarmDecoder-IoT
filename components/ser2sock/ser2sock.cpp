@@ -259,7 +259,10 @@ void ser2sockd_init(void)
     }
 
     ESP_LOGI(TAG, "Starting ser2sockd");
-    xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
+
+    // ser2sockd worker thread
+    // 20210815SM: 1284 bytes stack free after first connection.
+    xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }
 
@@ -776,6 +779,14 @@ void ser2sockd_server_task(void *pvParameters)
                 if (!hal_get_network_connected()) {
                     goto CLEAN_UP;
                 }
+#if 0 // STACK REPORT
+#define EXTRA_INFO_EVERY 1000
+                static int extra_info = EXTRA_INFO_EVERY;
+                if(!--extra_info) {
+                    extra_info = EXTRA_INFO_EVERY;
+                    ESP_LOGI(TAG, "ser2sockd stack free %d", uxTaskGetStackHighWaterMark(NULL));
+                }
+#endif
             }
 CLEAN_UP:
             for (n = 0; n < MAXCONNECTIONS; n++) {

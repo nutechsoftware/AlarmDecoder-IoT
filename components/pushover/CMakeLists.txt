@@ -3,8 +3,9 @@ set(EXTRA_EMBED "pushover_root.pem")
 endif()
 idf_component_register(SRCS "pushover.cpp"
                     REQUIRES idf::esp-tls
-                    REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::json
+                    REQUIRES idf::esp_http_client
+                    REQUIRES idf::alarmdecoder-api
                     INCLUDE_DIRS . ../../main/
                     EMBED_TXTFILES ${EXTRA_EMBED})
 project(pushover)

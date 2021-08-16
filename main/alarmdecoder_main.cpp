@@ -130,7 +130,15 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-    ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#if 1
+#define EXTRA_INFO_EVERY 10
+    static int extra_info = EXTRA_INFO_EVERY;
+    if(!--extra_info) {
+        extra_info = EXTRA_INFO_EVERY;
+        ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        ESP_LOGI(TAG, "AlarmDecoder parser stack free %d", uxTaskGetStackHighWaterMark(NULL));
+    }
+#endif
 }
 
 
@@ -482,7 +490,9 @@ void init_ad2_uart_client()
     uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
     free(uart_config);
 
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 4096, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
+    // Main AlarmDecoderParser:
+    // 20210815SM: 1220 bytes stack free.
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*4, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
 
 }
 
@@ -690,6 +700,10 @@ void app_main()
         ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
     }
 #endif
+
+    // Initialize ad2 HTTP request sendQ and consumer task.
+    ad2_init_http_sendQ();
+
 #if CONFIG_AD2IOT_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
