@@ -595,61 +595,179 @@ See the [Prerequisites](https://github.com/SmartThingsCommunity/st-device-sdk-c-
 ##  7. <a name='example-output-from-esp32-usb-serial-console'></a>Example Output from ESP32 USB serial console
 
 ```
-I (131082) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (131082) AD2_IoT: MESSAGE_CB: '[10000001100000003A--],008,[f72600ff1008001c28020000000000]," DISARMED CHIME   Ready to Arm  "'
-I (140912) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (140912) AD2_IoT: MESSAGE_CB: '[10000001100000003A--],008,[f72600ff1008001c28020000000000]," DISARMED CHIME   Ready to Arm  "'
-I (146872) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (146872) AD2_IoT: MESSAGE_CB: '[10010101000000003A--],008,[f72600ff1008011c08020000000000],"****DISARMED****  Ready to Arm  "'
-I (146892) AD2_IoT: ON_CHIME_CHANGE: CHIME(0)
-Sequence number return : 8
-I (146892) [IoT]: _publish_event(958) > publish event, topic : /v1/deviceEvents/uuid, payload :
-{"deviceEvents":[{"component":"chime","capability":"contactSensor","attribute":"contact","value":"open","providerData":{"sequenceNumber":8,"timestamp":"1599094428182"}}]}
-I (152482) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (152482) AD2_IoT: MESSAGE_CB: '[00110301000000003A--],008,[f72600ff1008038c08020000000000],"ARMED ***STAY***You may exit now"'
-I (152492) AD2_IoT: ON_READY_CHANGE: READY(0) EXIT(1) HOME(1) AWAY(0)
-I (152502) AD2_IoT: ON_ARM: READY(0) EXIT(1) HOME(1) AWAY(0)
-Sequence number return : 9
-I (152512) [IoT]: _publish_event(958) > publish event, topic : /v1/deviceEvents/uuid, payload :
-{"deviceEvents":[{"component":"main","capability":"securitySystem","attribute":"securitySystemStatus","value":"armedStay","providerData":{"sequenceNumber":9,"timestamp":"1599094433795"}}]}
-I (157122) AD2_IoT: LRR_CB: !LRR:002,1,CID_3441,ff
-I (162212) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (162212) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (172142) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (172142) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (182132) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (182132) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (191902) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (191902) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (201882) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (201882) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (202372) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (202372) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (211782) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(1)
-I (211782) AD2_IoT: MESSAGE_CB: '[00110001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***You may exit now"'
-I (212622) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(0)
-I (212622) AD2_IoT: MESSAGE_CB: '[00100001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***                "'
-I (212642) AD2_IoT: ON_READY_CHANGE: READY(0) EXIT(0) HOME(1) AWAY(0)
-I (222122) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(0)
-I (222122) AD2_IoT: MESSAGE_CB: '[00100001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***                "'
-I (232122) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(0)
-I (232122) AD2_IoT: MESSAGE_CB: '[00100001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***                "'
-I (241882) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(0) Armed[Away(0) Home(1)] Bypassed(0) Exit(0)
-I (241882) AD2_IoT: MESSAGE_CB: '[00100001000000003A--],008,[f72600ff1008008c08020000000000],"ARMED ***STAY***                "'
-I (244122) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (244122) AD2_IoT: MESSAGE_CB: '[10010101000000003A--],008,[f72600ff1008011c08020000000000],"****DISARMED****  Ready to Arm  "'
-I (244142) AD2_IoT: ON_READY_CHANGE: READY(1) EXIT(0) HOME(0) AWAY(0)
-I (244142) AD2_IoT: ON_DISARM: READY(1)
-Sequence number return : 10
-I (244152) [IoT]: _publish_event(958) > publish event, topic : /v1/deviceEvents/uuid, payload :
-{"deviceEvents":[{"component":"main","capability":"securitySystem","attribute":"securitySystemStatus","value":"disarmed","providerData":{"sequenceNumber":10,"timestamp":"1599094525439"}}]}
-I (247202) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (247202) AD2_IoT: MESSAGE_CB: '[10010001000000003A--],008,[f72600ff1008001c08020000000000],"****DISARMED****  Ready to Arm  "'
-I (248122) AD2_IoT: LRR_CB: !LRR:002,1,CID_1441,ff
-I (257132) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (257132) AD2_IoT: MESSAGE_CB: '[10010001000000003A--],008,[f72600ff1008001c08020000000000],"****DISARMED****  Ready to Arm  "'
-I (266972) AD2API: !DBG: SIZE(1) PID(1) MASK(FFFFFF7F) Ready(1) Armed[Away(0) Home(0)] Bypassed(0) Exit(0)
-I (266972) AD2_IoT: MESSAGE_CB: '[10010001000000003A--],008,[f72600ff1008001c08020000000000],"****DISARMED****  Ready to Arm  "'
+rst:0x1 (POWERON_RESET),boot:0x1f (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6076
+ho 0 tail 12 room 4
+load:0x40078000,len:14464
+load:0x40080400,len:4000
+entry 0x40080648
+I (447) cpu_start: Pro cpu up.
+I (447) cpu_start: Single core mode
+I (456) cpu_start: Pro cpu start user code
+I (456) cpu_start: cpu freq: 160000000
+I (456) cpu_start: Application information:
+I (460) cpu_start: Project name:     alarmdecoder_stsdk_esp32
+I (467) cpu_start: App version:      1.0.6p6-72-gc941d50-dirty
+I (473) cpu_start: Compile time:     Aug 15 2021 21:02:37
+I (479) cpu_start: ELF file SHA256:  0123456789abcdef...
+I (485) cpu_start: ESP-IDF:          4.3.0
+I (490) heap_init: Initializing. RAM available for dynamic allocation:
+I (497) heap_init: At 3FF80000 len 00002000 (8 KiB): RTCRAM
+I (504) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM
+I (510) heap_init: At 3FFB9370 len 00026C90 (155 KiB): DRAM
+I (516) heap_init: At 3FFE0440 len 0001FBC0 (126 KiB): D/IRAM
+I (522) heap_init: At 40078000 len 00008000 (32 KiB): IRAM
+I (528) heap_init: At 4009527C len 0000AD84 (43 KiB): IRAM
+I (535) spi_flash: detected Starting AlarmDecoder AD2IoT network appliance version (AD2IOT-1080b)
+This is ESP32 chip with 2 CPU cores, WiFi/BT/BLE, silicon revision 1, 4MB external flash
+Initialize NVS subsystem start. Done.
+Count: UsedEntries = (245), FreeEntries = (259), AllEntries = (504)
+I (594) AD2_IoT: init vpart slot 0 mask address 19
+I (594) AD2_IoT: init vpart slot 1 mask address 20
+I (604) UARTCLI: Mounting uSD card
+I (664) AD2_IoT: Initialize AD2 UART client using txpin(4) rxpin(36)
+Press '.' three times in the next 5 seconds to stop the init.
+AD2IOT # Starting main task.
+AD2IOT # AD2IoT 'netmode' set to 'W'.
+I (5674) UARTCLI: network TCP/IP stack init start
+I (5674) UARTCLI: network TCP/IP stack init finish
+I (5674) UARTCLI: WiFi hardware init start
+I (5674) gpio: GPIO[12]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (5694) wifi:wifi driver task: 3ffcbe04, prio:23, stack:6656, core=0
+I (5694) system_api: Base MAC address is not set
+I (5704) system_api: read default base MAC address from EFUSE
+I (5714) wifi:wifi firmware version: c7d0450
+I (5714) wifi:wifi certification version: v7.0
+I (5714) wifi:config NVS flash: enabled
+I (5714) wifi:config nano formating: disabled
+I (5724) wifi:Init data frame dynamic rx buffer num: 32
+I (5724) wifi:Init management frame dynamic rx buffer num: 32
+I (5734) wifi:Init management short buffer num: 32
+I (5734) wifi:Init dynamic tx buffer num: 32
+I (5744) wifi:Init static rx buffer size: 1600
+I (5744) wifi:Init static rx buffer num: 10
+I (5744) wifi:Init dynamic rx buffer num: 32
+I (5754) wifi_init: rx ba win: 6
+I (5754) wifi_init: tcpip mbox: 32
+I (5764) wifi_init: udp mbox: 6
+I (5764) wifi_init: tcp mbox: 6
+I (5764) wifi_init: tcp tx win: 5744
+I (5774) wifi_init: tcp rx win: 5744
+I (5774) wifi_init: tcp mss: 1440
+I (5784) wifi_init: WiFi IRAM OP enabled
+I (5784) wifi_init: WiFi RX IRAM OP enabled
+I (5794) UARTCLI: DHCP Mode selected
+I (5794) phy_init: phy_version 4670,719f9f6,Feb 18 2021,17:07:07
+I (5884) wifi:mode : sta (30:ae:a4:9e:71:30)
+I (5894) wifi:enable tsf
+I (5894) UARTCLI: WiFi hardware init done
+I (6254) wifi:new:<4,0>, old:<1,0>, ap:<255,255>, sta:<4,0>, prof:1
+I (6804) wifi:state: init -> auth (b0)
+I (6814) wifi:state: auth -> assoc (0)
+I (6814) wifi:state: assoc -> run (10)
+I (6844) wifi:connected with TARDUS_IoT, aid = 2, channel 4, BW20, bssid = 18:e8:29:97:27:97
+I (6844) wifi:security: WPA2-PSK, phy: bgn, rssi: -69
+I (6844) wifi:pm start, type: 1
+
+I (6854) UARTCLI: WIFI_EVENT_STA_CONNECTED
+I (6854) UARTCLI: setting eth hostname to 'ad2iot'
+I (6854) wifi:AP's beacon interval = 102400 us, DTIM period = 3
+W (6864) wifi:<ba-add>idx:0 (ifx:0, 01:23:45:67:89:ab), tid:0, ssn:0, winSize:64
+I (8674) UARTCLI: Network assigned new address
+I (8674) UARTCLI: ~~~~~~~~~~~
+I (8674) UARTCLI: INTERFACE: sta
+I (8674) UARTCLI: IP: 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+I (8674) UARTCLI: ~~~~~~~~~~~
+I (8684) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (8694) AD2_IoT: ON_READY_CHANGE: READY(0) EXIT(0) STAY(0) AWAY(0)
+I (8714) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"****DISARMED****  Ready to Arm  "'
+I (8714) AD2_IoT: ON_READY_CHANGE: READY(1) EXIT(0) STAY(0) AWAY(0)
+I (8734) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"'
+I (8734) PUSHOVER: Found and configured 1 virtual switches.
+I (8744) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"SYSTEM LO BAT                   "'
+I (8754) AD2_IoT: ON_LOW_BATTERY_CB: BATTERY(1)
+I (8754) WEBUI: Starting webui
+I (8764) MQTT: MQTT init UUID: 41443245-4d42-4544-4410-0123456778ab
+I (8764) MQTT: Other event id:7
+I (8784) WEBUI: Starting web services on port: 80
+I (8814) MQTT: Found and configured 1 virtual switches.
+I (8814) WEBUI: Registering URI handlers
+I (9174) esp_netif_handlers: sta ip: 192.168.111.123, mask: 255.255.255.0, gw: 192.168.111.1
+I (9174) UARTCLI: Network assigned new address
+I (9174) UARTCLI: ~~~~~~~~~~~
+I (9174) UARTCLI: INTERFACE: sta
+I (9184) UARTCLI: IP: 192.168.111.123
+I (9184) UARTCLI: NETMASK: 255.255.255.0
+I (9194) UARTCLI: GW: 192.168.111.1
+I (9194) UARTCLI: ~~~~~~~~~~~
+I (10144) MQTT: MQTT_EVENT_CONNECTED
+I (10444) MQTT: MQTT_EVENT_SUBSCRIBED, msg_id=30505
+I (10564) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (10674) MQTT: MQTT_EVENT_PUBLISHED, msg_id=36865
+W (10764) wifi:<ba-add>idx:1 (ifx:0, 18:e8:29:97:27:97), tid:1, ssn:8, winSize:64
+I (10774) MQTT: MQTT_EVENT_PUBLISHED, msg_id=36690
+I (11124) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"****DISARMED****  Ready to Arm  "'
+I (11384) WEBUI: websocket packet with message: !SYNC:0,0 and type 1
+I (11384) WEBUI: Got !SYNC request triggering to send current alarm state for virtual partition 0.
+I (11394) WEBUI: ws_alarmstate_async_send: 58
+I (11394) WEBUI: sending alarm panel state for virtual partition: 0
+I (12674) UARTCLI: Network assigned new address
+I (12674) UARTCLI: ~~~~~~~~~~~
+I (12674) UARTCLI: INTERFACE: sta
+I (12674) UARTCLI: IP: 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+I (12674) UARTCLI: ~~~~~~~~~~~
+I (13814) SER2SOCKD: Starting ser2sockd
+I (13814) SER2SOCKD: ser2sock server task starting.
+I (13814) SER2SOCKD: network up creating listening socket
+I (13814) SER2SOCKD: ser2sock server socket created 59
+I (13824) SER2SOCKD: ser2sock server socket bound, port 10000
+I (14564) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"'
+I (15104) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"SYSTEM LO BAT                   "'
+I (18514) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (19064) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"****DISARMED****  Ready to Arm  "'
+I (19064) AD2_IoT: RAM left 117316 min 111372 maxblk 65536
+I (19064) AD2_IoT: AlarmDecoder parser stack free 1844
+I (20124) WEBUI: websocket packet with message: !PING:00000000 and type 1
+I (22484) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"'
+I (23024) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"SYSTEM LO BAT                   "'
+I (26454) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (27034) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"****DISARMED****  Ready to Arm  "'
+I (30434) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"'
+I (30974) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"SYSTEM LO BAT                   "'
+I (34384) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (34934) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"****DISARMED****  Ready to Arm  "'
+I (35314) WEBUI: websocket packet with message: !PING:00000000 and type 1
+I (38354) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"'
+I (38894) AD2_IoT: MESSAGE_CB: '[10000001000100003A--],008,[f700004f1008005c08020000000000],"SYSTEM LO BAT                   "'
+I (157814) AD2_IoT: RAM left 116768 min 72448 maxblk 65536
+I (157814) AD2_IoT: AlarmDecoder parser stack free 1220
+I (158714) PUSHOVER: ON_SEARCH_MATCH_CB: '!RFX:0123456,10000000' -> 'RF SENSOR 0123456 OPEN' notify slot #00
+I (158714) AD2UTIL: http_sendQ consumer stack free 3556
+I (158724) PUSHOVER: Adding HTTP request to ad2_add_http_sendQ
+I (159954) PUSHOVER: perform results = 0 HTTP Status = 200, response length = -1 response = '{"status":1,"request":"12345678-1234-1234-1234-0123456789ab"}'
+I (161244) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (194364) AD2_IoT: MESSAGE_CB: '[00000001000000000A--],002,[f700004f1002000008020000000000],"FAULT 02 DOUG   TEST            "'
+I (194364) AD2_IoT: ON_READY_CHANGE: READY(0) EXIT(0) STAY(0) AWAY(0)
+I (194374) WEBUI: webui_on_state_change partition(1) event(READY) message('[00000001000000000A--],002,[f700004f1002000008020000000000],"FAULT 02 DOUG   TEST            "')
+I (194654) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"'
+I (194654) AD2_IoT: ON_READY_CHANGE: READY(0) EXIT(0) STAY(0) AWAY(0)
+I (194664) WEBUI: webui_on_state_change partition(2) event(READY) message('[00000001000100003A--],008,[f70000100008004c08020000000000],"****DISARMED****Hit * for faults"')
+I (194944) MQTT: MQTT_EVENT_PUBLISHED, msg_id=53031
+I (195254) MQTT: MQTT_EVENT_PUBLISHED, msg_id=6084
+I (197844) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f70000100008004c08020000000000],"SYSTEM LO BAT                   "'
+I (198024) AD2_IoT: MESSAGE_CB: '[00000001000100003A--],008,[f700004f1008004c08020000000000],"SYSTEM LO BAT                   "'
+I (200164) WEBUI: websocket packet with message: !PING:00000000 and type 1
+AD2IOT # help
+
+Available AD2IoT terminal commands
+  [ser2sockd, pushover, webui, mqtt, restart, netmode,
+   button, code, vpart, ad2source, ad2term, logmode,
+   help, upgrade, version]
+
+Type help <command> for details on each command.
 
 ```
 
