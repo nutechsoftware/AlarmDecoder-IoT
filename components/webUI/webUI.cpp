@@ -242,7 +242,7 @@ static void ws_alarmstate_async_send(void *arg)
                         ws_pkt.len = strlen(sys_info);
                         ws_pkt.type = HTTPD_WS_TYPE_TEXT;
                         httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
-                        free((void *)sys_info);
+                        cJSON_free(sys_info);
                         cJSON_Delete(root);
                     }
                 }
@@ -541,7 +541,7 @@ void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *
                         ws_pkt.len = strlen(sys_info);
                         ws_pkt.type = HTTPD_WS_TYPE_TEXT;
                         httpd_ws_send_frame_async(server, client_fds[i], &ws_pkt);
-                        free((void *)sys_info);
+                        cJSON_free(sys_info);
                         cJSON_Delete(root);
                     }
                 }

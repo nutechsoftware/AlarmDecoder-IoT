@@ -6,7 +6,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [ ] TWILIO: Simplify Twilio/Sendgrid using new ad2_add_http_sendQ api call.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
@@ -54,8 +53,11 @@ ACL+IPv6, MQTT Client, Refactor headers etc. New simple and flexible ad2_add_htt
   - Small changes in startup order and added global ca init early.
   - Small change to API to prevent ejecting multiple messages when the parser receives its first message. Now just send a READY state change event with all current state bits.
   - ad2_utils json helper utils refactor.
-  - Migrate pushover component to new ad2_add_http_sendQ() api.
+  - Migrate Pushover and Twilio/SendGrid components to use the new ad2_add_http_sendQ() api.
+  - Validate and tune stack on existing tasks.
 ### Change log
+- [X] SM - CORE: Tune profile task stacks and priority for each task.
+- [X] SM - TWILIO: Simplify Twilio/Sendgrid using new ad2_add_http_sendQ api call.
 - [X] SM - CORE: Design and implement a serialized method of making HTTP request from components through the ad2_queue_https_request api function. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections. I estimate it takes approx 30k per distinct certificate used.
 - [X] SM - PUSHOVER: Simplify Pushover using new ad2_add_http_sendQ api call. This will make it easy to add additional REST HTTP POST/GET notifications. Most of this existing code used mbedtls this conversion will use the esp_http_ api. This also should allow to switch between mbedtls to wolfssl for testing.
 - [X] SM - CORE: Help syntax cleanup. Still not happy but it is better.

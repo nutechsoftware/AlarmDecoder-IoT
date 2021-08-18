@@ -139,6 +139,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
                             MQTT_DEF_QOS,
                             MQTT_DEF_RETAIN,
                             MQTT_DEF_STORE);
+    cJSON_free(state);
     cJSON_Delete(root);
 }
 
@@ -223,6 +224,7 @@ void mqtt_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *a
                                          MQTT_DEF_QOS,
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
+        cJSON_free(state);
         cJSON_Delete(root);
     }
 }
@@ -282,6 +284,7 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
         ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
+        cJSON_free(state);
         cJSON_Delete(root);
     }
 

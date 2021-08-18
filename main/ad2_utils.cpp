@@ -73,7 +73,7 @@ int ad2_acl_check::add(std::string& acl)
     ad2_tokenize(acl, ",", tokens);
     for (auto &token : tokens) {
 
-        /// FIXME: Test for CIDR notation '\' 192.168.0.0/24
+        /// Test for CIDR notation '\' 192.168.0.0/24
         if (token.find('/') != std::string::npos) {
             // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-128
             uint8_t iCIDR = std::stoi(token.substr(token.find("/") + 1));
@@ -263,15 +263,6 @@ void ad2_acl_check::_addr_OR(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
     }
 }
 
-
-/**
- * build Bearer auth string from api key
- */
-std::string ad2_make_bearer_auth_header(const std::string& apikey)
-{
-    return "Authorization: Bearer " + apikey;
-}
-
 /**
  * @brief build auth string from user and pass.
  *
@@ -281,7 +272,7 @@ std::string ad2_make_bearer_auth_header(const std::string& apikey)
  * @return std::string basic auth string
  *
  */
-std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password)
+std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password)
 {
 
     size_t toencodeLen = user.length() + password.length() + 2;
@@ -303,7 +294,7 @@ std::string ad2_make_basic_auth_header(const std::string& user, const std::strin
     outbuffer[out_len] = '\0';
 
     std::string encoded_string = std::string((char *)outbuffer);
-    return "Authorization: Basic " + encoded_string;
+    return encoded_string;
 }
 
 /**
@@ -1394,8 +1385,8 @@ static void _http_sendQ_consumer_task(void *pvParameters)
         if (!g_StopMainTask && hal_get_network_connected()) {
             sendQ_event_data_t event_data;
             if ( xQueueReceive(_http_sendQ, &event_data, portMAX_DELAY) ) {
-#if 1 // STACK REPORT
-                ESP_LOGI(TAG, "http_sendQ consumer stack free %d", uxTaskGetStackHighWaterMark(NULL));
+#if defined(AD2_STACK_REPORT)
+                ESP_LOGI(TAG, "_http_sendQ_consumer_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
 #endif
 
                 // Initialize a new http client using the client_config..
@@ -1414,11 +1405,18 @@ static void _http_sendQ_consumer_task(void *pvParameters)
                 // update connection details including post data etc.
                 event_data.ready(http_client, event_data.client_config);
 
-                // start the connection
-                err = esp_http_client_perform(http_client);
+                // Allow for multiple requests on a single connection.
+                // TODO: sanity checking. Put back in sendQ for others to get some time? Memory.
+                do {
+                    // start the connection
+                    err = esp_http_client_perform(http_client);
 
-                // Notify client the request finished and the results.
-                event_data.done(err, http_client, event_data.client_config);
+                    // Notify client the request finished and the results.
+                    // If it wants to preform again it will return false;
+                    if (event_data.done(err, http_client, event_data.client_config)) {
+                        break;
+                    }
+                } while (err == ESP_OK);
 
                 // free the client
                 esp_http_client_cleanup(http_client);
@@ -1456,8 +1454,8 @@ void ad2_init_http_sendQ()
     }
 
     // Start the queue consumer task. Keep the stack as small as possible.
-    // 20210815SM: 1520 bytes stack free
-    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024*4, NULL, tskIDLE_PRIORITY+4, NULL);
+    // 20210815SM: 1444 bytes stack free
+    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**

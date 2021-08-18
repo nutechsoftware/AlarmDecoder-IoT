@@ -118,7 +118,7 @@ public:
  * Add headers content etc.
  *
  */
-void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_client_config_t *config)
+static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
     esp_err_t err;
     // if perform failed this can be NULL
@@ -143,8 +143,11 @@ void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_client_confi
  *  @param [in]esp_err_t res - Results of esp_http_client_preform()
  *  @param [in]evt esp_http_client_event_t
  *  @param [in]config esp_http_client_config_t *
+ *
+ * @return bool TRUE: The connection done and allow sendQ worker to delete it.
+ *              FALSE: The connection expects a new URL and will call preform() again.
  */
-void _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_http_client_config_t *config)
+static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
     request_message *r = (request_message*) config->user_data;
 
@@ -154,6 +157,9 @@ void _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_htt
 
     // free message_data class will also delete the client_config in the distructor.
     delete r;
+
+    // Report back this client request is all done and is ready to close.
+    return true;
 }
 
 /**

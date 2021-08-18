@@ -441,7 +441,7 @@ static void ser2sock_client_task(void *pvParameters)
  */
 void init_ser2sock_client()
 {
-    xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*4, (void*)AF_INET, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**
@@ -492,7 +492,7 @@ void init_ad2_uart_client()
 
     // Main AlarmDecoderParser:
     // 20210815SM: 1220 bytes stack free.
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*4, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*4, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
 
 }
 
@@ -725,7 +725,7 @@ void app_main()
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
     // Start main AlarmDecoder IoT app task
-    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // Start firmware update task
     ota_init();

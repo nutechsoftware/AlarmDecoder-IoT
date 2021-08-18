@@ -718,6 +718,14 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
 static void ota_polling_task_func(void *arg)
 {
     while (1) {
+#if defined(AD2_STACK_REPORT)
+#define EXTRA_INFO_EVERY 1
+        static int extra_info = EXTRA_INFO_EVERY;
+        if(!--extra_info) {
+            extra_info = EXTRA_INFO_EVERY;
+            ESP_LOGI(TAG, "ota_polling_task_function stack free %d", uxTaskGetStackHighWaterMark(NULL));
+        }
+#endif
 
         vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
 
@@ -781,7 +789,7 @@ void ota_do_update(char *command)
         ESP_LOGI(TAG, "Device is currently updating.");
         return;
     }
-    xTaskCreate(&ota_task_func, "ota_task_func", 8 * 1024, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
+    xTaskCreate(&ota_task_func, "ota_task_func", 1024*8, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**
@@ -812,7 +820,7 @@ void ota_init()
         cli_register_command(&ota_cmd_list[i]);
     }
 
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 8 * 1024, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**

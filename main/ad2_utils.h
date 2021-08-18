@@ -62,8 +62,7 @@ std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
 int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining = false);
 void ad2_tokenize(std::string const &str, const char* delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);
-std::string ad2_make_bearer_auth_header(const std::string& apikey);
-std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password);
+std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password);
 std::string ad2_urlencode(const std::string str);
 void ad2_genUUID(uint8_t n, std::string& ret);
 int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
@@ -148,7 +147,7 @@ void ad2_get_nv_slot_key_string(const char *key, int slot, const char *suffix, s
 /// ad2_http async http request callback. Called before esp_http_client_perform()
 typedef void (*ad2_http_sendQ_ready_cb_t)(esp_http_client_handle_t, esp_http_client_config_t*);
 /// ad2_http async http request callback. Called before after esp_http_client_cleanup()
-typedef void (*ad2_http_sendQ_done_cb_t)(esp_err_t, esp_http_client_handle_t, esp_http_client_config_t*);
+typedef bool (*ad2_http_sendQ_done_cb_t)(esp_err_t, esp_http_client_handle_t, esp_http_client_config_t*);
 void ad2_init_http_sendQ();
 bool ad2_add_http_sendQ(esp_http_client_config_t*, ad2_http_sendQ_ready_cb_t, ad2_http_sendQ_done_cb_t);
 

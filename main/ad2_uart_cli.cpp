@@ -378,6 +378,14 @@ static void esp_uart_cli_task(void *pvParameters)
             } // switch rx_buffer[i]
         } //buf while loop
         vTaskDelay(10 / portTICK_PERIOD_MS);
+#if defined(AD2_STACK_REPORT)
+#define EXTRA_INFO_EVERY 1000
+        static int extra_info = EXTRA_INFO_EVERY;
+        if(!--extra_info) {
+            extra_info = EXTRA_INFO_EVERY;
+            ESP_LOGI(TAG, "esp_uart_cli_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
+        }
+#endif
     } //main loop
 
 
@@ -392,7 +400,9 @@ void uart_cli_main()
     /* to decide whether the main function is running or not by user action... */
     g_StopMainTask = 1;    //default value is 1;  stop for a timeout
 
-    xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
+    // uart cli worker thread
+    // 20210815SM: 1404 bytes stack free after first connection.
+    xTaskCreate(esp_uart_cli_task, "uart_cli_task", 1024*5, NULL, tskIDLE_PRIORITY+2, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
     ad2_printf_host("Press '.' three times in the next 5 seconds to stop the init.\r\n");

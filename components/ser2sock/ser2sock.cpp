@@ -779,7 +779,7 @@ void ser2sockd_server_task(void *pvParameters)
                 if (!hal_get_network_connected()) {
                     goto CLEAN_UP;
                 }
-#if 0 // STACK REPORT
+#if defined(AD2_STACK_REPORT)
 #define EXTRA_INFO_EVERY 1000
                 static int extra_info = EXTRA_INFO_EVERY;
                 if(!--extra_info) {
