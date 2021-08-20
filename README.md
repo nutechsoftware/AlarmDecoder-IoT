@@ -121,7 +121,7 @@ Configuration is currently only available over the USB serial port using a comma
     - Enable webui daemon and configure the ACL.
       - ```webui enable Y```
       - ```webui acl 192.168.1.0/24```
-    - Insert a uSD card formatted fat32 with the files in the ```/contrib/webUI/``` folder of this project in the root directory.
+    - Insert a uSD card formatted fat32 with the files in the ```/contrib/webUI/flash-drive/``` folder of this project in the root directory.
     - Restart for these changes to take effect.
       - ```restart```
     - Configure notifications

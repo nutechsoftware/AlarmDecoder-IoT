@@ -1353,10 +1353,10 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
         cJSON_AddNumberToObject(root, "system_specific", s->system_specific);
         cJSON_AddNumberToObject(root, "beeps", s->beeps);
         cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
-        cJSON_AddStringToObject(root, "last_alpha_messages", s->last_alpha_message.c_str());
+        cJSON_AddStringToObject(root, "last_alpha_message", s->last_alpha_message.c_str());
         cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
     } else {
-        cJSON_AddStringToObject(root, "last_alpha_messages", "Unknown");
+        cJSON_AddStringToObject(root, "last_alpha_message", "Unknown");
     }
     return root;
 }

@@ -2,7 +2,9 @@ var panel_states =  {
   "unknown":{
     "status_class": "not_ready",
     "icon_class": "icon house with_key",
-    "label":"Unknown"
+    "label":"No partition state found. vpartID not found on AD2IoT check vpart config settings.",
+    "b1_label": "Unknown",
+    "b2_label": "Unknown"
   },
   "armed_away":{
     "status_class":"armed",
@@ -200,8 +202,10 @@ class AD2ws {
   /* update UI from current state */
   updateUI() {
     /* test if state is valid */
-    if (!this.ad2emb_state)
+    if (!this.ad2emb_state) {
+      this.mode = "unknown";
       return;
+    }
 
     /* simple state machine for now to set status class */
     if (this.ad2emb_state.alarm_sounding) {
@@ -221,7 +225,11 @@ class AD2ws {
         /* Note: append _exit if exit_now state is set */
         this.mode = "armed_stay" + (this.ad2emb_state.exit_now ? "_exit" : "");
       } else {
-        this.mode = "notready";
+        if (this.ad2emb_state.last_alpha_message === "Unknown") {
+          this.mode = "unknown";
+        } else {
+          this.mode = "notready";
+        }
       }
     }
 

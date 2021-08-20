@@ -228,24 +228,21 @@ static void ws_alarmstate_async_send(void *arg)
             if (sess) {
                 // get the partition state based upon the virtual partition ID on the AD2IoT firmware.
                 AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpartID);
-                if (s) {
-                    // build the standard json AD2IoT device and alarm state object.
-                    cJSON *root = ad2_get_partition_state_json(s);
-                    if (root) {
-                        ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
-                        cJSON_AddStringToObject(root, "event", "SYNC");
-                        char *sys_info = cJSON_Print(root);
-                        cJSON_Minify(sys_info);
-                        httpd_ws_frame_t ws_pkt;
-                        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-                        ws_pkt.payload = (uint8_t*)sys_info;
-                        ws_pkt.len = strlen(sys_info);
-                        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-                        httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
-                        cJSON_free(sys_info);
-                        cJSON_Delete(root);
-                    }
-                }
+                ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
+
+                // build the standard json AD2IoT device and alarm state object.
+                cJSON *root = ad2_get_partition_state_json(s);
+                cJSON_AddStringToObject(root, "event", "SYNC");
+                char *sys_info = cJSON_Print(root);
+                cJSON_Minify(sys_info);
+                httpd_ws_frame_t ws_pkt;
+                memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+                ws_pkt.payload = (uint8_t*)sys_info;
+                ws_pkt.len = strlen(sys_info);
+                ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+                httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
+                cJSON_free(sys_info);
+                cJSON_Delete(root);
             }
         }
     }

@@ -56,6 +56,7 @@ ACL+IPv6, MQTT Client, Refactor headers etc. New simple and flexible ad2_add_htt
  - Migrate Pushover and Twilio/SendGrid components to use the new ad2_add_http_sendQ() api.
  - Validate and tune stack on existing tasks.
 ### Change log
+ - [X] SM - WEBUI: Cleanup a few typo's and show proper ```unknown``` state when incorrect ```vpartID``` is used as well as Waiting... message when no state is received.
  - [X] SM - WEBUI & SER2SOCKD: Default setting on ACL to 0.0.0.0/0 to allow all.
  - [X] SM - CORE: Tune profile task stacks and priority for each task.
  - [X] SM - TWILIO: Simplify Twilio/Sendgrid using new ad2_add_http_sendQ api call.
