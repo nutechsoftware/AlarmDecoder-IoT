@@ -76,8 +76,9 @@ int ad2_acl_check::add(std::string& acl)
         /// Test for CIDR notation '\' 192.168.0.0/24
         if (token.find('/') != std::string::npos) {
             // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-128
+            // Allow for /0 match all special case 0.0.0.0/0
             uint8_t iCIDR = std::stoi(token.substr(token.find("/") + 1));
-            if (iCIDR > 128 || iCIDR < 1) {
+            if (iCIDR > 128) {
                 return this->ACL_ERR_BADFORMAT_CIDR;
             }
 
@@ -189,8 +190,11 @@ bool ad2_acl_check::_szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is
         memset((uint8_t*)&addr.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
         // 32bit IPv4 stored in the last 4 bytes.
         if (!inet_pton(AF_INET, szaddr.c_str(), &addr.u8_addr[12])) {
-            // reject anything that does not parse.
-            return false;
+            // Allow all IPv4 pattern 0.0.0.0/0
+            if (szaddr.compare("0.0.0.0/0") != 0) {
+                // reject anything that does not parse or match allow all.
+                return false;
+            }
         }
 #if CONFIG_LWIP_IPV6
     } else
@@ -1430,6 +1434,8 @@ static void _http_sendQ_consumer_task(void *pvParameters)
                 vTaskDelay(100/portTICK_PERIOD_MS);
             }
         }
+        // sleep for a bit then check the queue again.
+        vTaskDelay(100/portTICK_PERIOD_MS);
     }
     ESP_LOGW(TAG, "http sendQ ending. HTTP request delivery halted.");
     vTaskDelete(NULL);

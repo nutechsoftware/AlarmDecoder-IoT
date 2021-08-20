@@ -182,7 +182,8 @@ static void _cli_cmd_ser2sockd_event(char *string)
                         ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
                     }
                 }
-                // show contents of this slot
+                // show contents of this slot set default to allow all
+                acl = "0.0.0.0/0";
                 ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
                 ad2_printf_host("ser2sockd 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
@@ -231,8 +232,8 @@ void ser2sockd_register_cmds()
  */
 void ser2sockd_init(void)
 {
-    // load and parse ACL if set.
-    std::string acl;
+    // load and parse ACL if set or set default to allow all.
+    std::string acl = "0.0.0.0/0";
     ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
     if (acl.length()) {
         int res = ser2sock_acl.add(acl);

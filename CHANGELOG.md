@@ -47,37 +47,38 @@ ACL+IPv6, MQTT Client, Refactor headers etc. New simple and flexible ad2_add_htt
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
     - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
       - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
-    - New serialized async http request ad2_ api ad2_add_http_sendQ() to minimize memory usage to multiple HTTP/HTTPS push notifications.
+  - New serialized async http request ad2_ api ad2_add_http_sendQ() to minimize memory usage to multiple HTTP/HTTPS push notifications.
 ### Changed
-  - Large cleanup of headers, components, help.
-  - Small changes in startup order and added global ca init early.
-  - Small change to API to prevent ejecting multiple messages when the parser receives its first message. Now just send a READY state change event with all current state bits.
-  - ad2_utils json helper utils refactor.
-  - Migrate Pushover and Twilio/SendGrid components to use the new ad2_add_http_sendQ() api.
-  - Validate and tune stack on existing tasks.
+ - Large cleanup of headers, components, help.
+ - Small changes in startup order and added global ca init early.
+ - Small change to API to prevent ejecting multiple messages when the parser receives its first message. Now just send a READY state change event with all current state bits.
+ - ad2_utils json helper utils refactor.
+ - Migrate Pushover and Twilio/SendGrid components to use the new ad2_add_http_sendQ() api.
+ - Validate and tune stack on existing tasks.
 ### Change log
-- [X] SM - CORE: Tune profile task stacks and priority for each task.
-- [X] SM - TWILIO: Simplify Twilio/Sendgrid using new ad2_add_http_sendQ api call.
-- [X] SM - CORE: Design and implement a serialized method of making HTTP request from components through the ad2_queue_https_request api function. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections. I estimate it takes approx 30k per distinct certificate used.
-- [X] SM - PUSHOVER: Simplify Pushover using new ad2_add_http_sendQ api call. This will make it easy to add additional REST HTTP POST/GET notifications. Most of this existing code used mbedtls this conversion will use the esp_http_ api. This also should allow to switch between mbedtls to wolfssl for testing.
-- [X] SM - CORE: Help syntax cleanup. Still not happy but it is better.
-- [X] SM - MQTT: Add Last Will and Testament with a "offline" "online" indication for the client. Remove IoT system specific info to Sigon topic.
-- [X] SM - MQTT: Finish wiring 'url' command. Finished wiring up the Virtual Switches sub command 'N' defines topic to publish to. Example ```TEST``` would result in a topic of ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/TEST```.
-- [X] SM - CORE: Fix ACL CIDR MASK logic so it works for IPv6 and IPv4.
-- [X] SM - CORE: More cleanup of esp-idf component inclusion.
-- [X] SM - CORE: Large refactor to all common headers. Still needs more work but at list it is consistent.
-- [X] SM - CORE: Added helper to hal_ to return Address strings from a socket used for ACL testing.
-- [X] SM - WEBUI: Added support for IPv6 and IPv4 ACL. Supports Range, Single IP, or Mask. 1.2.3.4-1.2.3.5, 1.2.3.4, 1.2.3.4/24, 2001:0db8:85a3:0000::/64
-- [X] SM - SER2SOCKD: Added ACL logic and wired the acl command to allow an ACL string to be saved and parsed rejecting clients that don't match.
-- [X] SM - CORE: ad2_tokenize change to allow multiple tokens. Was having issues so I reverted back to strtok.
-- [X] SM - CORE: Added ad2_acl_check class to ad2_utils.
-- [X] SM - CORE: Move uSD card init from webUI into device_control and init at startup with error handling.
-- [X] SM - CORE: Minor cleanup warnings and add exclude for build to astylerc exclude.
-- [X] SM - MQTT: New component an MQTT client using ESP-MQTT with user defined events and topics and optional QOS level 2 using a uSD card for persistent storage. TLS is causing issues with random lockups but works with clear text connections. Still needs work but its a good start.
-- [X] SM - API: On first state message only fire off one event 'READY'. This prevents multiple events from firing on the first state message from the panel. Subscribe to at minimum READY event changes to be sure to catch the first event on connection to the panel.
-- [X] SM - CORE: Init the global ca store early.
-- [X] SM - CORE: Initialize virtual partitions before connecting to AD2*.
-- [X] SM - CORE: Refactor some common use calls into ad2_utils and refactor JSON library includes. Fix some callback names to be specific to avoid collisions.
+ - [X] SM - WEBUI & SER2SOCKD: Default setting on ACL to 0.0.0.0/0 to allow all.
+ - [X] SM - CORE: Tune profile task stacks and priority for each task.
+ - [X] SM - TWILIO: Simplify Twilio/Sendgrid using new ad2_add_http_sendQ api call.
+ - [X] SM - CORE: Design and implement a serialized method of making HTTP request from components through the ad2_queue_https_request api function. This will reduce memory requirements and prevent memory starvation when multiple components try to make HTTPS connections. I estimate it takes approx 30k per distinct certificate used.
+ - [X] SM - PUSHOVER: Simplify Pushover using new ad2_add_http_sendQ api call. This will make it easy to add additional REST HTTP POST/GET notifications. Most of this existing code used mbedtls this conversion will use the esp_http_ api. This also should allow to switch between mbedtls to wolfssl for testing.
+ - [X] SM - CORE: Help syntax cleanup. Still not happy but it is better.
+ - [X] SM - MQTT: Add Last Will and Testament with a "offline" "online" indication for the client. Remove IoT system specific info to Sigon topic.
+ - [X] SM - MQTT: Finish wiring 'url' command. Finished wiring up the Virtual Switches sub command 'N' defines topic to publish to. Example ```TEST``` would result in a topic of ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/TEST```.
+ - [X] SM - CORE: Fix ACL CIDR MASK logic so it works for IPv6 and IPv4.
+ - [X] SM - CORE: More cleanup of esp-idf component inclusion.
+ - [X] SM - CORE: Large refactor to all common headers. Still needs more work but at list it is consistent.
+ - [X] SM - CORE: Added helper to hal_ to return Address strings from a socket used for ACL testing.
+ - [X] SM - WEBUI: Added support for IPv6 and IPv4 ACL. Supports Range, Single IP, or Mask. 1.2.3.4-1.2.3.5, 1.2.3.4, 1.2.3.4/24, 2001:0db8:85a3:0000::/64
+ - [X] SM - SER2SOCKD: Added ACL logic and wired the acl command to allow an ACL string to be saved and parsed rejecting clients that don't match.
+ - [X] SM - CORE: ad2_tokenize change to allow multiple tokens. Was having issues so I reverted back to strtok.
+ - [X] SM - CORE: Added ad2_acl_check class to ad2_utils.
+ - [X] SM - CORE: Move uSD card init from webUI into device_control and init at startup with error handling.
+ - [X] SM - CORE: Minor cleanup warnings and add exclude for build to astylerc exclude.
+ - [X] SM - MQTT: New component an MQTT client using ESP-MQTT with user defined events and topics and optional QOS level 2 using a uSD card for persistent storage. TLS is causing issues with random lockups but works with clear text connections. Still needs work but its a good start.
+ - [X] SM - API: On first state message only fire off one event 'READY'. This prevents multiple events from firing on the first state message from the panel. Subscribe to at minimum READY event changes to be sure to catch the first event on connection to the panel.
+ - [X] SM - CORE: Init the global ca store early.
+ - [X] SM - CORE: Initialize virtual partitions before connecting to AD2*.
+ - [X] SM - CORE: Refactor some common use calls into ad2_utils and refactor JSON library includes. Fix some callback names to be specific to avoid collisions.
 
 ## [1.0.7] - 2021-06-26 Sean Mathews - coder @f34rdotcom
  - [X] AJ - CORE: Add [PlatformIO](https://platformio.org/) (SM: AMAZING how much this has helped! Thanks!)

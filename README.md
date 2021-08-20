@@ -4,14 +4,15 @@
 * 3. [Firmware](#firmware)
   * 3.1. [SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin](#smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin)
   * 3.2. [webUI build (webui) - alarmdecoder_webui_esp32.bin](#webui-build-(webui)---alarmdecoder_webui_esp32.bin)
-* 4. [Configure the AD2IoT device](#configure-the-ad2iot-device)
+* 4. [Configuring the AD2IoT device](#configuring-the-ad2iot-device)
 * 5. [AD2Iot CLI - command line interface](#ad2iot-cli---command-line-interface)
   * 5.1. [Standard commands](#standard-commands)
   * 5.2. [Ser2sock server component](#ser2sock-server-component)
     * 5.2.1. [Configuration for Ser2sock server](#configuration-for-ser2sock-server)
   * 5.3. [Web User Interface webUI component](#web-user-interface-webui-component)
     * 5.3.1. [Configuration for webUI server](#configuration-for-webui-server)
-  * 5.4. [SmartThings IoT integration component](#smartthings-iot-integration-component)
+  * 5.4. [SmartThings Direct Connected device.](#smartthings-direct-connected-device.)
+    * 5.4.1. [ Configuration for SmartThings IoT client](#-configuration-for-smartthings-iot-client)
   * 5.5. [Pushover.net notification component](#pushover.net-notification-component)
     * 5.5.1. [Configuration for Pushover.net notification](#configuration-for-pushover.net-notification)
   * 5.6. [Twilio notification component](#twilio-notification-component)
@@ -61,7 +62,7 @@ If the upgrade fails it may be the result of low memory on the device. Try disab
 See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
 
 ###  3.1. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
-- Components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings
+- Enabled components: Pushover, Twilio, Sendgrid, Ser2sock, SmartThings.
 
 This is the default buildflag. This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 
@@ -72,38 +73,75 @@ First you will need to [enable Developer Mode in the app
 
 Next decide if you want to build your own profile and layout or join the existing AlarmDecoder profile for how this device will be shown in the SmartThings app.
 
-- Join the AlarmDecoder organization where the profiles are already working and in current development. Enroll in the  AlarmDecoder organization using the Manufacturer ID '''0AOf'''
+- Join the ```Nu Tech Software Solutions, Inc.``` organization where the profiles are already working and in current development. Enroll in the organization using the Manufacturer ID '''0AOf'''. Once enrolled the device serial number and keys will be manually generated and sent to the same email address.
 https://smartthings.developer.samsung.com/partner/enroll
 
-- Use the SmartThings/Samsung developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055)
+- Use the SmartThings/Samsung developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055). Generate a serial number and keys and register them in the management portal and configure the device with the validated keys.
 
 ###  3.2. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
-- Components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT
+- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT.
 
 This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThings driver is disabled and the webui component is enabled.
 
 Copy the contents of flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single MSDOS partition. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
 
-##  4. <a name='configure-the-ad2iot-device'></a>Configure the AD2IoT device
- - Connect the ESP32 development board USB to a host computer and run a terminal program such as Putty to connect to the virtual com port using 115200 baud. The USB serial port drivers for the ESP32-POE-ISO are here https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware
- - Configure the AD2* Source cli command **'ad2source'**
-
-Choose one of the following configurations.
- - SmartThings STSDK mode
-   - Set ```'netmode'``` to N to allow STSDK to manage the network hardware.
-   - Enable the STSDK module **'stenable'**
-   - Configure the SmartThings security credentials
-  **'stserial'** **'stpublickey'** **'stprivatekey'**
-    - Add the credentials to the SmartThings developer workspace.
- - Managed networking mode.
-   - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password as described in the ```netmode``` command help.
-
-Configure the notifications using the notification components CLI commands.
-
-##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
-Currently all configuration is done over the the ESP32 usb serial port. For drivers see the [ESP32-POE-ISO product page](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware). The USB port also provides power so disconnect the device from the alarm using the quick connect terminal block and and connect the device to a computer using a USB 2.0 A-Male to Micro B Cable for configuration using the command line interface.
+##  4. <a name='configuring-the-ad2iot-device'></a>Configuring the AD2IoT device
+Configuration is currently only available over the USB serial port using a command line interface.
 
 &#x2757; Do not connect the [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) to alarm panel power when connected to a computer. If connection from both PC and alarm at the same time is needed be sure to connect to the alarm panel power first then connect to the PC last. The power from the panel when first connected to the AD2IoT will provide an unstable 5v output for a few microseconds. This unstable voltage can be sent back through the USB to the host computer causing the host to detect the voltage fault and halt.
+
+- Connect the ESP32 development board USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
+  - If needed the drivers for different operating systems can be downloaded [here](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware).
+
+##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
+- Configure the initial AD2IoT device settings
+  - Select TTL GPIO pins or socket address and port for the AlarmDecoder protocol stream using one of the following commands.
+    - ```ad2source COM 4:36```
+    - ```ad2source SOCK 192.168.0.121:10000```
+  - Enable ser2sock daemon and optionally configure the ACL for security.
+    - ```ser2sockd enable Y```
+    - ```ser2sockd acl 192.168.0.123/32```
+  - Set the log mode to see INFO messages
+    - ```logmode I```
+  - Restart for these changes to take effect.
+    - ```restart```
+
+- Choose the primary operating mode of the AD2IoT device.
+  - Managed network mode.
+    - Enable and configure the WiFi or Ethernet networking driver.
+      - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password.
+      - ```netmode E mode=d```
+    - Configure the default partition in slot 0 for the partition to connect to SmartThings.
+      - ```vpart 0 18```
+    - Define each virtual partition. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
+      - ```vpart 1 18```
+      - ```vpart 2 22```
+    - Set a default code in slot ```0``` to ARM/DISARM etc a partition.
+      - ```code 0 4112```
+    - Enable webui daemon and configure the ACL.
+      - ```webui enable Y```
+      - ```webui acl 192.168.1.0/24```
+    - Insert a uSD card formatted fat32 with the files in the ```/contrib/webUI/``` folder of this project in the root directory.
+    - Restart for these changes to take effect.
+      - ```restart```
+    - Configure notifications
+
+  - SmartThings Direct-connected device mode.
+    - Disable networking to allow the SmartThings driver to manage the network hardware and allow adopting over 802.11 b/g/n 2.4ghz Wi-Fi.
+      - ```netmode N```
+    - Configure the default partition in slot 0 for the partition to connect to the SmartThings app.
+      - ```vpart 0 18```
+    - Enable the SmartThings driver.
+      - ```stenable Y```
+    - Restart for these changes to take effect.
+      - ```restart```
+    - Configure the SmartThings security credentials provided by Nu Tech Software Solutions, Inc.
+      - ```stserial AAABBbbcdde...```
+      - ```stpublickey AAABBbbcdde...```
+      - ```stprivatekey AAABBbbcdde...```
+    - Restart the device and adopt the AD2IOT device under ```My Testing Devices``` in the SmartThings app.
+      - ```restart```
+    - Additional notification components will only work after the device is adopted and connected to the local Wi-Fi network.
 
 ###  5.1. <a name='standard-commands'></a>Standard commands
 - Show the list of commands or give more detail on a specific command.
@@ -237,10 +275,10 @@ This component provides a simple HTML5+WebSocket user interface with realtime al
         - Default: Empty string disables ACL list
         - Example: webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
 
-###  5.4. <a name='smartthings-iot-integration-component'></a>SmartThings Direct Connected device.
+###  5.4. <a name='smartthings-direct-connected-device.'></a>SmartThings Direct Connected device.
 Direct-connected devices connect directly to the SmartThings cloud. The SDK for Direct Connected Devices is equipped to manage all MQTT topics and onboarding requirements, freeing you to focus on the actions and attributes of your device. To facilitate the development of device application in an original chipset SDK, the core device library and the examples were separated into two git repositories. That is, if you want to use the core device library in your original chipset SDK that installed before, you may simply link it to develop a device application in your existing development environment. For more info see https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.
 
-####  Configuration for SmartThings IoT client
+####  5.4.1. <a name='-configuration-for-smartthings-iot-client'></a> Configuration for SmartThings IoT client
 - Enable SmartThings component
   - ```stenable {bool}```
     - {bool}: [Y]es/[N]o
