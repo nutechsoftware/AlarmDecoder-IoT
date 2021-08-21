@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
 
-## [1.0.8-pre] - 2021-08-?? Sean Mathews - coder @f34rdotcom
+## [1.0.8] - 2021-08-20 Sean Mathews - coder @f34rdotcom
 ACL+IPv6, MQTT Client, Refactor headers etc. New simple and flexible ad2_add_http_sendQ serialized async HTTP request API for components.
 ### Added
   - IPv6 support with ACL(Access Control List) for webUI and ser2sockd.
