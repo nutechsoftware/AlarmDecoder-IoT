@@ -680,6 +680,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // Create or return a pointer to our partition storage class.
                             ad2ps = getAD2PState(&amask, true);
 
+                            // track message event count
+                            ad2ps->count++;
+
                             // we should not need to test the validity of ad2ps with update=true
                             // the function will return a value.
 

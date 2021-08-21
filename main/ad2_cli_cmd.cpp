@@ -93,8 +93,8 @@ static void _cli_cmd_code_event(char *string)
  *   where slot 0 is the default.
  *
  *   example.
- *     AD2IOT # vpart c 2
- *     AD2IOT # vpart s 192.168.1.2:10000
+ *     AD2IOT # vpart 0 18
+ *     AD2IOT # vpart 1 19
  *
  */
 static void _cli_cmd_vpart_event(char *string)
@@ -135,7 +135,7 @@ static void _cli_cmd_vpart_event(char *string)
  *
  * @note command: ad2source <mode> <arg>
  *   examples.
- *     AD2IOT # ad2source c 17:16
+ *     AD2IOT # ad2source c 4:36
  *                          [TX PIN:RX PIN]
  *     AD2IOT # ad2source s 192.168.1.2:10000
  *                          [HOST:PORT]

@@ -24,7 +24,7 @@
 #define AD2_STACK_REPORT
 
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1080b"
+#define FIRMWARE_VERSION      "AD2IOT-1080"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99

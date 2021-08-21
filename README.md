@@ -114,8 +114,7 @@ Configuration is currently only available over the USB serial port using a comma
     - Configure the default partition in slot 0 for the partition to connect to SmartThings.
       - ```vpart 0 18```
     - Define each virtual partition. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
-      - ```vpart 1 18```
-      - ```vpart 2 22```
+      - ```vpart 1 22```
     - Set a default code in slot ```0``` to ARM/DISARM etc a partition.
       - ```code 0 4112```
     - Enable webui daemon and configure the ACL.
@@ -659,7 +658,7 @@ I (510) heap_init: At 3FFB9370 len 00026C90 (155 KiB): DRAM
 I (516) heap_init: At 3FFE0440 len 0001FBC0 (126 KiB): D/IRAM
 I (522) heap_init: At 40078000 len 00008000 (32 KiB): IRAM
 I (528) heap_init: At 4009527C len 0000AD84 (43 KiB): IRAM
-I (535) spi_flash: detected Starting AlarmDecoder AD2IoT network appliance version (AD2IOT-1080b)
+I (535) spi_flash: detected Starting AlarmDecoder AD2IoT network appliance version (AD2IOT-1080)
 This is ESP32 chip with 2 CPU cores, WiFi/BT/BLE, silicon revision 1, 4MB external flash
 Initialize NVS subsystem start. Done.
 Count: UsedEntries = (245), FreeEntries = (259), AllEntries = (504)

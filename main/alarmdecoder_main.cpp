@@ -559,7 +559,7 @@ void app_main()
 
     // init the virtual partition database from NV storage
     // see iot_cli_cmd::vpart
-    // Address 0 is reserved for system partition
+    // Virtual partition 0 is the default partition for some notifications.
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         int x = -1;
         ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
