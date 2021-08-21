@@ -34,9 +34,6 @@ SOFTWARE.
 // 2. Change includes remove Arduino.h and add needed string includes.
 // 3. Add custom Line reader(s).
 
-// Disable via sdkconfig
-//#if CONFIG_AD2IOT_WEBSERVER_UI
-
 #include <cstring>
 #include <string.h>
 #include "TinyTemplateEngine.h"
@@ -233,4 +230,3 @@ void TinyTemplateEngine::deleteBuffer()
     }
 }
 
-//#endif /* CONFIG_AD2IOT_WEBSERVER_UI */

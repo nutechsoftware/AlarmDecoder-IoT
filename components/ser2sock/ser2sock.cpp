@@ -21,49 +21,41 @@
 *  limitations under the License.
 *
 */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// stdc++
-#include <string>
-#include <sstream>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
-
-static const char *TAG = "SER2SOCKD";
-
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_SER2SOCKD
+static const char *TAG = "SER2SOCKD";
+
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
+
+// esp component includes
+#include "mbedtls/net_sockets.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/error.h"
 
 // specific includes
 #include "ser2sock.h"
+
+/* Constants that aren't configurable in menuconfig */
+#define PORT 10000
+#define MAX_CLIENTS 4
+#define MAX_FIFO_BUFFERS 30
+#define MAXCONNECTIONS MAX_CLIENTS+1
+
+#define SD2D_COMMAND          "ser2sockd"
+#define S2SD_SUBCMD_ENABLE    "enable"
+#define S2SD_SUBCMD_ACL       "acl"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+// forward decl
+void ser2sockd_server_task(void *pvParameters);
 
 // types and structs
 enum FD_TYPES {
@@ -109,7 +101,9 @@ FDs my_fds[MAXCONNECTIONS];
 /* our listen socket */
 int listen_sock = -1;
 struct sockaddr_in serv_addr;
-struct sockaddr_in peer_addr;
+
+/* ACL control */
+ad2_acl_check ser2sock_acl;
 
 /**
  * ser2sock command list and enum.
@@ -157,6 +151,7 @@ static void _cli_cmd_ser2sockd_event(char *string)
         }
         if(subcmd.compare(S2SD_SUBCMD[i]) == 0) {
             std::string arg;
+            std::string acl;
             switch(i) {
             /**
              * Enable/Disable ser2sock daemon.
@@ -177,7 +172,20 @@ static void _cli_cmd_ser2sockd_event(char *string)
              * ser2sock daemon IP/CIDR ACL list.
              */
             case S2SD_SUBCMD_ACL_ID:
-                ad2_printf_host("Not yet implemented.\r\n");
+                // If no arg then return ACL list
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    ser2sock_acl.clear();
+                    int res = ser2sock_acl.add(arg);
+                    if (res == ser2sock_acl.ACL_FORMAT_OK) {
+                        ad2_set_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                    } else {
+                        ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
+                    }
+                }
+                // show contents of this slot set default to allow all
+                acl = "0.0.0.0/0";
+                ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
+                ad2_printf_host("ser2sockd 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
                 break;
@@ -193,18 +201,18 @@ static void _cli_cmd_ser2sockd_event(char *string)
 static struct cli_command ser2sockd_cmd_list[] = {
     {
         (char*)SD2D_COMMAND,(char*)
-        "- ser2sock daemon component command\r\n"
-        "  ```" SD2D_COMMAND " {sub command} {arg}```\r\n"
+        "####  Configuration for Ser2sock server\r\n"
+        "- ```" SD2D_COMMAND " {sub command} {arg}```\r\n"
         "  - {sub command}\r\n"
         "    - [" S2SD_SUBCMD_ENABLE "] Enable / Disable ser2sock daemon\r\n"
         "      -  {arg1}: [Y]es [N]o\r\n"
         "        - [N] Default state\r\n"
-        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ENABLE " Y\r\n"
+        "        - Example: ```" SD2D_COMMAND " " S2SD_SUBCMD_ENABLE " Y```\r\n"
         "    - [" S2SD_SUBCMD_ACL "] Set / Get ACL list\r\n"
         "      - {arg1}: ACL LIST\r\n"
         "      -  String of CIDR values seperated by commas.\r\n"
         "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: " SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.123/32,192.168.1.0/24\r\n\r\n", _cli_cmd_ser2sockd_event
+        "        - Example: ```" SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n\r\n", _cli_cmd_ser2sockd_event
     }
 };
 
@@ -224,13 +232,14 @@ void ser2sockd_register_cmds()
  */
 void ser2sockd_init(void)
 {
-    int enabled = 0;
-    ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &enabled);
-
-    // nothing more needs to be done once commands are set if not enabled.
-    if (!enabled) {
-        ESP_LOGI(TAG, "ser2sockd disabled");
-        return;
+    // load and parse ACL if set or set default to allow all.
+    std::string acl = "0.0.0.0/0";
+    ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
+    if (acl.length()) {
+        int res = ser2sock_acl.add(acl);
+        if (res != ser2sock_acl.ACL_FORMAT_OK) {
+            ESP_LOGI(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
+        }
     }
 
     int x;
@@ -241,8 +250,20 @@ void ser2sockd_init(void)
         _fifo_init(&my_fds[x].send_buffer, MAX_FIFO_BUFFERS);
     }
 
+    int enabled = 0;
+    ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &enabled);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!enabled) {
+        ESP_LOGI(TAG, "ser2sockd disabled");
+        return;
+    }
+
     ESP_LOGI(TAG, "Starting ser2sockd");
-    xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
+
+    // ser2sockd worker thread
+    // 20210815SM: 1284 bytes stack free after first connection.
+    xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }
 
@@ -518,11 +539,8 @@ static int _add_fd(int fd, int fd_type)
 static bool _poll_read_fdset(fd_set *read_fdset)
 {
     int n, received, newsockfd, added_slot;
-    unsigned int clilen;
     bool did_work = false;
     char buffer[1024] = {0};
-
-    clilen = sizeof(struct sockaddr_in);
 
     /* check every socket to find the one that needs read */
     for (n = 0; n < MAXCONNECTIONS; n++) {
@@ -537,20 +555,36 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                     /* clear our state vars */
                     newsockfd = -1;
                     {
-                        newsockfd = accept(listen_sock, (struct sockaddr *) &peer_addr, &clilen);
+                        unsigned int addr_len;
+                        struct sockaddr_storage peer_addr = {};
+                        addr_len = sizeof(peer_addr);
+                        newsockfd = accept(listen_sock, (struct sockaddr *) &peer_addr, &addr_len);
                     }
                     if (newsockfd != -1) {
                         /* reset our added id to a bad state */
                         added_slot = -2;
-                        added_slot = _add_fd(newsockfd, CLIENT_SOCKET);
-                        if (added_slot >= 0) {
-                            ESP_LOGI(TAG, "Socket connected slot %i from %s", added_slot, inet_ntoa(peer_addr.sin_addr));
-                            did_work = true;
-                        } else {
-                            ESP_LOGI(TAG,"add slot error %i", added_slot);
+
+                        // Convert client address to string for ACL testing.
+                        std::string IP;
+                        hal_get_socket_client_ip(newsockfd, IP);
+
+                        /* ACL test */
+                        if (!ser2sock_acl.find(IP)) {
+                            struct linger lo = { 1, 0 };
+                            setsockopt(newsockfd, SOL_SOCKET, SO_LINGER, &lo, sizeof(lo));
                             close(newsockfd);
-                            if(added_slot == -1) {
-                                ESP_LOGI(TAG, "Socket refused because no more space");
+                            ESP_LOGI(TAG, "Rejecting client connection from '%s'", IP.c_str());
+                        } else {
+                            added_slot = _add_fd(newsockfd, CLIENT_SOCKET);
+                            if (added_slot >= 0) {
+                                ESP_LOGI(TAG, "Socket connected slot %i from %s", added_slot, IP.c_str());
+                                did_work = true;
+                            } else {
+                                ESP_LOGI(TAG,"add slot error %i", added_slot);
+                                close(newsockfd);
+                                if(added_slot == -1) {
+                                    ESP_LOGI(TAG, "Socket refused because no more space");
+                                }
                             }
                         }
                     } else {
@@ -640,9 +674,13 @@ static bool _poll_write_fdset(fd_set *write_fdset)
  */
 void ser2sockd_server_task(void *pvParameters)
 {
-    int addr_family = AF_INET;
-    int ip_protocol = 0;
+#if CONFIG_LWIP_IPV6
+    int addr_family = AF_INET6;
     struct sockaddr_in6 dest_addr;
+#else
+    int addr_family = AF_INET;
+    struct sockaddr_in dest_addr;
+#endif
     int n;
     bool bOptionTrue = true;
     bool did_work = false;
@@ -655,31 +693,25 @@ void ser2sockd_server_task(void *pvParameters)
     for (;;) {
         if (hal_get_network_connected()) {
             ESP_LOGI(TAG, "network up creating listening socket");
-            if (addr_family == AF_INET) {
-                struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
-                dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
-                dest_addr_ip4->sin_family = AF_INET;
-                dest_addr_ip4->sin_port = htons(PORT);
-                ip_protocol = IPPROTO_IP;
-            } else if (addr_family == AF_INET6) {
-                bzero(&dest_addr.sin6_addr.un, sizeof(dest_addr.sin6_addr.un));
-                dest_addr.sin6_family = AF_INET6;
-                dest_addr.sin6_port = htons(PORT);
-                ip_protocol = IPPROTO_IPV6;
-            }
-
-            listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
+#if CONFIG_LWIP_IPV6
+            // IPv6 socket will listen on both IPv4 and IPv6 at the same time.
+            bzero(&dest_addr.sin6_addr.un, sizeof(dest_addr.sin6_addr.un));
+            dest_addr.sin6_family = AF_INET6;
+            dest_addr.sin6_port = htons(PORT);
+            listen_sock = socket(addr_family, SOCK_STREAM, IPPROTO_IPV6);
+#else
+            struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
+            dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
+            dest_addr_ip4->sin_family = AF_INET;
+            dest_addr_ip4->sin_port = htons(PORT);
+            listen_sock = socket(addr_family, SOCK_STREAM, IPPROTO_IP);
+#endif
             if (listen_sock < 0) {
                 ESP_LOGE(TAG, "ser2sock server unable to create socket: errno %d", errno);
                 vTaskDelete(NULL);
                 return;
             }
 
-#if defined(SER2SOCK_IPV4) && defined(SER2SOCK_IPV6)
-            // Note that by default IPV6 binds to both protocols, it is must be disabled
-            // if both protocols used at the same time (used in CI)
-            setsockopt(listen_sock, IPPROTO_IPV6, IPV6_V6ONLY, &bOptionTrue, sizeof(bOptionTrue));
-#endif
             setsockopt(listen_sock, SOL_SOCKET, SO_SNDTIMEO,
                        (char *) &socket_timeout, sizeof(socket_timeout));
             setsockopt(listen_sock, SOL_SOCKET, SO_RCVTIMEO,
@@ -748,6 +780,14 @@ void ser2sockd_server_task(void *pvParameters)
                 if (!hal_get_network_connected()) {
                     goto CLEAN_UP;
                 }
+#if defined(AD2_STACK_REPORT)
+#define EXTRA_INFO_EVERY 1000
+                static int extra_info = EXTRA_INFO_EVERY;
+                if(!--extra_info) {
+                    extra_info = EXTRA_INFO_EVERY;
+                    ESP_LOGI(TAG, "ser2sockd stack free %d", uxTaskGetStackHighWaterMark(NULL));
+                }
+#endif
             }
 CLEAN_UP:
             for (n = 0; n < MAXCONNECTIONS; n++) {

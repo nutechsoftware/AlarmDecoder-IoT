@@ -20,29 +20,20 @@
  *  limitations under the License.
  *
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
-static const char *TAG = "AD2UTIL";
 
-// AlarmDecoder includes
+static const char *TAG = "UARTCLI";
+
+// AlarmDecoder std includes
 #include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
 
-#include "ad2_uart_cli.h"
+// esp component includes
+#include "driver/uart.h"
+
+// specific includes
+#include "ad2_cli_cmd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,7 +47,7 @@ static void cli_cmd_help(char *string);
  * @brief command list for module
  */
 static struct cli_command help_cmd = {
-    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n\r\n"
+    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n"
     "  ```" AD2_HELP_CMD " [command]```\r\n\r\n", cli_cmd_help
 };
 
@@ -387,6 +378,14 @@ static void esp_uart_cli_task(void *pvParameters)
             } // switch rx_buffer[i]
         } //buf while loop
         vTaskDelay(10 / portTICK_PERIOD_MS);
+#if defined(AD2_STACK_REPORT)
+#define EXTRA_INFO_EVERY 1000
+        static int extra_info = EXTRA_INFO_EVERY;
+        if(!--extra_info) {
+            extra_info = EXTRA_INFO_EVERY;
+            ESP_LOGI(TAG, "esp_uart_cli_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
+        }
+#endif
     } //main loop
 
 
@@ -401,7 +400,9 @@ void uart_cli_main()
     /* to decide whether the main function is running or not by user action... */
     g_StopMainTask = 1;    //default value is 1;  stop for a timeout
 
-    xTaskCreate(esp_uart_cli_task, "uart_cli_task", CLI_TASK_SIZE, NULL, CLI_TASK_PRIORITY, NULL);
+    // uart cli worker thread
+    // 20210815SM: 1404 bytes stack free after first connection.
+    xTaskCreate(esp_uart_cli_task, "uart_cli_task", 1024*5, NULL, tskIDLE_PRIORITY+2, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
     ad2_printf_host("Press '.' three times in the next 5 seconds to stop the init.\r\n");

@@ -23,6 +23,7 @@
 #ifndef _AD2_UTILS_H
 #define _AD2_UTILS_H
 
+
 // Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
 
@@ -45,6 +46,8 @@ void ad2_aux_alarm(int codeId, int vpartId);
 void ad2_exit_now(int vpartId);
 void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
+cJSON *ad2_get_ad2iot_device_info_json();
+cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *);
 void ad2_printf_host(const char *format, ...);
 void ad2_snprintf_host(const char *fmt, size_t size, ...);
 char ad2_network_mode(std::string &args);
@@ -57,11 +60,11 @@ std::string ad2_string_printf(const char *fmt, ...);
 std::string ad2_string_vaprintf(const char *fmt, va_list args);
 std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
 int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining = false);
-void ad2_tokenize(std::string const &str, const char delim, std::vector<std::string> &out);
+void ad2_tokenize(std::string const &str, const char* delim, std::vector<std::string> &out);
 std::string ad2_to_string(int n);
-std::string ad2_make_bearer_auth_header(const std::string& apikey);
-std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password);
+std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password);
 std::string ad2_urlencode(const std::string str);
+void ad2_genUUID(uint8_t n, std::string& ret);
 int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
 void ad2_lcase(std::string &str);
 void ad2_ucase(std::string &str);
@@ -69,6 +72,66 @@ bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replac
 void ad2_ltrim(std::string &s);
 void ad2_rtrim(std::string &s);
 void ad2_trim(std::string &s);
+void ad2_remove_ws(std::string &s);
+
+/* @brief container for IP addresses */
+struct ad2_addr {
+    u8_t  u8_addr[16];
+    u32_t padding;
+};
+
+/**
+ *  @brief ACL parser and test class
+ *
+ *  @details Simple parser for ACL strings and testing for matches given
+ *  an IP string or the uint32_t value of an IP.
+ *     Example ACL String: '192.168.0.0/24, 192.168.1.1-192.168.1.2'
+ */
+class ad2_acl_check
+{
+public:
+    int add(std::string& acl);
+    bool find(std::string szaddr);
+    bool find(ad2_addr& addr);
+    void clear()
+    {
+        allowed_networks.clear();
+    };
+
+    enum {
+        ACL_FORMAT_OK = 0,
+        ACL_ERR_BADFORMAT_CIDR = -1,
+        ACL_ERR_BADFORMAT_IP = -2
+    };
+
+    // @brief debugging
+    void dump(ad2_addr& addr);
+
+private:
+    // @brief check if addr is between(inclusive) s and e
+    bool _in_addr_BETWEEN(ad2_addr& addr, ad2_addr& start, ad2_addr& end);
+
+    // @brief 128bit left shift.
+    // @note modifies addr
+    void _addr_SHIFT_LEFT(ad2_addr& addr, int cnt);
+
+    // @brief 128bit NOT(~).
+    // @note modifies addr
+    void _addr_NOT(ad2_addr& addr);
+
+    // @brief 128bit AND.
+    void _addr_AND(ad2_addr& out, ad2_addr& addrA, ad2_addr& addrB);
+
+    // @brief 128bit OR.
+    void _addr_OR(ad2_addr& out, ad2_addr& addrA, ad2_addr& addrB);
+
+    // @brief parse IPv4/IPv6 address string to ip6_addr value.
+    // @return bool ok = true;
+    bool _szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is_ipv4);
+
+    // @brief list of allowed network start and end addresses.
+    vector<pair<ad2_addr,ad2_addr>> allowed_networks;
+};
 
 // NV Storage utilities
 
@@ -78,6 +141,15 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, const char *suffix, int 
 void ad2_get_nv_slot_key_int(const char *key, int slot, const char *suffix, int *value);
 void ad2_set_nv_slot_key_string(const char *key, int slot, const char *suffix, const char *value);
 void ad2_get_nv_slot_key_string(const char *key, int slot, const char *suffix, std::string &value);
+
+// ASYNC serialized http request api for components.
+
+/// ad2_http async http request callback. Called before esp_http_client_perform()
+typedef void (*ad2_http_sendQ_ready_cb_t)(esp_http_client_handle_t, esp_http_client_config_t*);
+/// ad2_http async http request callback. Called before after esp_http_client_cleanup()
+typedef bool (*ad2_http_sendQ_done_cb_t)(esp_err_t, esp_http_client_handle_t, esp_http_client_config_t*);
+void ad2_init_http_sendQ();
+bool ad2_add_http_sendQ(esp_http_client_config_t*, ad2_http_sendQ_ready_cb_t, ad2_http_sendQ_done_cb_t);
 
 #ifdef __cplusplus
 }

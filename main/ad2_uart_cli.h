@@ -26,8 +26,6 @@
 
 #define PROMPT_STRING "AD2IOT # "
 #define AD2_HELP_CMD "help"
-#define CLI_TASK_PRIORITY (tskIDLE_PRIORITY+2)
-#define CLI_TASK_SIZE    (8192)
 
 #ifdef __cplusplus
 extern "C" {

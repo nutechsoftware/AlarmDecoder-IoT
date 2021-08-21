@@ -151,6 +151,7 @@ public:
 
     // SECTION #1 data
     //  https://www.alarmdecoder.com/wiki/index.php/Protocol#Bit_field
+    uint32_t count = 0;
     bool unknown_state = true;
     bool ready = false;
     bool armed_away = false;

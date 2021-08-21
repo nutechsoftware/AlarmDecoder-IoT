@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_MOME";
 
 #include "st_dev.h"
 #include "caps_momentary.h"
-
-static const char *TAG = "CAPS_MOME";
 
 static void caps_momentary_cmd_push_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {

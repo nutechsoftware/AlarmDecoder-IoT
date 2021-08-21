@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_SWIT";
 
 #include "st_dev.h"
 #include "caps_switch.h"
-
-static const char *TAG = "CAPS_SWIT";
 
 static int caps_switch_attr_switch_str2idx(const char *value)
 {

@@ -15,6 +15,9 @@
  * language governing permissions and limitations under the License.
  *
  ****************************************************************************/
+// Disable componet via sdkconfig
+#if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_CMOX";
 
 #include <string.h>
 #include <stdio.h>
@@ -22,13 +25,10 @@
 
 #include "esp_log.h"
 
-// Disable componet via sdkconfig
-#if CONFIG_STDK_IOT_CORE
-
 #include "st_dev.h"
 #include "caps_carbonMonoxideDetector.h"
 
-static const char *TAG = "CAPS_CMOX";
+
 
 static int caps_carbonMonoxideDetector_attr_carbonMonoxide_str2idx(const char *value)
 {

@@ -28,7 +28,8 @@
 extern "C" {
 #endif
 
-void webUI_init();
+void webui_register_cmds();
+void webui_init();
 
 #ifdef __cplusplus
 }

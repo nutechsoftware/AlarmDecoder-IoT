@@ -1,0 +1,7 @@
+menu "AD2iot * mqtt client"
+    config AD2IOT_MQTT_CLIENT
+        bool "MQTT client"
+        default n
+        help
+            Enable MQTT notification client(beta)
+endmenu
