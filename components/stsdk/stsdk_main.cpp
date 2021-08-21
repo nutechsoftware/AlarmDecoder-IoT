@@ -21,41 +21,30 @@
  *  limitations under the License.
  *
  */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// esp includes
-#include "esp_system.h"
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
 
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "ota_util.h"
-
-// Disable componet via sdkconfig
+// Disable via sdkconfig
 #if CONFIG_STDK_IOT_CORE
 static const char *TAG = "STSDK";
 
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
+
+// esp component includes
+#include "driver/uart.h"
+#include "nvs_flash.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#include "tcpip_adapter.h"
+#else
+#include "esp_netif.h"
+#include "esp_tls.h"
+#endif
+
 // specific includes
 #include "stsdk_main.h"
+#include "ota_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -339,32 +328,33 @@ char * STSDK_SETTINGS [] = {
 static struct cli_command stsdk_cmd_list[] = {
     {
         (char*)STSDK_ENABLE,(char*)
-        "- Enable SmartThings component\r\n\r\n"
-        "  ```" STSDK_ENABLE " {bool}```\r\n\r\n"
-        "  - {bool}: [Y]es/[N]o\n\n", _cli_cmd_enable_event
+        "####  Configuration for SmartThings IoT client\r\n"
+        "- Enable SmartThings component\r\n"
+        "  - ```" STSDK_ENABLE " {bool}```\r\n"
+        "    - {bool}: [Y]es/[N]o\r\n\r\n", _cli_cmd_enable_event
     },
     {
         (char*)STSDK_CLEANUP,(char*)
-        "- Cleanup NV data with restart option\r\n\r\n"
-        "  ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
+        "- Cleanup NV data with restart option\r\n"
+        "  - ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
     },
     {
         (char*)STSDK_SERIAL,(char*)
-        "- Sets the SmartThings device_info serialNumber.\r\n\r\n"
-        "  ```" STSDK_SERIAL " {serialNumber}```\r\n\r\n"
-        "  Example: " STSDK_SERIAL " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stserial_event
+        "- Sets the SmartThings device_info serialNumber.\r\n"
+        "  - ```" STSDK_SERIAL " {serialNumber}```\r\n"
+        "  - Example: ```" STSDK_SERIAL " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stserial_event
     },
     {
         (char*)STSDK_PUBKEY,(char*)
-        "- Sets the SmartThings device_info publicKey.\r\n\r\n"
-        "  ```" STSDK_PUBKEY " {publicKey}```\r\n\r\n"
-        "  Example: " STSDK_PUBKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stpublickey_event
+        "- Sets the SmartThings device_info publicKey.\r\n"
+        "  - ```" STSDK_PUBKEY " {publicKey}```\r\n"
+        "  - Example: ```" STSDK_PUBKEY " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stpublickey_event
     },
     {
         (char*)STSDK_PRIVKEY,(char*)
-        "- Sets the SmartThings device_info privateKey.\r\n\r\n"
-        "  ```" STSDK_PRIVKEY " {privateKey}```\r\n\r\n"
-        "  Example: " STSDK_PRIVKEY " AaBbCcDdEeFfGg...\r\n\r\n", _cli_cmd_stprivatekey_event
+        "- Sets the SmartThings device_info privateKey.\r\n"
+        "  - ```" STSDK_PRIVKEY " {privateKey}```\r\n"
+        "  - Example: ```" STSDK_PRIVKEY " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stprivatekey_event
     },
 };
 
@@ -707,21 +697,25 @@ void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
             cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedStay);
 #endif
             cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, caps_helper_contactSensor.attr_contact.value_open);
-            cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
-
             cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, caps_helper_contactSensor.attr_contact.value_closed);
-            cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
 
+            // if not connected just update state
+            if (hal_get_network_connected()) {
+                cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
+                cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
+            }
         } else {
 #if 0 // TODO/FIXME
             cap_securitySystem_data->set_securitySystemStatus_value(cap_securitySystem_data, caps_helper_securitySystem.attr_securitySystemStatus.value_armedAway);
 #endif
             cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, caps_helper_contactSensor.attr_contact.value_open);
-            cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
-
             cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, caps_helper_contactSensor.attr_contact.value_closed);
-            cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
 
+            // if not connected just update state
+            if (hal_get_network_connected()) {
+                cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
+                cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
+            }
         }
 #if 0 // TODO/FIXME
         cap_securitySystem_data->attr_securitySystemStatus_send(cap_securitySystem_data);
@@ -751,9 +745,12 @@ void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 #endif
         // Turn both off.
         cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, caps_helper_contactSensor.attr_contact.value_closed);
-        cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
         cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, caps_helper_contactSensor.attr_contact.value_closed);
-        cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_contactSensor_data_arm_away->attr_contact_send(cap_contactSensor_data_arm_away);
+            cap_contactSensor_data_arm_stay->attr_contact_send(cap_contactSensor_data_arm_stay);
+        }
     }
 }
 
@@ -777,8 +774,10 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
         } else {
             cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, caps_helper_contactSensor.attr_contact.value_closed);
         }
-
-        cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_contactSensor_data_chime->attr_contact_send(cap_contactSensor_data_chime);
+        }
     }
 }
 
@@ -804,8 +803,11 @@ void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_clear);
             cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, caps_helper_contactSensor.attr_contact.value_closed);
         }
-        cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
-        cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
+            cap_smokeDetector_data->attr_smoke_send(cap_smokeDetector_data);
+        }
     }
 }
 
@@ -829,8 +831,10 @@ void on_power_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
         } else {
             cap_powerSource_data->set_powerSource_value(cap_powerSource_data, caps_helper_powerSource.attr_powerSource.value_battery);
         }
-
-        cap_powerSource_data->attr_powerSource_send(cap_powerSource_data);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_powerSource_data->attr_powerSource_send(cap_powerSource_data);
+        }
     }
 }
 
@@ -855,8 +859,10 @@ void on_low_battery_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
         } else {
             cap_battery_data->set_battery_value(cap_battery_data, 100);
         }
-
-        cap_battery_data->attr_battery_send(cap_battery_data);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_battery_data->attr_battery_send(cap_battery_data);
+        }
     }
 }
 
@@ -882,7 +888,10 @@ void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
             cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data,
                                                    caps_helper_contactSensor.attr_contact.value_closed);
         }
-        cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_alarm_bell_data->attr_contact_send(cap_alarm_bell_data);
+        }
     }
 }
 
@@ -906,8 +915,10 @@ void on_zone_bypassed_change_cb(std::string *msg, AD2VirtualPartitionState *s, v
         } else {
             cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, caps_helper_contactSensor.attr_contact.value_closed);
         }
-
-        cap_contactSensor_data_zone_bypassed->attr_contact_send(cap_contactSensor_data_zone_bypassed);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_contactSensor_data_zone_bypassed->attr_contact_send(cap_contactSensor_data_zone_bypassed);
+        }
     }
 }
 
@@ -931,8 +942,10 @@ void on_exit_now_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *
         } else {
             cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, caps_helper_contactSensor.attr_contact.value_closed);
         }
-
-        cap_contactSensor_data_exit_now->attr_contact_send(cap_contactSensor_data_exit_now);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_contactSensor_data_exit_now->attr_contact_send(cap_contactSensor_data_exit_now);
+        }
     }
 }
 
@@ -952,13 +965,19 @@ void on_ready_to_arm_change_cb(std::string *msg, AD2VirtualPartitionState *s, vo
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_READY_CHANGE: '%i'", s->ready);
+        // first message from AD2* fresh state to all devices
+        if (s->count == 1) {
+            refresh_cmd_cb(nullptr, nullptr, nullptr);
+        }
         if ( s->ready ) {
             cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, caps_helper_contactSensor.attr_contact.value_open);
         } else {
             cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, caps_helper_contactSensor.attr_contact.value_closed);
         }
-
-        cap_contactSensor_data_ready_to_arm->attr_contact_send(cap_contactSensor_data_ready_to_arm);
+        // if not connected just update state
+        if (hal_get_network_connected()) {
+            cap_contactSensor_data_ready_to_arm->attr_contact_send(cap_contactSensor_data_ready_to_arm);
+        }
     }
 }
 
@@ -1105,44 +1124,16 @@ void capability_init()
 
     // Power source init
     cap_powerSource_data = caps_powerSource_initialize(ctx, "main", NULL, NULL);
-    if (cap_powerSource_data) {
-        AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-        const char *init_value = caps_helper_powerSource.attr_powerSource.value_unknown;
-        if (s != nullptr) {
-            if (s->ac_power) {
-                init_value = caps_helper_powerSource.attr_powerSource.value_mains;
-            } else {
-                init_value = caps_helper_powerSource.attr_powerSource.value_battery;
-            }
-        }
-        cap_powerSource_data->set_powerSource_value(cap_powerSource_data, init_value);
-    }
+
     // Battery init
     cap_battery_data = caps_battery_initialize(ctx, "main", NULL, NULL);
-    if (cap_battery_data) {
-        AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-
-        /* @brief initial value of 100% battery as this is most likely the case at boot. */
-        int init_value = 100;
-
-        if (s != nullptr) {
-            if (s->battery_low) {
-                init_value = 0;
-            }
-        }
-        cap_battery_data->set_battery_value(cap_battery_data, init_value);
-    }
-
 
     /**
      * @brief component: chime
      */
     // Chime contact sensor ( visual for state )
     cap_contactSensor_data_chime = caps_contactSensor_initialize(ctx, "chime", NULL, NULL);
-    if (cap_contactSensor_data_chime) {
-        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        cap_contactSensor_data_chime->set_contact_value(cap_contactSensor_data_chime, contact_init_value);
-    }
+
     // Chime Momentary button: toggle chime mode.
     cap_momentary_data_chime = caps_momentary_initialize(ctx, "chime", NULL, NULL);
     if (cap_momentary_data_chime) {
@@ -1154,10 +1145,7 @@ void capability_init()
      */
     // Smoke Detector
     cap_smokeDetector_data = caps_smokeDetector_initialize(ctx, "fire", NULL, NULL);
-    if (cap_smokeDetector_data) {
-        const char *smoke_init_value = caps_helper_smokeDetector.attr_smoke.value_clear;
-        cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, smoke_init_value);
-    }
+
     // Fire Alarm panic Momentary button
     cap_momentary_data_fire = caps_momentary_initialize(ctx, "fire", NULL, NULL);
     if (cap_momentary_data_fire) {
@@ -1169,10 +1157,7 @@ void capability_init()
      */
     // Alarm panel Bell status.
     cap_alarm_bell_data = caps_contactSensor_initialize(ctx, "alarm", NULL, NULL);
-    if (cap_alarm_bell_data) {
-        const char *alarm_init_value = caps_helper_contactSensor.attr_contact.value_closed;
-        cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, alarm_init_value);
-    }
+
     // Panic Alarm Momentary button
     cap_momentary_data_panic_alarm = caps_momentary_initialize(ctx, "alarm", NULL, NULL);
     if (cap_momentary_data_panic_alarm) {
@@ -1196,10 +1181,7 @@ void capability_init()
      */
     // Arm Stay contact sensor ( visual for state )
     cap_contactSensor_data_arm_stay = caps_contactSensor_initialize(ctx, "armstay", NULL, NULL);
-    if (cap_contactSensor_data_arm_stay) {
-        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        cap_contactSensor_data_arm_stay->set_contact_value(cap_contactSensor_data_arm_stay, contact_init_value);
-    }
+
     // @brief Arm Stay momentary button
     cap_momentary_data_arm_stay = caps_momentary_initialize(ctx, "armstay", NULL, NULL);
     if (cap_momentary_data_arm_stay) {
@@ -1212,10 +1194,7 @@ void capability_init()
      */
     // Arm Stay contact sensor ( visual for state )
     cap_contactSensor_data_arm_away = caps_contactSensor_initialize(ctx, "armaway", NULL, NULL);
-    if (cap_contactSensor_data_arm_away) {
-        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        cap_contactSensor_data_arm_away->set_contact_value(cap_contactSensor_data_arm_away, contact_init_value);
-    }
+
     // @brief Arm Away momentary button
     cap_momentary_data_arm_away = caps_momentary_initialize(ctx, "armaway", NULL, NULL);
     if (cap_momentary_data_arm_away) {
@@ -1267,30 +1246,19 @@ void capability_init()
      */
     // bypass contact sensor ( visual for state )
     cap_contactSensor_data_zone_bypassed = caps_contactSensor_initialize(ctx, "bypass", NULL, NULL);
-    if (cap_contactSensor_data_zone_bypassed) {
-        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        cap_contactSensor_data_zone_bypassed->set_contact_value(cap_contactSensor_data_zone_bypassed, contact_init_value);
-    }
 
     /**
      * @brief component: ready
      */
     // ready contact sensor ( visual for state )
     cap_contactSensor_data_ready_to_arm = caps_contactSensor_initialize(ctx, "ready", NULL, NULL);
-    if (cap_contactSensor_data_ready_to_arm) {
-        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        cap_contactSensor_data_ready_to_arm->set_contact_value(cap_contactSensor_data_ready_to_arm, contact_init_value);
-    }
 
     /**
      * @brief component: exit
      */
     // 'exit now' contact sensor ( visual for state )
     cap_contactSensor_data_exit_now = caps_contactSensor_initialize(ctx, "exit", NULL, NULL);
-    if (cap_contactSensor_data_exit_now) {
-        const char *contact_init_value = caps_helper_contactSensor.attr_contact.value_open;
-        cap_contactSensor_data_exit_now->set_contact_value(cap_contactSensor_data_exit_now, contact_init_value);
-    }
+
     // @brief Exit Now button
     cap_momentary_data_exit_now = caps_momentary_initialize(ctx, "exit", NULL, NULL);
     if (cap_momentary_data_exit_now) {
@@ -1458,16 +1426,40 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
     // and if possible selectable from ST App so partition can be
     // selected from a list.
     AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-    if (s != nullptr) {
+    if (s != nullptr && !s->unknown_state) {
         std::string statestr = "REFRESH";
         if (s->armed_stay || s->armed_away) {
             on_arm_cb(&statestr, s, nullptr);
         } else {
             on_disarm_cb(&statestr, s, nullptr);
         }
+
+        // send chime state
         on_chime_change_cb(&statestr, s, nullptr);
+
+        // send ready state
+        // Called by ready so dont call ready or BOOM!
+
+        // send fire state
+        on_fire_cb(&statestr, s, nullptr);
+
+        // send power state
+        on_power_cb(&statestr, s, nullptr);
+
+        // send low_battery state
+        on_low_battery_cb(&statestr, s, nullptr);
+
+        // send alarm_change state
+        on_alarm_change_cb(&statestr, s, nullptr);
+
+        // send zone_bypassed_change state
+        on_zone_bypassed_change_cb(&statestr, s, nullptr);
+
+        // send exit_now_change state
+        on_exit_now_change_cb(&statestr, s, nullptr);
+
     } else {
-        ESP_LOGE(TAG, "vpart[%u] not found", AD2_DEFAULT_VPA_SLOT);
+        ESP_LOGE(TAG, "vpart[%u] not found or not received first message.", AD2_DEFAULT_VPA_SLOT);
     }
 }
 

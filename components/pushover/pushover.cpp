@@ -21,78 +21,49 @@
 *  limitations under the License.
 *
 */
-
-// common includes
-// stdc
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <ctype.h>
-
-// stdc++
-#include <string>
-#include <sstream>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
-#include "cJSON.h"
-
-static const char *TAG = "PUSHOVER";
-
-// AlarmDecoder includes
-#include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
-#include "ad2_uart_cli.h"
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
+static const char *TAG = "PUSHOVER";
+
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
 // specific includes
 #include "pushover.h"
 
-// mbedtls
-#include "mbedtls/base64.h"
-#include "mbedtls/platform.h"
-#include "mbedtls/net_sockets.h"
-#include "mbedtls/esp_debug.h"
-#include "mbedtls/ssl.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/error.h"
-#include "mbedtls/certs.h"
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-#include "mbedtls/ssl_cache.h"
-#endif
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
-#include "esp_crt_bundle.h"
-#endif
+//#define DEBUG_PUSHOVER
+#define AD2_DEFAULT_PUSHOVER_SLOT 0
 
-QueueHandle_t  sendQ_po=NULL;
-mbedtls_entropy_context pushover_entropy;
-mbedtls_ctr_drbg_context pushover_ctr_drbg;
-mbedtls_ssl_config pushover_conf;
-mbedtls_ssl_context pushover_ssl;
-mbedtls_x509_crt api_pushover_net_cacert;
-mbedtls_net_context pushover_server_fd;
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-mbedtls_ssl_cache_context cache;
-#endif
+/* Constants that aren't configurable in menuconfig */
+#define PUSHOVER_API_VERSION "1"
+const char PUSHOVER_URL[] = "https://api.pushover.net/" PUSHOVER_API_VERSION "/messages.json";
 
-std::vector<AD2EventSearch *> pushover_AD2EventSearches;
+#define PUSHOVER_COMMAND        "pushover"
+#define PUSHOVER_PREFIX         "po"
+#define PUSHOVER_TOKEN_CFGKEY   "apptoken"
+#define PUSHOVER_USERKEY_CFGKEY "userkey"
+#define PUSHOVER_SAS_CFGKEY     "switch"
 
+#define MAX_SEARCH_KEYS 9
+
+// NV storage sub key values for virtual search switch
+#define SK_NOTIFY_SLOT       "N"
+#define SK_DEFAULT_STATE     "D"
+#define SK_AUTO_RESET        "R"
+#define SK_TYPE_LIST         "T"
+#define SK_PREFILTER_REGEX   "P"
+#define SK_OPEN_REGEX_LIST   "O"
+#define SK_CLOSED_REGEX_LIST "C"
+#define SK_FAULT_REGEX_LIST  "F"
+#define SK_OPEN_OUTPUT_FMT   "o"
+#define SK_CLOSED_OUTPUT_FMT "c"
+#define SK_FAULT_OUTPUT_FMT  "f"
+
+static std::vector<AD2EventSearch *> pushover_AD2EventSearches;
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 /**
@@ -107,325 +78,206 @@ extern const uint8_t pushover_root_pem_start[] asm("_binary_pushover_root_pem_st
 extern const uint8_t pushover_root_pem_end[]   asm("_binary_pushover_root_pem_end");
 #endif
 
-/**
- * build_pushover_body()
- */
-std::string build_pushover_body(std::string userkey, std::string token, std::string message)
-{
-    std::string body = "token=" + ad2_urlencode(token) + "&user=" + ad2_urlencode(userkey) + \
-                       "&message=" + ad2_urlencode(message);
-    return body;
-}
-
-/**
- * build_pushover_request_string()
- */
-std::string build_pushover_request_string(std::string body)
-{
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-
-    std::string http_request = "POST https://" + std::string(PUSHOVER_API_SERVER) + "/" + std::string(PUSHOVER_API_VERSION) + "/messages.json HTTP/1.1\r\n";
-    http_request +=
-        "User-Agent: esp-idf/1.0 esp32(v" + ad2_to_string(chip_info.revision) + ")\r\n" +
-        "Host: " + std::string(PUSHOVER_API_SERVER) + "\r\n" +
-        "Cache-control: no-cache\r\n" +
-        "Content-Type: application/x-www-form-urlencoded; charset=utf-8\r\n" +
-        "Content-Length: " + ad2_to_string(body.length()) + "\r\n" +
-        "Connection: close\r\n" +
-        "\r\n" + body + "\r\n";
-    return http_request;
-}
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// forward decl
+
 /**
- * pushover_add_queue()
+ * @brief class that will be stored in the sendQ for each request.
  */
-void pushover_add_queue(std::string &userkey, std::string &token, std::string &message)
+class request_message
 {
-    if (sendQ_po) {
-        pushover_message_data_t *message_data = NULL;
-        message_data = (pushover_message_data_t *)malloc(sizeof(pushover_message_data_t));
-        message_data->token = strdup(token.c_str());
-        message_data->userkey = strdup(userkey.c_str());
-        message_data->message = strdup(message.c_str());
-        xQueueSend(sendQ_po,(void *)&message_data,(TickType_t )0);
-    } else {
-        ESP_LOGE(TAG, "Invalid queue handle");
+public:
+    request_message()
+    {
+        config_client = (esp_http_client_config_t *)calloc(1, sizeof(esp_http_client_config_t));
     }
-}
+    ~request_message()
+    {
+        if (config_client) {
+            free(config_client);
+        }
+    }
+
+    // client_config used the the http_sendQ
+    esp_http_client_config_t* config_client;
+
+    // Application specific
+    std::string token;
+    std::string userkey;
+    std::string message;
+    std::string post;
+    std::string results;
+};
 
 /**
- * Background task to watch queue and synchronously send notifications.
- * Note:
- *   [X] Only runs one task at a time.
- *   [X] Delivery rate limited.
- *   [ ] Limit max tasks in queue. How many? High water local audible alert?.
- */
-void pushover_consumer_task(void *pvParameter)
-{
-    ESP_LOGI(TAG,"queue consumer loop start");
-    while(1) {
-        if(sendQ_po == NULL) {
-            ESP_LOGW(TAG, "sendQ is not ready task ending");
-            break;
-        }
-        pushover_message_data_t *message_data = NULL;
-        if ( xQueueReceive(sendQ_po,&message_data,portMAX_DELAY) ) {
-            ESP_LOGI(TAG, "Calling pushover notification.");
-            pushover_send_task((void *)message_data);
-            ESP_LOGI(TAG, "Completed requests stack free %d", uxTaskGetStackHighWaterMark(NULL));
-            vTaskDelay(PUSHOVER_RATE_LIMIT/portTICK_PERIOD_MS);
-        } else {
-            // sleep for a bit then check the queue again.
-            vTaskDelay(100/portTICK_PERIOD_MS);
-        }
-    }
-    // Notification queue consumer task stopping.
-    vTaskDelete(NULL);
-}
-
-/**
- * cleanup memory
- */
-void pushover_free()
-{
-    mbedtls_ssl_free( &pushover_ssl );
-    mbedtls_x509_crt_free( &api_pushover_net_cacert );
-    mbedtls_ssl_config_free( &pushover_conf );
-
-    mbedtls_ctr_drbg_free( &pushover_ctr_drbg);
-    mbedtls_entropy_free( &pushover_entropy );
-}
-
-/**
- * @brief Background task to send a message to pushover.net.
- *
- * @param [in] pvParameters void * argment from task creation.
- */
-void pushover_send_task(void *pvParameters)
-{
-    ESP_LOGI(TAG, "pushover send task start stack free %d", esp_get_free_heap_size());
-
-    pushover_message_data_t *message_data = (pushover_message_data_t *)pvParameters;
-
-    char buf[512];
-    int ret, flags, len;
-    size_t written_bytes = 0;
-    std::string http_request;
-    std::string body;
-    char * reqp = NULL;
-    mbedtls_ssl_context *_ssl = nullptr;
-
-
-    // should never happen sanity check.
-    if (message_data == NULL) {
-        ESP_LOGE(TAG, "error null message_data aborting task.");
-        return;
-    }
-
-    // load message data local for ease of access
-    std::string token = message_data->token;
-    std::string userkey = message_data->userkey;
-    std::string message = message_data->message;
-
-    // free we are done with the pointers.
-    free(message_data->token);
-    free(message_data->userkey);
-    free(message_data->message);
-    free(message_data);
-
-    /* Build the HTTPS POST request. */
-    const char * _api_server_port = nullptr;
-    const char * _api_server_address = nullptr;
-
-    // Pushover Messages api
-    _api_server_address = PUSHOVER_API_SERVER;
-    _api_server_port = PUSHOVER_API_PORT;
-    body = build_pushover_body(userkey, token, message);
-
-    // build request string including basic auth headers
-    http_request = build_pushover_request_string(body);
-#if defined(DEBUG_PUSHOVER)
-    ESP_LOGI(TAG, "SENDING '%s'", http_request.c_str());
-#endif
-
-    // clean up and ready for new request
-    _ssl = &pushover_ssl;
-    mbedtls_ssl_session_reset(_ssl);
-    mbedtls_net_free(&pushover_server_fd);
-    ESP_LOGI(TAG, "Connecting to %s:%s...", _api_server_address, _api_server_port);
-    if ((ret = mbedtls_net_connect(&pushover_server_fd, _api_server_address,
-                                   _api_server_port, MBEDTLS_NET_PROTO_TCP)) != 0) {
-        ESP_LOGE(TAG, "mbedtls_net_connect returned -%x", -ret);
-        goto exit;
-    }
-
-    ESP_LOGI(TAG, "Connected.");
-
-    mbedtls_ssl_set_bio(_ssl, &pushover_server_fd, mbedtls_net_send, mbedtls_net_recv, NULL);
-
-    ESP_LOGI(TAG, "Performing the SSL/TLS handshake...");
-
-    while ((ret = mbedtls_ssl_handshake(_ssl)) != 0) {
-        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            ESP_LOGE(TAG, "mbedtls_ssl_handshake returned -0x%x", -ret);
-            goto exit;
-        }
-    }
-
-    ESP_LOGI(TAG, "Verifying peer X.509 certificate...");
-
-    if ((flags = mbedtls_ssl_get_verify_result(_ssl)) != 0) {
-        /* In real life, we probably want to close connection if ret != 0 */
-        ESP_LOGW(TAG, "Failed to verify peer certificate!");
-        bzero(buf, sizeof(buf));
-        mbedtls_x509_crt_verify_info(buf, sizeof(buf), "  ! ", flags);
-        ESP_LOGW(TAG, "verification info: %s", buf);
-    } else {
-        ESP_LOGI(TAG, "Certificate verified.");
-    }
-
-    ESP_LOGI(TAG, "Cipher suite is %s", mbedtls_ssl_get_ciphersuite(_ssl));
-
-    reqp = (char *)http_request.c_str();
-#if defined(DEBUG_PUSHOVER)
-    ESP_LOGI(TAG, "sending message to pushover.net\r\n%s\r\n",http_request.c_str());
-#endif
-
-
-    /* Send HTTPS POST request. */
-    ESP_LOGI(TAG, "Writing HTTP request...");
-    do {
-        ret = mbedtls_ssl_write(_ssl,
-                                (const unsigned char *)reqp + written_bytes,
-                                strlen(reqp) - written_bytes);
-        if (ret >= 0) {
-            ESP_LOGI(TAG, "%d bytes written", ret);
-            written_bytes += ret;
-        } else if (ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret != MBEDTLS_ERR_SSL_WANT_READ) {
-            ESP_LOGE(TAG, "mbedtls_ssl_write returned -0x%x", -ret);
-            goto exit;
-        }
-    } while(written_bytes < strlen(reqp));
-
-    ESP_LOGI(TAG, "Reading HTTP response...");
-
-    do {
-        len = sizeof(buf) - 1;
-        bzero(buf, sizeof(buf));
-        ret = mbedtls_ssl_read(_ssl, (unsigned char *)buf, len);
-
-        if(ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-            continue;
-        }
-
-        if(ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-            ret = 0;
-            break;
-        }
-
-        if(ret < 0) {
-            ESP_LOGE(TAG, "mbedtls_ssl_read returned -0x%x", -ret);
-            break;
-        }
-
-        if(ret == 0) {
-            ESP_LOGI(TAG, "connection closed");
-            break;
-        }
-        // TODO: parse response error logging for easier debugging.
-#if defined(DEBUG_PUSHOVER)
-        ESP_LOGI(TAG, "HTTPRX: %s", buf);
-#endif
-        len = ret;
-        ESP_LOGD(TAG, "%d bytes read", len);
-    } while(1);
-
-    mbedtls_ssl_close_notify(_ssl);
-
-exit:
-
-    if(ret != 0) {
-        mbedtls_strerror(ret, buf, 100);
-        ESP_LOGE(TAG, "Last error was: -0x%x - %s", -ret, buf);
-    }
-}
-
-/**
- * @brief Build and queue a pushover request.
- *
- * @param [in]msg raw panel message that caused event.
- * @param [in]s virtual partition state.
- * @param [in]arg string pointer event class string.
+ * @brief ad2_http_sendQ callback before esp_http_client_perform() is called.
+ * Add headers content etc.
  *
  */
-void ad2_event_cb_pushover(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
-    // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
-    if (!s || (defs && s->partition == defs->partition)) {
-        ESP_LOGI(TAG, "pushover ad2_event_cb_pushover '%i'", (int)arg);
+    esp_err_t err;
+    // if perform failed this can be NULL
+    if (client) {
+        request_message *r = (request_message*) config->user_data;
 
-        std::string message;
-        if (AD2Parse.event_str.find((int)arg) == AD2Parse.event_str.end()) {
-            message = ad2_string_printf("EVENT ID %d",(int)arg);
-        } else {
-            message = AD2Parse.event_str[(int)arg];
-        }
+        // Pushover message API
+        //   https://pushover.net/api
+        r->post = std::string("token=" + ad2_urlencode(r->token) + "&user=" + ad2_urlencode(r->userkey) + \
+                              "&message=" + ad2_urlencode(r->message));
 
-        if (hal_get_network_connected()) {
-            // load our settings for this event type.
-            std::string userkey;
-            std::string key;
-            key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_USERKEY_CFGKEY);
-            ad2_get_nv_slot_key_string(key.c_str(), AD2_DEFAULT_PUSHOVER_SLOT, nullptr, userkey);
+        // does not copy data just a pointer so we have to maintain memory.
+        err = esp_http_client_set_post_field(client, r->post.c_str(), r->post.length());
 
-            std::string token;
-            key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_TOKEN_CFGKEY);
-            ad2_get_nv_slot_key_string(key.c_str(), AD2_DEFAULT_PUSHOVER_SLOT, nullptr, token);
-
-            // add to the queue
-            ESP_LOGI(TAG, "Adding task to pushover send queue");
-            pushover_add_queue(userkey, token, message);
-        }
     }
 }
 
 /**
- * @brief Search match callback.
+ * @brief ad2_http_sendQ callback when esp_http_client_perform() is finished.
+ * Preform any final cleanup here.
+ *
+ *  @param [in]esp_err_t res - Results of esp_http_client_preform()
+ *  @param [in]evt esp_http_client_event_t
+ *  @param [in]config esp_http_client_config_t *
+ *
+ * @return bool TRUE: The connection done and allow sendQ worker to delete it.
+ *              FALSE: The connection expects a new URL and will call preform() again.
+ */
+static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_http_client_config_t *config)
+{
+    request_message *r = (request_message*) config->user_data;
+
+    ESP_LOGI(TAG, "perform results = %d HTTP Status = %d, response length = %d response = '%s'", res,
+             esp_http_client_get_status_code(client),
+             esp_http_client_get_content_length(client), r->results.c_str());
+
+    // free message_data class will also delete the client_config in the distructor.
+    delete r;
+
+    // Report back this client request is all done and is ready to close.
+    return true;
+}
+
+/**
+ * @brief esp_http_client event callback.
+ *
+ * HTTP_EVENT_ON_DATA to capture server response message.
+ * Also use for diagnostics of response headers etc.
+ *
+ *  @param [in]evt esp_http_client_event_t *
+ */
+esp_err_t _pushover_http_event_handler(esp_http_client_event_t *evt)
+{
+    request_message *r;
+    size_t len;
+
+    switch(evt->event_id) {
+    case HTTP_EVENT_ON_HEADER:
+#if defined(DEBUG_PUSHOVER)
+        ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+#endif
+        break;
+    case HTTP_EVENT_ERROR:
+#if defined(DEBUG_PUSHOVER)
+        ESP_LOGI(TAG, "HTTP_EVENT_ERROR");
+#endif
+        break;
+    case HTTP_EVENT_ON_CONNECTED:
+#if defined(DEBUG_PUSHOVER)
+        ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+#endif
+        break;
+    case HTTP_EVENT_HEADERS_SENT:
+#if defined(DEBUG_PUSHOVER)
+        ESP_LOGI(TAG, "HTTP_EVENT_HEADERS_SENT");
+#endif
+        break;
+    case HTTP_EVENT_ON_FINISH:
+#if defined(DEBUG_PUSHOVER)
+        ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+#endif
+        break;
+    case HTTP_EVENT_DISCONNECTED:
+#if defined(DEBUG_PUSHOVER)
+        ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+#endif
+        break;
+    case HTTP_EVENT_ON_DATA:
+        if (evt->data_len) {
+            // Save the results into our message_data structure.
+            r = (request_message *)evt->user_data;
+            // Limit size.
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+            len = MIN(1024, evt->data_len);
+            r->results = std::string((char*)evt->data, len);
+        }
+        break;
+    }
+
+    return ESP_OK;
+}
+
+/**
+ * @brief SmartSwitch match callback.
  * Called when the current message matches a AD2EventSearch test.
  *
  * @param [in]msg std::string new version string.
  * @param [in]s nullptr
  * @param [in]arg nullptr.
  *
+ * @note No full queue handler
  */
 void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
     ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
-    if (hal_get_network_connected()) {
-        std::string message = es->out_message;
-        // load our settings for this event type.
-        std::string key;
-        std::string userkey;
-        key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_USERKEY_CFGKEY);
-        ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, nullptr, userkey);
 
-        std::string token;
-        key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_TOKEN_CFGKEY);
-        ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, nullptr, token);
+    // Container to store details needed for delivery.
+    request_message *r = new request_message();
 
-        // add to the queue
-        ESP_LOGI(TAG, "Adding task to pushover send queue");
-        pushover_add_queue(userkey, token, message);
+    // load our settings for this event type.
+    // es->INT_ARG is the notifiaction slot for this notification.
+    std::string nvkey;
+
+    // save the user key
+    nvkey = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_USERKEY_CFGKEY);
+    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->userkey);
+
+    // save the token
+    nvkey = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_TOKEN_CFGKEY);
+    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->token);
+
+    // save the message
+    r->message = es->out_message;
+
+    // Settings specific for http_client_config
+    r->config_client->url = PUSHOVER_URL;
+    // set request type
+    r->config_client->method = HTTP_METHOD_POST;
+
+    // optional define an internal event handler
+    r->config_client->event_handler = _pushover_http_event_handler;
+
+    // required save internal class to user_data to be used in callback.
+    r->config_client->user_data = (void *)r; // Definition of grok.. see grok.
+
+    // Fails, but not needed to work.
+    // config_client->use_global_ca_store = true;
+
+    // Add client config to the http_sendQ for processing.
+    bool res = ad2_add_http_sendQ(r->config_client, _sendQ_ready_handler, _sendQ_done_handler);
+    if (res) {
+        ESP_LOGI(TAG,"Adding HTTP request to ad2_add_http_sendQ");
+    } else {
+        ESP_LOGE(TAG,"Error adding HTTP request to ad2_add_http_sendQ.");
+        // destroy storage class if we fail to add to the sendQ
+        delete r;
     }
 }
-
 
 /**
  * Command support values.
@@ -443,7 +295,7 @@ char * PUSHOVER_SETTINGS [] = {
 };
 
 /**
- * Pushover generic command event processing
+ * Component generic command event processing
  *  command: [COMMAND] [SUB] <id> <arg>
  * ex.
  *   [COMMAND] [SUB] 0 arg...
@@ -477,7 +329,7 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, char *string)
 }
 
 /**
- * Pushover smart alert switch command event processing
+ * component SmartSwitch command event processing
  *  command: [COMMAND] [SUB] <id> <setting> <arg1> <arg2>
  * ex. Switch #0 [N]otification slot 0
  *   [COMMAND] [SUB] 0 N 0
@@ -698,7 +550,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
 }
 
 /**
- * Pushover command router.
+ * Component command router
  */
 static void _cli_cmd_pushover_command_router(char *string)
 {
@@ -731,28 +583,30 @@ static void _cli_cmd_pushover_command_router(char *string)
 }
 
 /**
- * @brief command list for module
+ * @brief command list for component
+ *
  */
 static struct cli_command pushover_cmd_list[] = {
     {
+        // ### Pushover.net notification component
         (char*)PUSHOVER_COMMAND,(char*)
-        "### Configuration for pushover.net message notifications.\r\n\r\n"
-        "  - Sets the 'Application Token/Key' for a given notification slot. Multiple slots allow for multiple pushover accounts or applications.\r\n\r\n"
-        "    ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " {slot} {hash}```\r\n\r\n"
+        "#### Configuration for Pushover.net notification\r\n"
+        "- Sets the ```Application Token/Key``` for a given notification slot. Multiple slots allow for multiple pushover accounts or applications.\r\n"
+        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " {slot} {hash}```\r\n"
         "    - {slot}: [N]\r\n"
-        "      - For default use 0.\r\n\r\n"
-        "    - {hash}: Pushover.net 'User Auth Token'.\r\n\r\n"
-        "    Example: " PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " 0 aabbccdd112233..\r\n\r\n"
-        "  - Sets the 'User Key' for a given notification slot.\r\n\r\n"
-        "    ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " {slot} {hash}```\r\n\r\n"
+        "      - For default use 0.\r\n"
+        "    - {hash}: Pushover.net ```User Auth Token```.\r\n"
+        "  - Example: ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " 0 aabbccdd112233..```\r\n"
+        "- Sets the 'User Key' for a given notification slot.\r\n"
+        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " {slot} {hash}```\r\n"
         "    - {slot}: [N]\r\n"
-        "      - For default use 0.\r\n\r\n"
-        "    - {hash}: Pushover 'User Key'.\r\n\r\n"
-        "    Example: " PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " 0 aabbccdd112233..\r\n\r\n"
-        "  - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n\r\n"
-        "    ```" PUSHOVER_COMMAND " " PUSHOVER_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n\r\n"
+        "      - For default use 0.\r\n"
+        "    - {hash}: Pushover ```User Key```.\r\n"
+        "  - Example: ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " 0 aabbccdd112233..```\r\n"
+        "- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n"
+        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n"
         "    - {slot}\r\n"
-        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n\r\n"
+        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
         "      - [N] Notification slot\r\n"
         "        -  Notification settings slot to use for sending this events.\r\n"
@@ -781,7 +635,7 @@ static struct cli_command pushover_cmd_list[] = {
 };
 
 /**
- * Register cli commands
+ * Register component cli commands
  */
 void pushover_register_cmds()
 {
@@ -792,123 +646,11 @@ void pushover_register_cmds()
 }
 
 /**
- * Initialize queue and SSL
+ * Initialize component
  */
 void pushover_init()
 {
-    int res = 0;
-
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_cache_init( &cache );
-#endif
-    // init server_fd
-    mbedtls_net_init(&pushover_server_fd);
-
-    // init api.pushover.net ssl connection
-    mbedtls_ssl_init(&pushover_ssl);
-    // init api.pushover.net SSL conf
-    mbedtls_ssl_config_init(&pushover_conf);
-    // init cert for api.pushover.net
-    mbedtls_x509_crt_init(&api_pushover_net_cacert);
-
-    // init entropy
-    mbedtls_entropy_init(&pushover_entropy);
-
-    // init drbg
-    mbedtls_ctr_drbg_init(&pushover_ctr_drbg);
-#if defined(DEBUG_PUSHOVER_TLS)
-    mbedtls_debug_set_threshold( DEBUG_LEVEL );
-#endif
-
-    ESP_LOGI(TAG, "Seeding the random number generator");
-    if((res = mbedtls_ctr_drbg_seed(&pushover_ctr_drbg, mbedtls_entropy_func, &pushover_entropy,
-                                    NULL, 0)) != 0) {
-        ESP_LOGE(TAG, "mbedtls_ctr_drbg_seed returned %d", res);
-        pushover_free();
-        return;
-    }
-
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    /**
-     * api.pushover.net SSL setup
-     */
-    ESP_LOGI(TAG, "Loading api.pushover.net CA root certificate...");
-    res = mbedtls_x509_crt_parse(&api_pushover_net_cacert, pushover_root_pem_start,
-                                 pushover_root_pem_end-pushover_root_pem_start);
-    if(res < 0) {
-        ESP_LOGE(TAG, "mbedtls_x509_crt_parse returned -0x%x\n\n", -res);
-        pushover_free();
-        return;
-    }
-#else
-    res = esp_crt_bundle_attach(&pushover_conf);
-
-    if(res < 0) {
-        ESP_LOGE(TAG, "esp_crt_bundle_attach for api.pushover.net returned -0x%x\n\n", -res);
-        pushover_free();
-        return;
-    }
-#endif
-
-    /* MBEDTLS_SSL_VERIFY_OPTIONAL is bad for security, in this example it will print
-       a warning if CA verification fails but it will continue to connect.
-       You should consider using MBEDTLS_SSL_VERIFY_REQUIRED in your own code.
-    */
-    mbedtls_ssl_conf_authmode(&pushover_conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
-    mbedtls_ssl_conf_ca_chain(&pushover_conf, &api_pushover_net_cacert, NULL);
-    mbedtls_ssl_conf_rng(&pushover_conf, mbedtls_ctr_drbg_random, &pushover_ctr_drbg);
-#ifdef CONFIG_MBEDTLS_DEBUG
-    mbedtls_esp_enable_debug_log(&pushover_conf, 4);
-#endif
-
-#if defined(MBEDTLS_SSL_CACHE_C_BROKEN)
-    mbedtls_ssl_conf_session_cache( &pushover_conf, &cache,
-                                    mbedtls_ssl_cache_get,
-                                    mbedtls_ssl_cache_set );
-#endif
-
-    ESP_LOGI(TAG, "Setting api.pushover.net hostname for TLS session...");
-    /* Hostname set here should match CN in server certificate */
-    if((res = mbedtls_ssl_set_hostname(&pushover_ssl, PUSHOVER_API_SERVER)) != 0) {
-        ESP_LOGE(TAG, "mbedtls_ssl_set_hostname returned -0x%x", -res);
-        pushover_free();
-        return;
-    }
-
-    ESP_LOGI(TAG, "Setting up the api.pushover.net SSL/TLS structure...");
-    if((res = mbedtls_ssl_config_defaults(&pushover_conf,
-                                          MBEDTLS_SSL_IS_CLIENT,
-                                          MBEDTLS_SSL_TRANSPORT_STREAM,
-                                          MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
-        ESP_LOGE(TAG, "mbedtls_ssl_config_defaults returned %d", res);
-        pushover_free();
-        return;
-    }
-
-    if ((res = mbedtls_ssl_setup(&pushover_ssl, &pushover_conf)) != 0) {
-        ESP_LOGE(TAG, "mbedtls_ssl_setup returned -0x%x\n\n", -res);
-        pushover_free();
-        return;
-    }
-
-    ESP_LOGI(TAG, "Starting pushover queue consumer task");
-    sendQ_po = xQueueCreate(PUSHOVER_QUEUE_SIZE,sizeof(struct pushover_message_data *));
-    if( sendQ_po == 0 ) {
-        ESP_LOGE(TAG, "Failed to create pushover queue.");
-    } else {
-        xTaskCreate(&pushover_consumer_task, "pushover_consumer_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
-    }
-
-    // TODO configure to all selection on events to notify on.
-
-    // Register callbacks for a few static events for testing.
-    //AD2Parse.subscribeTo(ON_LRR, ad2_event_cb_pushover, (void*)ON_LRR);
-    //AD2Parse.subscribeTo(ON_ARM, ad2_event_cb_pushover, (void*)ON_ARM);
-    //AD2Parse.subscribeTo(ON_DISARM, ad2_event_cb_pushover, (void*)ON_DISARM);
-    //AD2Parse.subscribeTo(ON_FIRE, ad2_event_cb_pushover, (void*)ON_FIRE);
-    //AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_event_cb_pushover, (void*)ON_ALARM_CHANGE);
-
-    // Register search based virtual switches.
+    // Register search based virtual switches with the AlarmDecoderParser.
     std::string key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_SAS_CFGKEY);
     int subscribers = 0;
     for (int i = 1; i < 99; i++) {
@@ -932,7 +674,7 @@ void pushover_init()
                 std::string notify_types_sz = "";
                 std::vector<std::string> notify_types_v;
                 ad2_get_nv_slot_key_string(key.c_str(), i, SK_TYPE_LIST, notify_types_sz);
-                ad2_tokenize(notify_types_sz, ',', notify_types_v);
+                ad2_tokenize(notify_types_sz, ", ", notify_types_v);
                 for (auto &sztype : notify_types_v) {
                     ad2_trim(sztype);
                     auto x = AD2Parse.message_type_id.find(sztype);
@@ -968,7 +710,7 @@ void pushover_init()
                 // Save the search to a list for management.
                 pushover_AD2EventSearches.push_back(es1);
 
-                // subscribe to the callback for events.
+                // subscribe the AD2EventSearch virtual switch callback.
                 AD2Parse.subscribeTo(on_search_match_cb_po, es1);
 
                 // keep track of how many for user feedback.
@@ -979,9 +721,13 @@ void pushover_init()
 
     ESP_LOGI(TAG, "Found and configured %i virtual switches.", subscribers);
 
-#if 0 /* TESTING FIXME */
-    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_event_cb_pushover, (void*)ON_CHIME_CHANGE);
-#endif
+}
+
+/**
+ * component memory cleanup
+ */
+void pushover_free()
+{
 }
 
 #ifdef __cplusplus

@@ -1,5 +1,5 @@
 /**
- *  @file    webUI.h
+ *  @file    webUI.cpp
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    07/17/2021
  *
@@ -22,45 +22,35 @@
  */
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-
-// AlarmDecoder std includes
-#include "alarmdecoder_main.h"
-#include "ad2_settings.h"
-#include "ad2_utils.h"
-
-// esp networking etc.
-#include <lwip/netdb.h>
-#include "esp_http_server.h"
-#include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-
-// cJSON component (esp-idf REQUIRES json)
-#include "cJSON.h"
-
-// AlarmDecoder IoT hardware settings.
-#include "device_control.h"
 
 // Disable via sdkconfig
 #if CONFIG_AD2IOT_WEBSERVER_UI
 static const char *TAG = "WEBUI";
 
-// Define the virtual mount prefix for all file operations.
-#define MOUNT_POINT "/sdcard"
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-/**
- * SSDP SECRETS/SETTINGS
- */
-// UUID
-// Length fixed 36 characters
-// format args
-// 1-3: esp32 chip id
-// 4-7: unique 32 bit value
-#define AD2IOT_UUID_FORMAT   "41443245-4d42-4544-44%02x-%02x%02x%02x%02x%02x%02x"
+// esp component includes
+#include "esp_http_server.h"
+
+// specific includes
+
+/* Constants that aren't configurable in menuconfig */
+#define PORT 10000
+#define MAX_CLIENTS 4
+#define MAX_FIFO_BUFFERS 30
+#define MAXCONNECTIONS MAX_CLIENTS+1
+
+#define WEBUI_COMMAND          "webui"
+#define WEBUI_SUBCMD_ENABLE    "enable"
+#define WEBUI_SUBCMD_ACL       "acl"
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (255)
+
+/* helper macro MIN */
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 /* helper macro to test for extenions */
 #define IS_FILE_EXT(filename, ext) \
@@ -70,6 +60,22 @@ static const char *TAG = "WEBUI";
 httpd_config_t server_config = HTTPD_DEFAULT_CONFIG();
 httpd_handle_t server = nullptr;
 
+/* ACL control */
+ad2_acl_check webui_acl;
+
+/**
+ * WebUI command list and enum.
+ */
+char * WEBUI_SUBCMD [] = {
+    (char*)WEBUI_SUBCMD_ENABLE,
+    (char*)WEBUI_SUBCMD_ACL,
+    0 // EOF
+};
+
+enum {
+    WEBUI_SUBCMD_ENABLE_ID = 0,
+    WEBUI_SUBCMD_ACL_ID,
+};
 
 /**
  * @brief websocket session storage structure.
@@ -91,26 +97,6 @@ extern "C" {
 // Currently not functional with esp-idf development platform only Arduino so some mods were needed.
 #include "TinyTemplateEngine.h"
 #include "TinyTemplateEngineFileReader.h"
-
-/**
- * generate AD2* uuid
- */
-void genUUID(uint32_t n, std::string &ret)
-{
-    uint8_t chipid[6];
-    esp_read_mac(chipid, ESP_MAC_WIFI_STA);
-
-    char _uuid[37];
-    snprintf(_uuid, sizeof(_uuid), AD2IOT_UUID_FORMAT,
-             (uint16_t) ((chipid[0]) & 0xff),
-             (uint16_t) ((chipid[1]) & 0xff),
-             (uint16_t) ((chipid[2]) & 0xff),
-             (uint16_t) ((n      >> 24) & 0xff),
-             (uint16_t) ((n      >> 16) & 0xff),
-             (uint16_t) ((n      >>  8) & 0xff),
-             (uint16_t) ((n           ) & 0xff));
-    ret = _uuid;
-}
 
 /**
  * generate uptime string
@@ -223,66 +209,6 @@ void free_ws_session_storage(void *ctx)
     }
 }
 
-/**
- * @brief Generate a JSON string for the given AD2VirtualPartitionState pointer.
- *
- * @param [in]AD2VirtualPartitionState * to use for json object.
- *
- * @return cJSON*
- *
- */
-cJSON *get_alarmdecoder_state_json(AD2VirtualPartitionState *s)
-{
-    cJSON *root = cJSON_CreateObject();
-
-    // Add this boards info to the object
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-    cJSON_AddStringToObject(root, "firmware_version", FIRMWARE_VERSION);
-    cJSON_AddNumberToObject(root, "cpu_model", chip_info.model);
-    cJSON_AddNumberToObject(root, "cpu_revision", chip_info.revision);
-    cJSON_AddNumberToObject(root, "cpu_cores", chip_info.cores);
-    cJSON *cjson_cpu_features = cJSON_CreateArray();
-    if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "WiFi" ));
-    }
-    if (chip_info.features & CHIP_FEATURE_BLE) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BLE" ));
-    }
-    if (chip_info.features & CHIP_FEATURE_BT) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BT" ));
-    }
-    cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
-    cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
-    std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
-    cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
-
-    if (s && !s->unknown_state) {
-        cJSON_AddBoolToObject(root, "ready", s->ready);
-        cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
-        cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
-        cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
-        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
-        cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
-        cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
-        cJSON_AddBoolToObject(root, "chime_on", s->chime_on);
-        cJSON_AddBoolToObject(root, "alarm_event_occurred", s->alarm_event_occurred);
-        cJSON_AddBoolToObject(root, "alarm_sounding", s->alarm_sounding);
-        cJSON_AddBoolToObject(root, "battery_low", s->battery_low);
-        cJSON_AddBoolToObject(root, "entry_delay_off", s->entry_delay_off);
-        cJSON_AddBoolToObject(root, "fire_alarm", s->fire_alarm);
-        cJSON_AddBoolToObject(root, "system_issue", s->system_issue);
-        cJSON_AddBoolToObject(root, "perimeter_only", s->perimeter_only);
-        cJSON_AddBoolToObject(root, "exit_now", s->exit_now);
-        cJSON_AddNumberToObject(root, "system_specific", s->system_specific);
-        cJSON_AddNumberToObject(root, "beeps", s->beeps);
-        cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
-        cJSON_AddStringToObject(root, "last_alpha_messages", s->last_alpha_message.c_str());
-        cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
-    }
-    return root;
-}
-
 #if CONFIG_HTTPD_WS_SUPPORT
 /**
  * @brief Send current alarm state to web socket connection. Lookup
@@ -302,23 +228,21 @@ static void ws_alarmstate_async_send(void *arg)
             if (sess) {
                 // get the partition state based upon the virtual partition ID on the AD2IoT firmware.
                 AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpartID);
-                if (s) {
-                    // build the standard json AD2IoT device and alarm state object.
-                    cJSON *root = get_alarmdecoder_state_json(s);
-                    if (root) {
-                        ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
-                        cJSON_AddStringToObject(root, "event", "SYNC");
-                        const char *sys_info = cJSON_Print(root);
-                        httpd_ws_frame_t ws_pkt;
-                        memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-                        ws_pkt.payload = (uint8_t*)sys_info;
-                        ws_pkt.len = strlen(sys_info);
-                        ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-                        httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
-                        free((void *)sys_info);
-                        cJSON_Delete(root);
-                    }
-                }
+                ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
+
+                // build the standard json AD2IoT device and alarm state object.
+                cJSON *root = ad2_get_partition_state_json(s);
+                cJSON_AddStringToObject(root, "event", "SYNC");
+                char *sys_info = cJSON_Print(root);
+                cJSON_Minify(sys_info);
+                httpd_ws_frame_t ws_pkt;
+                memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+                ws_pkt.payload = (uint8_t*)sys_info;
+                ws_pkt.len = strlen(sys_info);
+                ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+                httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
+                cJSON_free(sys_info);
+                cJSON_Delete(root);
             }
         }
     }
@@ -358,7 +282,7 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
             }
             std::string args((char *)&ws_pkt.payload[key_sync.length()]);
             std::vector<std::string> args_v;
-            ad2_tokenize(args, ',', args_v);
+            ad2_tokenize(args, ", ", args_v);
             int codeID = atoi(args_v[1].c_str());
             int vpartID = atoi(args_v[0].c_str());
             ((ws_session_storage *)req->sess_ctx)->codeID = codeID;
@@ -427,9 +351,9 @@ esp_err_t file_get_handler(httpd_req_t *req)
 
     struct stat file_stat;
 
-    // extract the full file path using MOUNT_POINT as the root.
+    // extract the full file path using AD2_MOUNT_POINT as the root.
     char temppath[FILE_PATH_MAX];
-    const char *filename = get_path_from_uri(temppath,  MOUNT_POINT,
+    const char *filename = get_path_from_uri(temppath,  AD2_MOUNT_POINT,
                            req->uri, sizeof(temppath));
     if (!filename) {
         ESP_LOGE(TAG, "Filename is too long");
@@ -458,9 +382,9 @@ esp_err_t file_get_handler(httpd_req_t *req)
         // Check if _NOT_ exists swap for 404.html
         if (stat(filepath.c_str(), &file_stat) != 0) {
             // not found check if we have a custom 404.html file in our document root.
-            filepath = MOUNT_POINT "/404.html";
+            filepath = AD2_MOUNT_POINT "/404.html";
             if (stat(filepath.c_str(), &file_stat) != 0) {
-                httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "file not found");
+                httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "file not found.<br>Connect a uSD card with a FAT32 partition and the html content in the root directory before the device starts.");
                 return ESP_FAIL; // close socket
             }
             // set status and continue processing 404.html file
@@ -494,10 +418,7 @@ esp_err_t file_get_handler(httpd_req_t *req)
     // FIXME: add function will use it more than 1 time.
     // apply template if set
     if (apply_template) {
-        char ipstr[INET6_ADDRSTRLEN];
         int sockfd = httpd_req_to_sockfd(req);
-        struct sockaddr_in6 addr;   // esp_http_server uses IPv6 addressing
-        socklen_t addr_size = sizeof(addr);
 
         // build standard template values FIXME: function dynamic.
         // Version MACRO ${0}
@@ -507,28 +428,20 @@ esp_err_t file_get_handler(httpd_req_t *req)
         std::string szTime;
         uptimeString(szTime);
 
-        // Local IP MACRO ${2}
-        if (getsockname(sockfd, (struct sockaddr *)&addr, &addr_size) < 0) {
-            ESP_LOGE(TAG, "Error getting local IP");
-        }
-        /// Convert to IPv4 string
-        inet_ntop(AF_INET, &addr.sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
-        std::string szLocalIP = ipstr; //req->getClientIP().toString();
+        // socket Local address string MACRO ${2}
+        std::string szLocalIP;
+        hal_get_socket_local_ip(sockfd, szLocalIP);
 
-        // Client IP MACRO ${3}
-        if (getpeername(sockfd, (struct sockaddr *)&addr, &addr_size) < 0) {
-            ESP_LOGE(TAG, "Error getting client IP");
-        }
-        /// Convert to IPv4 string
-        inet_ntop(AF_INET, &addr.sin6_addr.un.u32_addr[3], ipstr, sizeof(ipstr));
-        std::string szClientIP = ipstr; //req->getClientIP().toString();
+        // socket Client address string MACRO ${3}
+        std::string szClientIP;
+        hal_get_socket_client_ip(sockfd, szClientIP);
 
         // Request protocol MACRO ${4}
         std::string szProt = "HTTP"; // (req->isSecure() ? "HTTPS" : "HTTP");
 
         // UUID MACRO ${5}
         std::string szUUID;
-        genUUID(0, szUUID);
+        ad2_genUUID(0x0, szUUID);
 
         const char* values[] = {
             szVersion.c_str(), // match ${0}
@@ -600,10 +513,10 @@ esp_err_t file_get_handler(httpd_req_t *req)
  * @param [in]arg cast as int for event type (ON_ARM,,,).
  *
  */
-void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
 #if CONFIG_HTTPD_WS_SUPPORT
-    ESP_LOGI(TAG, "on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
+    ESP_LOGI(TAG, "webui_on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
     size_t fds = server_config.max_open_sockets;
     int client_fds[fds];
     if (server && hal_get_network_connected()) {
@@ -615,17 +528,17 @@ void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
                     // get the partition state based upon the virtual partition requested.
                     AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpartID);
                     if (temps && s->partition == temps->partition) {
-                        cJSON *root = get_alarmdecoder_state_json(s);
+                        cJSON *root = ad2_get_partition_state_json(s);
                         cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
-                        const char *sys_info = cJSON_Print(root);
-
+                        char *sys_info = cJSON_Print(root);
+                        cJSON_Minify(sys_info);
                         httpd_ws_frame_t ws_pkt;
                         memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
                         ws_pkt.payload = (uint8_t*)sys_info;
                         ws_pkt.len = strlen(sys_info);
                         ws_pkt.type = HTTPD_WS_TYPE_TEXT;
                         httpd_ws_send_frame_async(server, client_fds[i], &ws_pkt);
-                        free((void *)sys_info);
+                        cJSON_free(sys_info);
                         cJSON_Delete(root);
                     }
                 }
@@ -633,6 +546,27 @@ void on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
         }
     }
 #endif
+}
+
+/**
+ * @brief callback after accept before any R/W on a client.
+ * Test if we want this connection return ESP_OK to keep ESP_FAIL to reject.
+ */
+esp_err_t http_acl_test(httpd_handle_t hd, int sockfd)
+{
+    std::string IP;
+    // Get a string for the client address connected to this IP.
+    hal_get_socket_client_ip(sockfd, IP);
+    /* ACL test */
+    if (!webui_acl.find(IP)) {
+        ESP_LOGI(TAG, "Rejecting client connection from '%s'", IP.c_str());
+        // FIXME: Not able to make it close clean. If I dont send something the the browser
+        // will try again. Sending here is a problem because it will close before sending yet it helps?
+        std::string Err = "HTTP/1.0 403 Forbidden\r\n\r\n\r\nAccess denied check ACL list\r\n";
+        send(sockfd, Err.c_str(), Err.length(), 0);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 /**
@@ -644,32 +578,9 @@ void webui_server_task(void *pvParameters)
 {
     esp_err_t err;
 
-    // Setup for Mount of uSD over SPI on the OLIMEX ESP-POE-ISO that is wired for a 1 bit data bus.
-    const char mount_point[] = MOUNT_POINT;
-    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-    host.flags = SDMMC_HOST_FLAG_1BIT;
-    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    slot_config.width = 1;
-
-    gpio_set_pull_mode(GPIO_uSD_CMD, GPIO_FLOATING);
-    gpio_set_pull_mode(GPIO_uSD_D0, GPIO_FLOATING);
-    gpio_set_pull_mode(GPIO_uSD_CLK, GPIO_FLOATING);
-
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
-    mount_config.format_if_mount_failed = false;
-    mount_config.max_files = 5;
-
-    ESP_LOGI(TAG, "Mounting uSD card");
-    sdmmc_card_t *card = NULL;
-    err = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
-        return;
-    }
-
     // Configure the web server and handlers.
     server_config.uri_match_fn = httpd_uri_match_wildcard;
-
+    server_config.open_fn = http_acl_test;
 #if CONFIG_HTTPD_WS_SUPPORT
     httpd_uri_t ad2ws_server = {
         .uri       = "/ad2ws",
@@ -706,16 +617,16 @@ void webui_server_task(void *pvParameters)
 #endif
                 httpd_register_uri_handler(server, &file_server);
                 // Subscribe to AlarmDecoder events
-                AD2Parse.subscribeTo(ON_ARM, on_state_change, (void *)ON_ARM);
-                AD2Parse.subscribeTo(ON_DISARM, on_state_change, (void *)ON_DISARM);
-                AD2Parse.subscribeTo(ON_CHIME_CHANGE, on_state_change, (void *)ON_CHIME_CHANGE);
-                AD2Parse.subscribeTo(ON_FIRE, on_state_change, (void *)ON_FIRE);
-                AD2Parse.subscribeTo(ON_POWER_CHANGE, on_state_change, (void *)ON_POWER_CHANGE);
-                AD2Parse.subscribeTo(ON_READY_CHANGE, on_state_change, (void *)ON_READY_CHANGE);
-                AD2Parse.subscribeTo(ON_LOW_BATTERY, on_state_change, (void *)ON_LOW_BATTERY);
-                AD2Parse.subscribeTo(ON_ALARM_CHANGE, on_state_change, (void *)ON_ALARM_CHANGE);
-                AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
-                AD2Parse.subscribeTo(ON_EXIT_CHANGE, on_state_change, (void *)ON_EXIT_CHANGE);
+                AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
+                AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
+                AD2Parse.subscribeTo(ON_CHIME_CHANGE, webui_on_state_change, (void *)ON_CHIME_CHANGE);
+                AD2Parse.subscribeTo(ON_FIRE, webui_on_state_change, (void *)ON_FIRE);
+                AD2Parse.subscribeTo(ON_POWER_CHANGE, webui_on_state_change, (void *)ON_POWER_CHANGE);
+                AD2Parse.subscribeTo(ON_READY_CHANGE, webui_on_state_change, (void *)ON_READY_CHANGE);
+                AD2Parse.subscribeTo(ON_LOW_BATTERY, webui_on_state_change, (void *)ON_LOW_BATTERY);
+                AD2Parse.subscribeTo(ON_ALARM_CHANGE, webui_on_state_change, (void *)ON_ALARM_CHANGE);
+                AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, webui_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+                AD2Parse.subscribeTo(ON_EXIT_CHANGE, webui_on_state_change, (void *)ON_EXIT_CHANGE);
             } else {
                 // error long 10s sleep.
                 ESP_LOGI(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
@@ -742,12 +653,140 @@ void webui_server_task(void *pvParameters)
 }
 
 /**
+ * WebUI generic command event processing
+ *  command: [COMMAND] <id> <arg>
+ * ex.
+ *   [COMMAND] 0 arg...
+ */
+static void _cli_cmd_webui_event(char *string)
+{
+
+    // key value validation
+    std::string cmd;
+    ad2_copy_nth_arg(cmd, string, 0);
+    ad2_lcase(cmd);
+
+    if(cmd.compare(WEBUI_COMMAND) != 0) {
+        ad2_printf_host("What?\r\n");
+        return;;
+    }
+
+    // key value validation
+    std::string subcmd;
+    ad2_copy_nth_arg(subcmd, string, 1);
+    ad2_lcase(subcmd);
+
+    int i;
+    for(i = 0;; ++i) {
+        if (WEBUI_SUBCMD[i] == 0) {
+            ad2_printf_host("What?\r\n");
+            break;
+        }
+        if(subcmd.compare(WEBUI_SUBCMD[i]) == 0) {
+            std::string arg;
+            std::string acl;
+            switch(i) {
+            /**
+             * Enable/Disable WebUI daemon.
+             */
+            case WEBUI_SUBCMD_ENABLE_ID:
+                ESP_LOGI(TAG, "%s: enable/disable " WEBUI_COMMAND, __func__);
+                if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+                    ad2_set_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                }
+
+                // show contents of this slot
+                int i;
+                ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &i);
+                ad2_printf_host("WebUI daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                break;
+            /**
+             * WebUI daemon IP/CIDR ACL list.
+             */
+            case WEBUI_SUBCMD_ACL_ID:
+                // If no arg then return ACL list
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    webui_acl.clear();
+                    int res = webui_acl.add(arg);
+                    if (res == webui_acl.ACL_FORMAT_OK) {
+                        ad2_set_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                    } else {
+                        ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
+                    }
+                }
+                // show contents of this slot set default to allow all
+                acl = "0.0.0.0/0";
+                ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
+                ad2_printf_host(WEBUI_COMMAND " 'acl' set to '%s'.\r\n", acl.c_str());
+                break;
+            default:
+                break;
+            }
+            break;
+        }
+    }
+}
+
+/**
+ * @brief command list for module
+ */
+static struct cli_command webui_cmd_list[] = {
+    {
+        (char*)WEBUI_COMMAND,(char*)
+        "####  Configuration for web UI server\r\n"
+        "- ```" WEBUI_COMMAND " {sub command} {arg}```\r\n"
+        "  - {sub command}\r\n"
+        "    - [" WEBUI_SUBCMD_ENABLE "] Enable / Disable WebUI daemon\r\n"
+        "      -  {arg1}: [Y]es [N]o\r\n"
+        "        - [N] Default state\r\n"
+        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ENABLE " Y\r\n"
+        "    - [" WEBUI_SUBCMD_ACL "] Set / Get ACL list\r\n"
+        "      - {arg1}: ACL LIST\r\n"
+        "      -  String of CIDR values seperated by commas.\r\n"
+        "        - Default: Empty string disables ACL list\r\n"
+        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4\r\n\r\n", _cli_cmd_webui_event
+    }
+};
+
+/**
+ * @brief Register componet cli commands.
+ */
+void webui_register_cmds()
+{
+    // Register webui CLI commands
+    for (int i = 0; i < ARRAY_SIZE(webui_cmd_list); i++) {
+        cli_register_command(&webui_cmd_list[i]);
+    }
+}
+
+/**
  * @brief AD2IoT Component webUI init
  *
  */
-void webUI_init(void)
+void webui_init(void)
 {
-    ESP_LOGI(TAG, "Starting webui task");
+    // load and parse ACL if set or set default to allow all.
+    std::string acl = "0.0.0.0/0";
+
+    ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
+    if (acl.length()) {
+        int res = webui_acl.add(acl);
+        if (res != webui_acl.ACL_FORMAT_OK) {
+            ESP_LOGI(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
+        }
+    }
+
+    int enabled = 0;
+    ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &enabled);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!enabled) {
+        ESP_LOGI(TAG, "webui disabled");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Starting webui");
     xTaskCreate(&webui_server_task, "webui_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 

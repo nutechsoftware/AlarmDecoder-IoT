@@ -20,33 +20,24 @@
  *  limitations under the License.
  *
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/param.h>
-
-// esp includes
+// FreeRTOS includes
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include <lwip/netdb.h>
-#include "driver/uart.h"
-#include "esp_log.h"
+
 static const char *TAG = "AD2UTIL";
 
-// mbedtls
-#include "mbedtls/base64.h"
-
-// AlarmDecoder includes
+// AlarmDecoder std includes
 #include "alarmdecoder_main.h"
-#include "ad2_utils.h"
-#include "ad2_settings.h"
 
+// esp component includes
+#include "driver/uart.h"
+
+// specific includes
 #include "ad2_utils.h"
+
+// esp includes
+#include "nvs_flash.h"
+#include "mbedtls/base64.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,11 +45,226 @@ extern "C" {
 
 
 /**
- * build Bearer auth string from api key
+ * @brief Parse an acl string and add to our list of networks.
+ *
+ * @details Split ACL string on ',' then test if each section is a CIDR '/XX', range '-'
+ * or single IP. Calculate the appropriate uint32_t Start and End address values and append it to
+ * allowed_networks vector.
+ *
+ * Split on '/' for CIDR '-' for IP range or just a single IP.
+ *   Example ACL string: "192.168.0.0/24, 192.168.1.1-192.168.1.3, 192.168.2.1"
+ *
+ * @arg [in]acl std::string * Pointer to std::string with ACL list.
+ *
+ * @return int results.   0 ad2_acl_check.ACL_FORMAT_OK
+ *                       -1 ad2_acl_check.ACL_ERR_BADFORMAT_CIDR
+ *                       -2 ad2_acl_check.ACL_ERR_BADFORMAT_IP
  */
-std::string ad2_make_bearer_auth_header(const std::string& apikey)
+int ad2_acl_check::add(std::string& acl)
 {
-    return "Authorization: Bearer " + apikey;
+    bool is_ipv4;
+
+    std::vector<std::string> tokens;
+    // Remove all white space.
+    ad2_remove_ws(acl);
+
+    // Split on commas.
+    // A, B, C
+    ad2_tokenize(acl, ",", tokens);
+    for (auto &token : tokens) {
+
+        /// Test for CIDR notation '\' 192.168.0.0/24
+        if (token.find('/') != std::string::npos) {
+            // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-128
+            // Allow for /0 match all special case 0.0.0.0/0
+            uint8_t iCIDR = std::stoi(token.substr(token.find("/") + 1));
+            if (iCIDR > 128) {
+                return this->ACL_ERR_BADFORMAT_CIDR;
+            }
+
+            // Load IP address string into addr. If it is IPv4 pad left bits with 1's
+            std::string ip = token.substr(0, token.find("/"));
+            ad2_addr addr = {};
+            if (!this->_szIPaddrParse(ip, addr, is_ipv4)) {
+                return ACL_ERR_BADFORMAT_IP;
+            }
+
+            // CIDR to 128bit mask.
+            // The address and mask is in Network Byte Order(Big-endian)
+            ad2_addr mask  = {};
+            memset((uint8_t*)&mask.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+            this->_addr_SHIFT_LEFT(mask, (is_ipv4 ? 32 : 128)-iCIDR);
+
+            // 128bit Start address prefill with 1's
+            ad2_addr addr_start = {};
+            memset((uint8_t*)&addr_start.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+
+            // 128 bit End address prefill with 0's
+            ad2_addr addr_end = {};
+            memset((uint8_t*)&addr_end.u8_addr[0], 0x0, sizeof(((struct ad2_addr*)0)->u8_addr));
+
+            // 32 bit version (start = addr & mask; end = addr | (~mask))
+            this->_addr_AND(addr_start, addr, mask);
+            this->_addr_NOT(mask);
+            this->_addr_OR(addr_end, addr, mask);
+
+            // Save the allowed ACL range.
+            allowed_networks.push_back({addr_start, addr_end});
+        } else {
+
+            // Test for RANGE notation '-' 192.168.0.10-192.168.0.100'
+            if (token.find('-') != std::string::npos) {
+                // Start address
+                std::string szstart = token.substr(0, token.find("-"));
+                ad2_addr saddr = {};
+                if (!this->_szIPaddrParse(szstart, saddr, is_ipv4)) {
+                    return this->ACL_ERR_BADFORMAT_IP;
+                }
+                // End address
+                std::string szend = token.substr(token.find("-") + 1);
+                ad2_addr eaddr = {};
+                if (!this->_szIPaddrParse(szend, eaddr, is_ipv4)) {
+                    return this->ACL_ERR_BADFORMAT_IP;
+                }
+                // Currently start needs to be less than end.
+                // FIXME if (saddr <= eaddr) {
+                allowed_networks.push_back({saddr, eaddr});
+            } else {
+
+                // Single IP just use it for the Start and End..
+                ad2_addr addr = {};
+                if (!this->_szIPaddrParse(token, addr, is_ipv4)) {
+                    return this->ACL_ERR_BADFORMAT_IP;
+                }
+                allowed_networks.push_back({addr, addr});
+            }
+        }
+    }
+    return this->ACL_FORMAT_OK;
+}
+
+// @brief test if an IP string is inside of any of the know network ranges.
+bool ad2_acl_check::find(std::string szaddr)
+{
+    bool is_ipv4;
+
+    // If no ACLs exist then skip ACL testing and everything passes.
+    if (!allowed_networks.size()) {
+        return true;
+    }
+    ad2_remove_ws(szaddr);
+    // storage for IPv4 or IPv6
+    ad2_addr addr = {};
+    if (!this->_szIPaddrParse(szaddr, addr, is_ipv4)) {
+        return false;
+    }
+    return find(addr);
+}
+
+// @brief test if an IP value is inside of any of the know network ranges.
+// Addresses are 16 byte or 4 32bit words. For IPv4 then only one word is used.
+bool ad2_acl_check::find(ad2_addr& addr)
+{
+    // If no ACLs exist then skip ACL testing and everything passes.
+    if (!allowed_networks.size()) {
+        return true;
+    }
+    for(auto acl: allowed_networks) {
+        if (_in_addr_BETWEEN(addr, acl.first, acl.second)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// @brief parse IPv4/IPv6 address string to ip6_addr value.
+// @return bool ok = true;
+bool ad2_acl_check::_szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is_ipv4)
+{
+    is_ipv4=false;
+
+    // IPv4 has '.'
+    if (szaddr.find('.') != std::string::npos) {
+        is_ipv4=true;
+        // prefix all bits with 1's ::FFFF: to keep a 32 bit IPv4 in a 128bit IPv6 capable container.
+        memset((uint8_t*)&addr.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+        // 32bit IPv4 stored in the last 4 bytes.
+        if (!inet_pton(AF_INET, szaddr.c_str(), &addr.u8_addr[12])) {
+            // Allow all IPv4 pattern 0.0.0.0/0
+            if (szaddr.compare("0.0.0.0/0") != 0) {
+                // reject anything that does not parse or match allow all.
+                return false;
+            }
+        }
+#if CONFIG_LWIP_IPV6
+    } else
+        // IPv6 has ':'
+        if (szaddr.find(':') != std::string::npos) {
+            if (!inet_pton(AF_INET6, szaddr.c_str(), &addr.u8_addr[0])) {
+                // reject anything that does not parse.
+                return false;
+            }
+#endif
+        } else {
+            // reject anything that does not parse.
+            return false;
+        }
+    return true;
+};
+
+// @brief IPv6 or IPv4 math.
+bool ad2_acl_check::_in_addr_BETWEEN(ad2_addr& test, ad2_addr& start, ad2_addr& end)
+{
+    for (int n = 0; n < sizeof(((struct ad2_addr*)0)->u8_addr); n++) {
+        if (test.u8_addr[n] < start.u8_addr[n] || test.u8_addr[n] > end.u8_addr[n]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// @brief shift 128bit big endian value to the left cnt times.
+void ad2_acl_check::_addr_SHIFT_LEFT(ad2_addr& addr, int cnt)
+{
+    int carry_bit = 0, last_carry_bit = 0;
+
+    while(cnt>0) {
+        for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+            // save top bit for carry
+            carry_bit = addr.u8_addr[i] & 0x80 ? 0x01 : 0x00;
+            addr.u8_addr[i]<<=1;
+            if (i < sizeof(((struct ad2_addr*)0)->u8_addr)-1) {
+                // carry top bit to next int.
+                addr.u8_addr[i] |= last_carry_bit;
+            }
+            last_carry_bit = carry_bit;
+        }
+        cnt--;
+    }
+}
+
+// @brief NOT 128bit big endian value.
+void ad2_acl_check::_addr_NOT(ad2_addr& addr)
+{
+    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+        addr.u8_addr[i] = ~addr.u8_addr[i];
+    }
+}
+
+// @brief AND 128bit big endian values.
+void ad2_acl_check::_addr_AND(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
+{
+    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+        out.u8_addr[i] = inA.u8_addr[i] & inB.u8_addr[i];
+    }
+}
+
+// @brief OR 128bit big endian values.
+void ad2_acl_check::_addr_OR(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
+{
+    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+        out.u8_addr[i] = inA.u8_addr[i] | inB.u8_addr[i];
+    }
 }
 
 /**
@@ -70,7 +276,7 @@ std::string ad2_make_bearer_auth_header(const std::string& apikey)
  * @return std::string basic auth string
  *
  */
-std::string ad2_make_basic_auth_header(const std::string& user, const std::string& password)
+std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password)
 {
 
     size_t toencodeLen = user.length() + password.length() + 2;
@@ -92,7 +298,7 @@ std::string ad2_make_basic_auth_header(const std::string& user, const std::strin
     outbuffer[out_len] = '\0';
 
     std::string encoded_string = std::string((char *)outbuffer);
-    return "Authorization: Basic " + encoded_string;
+    return encoded_string;
 }
 
 /**
@@ -131,6 +337,43 @@ std::string ad2_urlencode(const std::string str)
         }
     }
     return encoded;
+}
+
+
+/**
+ * @brief Generate a UUID based upon the ESP32 wifi hardware mac address.
+ *
+ * @arg [in]uint32_t Sub ID.
+ * @arg [in]ret std::string& to the result.
+ *
+ * UUID
+ *  Length fixed 36 characters
+ *  format args
+ *   AD2EMBEDXYYYYYY
+ *   X: app specific ID
+ *   Y: unique 32 bit value from WIFI MAC address.
+ *
+ */
+#define AD2IOT_UUID_FORMAT   "41443245-4d42-4544-44%02x-%02x%02x%02x%02x%02x%02x"
+
+void ad2_genUUID(uint8_t n, std::string& ret)
+{
+    static uint8_t chipid[6] = {0,0,0,0,0,0};
+    // assuming first byte wont never be 0x00
+    if (chipid[0] == 0x00) {
+        esp_read_mac(chipid, ESP_MAC_WIFI_STA);
+    }
+
+    char _uuid[37];
+    snprintf(_uuid, sizeof(_uuid), AD2IOT_UUID_FORMAT,
+             (uint16_t) ((n) & 0xff),
+             (uint16_t) ((chipid[0]) & 0xff),
+             (uint16_t) ((chipid[1]) & 0xff),
+             (uint16_t) ((chipid[2]) & 0xff),
+             (uint16_t) ((chipid[3]) & 0xff),
+             (uint16_t) ((chipid[4]) & 0xff),
+             (uint16_t) ((chipid[5]) & 0xff));
+    ret = _uuid;
 }
 
 /**
@@ -266,20 +509,20 @@ std::string ad2_to_string(int n)
  * @brief split string to vector on token
  *
  * @param [in]str std::string input string
- * @param [in]delim const char delimeter
+ * @param [in]delim char * delimeters ex. ", " comma and space.
  * @param [in]out pointer to output std::vector of std:strings
  *
  */
-void ad2_tokenize(std::string const &str, const char delim,
+void ad2_tokenize(std::string const &str, const char* delimiters,
                   std::vector<std::string> &out)
 {
-    // construct a stream from the string
-    std::stringstream ss(str);
-
-    std::string s;
-    while (std::getline(ss, s, delim)) {
-        out.push_back(s);
+    char *_str = strdup(str.c_str());
+    char *token = std::strtok(_str, delimiters);
+    while (token) {
+        out.push_back(std::string(token));
+        token = std::strtok(nullptr, delimiters);
     }
+    free(_str);
 }
 
 /**
@@ -408,6 +651,20 @@ void ad2_trim(std::string &s)
 {
     ad2_ltrim(s);
     ad2_rtrim(s);
+}
+
+/**
+ * @brief Remove all white space from a string.
+ *
+ * @param [in]s std::string &.
+ */
+void ad2_remove_ws(std::string& s )
+{
+    std::string str_no_ws ;
+    for( char c : s ) if( !std::isspace(c) ) {
+            str_no_ws += c ;
+        }
+    s = str_no_ws;
 }
 
 /**
@@ -1009,7 +1266,7 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
 }
 
 /**
- * @brief send RAW string to the AD2 devices.
+ * @brief Get partition state by virtual partitition ID
  *
  * @param [in]vpartId Address slot for address to use for
  * returning partition info. The AlarmDecoderParser class tracks
@@ -1029,6 +1286,211 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
         s = AD2Parse.getAD2PState(x, false);
     }
     return s;
+}
+
+/**
+ * @brief Generate a standardized JSON string for the AD2IoT device details.
+ *
+ * @return cJSON*
+ *
+ */
+cJSON *ad2_get_ad2iot_device_info_json()
+{
+    cJSON *root = cJSON_CreateObject();
+
+    // Add this boards info to the object
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    cJSON_AddStringToObject(root, "firmware_version", FIRMWARE_VERSION);
+    cJSON_AddNumberToObject(root, "cpu_model", chip_info.model);
+    cJSON_AddNumberToObject(root, "cpu_revision", chip_info.revision);
+    cJSON_AddNumberToObject(root, "cpu_cores", chip_info.cores);
+    cJSON *cjson_cpu_features = cJSON_CreateArray();
+    if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "WiFi" ));
+    }
+    if (chip_info.features & CHIP_FEATURE_BLE) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BLE" ));
+    }
+    if (chip_info.features & CHIP_FEATURE_BT) {
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BT" ));
+    }
+    cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
+    cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
+    std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
+    cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
+    return root;
+}
+
+/**
+ * @brief Generate a standardized JSON string for the given AD2VirtualPartitionState pointer.
+ *
+ * @param [in]AD2VirtualPartitionState * to use for json object.
+ *
+ * @return cJSON*
+ *
+ */
+cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (s && !s->unknown_state) {
+        cJSON_AddBoolToObject(root, "ready", s->ready);
+        cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
+        cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
+        cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
+        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
+        cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
+        cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
+        cJSON_AddBoolToObject(root, "chime_on", s->chime_on);
+        cJSON_AddBoolToObject(root, "alarm_event_occurred", s->alarm_event_occurred);
+        cJSON_AddBoolToObject(root, "alarm_sounding", s->alarm_sounding);
+        cJSON_AddBoolToObject(root, "battery_low", s->battery_low);
+        cJSON_AddBoolToObject(root, "entry_delay_off", s->entry_delay_off);
+        cJSON_AddBoolToObject(root, "fire_alarm", s->fire_alarm);
+        cJSON_AddBoolToObject(root, "system_issue", s->system_issue);
+        cJSON_AddBoolToObject(root, "perimeter_only", s->perimeter_only);
+        cJSON_AddBoolToObject(root, "exit_now", s->exit_now);
+        cJSON_AddNumberToObject(root, "system_specific", s->system_specific);
+        cJSON_AddNumberToObject(root, "beeps", s->beeps);
+        cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
+        cJSON_AddStringToObject(root, "last_alpha_message", s->last_alpha_message.c_str());
+        cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
+    } else {
+        cJSON_AddStringToObject(root, "last_alpha_message", "Unknown");
+    }
+    return root;
+}
+
+
+#define HTTP_SEND_QUEUE_SIZE 20  // More? Less?
+#define HTTP_SEND_RATE_LIMIT 200 // 5/s seems like a reasonable value to start with.
+static QueueHandle_t  _http_sendQ = NULL;
+
+
+typedef struct sendQ_event_data {
+    esp_http_client_config_t *client_config;
+    ad2_http_sendQ_ready_cb_t ready;
+    ad2_http_sendQ_done_cb_t done;
+} sendQ_event_data_t;
+
+/**
+ * @brief HTTP sendQ consumer
+ *
+ * @param [in]pvParameters void *
+ */
+static void _http_sendQ_consumer_task(void *pvParameters)
+{
+    esp_err_t err;
+
+    while(1) {
+        if(_http_sendQ == NULL) {
+            break;
+        }
+        if (!g_StopMainTask && hal_get_network_connected()) {
+            sendQ_event_data_t event_data;
+            if ( xQueueReceive(_http_sendQ, &event_data, portMAX_DELAY) ) {
+#if defined(AD2_STACK_REPORT)
+                ESP_LOGI(TAG, "_http_sendQ_consumer_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
+#endif
+
+                // Initialize a new http client using the client_config..
+                esp_http_client_handle_t http_client;
+                http_client = esp_http_client_init(event_data.client_config);
+
+                // Set the user agent.
+                esp_chip_info_t chip_info;
+                esp_chip_info(&chip_info);
+
+                // Set user agent no including version info.
+                std::string ua = "AD2IoT-HTTP-Client/NOPE (ESP32-r" + ad2_to_string(chip_info.revision) + ")";
+                esp_http_client_set_header(http_client, "User-Agent", ua.c_str());
+
+                // notify compoenet we are about to send and allow to
+                // update connection details including post data etc.
+                event_data.ready(http_client, event_data.client_config);
+
+                // Allow for multiple requests on a single connection.
+                // TODO: sanity checking. Put back in sendQ for others to get some time? Memory.
+                do {
+                    // start the connection
+                    err = esp_http_client_perform(http_client);
+
+                    // Notify client the request finished and the results.
+                    // If it wants to preform again it will return false;
+                    if (event_data.done(err, http_client, event_data.client_config)) {
+                        break;
+                    }
+                } while (err == ESP_OK);
+
+                // free the client
+                esp_http_client_cleanup(http_client);
+
+                // sleep our rate limit. Not exactly the rate not factoring in
+                // client connection time but close enough for now.
+                vTaskDelay(HTTP_SEND_RATE_LIMIT/portTICK_PERIOD_MS);
+
+            } else {
+                // sleep for a bit then check the queue again.
+                vTaskDelay(100/portTICK_PERIOD_MS);
+            }
+        }
+        // sleep for a bit then check the queue again.
+        vTaskDelay(100/portTICK_PERIOD_MS);
+    }
+    ESP_LOGW(TAG, "http sendQ ending. HTTP request delivery halted.");
+    vTaskDelete(NULL);
+}
+
+/**
+ * @brief Initialize and start the HTTP request send queue.
+ * Allows for components to POST requests to server ASYNC and serialized with each other.
+ * This prevents memory exhaustion at the cost of a potential slower delivery time.
+ *
+ * @note TODO: Add retry logic. Will take some brain time on this. It would not be good
+ * to deliver a message out of order yet we need to let other components deliver and not be
+ * blocked. Need a queue per component. Maybe have each component manage an internal queue
+ * and if one delivery fails let the component decide how to deal with it.
+ *
+ */
+void ad2_init_http_sendQ()
+{
+    // Init the queue.
+    if(_http_sendQ == NULL) {
+        _http_sendQ = xQueueCreate( HTTP_SEND_QUEUE_SIZE, sizeof(sendQ_event_data_t));
+    }
+
+    // Start the queue consumer task. Keep the stack as small as possible.
+    // 20210815SM: 1444 bytes stack free
+    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
+}
+
+/**
+ * @brief Add a http client config to the queue
+ *
+ * @param [in]client_config esp_http_client_config_t *
+ * @param [in]ready_cb ad2_http_sendQ_ready_cb_t: Called before esp_http_client_perform()
+ * @param [in]done_cb ad2_http_sendQ_done_cb_t: Called before esp_http_client_cleanup()
+ *
+ */
+bool ad2_add_http_sendQ(esp_http_client_config_t* client_config, ad2_http_sendQ_ready_cb_t ready_cb, ad2_http_sendQ_done_cb_t done_cb)
+{
+    // Save queue data into a structure for storage in the sendQ
+    sendQ_event_data_t event_data = {
+        .client_config = client_config,
+        .ready = ready_cb,
+        .done = done_cb
+    };
+
+    if (_http_sendQ) {
+        // Copy the container into the sendQ
+        if ( xQueueSend( _http_sendQ, (void *)&event_data, (TickType_t )0) != pdPASS) {
+            return false;
+        }
+        return true;
+    } else {
+        ESP_LOGE(TAG, "Invalid queue handle");
+        return false;
+    }
 }
 
 /**

@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_SMOK";
 
 #include "st_dev.h"
 #include "caps_smokeDetector.h"
-
-static const char *TAG = "CAPS_SMOK";
 
 static int caps_smokeDetector_attr_smoke_str2idx(const char *value)
 {

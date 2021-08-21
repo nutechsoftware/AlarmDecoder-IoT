@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_REFR";
 
 #include "st_dev.h"
 #include "caps_refresh.h"
-
-static const char *TAG = "CAPS_REFR";
 
 static void caps_refresh_cmd_refresh_cb(IOT_CAP_HANDLE *handle, iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {

@@ -21,8 +21,6 @@
  *  limitations under the License.
  *
  */
-// Disable via sdkconfig
-//#if CONFIG_AD2IOT_WEBSERVER_UI
 
 #include "TinyTemplateEngineFileReader.h"
 #include <cstring>
@@ -69,4 +67,4 @@ TinyTemplateEngine::Line TinyTemplateEngineFileReader::nextLine()
     } while(!feof(_fd));
     return TinyTemplateEngine::Line(_buffer, i);
 }
-//#endif /*  CONFIG_AD2IOT_WEBSERVER_UI */
+

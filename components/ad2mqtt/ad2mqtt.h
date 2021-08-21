@@ -1,11 +1,12 @@
 /**
- *  @file    ser2sock.h
+ *  @file    ad2mqtt.h
  *  @author  Sean Mathews <coder@f34r.com>
- *  @date    12/17/2020
+ *  @date    07/31/2021
  *
- *  @brief ser2sock server daemon
+ *  @brief Connect to an MQTT broker and publish state updates as
+ *  well as subscribe to a command topic to listen for verbs.
  *
- *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
+ *  @copyright Copyright (C) 2021 Nu Tech Software Solutions, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,21 +21,19 @@
  *  limitations under the License.
  *
  */
-#ifndef _SER2SOCKD_H
-#define _SER2SOCKD_H
-#if CONFIG_AD2IOT_SER2SOCKD
+#ifndef _MQTT_H
+#define _MQTT_H
+#if CONFIG_AD2IOT_MQTT_CLIENT
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void ser2sockd_register_cmds();
-void ser2sockd_init();
-void ser2sockd_sendall(uint8_t *buffer, size_t len);
+void mqtt_register_cmds();
+void mqtt_init();
 
 #ifdef __cplusplus
 }
 #endif
-#endif /* CONFIG_AD2IOT_SER2SOCKD */
-#endif /* _SER2SOCKD_H */
-
+#endif /* CONFIG_AD2IOT_MQTT_CLIENT */
+#endif /* _MQTT_H */

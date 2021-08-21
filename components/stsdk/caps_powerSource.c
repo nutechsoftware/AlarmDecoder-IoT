@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_PSRC";
 
 #include "st_dev.h"
 #include "caps_powerSource.h"
-
-static const char *TAG = "CAPS_PSRC";
 
 static int caps_powerSource_attr_powerSource_str2idx(const char *value)
 {

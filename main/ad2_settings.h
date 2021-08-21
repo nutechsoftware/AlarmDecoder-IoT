@@ -20,8 +20,11 @@
  *  limitations under the License.
  *
  */
+// @brief Define for task stack reporting for tuning.
+#define AD2_STACK_REPORT
+
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1070"
+#define FIRMWARE_VERSION      "AD2IOT-1080"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -67,3 +70,6 @@
 
 // Signon message
 #define AD2_SIGNON "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
+
+// The virtual mount prefix for all file operations.
+#define AD2_MOUNT_POINT "/sdcard"

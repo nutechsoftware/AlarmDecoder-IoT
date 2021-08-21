@@ -24,11 +24,10 @@
 
 // Disable componet via sdkconfig
 #if CONFIG_STDK_IOT_CORE
+static const char *TAG = "CAPS_CONT";
 
 #include "st_dev.h"
 #include "caps_contactSensor.h"
-
-static const char *TAG = "CAPS_CONT";
 
 static int caps_contactSensor_attr_contact_str2idx(const char *value)
 {

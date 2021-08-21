@@ -22,42 +22,27 @@
 *
 */
 
+static const char *TAG = "AD2_IoT";
 
-/**
- * AlarmDecoder Arduino library.
- * https://github.com/nutechsoftware/ArduinoAlarmDecoder
- */
-#include <alarmdecoder_api.h>
+// AlarmDecoder std includes
+#include "alarmdecoder_main.h"
 
-// esp includes
-// esp includes
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
+// esp component includes
 #include "driver/uart.h"
-#include <lwip/netdb.h>
-#include "esp_system.h"
 #include "nvs_flash.h"
-#include "nvs.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#include "tcpip_adapter.h"
+#else
+#include "esp_netif.h"
+#include "esp_tls.h"
+#endif
+// specific includes
 
 // OTA updates
 #include "ota_util.h"
 
-// UART CLI
-#include "ad2_uart_cli.h"
+// Command line interface
 #include "ad2_cli_cmd.h"
-
-// Common settings
-#include "ad2_settings.h"
-
-// HAL
-#include "device_control.h"
-
-// AD2IoT include
-#include "alarmdecoder_main.h"
-
-// common utils
-#include "ad2_utils.h"
 
 // SmartThings direct attached device support
 #if CONFIG_STDK_IOT_CORE
@@ -84,14 +69,19 @@
 #include "webUI.h"
 #endif
 
+// MQTT client support
+#if CONFIG_AD2IOT_MQTT_CLIENT
+#include "ad2mqtt.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * Constants / Static / Extern
- */
-static const char *TAG = "AD2_IoT";
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
+#else
+extern esp_netif_t* g_netif;
+#endif
 
 /**
 * Control main task processing
@@ -140,7 +130,15 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-    ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#if 1
+#define EXTRA_INFO_EVERY 10
+    static int extra_info = EXTRA_INFO_EVERY;
+    if(!--extra_info) {
+        extra_info = EXTRA_INFO_EVERY;
+        ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+        ESP_LOGI(TAG, "AlarmDecoder parser stack free %d", uxTaskGetStackHighWaterMark(NULL));
+    }
+#endif
 }
 
 
@@ -342,7 +340,7 @@ static void ser2sock_client_task(void *pvParameters)
                                        AD2MODE_CONFIG_ARG_SLOT, nullptr, buf);
 
             std::vector<std::string> out;
-            ad2_tokenize(buf, ':', out);
+            ad2_tokenize(buf, ":", out);
 
             // data sanity tests
             bool connectok = false;
@@ -365,24 +363,23 @@ static void ser2sock_client_task(void *pvParameters)
             int addr_family = 0;
             int ip_protocol = 0;
 
-#if defined(CONFIG_AD2IOT_SER2SOCK_IPV4)
+#if CONFIG_LWIP_IPV6
+            struct sockaddr_in6 dest_addr = {};
+            inet6_aton(host.c_str(), &dest_addr.sin6_addr);
+            dest_addr.sin6_family = AF_INET6;
+            dest_addr.sin6_port = htons(port);
+            dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(NULL);
+            addr_family = AF_INET6;
+            ip_protocol = IPPROTO_IPV6;
+            int size = sizeof(struct sockaddr_in6);
+#else
             struct sockaddr_in dest_addr;
             dest_addr.sin_addr.s_addr = inet_addr(host.c_str());
             dest_addr.sin_family = AF_INET;
             dest_addr.sin_port = htons(port);
             addr_family = AF_INET;
             ip_protocol = IPPROTO_IP;
-#elif defined(CONFIG_AD2IOT_SER2SOCK_IPV6)
-            struct sockaddr_in6 dest_addr = { 0 };
-            inet6_aton(host.c_str(), &dest_addr.sin6_addr);
-            dest_addr.sin6_family = AF_INET6;
-            dest_addr.sin6_port = htons(port);
-            dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(EXAMPLE_INTERFACE);
-            addr_family = AF_INET6;
-            ip_protocol = IPPROTO_IPV6;
-#elif defined(CONFIG_EXAMPLE_SOCKET_IP_INPUT_STDIN)
-            struct sockaddr_in6 dest_addr = { 0 };
-            ESP_ERROR_CHECK(get_addr_from_stdin(port, SOCK_STREAM, &ip_protocol, &addr_family, &dest_addr));
+            int size = sizeof(struct sockaddr_in);
 #endif
             g_ad2_client_handle =  socket(addr_family, SOCK_STREAM, ip_protocol);
             if (g_ad2_client_handle < 0) {
@@ -391,7 +388,7 @@ static void ser2sock_client_task(void *pvParameters)
             }
             ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host.c_str(), port);
 
-            int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in6));
+            int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, size);
             if (err != 0) {
                 ESP_LOGE(TAG, "ser2sock client socket unable to connect: errno %d", errno);
                 break;
@@ -444,7 +441,7 @@ static void ser2sock_client_task(void *pvParameters)
  */
 void init_ser2sock_client()
 {
-    xTaskCreate(ser2sock_client_task, "ser2sock_client", 4096, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*4, (void*)AF_INET, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**
@@ -459,7 +456,7 @@ void init_ad2_uart_client()
                                AD2MODE_CONFIG_ARG_SLOT, nullptr, port_pins);
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
-    ad2_tokenize(port_pins, ':', out);
+    ad2_tokenize(port_pins, ":", out);
     ESP_LOGI(TAG, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
     int tx_pin = atoi(out[0].c_str());
     int rx_pin = atoi(out[1].c_str());
@@ -493,7 +490,9 @@ void init_ad2_uart_client()
     uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
     free(uart_config);
 
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 4096, (void *)AF_INET, tskIDLE_PRIORITY + 2, NULL);
+    // Main AlarmDecoderParser:
+    // 20210815SM: 1220 bytes stack free.
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*4, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
 
 }
 
@@ -515,6 +514,10 @@ void app_main()
     hal_host_uart_init();
 
     ad2_printf_host(AD2_SIGNON, FIRMWARE_VERSION);
+
+#if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
+    ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
+#endif
 
     // Dump hardware info
     esp_chip_info_t chip_info;
@@ -554,6 +557,22 @@ void app_main()
     // create event group
     g_ad2_net_event_group = xEventGroupCreate();
 
+    // init the virtual partition database from NV storage
+    // see iot_cli_cmd::vpart
+    // Virtual partition 0 is the default partition for some notifications.
+    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
+        int x = -1;
+        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
+        // if we found a NV record then initialize the AD2PState for the mask.
+        if (x != -1) {
+            AD2Parse.getAD2PState(x, true);
+            ESP_LOGI(TAG, "init vpart slot %i mask address %i", n, x);
+        }
+    }
+
+    // Initialize any attached sd card.
+    hal_init_sd_card();
+
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
     stsdk_register_cmds();
@@ -574,6 +593,16 @@ void app_main()
     pushover_register_cmds();
 #endif
 
+#if CONFIG_AD2IOT_WEBSERVER_UI
+    // Initialize WEB SEVER USER INTERFACE
+    webui_register_cmds();
+#endif
+
+#if CONFIG_AD2IOT_MQTT_CLIENT
+    // Register MQTT CLI commands.
+    mqtt_register_cmds();
+#endif
+
     // Register AD2 CLI commands.
     register_ad2_cli_cmd();
 
@@ -592,20 +621,6 @@ void app_main()
     // Start the CLI.
     // Press "..."" to halt startup and stay if a safe mode command line only.
     uart_cli_main();
-
-    // init the virtual partition database from NV storage
-    // see iot_cli_cmd::vpart
-    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
-        int x = -1;
-        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
-        // if we found a NV record then initialize the AD2PState for the mask.
-        if (x != -1) {
-            uint32_t amask = 1;
-            amask <<= x-1;
-            AD2Parse.getAD2PState(&amask, true);
-            ESP_LOGI(TAG, "init vpart slot %i mask %i", n, x);
-        }
-    }
 
     if (g_ad2_mode == 'S') {
         ad2_printf_host("Delaying start of ad2source SOCKET after network is up.\r\n");
@@ -685,6 +700,10 @@ void app_main()
         ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
     }
 #endif
+
+    // Initialize ad2 HTTP request sendQ and consumer task.
+    ad2_init_http_sendQ();
+
 #if CONFIG_AD2IOT_TWILIO_CLIENT
     // Initialize twilio client
     twilio_init();
@@ -695,14 +714,18 @@ void app_main()
 #endif
 #if CONFIG_AD2IOT_WEBSERVER_UI
     // Initialize WEB SEVER USER INTERFACE
-    webUI_init();
+    webui_init();
+#endif
+#if CONFIG_AD2IOT_MQTT_CLIENT
+    // Initialize MQTT client
+    mqtt_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
     // Start main AlarmDecoder IoT app task
-    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 4096, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // Start firmware update task
     ota_init();
@@ -712,7 +735,7 @@ void app_main()
         init_ser2sock_client();
     }
 
-#if defined(CONFIG_AD2IOT_SER2SOCKD)
+#if CONFIG_AD2IOT_SER2SOCKD
     // init ser2sock server
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
