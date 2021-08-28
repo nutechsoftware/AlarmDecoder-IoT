@@ -301,6 +301,10 @@ static void ad2uart_client_task(void *pvParameters)
     std::string breakline = "\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n";
     uart_write_bytes((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length());
 
+    // send a 'V" and a 'C' command to get version and configuration from the AD2*.
+    std::string cmdline = "V\r\nC\r\n";
+    uart_write_bytes((uart_port_t)g_ad2_client_handle, cmdline.c_str(), cmdline.length());
+
     while (1) {
         // do not process if main halted or network disconnected.
         if (!g_StopMainTask && hal_get_network_connected()) {
@@ -397,6 +401,15 @@ static void ser2sock_client_task(void *pvParameters)
 
             // set socket non blocking.
             fcntl(g_ad2_client_handle, F_SETFL, O_NONBLOCK);
+
+            // send break to AD2* be sure we are in run mode.
+            std::string breakline = "\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n";
+            send((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length(), 0);
+
+            // send a 'V" and a 'C' command to get version and configuration from the AD2*.
+            std::string cmdline = "V\r\nC\r\n";
+            send((uart_port_t)g_ad2_client_handle, cmdline.c_str(), cmdline.length(), 0);
+
 
             while (1) {
                 // do not process if main halted.

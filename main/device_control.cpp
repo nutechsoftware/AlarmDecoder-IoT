@@ -479,13 +479,13 @@ void hal_init_wifi(std::string &args)
 
     wifi_config_t sta_config = { };
 
-    res = ad2_query_key_value(args, "SID", value);
+    res = AD2Parse.query_key_value_string(args, "SID", value);
     if (res <= 0) {
         ESP_LOGE(TAG, "Error loading SID value from netmode arg");
     }
     strcpy((char*)sta_config.sta.ssid, value.c_str());
 
-    res = ad2_query_key_value(args, "PASSWORD", value);
+    res = AD2Parse.query_key_value_string(args, "PASSWORD", value);
     if (res <= 0) {
         ESP_LOGE(TAG, "Error loading PASSWORD value from netmode arg");
     }
@@ -497,7 +497,7 @@ void hal_init_wifi(std::string &args)
 
 
     // test DHCP or Static configuration
-    res = ad2_query_key_value(args, "MODE", value);
+    res = AD2Parse.query_key_value_string(args, "MODE", value);
     ad2_ucase(value);
     bool dhcp = true;
     if (res > 0) {
@@ -518,11 +518,11 @@ void hal_init_wifi(std::string &args)
         std::string dns2;
 
         // Parse name value pair settings from args string
-        res = ad2_query_key_value(args, "IP", ip);
-        res = ad2_query_key_value(args, "MASK", netmask);
-        res = ad2_query_key_value(args, "GW", gateway);
-        res = ad2_query_key_value(args, "DNS1", dns1);
-        res = ad2_query_key_value(args, "DNS2", dns2);
+        res = AD2Parse.query_key_value_string(args, "IP", ip);
+        res = AD2Parse.query_key_value_string(args, "MASK", netmask);
+        res = AD2Parse.query_key_value_string(args, "GW", gateway);
+        res = AD2Parse.query_key_value_string(args, "DNS1", dns1);
+        res = AD2Parse.query_key_value_string(args, "DNS2", dns2);
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
         tcpip_adapter_ip_info_t ip_info;
@@ -681,7 +681,7 @@ void hal_init_eth(std::string &args)
 #endif
 
     // test DHCP or Static configuration
-    res = ad2_query_key_value(args, "MODE", value);
+    res = AD2Parse.query_key_value_string(args, "MODE", value);
     ad2_ucase(value);
     bool dhcp = true;
     if (res > 0) {
@@ -702,11 +702,11 @@ void hal_init_eth(std::string &args)
         std::string dns2;
 
         // Parse name value pair settings from args string
-        res = ad2_query_key_value(args, "IP", ip);
-        res = ad2_query_key_value(args, "MASK", netmask);
-        res = ad2_query_key_value(args, "GW", gateway);
-        res = ad2_query_key_value(args, "DNS1", dns1);
-        res = ad2_query_key_value(args, "DNS2", dns2);
+        res = AD2Parse.query_key_value_string(args, "IP", ip);
+        res = AD2Parse.query_key_value_string(args, "MASK", netmask);
+        res = AD2Parse.query_key_value_string(args, "GW", gateway);
+        res = AD2Parse.query_key_value_string(args, "DNS1", dns1);
+        res = AD2Parse.query_key_value_string(args, "DNS2", dns2);
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
         tcpip_adapter_ip_info_t ip_info;

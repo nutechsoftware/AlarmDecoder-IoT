@@ -377,96 +377,6 @@ void ad2_genUUID(uint8_t n, std::string& ret)
 }
 
 /**
- * @brief find value by name in query string config data
- *    param1=val1&param2=val2
- *
- * @arg [in]qry_string std::string * to scan for NV data.
- * @arg [in]key char * key to search for.
- * @arg [in]val std::string &. Result buffer for value.
- * @arg [in]val_size size of output buffer.
- *
- * @return int results. < -2 error, -1 not found, >= 0 result length
- *
- * @note val is cleared after param check.
- */
-int ad2_query_key_value(std::string  &qry_str, const char *key, std::string &val)
-{
-
-    /* Test parmeters. */
-    if ( !qry_str.length() || key == NULL) {
-        return -2;
-    }
-
-    /* Clear val first. */
-    val = "";
-
-    /* Init state machine args and get raw pointer to our query string. */
-    int keylen = strlen(key);
-    const char * qry_ptr = qry_str.c_str();
-
-    /* Process until we reach null terminator on the query string. */
-    while ( *qry_ptr ) {
-        const char *tp = qry_ptr;
-        int len = 0;
-        static char chr;
-
-        /* Scan the KEY looking for the next terminator. */
-        while ( (chr = *tp) != 0 ) {
-            if (chr == '=' || chr == '&') {
-                break;
-            }
-            len++;
-            tp++;
-        }
-
-        /* Test key for a match. */
-        if ( len && len == keylen ) {
-            if ( strncasecmp (key, qry_ptr, keylen) == 0 ) {
-
-                /* move the index */
-                len++;
-                tp++;
-
-                /* Test for null value. Still valid just return empty string. */
-                if ( !chr || chr == '&' ) {
-                    return val.length();
-                }
-
-                /* Save the value. */
-                while ( ( chr = *tp ) != 0 ) {
-                    if ( chr == '=' || chr == '&' ) {
-                        break;
-                    }
-                    val += chr;
-                    tp++;
-                }
-                return val.length();
-            }
-        }
-
-        /* End of string and key not found. We are done. */
-        if ( !chr ) {
-            return -1;
-        }
-
-        /* Keep looking skip last terminator. */
-        len++;
-
-        /* Scan till we start the next set. */
-        qry_ptr += len;
-        while ( chr && chr != '&' ) {
-            chr = *qry_ptr++;
-        }
-
-        /* End of string and not found. We are done. */
-        if ( !chr ) {
-            return -1;
-        }
-    }
-    return -1;
-}
-
-/**
  * @brief conver bytes in a std::string to upper case.
  *
  * @param [in]str std::string & to modify
@@ -1319,6 +1229,10 @@ cJSON *ad2_get_ad2iot_device_info_json()
     cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
     std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
     cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
+
+    cJSON_AddStringToObject(root, "ad2_version_string", AD2Parse.ad2_version_string.c_str());
+    cJSON_AddStringToObject(root, "ad2_config_string", AD2Parse.ad2_config_string.c_str());
+
     return root;
 }
 

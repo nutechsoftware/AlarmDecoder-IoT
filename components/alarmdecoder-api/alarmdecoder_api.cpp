@@ -121,6 +121,95 @@ std::string AlarmDecoderParser::hex_to_binsz(void const * const ptr)
     return out;
 }
 
+/**
+ * @brief find value by name in query string config data
+ *    param1=val1&param2=val2
+ *
+ * @arg [in]qry_string std::string * to scan for NV data.
+ * @arg [in]key char * key to search for.
+ * @arg [in]val std::string &. Result buffer for value.
+ * @arg [in]val_size size of output buffer.
+ *
+ * @return int results. < -2 error, -1 not found, >= 0 result length
+ *
+ * @note val is cleared after param check.
+ */
+int AlarmDecoderParser::query_key_value_string(std::string  &qry_str, const char *key, std::string &val)
+{
+
+    /* Test parmeters. */
+    if ( !qry_str.length() || key == NULL) {
+        return -2;
+    }
+
+    /* Clear val first. */
+    val = "";
+
+    /* Init state machine args and get raw pointer to our query string. */
+    int keylen = strlen(key);
+    const char * qry_ptr = qry_str.c_str();
+
+    /* Process until we reach null terminator on the query string. */
+    while ( *qry_ptr ) {
+        const char *tp = qry_ptr;
+        int len = 0;
+        static char chr;
+
+        /* Scan the KEY looking for the next terminator. */
+        while ( (chr = *tp) != 0 ) {
+            if (chr == '=' || chr == '&') {
+                break;
+            }
+            len++;
+            tp++;
+        }
+
+        /* Test key for a match. */
+        if ( len && len == keylen ) {
+            if ( strncasecmp (key, qry_ptr, keylen) == 0 ) {
+
+                /* move the index */
+                len++;
+                tp++;
+
+                /* Test for null value. Still valid just return empty string. */
+                if ( !chr || chr == '&' ) {
+                    return val.length();
+                }
+
+                /* Save the value. */
+                while ( ( chr = *tp ) != 0 ) {
+                    if ( chr == '=' || chr == '&' ) {
+                        break;
+                    }
+                    val += chr;
+                    tp++;
+                }
+                return val.length();
+            }
+        }
+
+        /* End of string and key not found. We are done. */
+        if ( !chr ) {
+            return -1;
+        }
+
+        /* Keep looking skip last terminator. */
+        len++;
+
+        /* Scan till we start the next set. */
+        qry_ptr += len;
+        while ( chr && chr != '&' ) {
+            chr = *qry_ptr++;
+        }
+
+        /* End of string and not found. We are done. */
+        if ( !chr ) {
+            return -1;
+        }
+    }
+    return -1;
+}
 
 /**
  * @brief Subscribe to a EVENT type.
@@ -256,11 +345,9 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
         case ON_ZONE_CHANGE:
             if(pstate->zone_state == AD2_STATE_TROUBLE) {
                 emsg += " TROUBLE ";
-            } else
-            if(pstate->zone_state == AD2_STATE_OPEN) {
+            } else if(pstate->zone_state == AD2_STATE_OPEN) {
                 emsg += " OPEN ";
-            } else
-            if(pstate->zone_state == AD2_STATE_CLOSED) {
+            } else if(pstate->zone_state == AD2_STATE_CLOSED) {
                 emsg += " CLOSE ";
             }
             emsg += msg;
@@ -641,6 +728,17 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                     } else if (msg.find("!EXP:") == 0) {
                         MESSAGE_TYPE = EXP_MESSAGE_TYPE;
                         notifySubscribers(ON_EXP, msg, nostate);
+
+                        // Zone Tracking for DSC uses EXP messages.
+                        // Check if this is a DSC message stream look at any event for the panel type.
+                        // This makes a lot of assumptions. Presumably the first partition setup
+                        // is valid and a message has been received already.
+                        // TODO: Best to check Config settings early on.
+                        uint32_t amask = 0xffffffff;
+                        ad2ps = getAD2PState(&amask, false);
+                        if (ad2ps->panel_type == 'D') {
+
+                        }
                     } else if (msg.find("!RFX:") == 0) {
                         MESSAGE_TYPE = RFX_MESSAGE_TYPE;
                         // Expand the HEX value to a bit string for easy pattern matching.
@@ -674,7 +772,8 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                         MESSAGE_TYPE = CRC_MESSAGE_TYPE;
                         notifySubscribers(ON_CRC, msg, nostate);
                     } else if (msg.find("!VER:") == 0) {
-                        // Parse the version string.
+                        // save the AlarmDecoder firmware version string.
+                        ad2_version_string = msg.substr(5);
                         // call ON_VER callback if enabled.
                         MESSAGE_TYPE = VER_MESSAGE_TYPE;
                         notifySubscribers(ON_VER, msg, nostate);
@@ -682,6 +781,17 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                         // call ON_ERR callback if enabled.
                         MESSAGE_TYPE = ERR_MESSAGE_TYPE;
                         notifySubscribers(ON_ERR, msg, nostate);
+                    } else if (msg.find("!CONFIG>") == 0) {
+                        // save the AlarmDecoder firmware configuration string.
+                        ad2_config_string = msg.substr(8);
+                        // Early update AlarmDecoder panel mode.
+                        std::string mode;
+                        if (query_key_value_string(ad2_config_string, "MODE", mode) >= 0 ) {
+                            panel_type = mode[0];
+                        }
+                        // call ON_CFG callback if enabled.
+                        MESSAGE_TYPE = CFG_MESSAGE_TYPE;
+                        notifySubscribers(ON_CFG, msg, nostate);
                     }
                 } else {
                     // http://www.alarmdecoder.com/wiki/index.php/Protocol#Keypad
@@ -719,7 +829,10 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // get the panel type first
                             ad2ps->panel_type = msg[PANEL_TYPE_BYTE];
 
-                            // triggers
+                            // Update the parser panel mode.
+                            panel_type = ad2ps->panel_type;
+
+                            // event triggers
                             bool SEND_FIRE_CHANGE  = false;
                             bool SEND_READY_CHANGE = false;
                             bool SEND_ARMED_CHANGE = false;

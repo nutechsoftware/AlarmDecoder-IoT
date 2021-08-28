@@ -98,7 +98,7 @@ typedef enum {
 
 #define ADEMCO_PANEL       'A'
 #define DSC_PANEL          'D'
-
+#define UNKNOWN_PANEL      '?'
 
 
 /**
@@ -180,7 +180,7 @@ public:
     bool exit_now = false;
     uint8_t system_specific = 0;
     uint8_t beeps = 0;
-    char panel_type = '?';
+    char panel_type = UNKNOWN_PANEL;
     bool unused1 = false;
     bool unused2 = false;
 
@@ -230,6 +230,7 @@ typedef enum {
     ON_KPM,                    ///< !KPM message normal alpha with header.
     ON_KPE,                    ///< !KPE Keypad event message
     ON_CRC,                    ///< !CRC event message
+    ON_CFG,                    ///< !CONFIG event message
     ON_VER,                    ///< !VER message received
     ON_ERR,                    ///< !ERR error event stats
     ON_EXIT_CHANGE,            ///< Placeholder: EXIT CHANGE event ID
@@ -252,6 +253,7 @@ typedef enum {
     KPM_MESSAGE_TYPE,
     KPE_MESSAGE_TYPE,
     CRC_MESSAGE_TYPE,
+    CFG_MESSAGE_TYPE,
     VER_MESSAGE_TYPE,
     ERR_MESSAGE_TYPE,
     EVENT_MESSAGE_TYPE
@@ -444,6 +446,9 @@ public:
     // build a bitstring from a hex string
     std::string hex_to_binsz(void const * const ptr);
 
+    // query a key value string such as the config string for a specific key and return its value.
+    int query_key_value_string(std::string &query_str, const char *key, std::string &val);
+
     // get AD2PPState by mask create if flag is set and no match found.
     AD2VirtualPartitionState * getAD2PState(int address, bool update=false);
     AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
@@ -479,6 +484,7 @@ public:
         {ON_KPM,                "KPM"},
         {ON_KPE,                "KPE"},
         {ON_CRC,                "CRC"},
+        {ON_CFG,                "CFG"},
         {ON_VER,                "VER"},
         {ON_ERR,                "ERR"},
         {ON_EXIT_CHANGE,        "EXIT"},
@@ -502,10 +508,20 @@ public:
         {"KPM",   KPM_MESSAGE_TYPE},
         {"KPE",   KPE_MESSAGE_TYPE},
         {"CRC",   CRC_MESSAGE_TYPE},
+        {"CFG",   CFG_MESSAGE_TYPE},
         {"VER",   VER_MESSAGE_TYPE},
         {"ERR",   ERR_MESSAGE_TYPE},
         {"EVENT", EVENT_MESSAGE_TYPE},
     };
+
+    // AlarmDecoder config string
+    std::string ad2_config_string;
+
+    // AlarmDecoder version string
+    std::string ad2_version_string;
+
+    // AlarmDecoder mode / panel type
+    char panel_type = UNKNOWN_PANEL;
 
 protected:
     // Track all panel states in separate class.

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### SM - Sean Mathews coder at f34r.com
 - [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [X] API: Add ON_CFG event handler and parsing of config and version strings.
+- [X] API & CORE: ad2_query_key_value -> AlarmDecoderParser::query_key_value_string. Needed in parser so moved from ad2_.
 - [X] API: ON_FIRE -> ON_FIRE_CHANGE for consistency.
 - [X] API: Change from 'FAULT' to 'TROUBLE'. Fault indicates 'OPEN' for panel documentation so stick with OPEN/CLOSE/TROUBLE.
 - [X] API: Add search verb for Programming and EXIT change events and removed verbs from docs that were not wired and likely will never be wired.
