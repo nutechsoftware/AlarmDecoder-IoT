@@ -620,7 +620,7 @@ void webui_server_task(void *pvParameters)
                 AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
                 AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
                 AD2Parse.subscribeTo(ON_CHIME_CHANGE, webui_on_state_change, (void *)ON_CHIME_CHANGE);
-                AD2Parse.subscribeTo(ON_FIRE, webui_on_state_change, (void *)ON_FIRE);
+                AD2Parse.subscribeTo(ON_FIRE_CHANGE, webui_on_state_change, (void *)ON_FIRE_CHANGE);
                 AD2Parse.subscribeTo(ON_POWER_CHANGE, webui_on_state_change, (void *)ON_POWER_CHANGE);
                 AD2Parse.subscribeTo(ON_READY_CHANGE, webui_on_state_change, (void *)ON_READY_CHANGE);
                 AD2Parse.subscribeTo(ON_LOW_BATTERY, webui_on_state_change, (void *)ON_LOW_BATTERY);

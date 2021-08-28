@@ -58,10 +58,10 @@ const char PUSHOVER_URL[] = "https://api.pushover.net/" PUSHOVER_API_VERSION "/m
 #define SK_PREFILTER_REGEX   "P"
 #define SK_OPEN_REGEX_LIST   "O"
 #define SK_CLOSED_REGEX_LIST "C"
-#define SK_FAULT_REGEX_LIST  "F"
+#define SK_TROUBLE_REGEX_LIST  "F"
 #define SK_OPEN_OUTPUT_FMT   "o"
 #define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_FAULT_OUTPUT_FMT  "f"
+#define SK_TROUBLE_OUTPUT_FMT  "f"
 
 static std::vector<AD2EventSearch *> pushover_AD2EventSearches;
 
@@ -393,7 +393,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
 
             case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
             case SK_CLOSED_REGEX_LIST[0]: // Closed state REGEX list editor
-            case SK_FAULT_REGEX_LIST[0]: // Fault state REGEX list editor
+            case SK_TROUBLE_REGEX_LIST[0]: // Fault state REGEX list editor
                 // Add index to file name to track N number of elements.
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
@@ -408,8 +408,8 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                     if (buf[0] == SK_CLOSED_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (buf[0] == SK_FAULT_REGEX_LIST[0]) {
-                        tmpsz = "FAULT";
+                    if (buf[0] == SK_TROUBLE_REGEX_LIST[0]) {
+                        tmpsz = "TROUBLE";
                     }
                     ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.c_str());
                     ad2_printf_host("%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
@@ -420,7 +420,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
 
             case SK_OPEN_OUTPUT_FMT[0]: // Open state output format string
             case SK_CLOSED_OUTPUT_FMT[0]: // Closed state output format string
-            case SK_FAULT_OUTPUT_FMT[0]: // Fault state output format string
+            case SK_TROUBLE_OUTPUT_FMT[0]: // Fault state output format string
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 if (buf[0] == SK_OPEN_OUTPUT_FMT[0]) {
@@ -429,8 +429,8 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                 if (buf[0] == SK_CLOSED_OUTPUT_FMT[0]) {
                     tmpsz = "CLOSED";
                 }
-                if (buf[0] == SK_FAULT_OUTPUT_FMT[0]) {
-                    tmpsz = "FAULT";
+                if (buf[0] == SK_TROUBLE_OUTPUT_FMT[0]) {
+                    tmpsz = "TROUBLE";
                 }
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
                 ad2_printf_host("Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
@@ -451,10 +451,10 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                                SK_PREFILTER_REGEX
                                SK_OPEN_REGEX_LIST
                                SK_CLOSED_REGEX_LIST
-                               SK_FAULT_REGEX_LIST
+                               SK_TROUBLE_REGEX_LIST
                                SK_OPEN_OUTPUT_FMT
                                SK_CLOSED_OUTPUT_FMT
-                               SK_FAULT_OUTPUT_FMT;
+                               SK_TROUBLE_OUTPUT_FMT;
 
             ad2_printf_host("Pushover SmartSwitch #%i report\r\n", slot);
             // sub key suffix.
@@ -500,7 +500,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                     break;
                 case SK_OPEN_REGEX_LIST[0]:
                 case SK_CLOSED_REGEX_LIST[0]:
-                case SK_FAULT_REGEX_LIST[0]:
+                case SK_TROUBLE_REGEX_LIST[0]:
                     // * Find all sub keys and show info.
                     if (c == SK_OPEN_REGEX_LIST[0]) {
                         tmpsz = "OPEN";
@@ -508,8 +508,8 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                     if (c == SK_CLOSED_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (c == SK_FAULT_REGEX_LIST[0]) {
-                        tmpsz = "FAULT";
+                    if (c == SK_TROUBLE_REGEX_LIST[0]) {
+                        tmpsz = "TROUBLE";
                     }
                     for ( i = 1; i < MAX_SEARCH_KEYS; i++ ) {
                         out = "";
@@ -523,15 +523,15 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                     break;
                 case SK_OPEN_OUTPUT_FMT[0]:
                 case SK_CLOSED_OUTPUT_FMT[0]:
-                case SK_FAULT_OUTPUT_FMT[0]:
+                case SK_TROUBLE_OUTPUT_FMT[0]:
                     if (c == SK_OPEN_OUTPUT_FMT[0]) {
                         tmpsz = "OPEN";
                     }
                     if (c == SK_CLOSED_OUTPUT_FMT[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (c == SK_FAULT_OUTPUT_FMT[0]) {
-                        tmpsz = "FAULT";
+                    if (c == SK_TROUBLE_OUTPUT_FMT[0]) {
+                        tmpsz = "TROUBLE";
                     }
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
@@ -625,12 +625,12 @@ static struct cli_command pushover_cmd_list[] = {
         "      - [C] Close(OFF) state regex search string list management.\r\n"
         "        - {arg1}: Index # 1-8\r\n"
         "        - {arg2}: Regex string for this slot or empty string to clear\r\n"
-        "      - [F] Fault state regex search string list management.\r\n"
+        "      - [F] Trouble state regex search string list management.\r\n"
         "        - {arg1}: Index # 1-8\r\n"
         "        - {arg2}: Regex string for this slot or empty  string to clear\r\n"
         "      - [o] Open output format string.\r\n"
         "      - [c] Close output format string.\r\n"
-        "      - [f] Fault output format string.\r\n\r\n", _cli_cmd_pushover_command_router
+        "      - [f] Trouble output format string.\r\n\r\n", _cli_cmd_pushover_command_router
     },
 };
 
@@ -666,10 +666,10 @@ void pushover_init()
             // We at least need some output format or skip
             ad2_get_nv_slot_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
             ad2_get_nv_slot_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSED_OUTPUT_FORMAT);
-            ad2_get_nv_slot_key_string(key.c_str(), i, SK_FAULT_OUTPUT_FMT, es1->FAULT_OUTPUT_FORMAT);
+            ad2_get_nv_slot_key_string(key.c_str(), i, SK_TROUBLE_OUTPUT_FMT, es1->TROUBLE_OUTPUT_FORMAT);
             if ( es1->OPEN_OUTPUT_FORMAT.length()
                     || es1->CLOSED_OUTPUT_FORMAT.length()
-                    || es1->FAULT_OUTPUT_FORMAT.length() ) {
+                    || es1->TROUBLE_OUTPUT_FORMAT.length() ) {
 
                 std::string notify_types_sz = "";
                 std::vector<std::string> notify_types_v;
@@ -685,8 +685,8 @@ void pushover_init()
                 }
                 ad2_get_nv_slot_key_string(key.c_str(), i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
 
-                // Load all regex search patterns for OPEN,CLOSE and FAULT sub keys.
-                std::string regex_sk_list = SK_FAULT_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
+                // Load all regex search patterns for OPEN,CLOSE and TROUBLE sub keys.
+                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
                 for(char& c : regex_sk_list) {
                     std::string sk = ad2_string_printf("%c", c);
                     for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
@@ -700,8 +700,8 @@ void pushover_init()
                             if (c == SK_CLOSED_REGEX_LIST[0]) {
                                 es1->CLOSED_REGEX_LIST.push_back(out);
                             }
-                            if (c == SK_FAULT_REGEX_LIST[0]) {
-                                es1->FAULT_REGEX_LIST.push_back(out);
+                            if (c == SK_TROUBLE_REGEX_LIST[0]) {
+                                es1->TROUBLE_REGEX_LIST.push_back(out);
                             }
                         }
                     }

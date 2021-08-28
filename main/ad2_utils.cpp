@@ -1338,7 +1338,7 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
         cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
         cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
         cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
-        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
+        cJSON_AddBoolToObject(root, "programming", s->programming);
         cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
         cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
         cJSON_AddBoolToObject(root, "chime_on", s->chime_on);

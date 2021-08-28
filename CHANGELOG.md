@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [X] API: ON_FIRE -> ON_FIRE_CHANGE for consistency.
+- [X] API: Change from 'FAULT' to 'TROUBLE'. Fault indicates 'OPEN' for panel documentation so stick with OPEN/CLOSE/TROUBLE.
+- [X] API: Add search verb for Programming and EXIT change events and removed verbs from docs that were not wired and likely will never be wired.
 - [X] CORE: No IPv6 dhcp address assigned notification on ethernet interface. Missing callback for IPv6.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
@@ -17,7 +21,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
 - [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
-- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_

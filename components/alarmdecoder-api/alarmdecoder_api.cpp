@@ -225,7 +225,7 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
                 emsg += " OFF";
             }
             break;
-        case ON_FIRE:
+        case ON_FIRE_CHANGE:
             if(pstate->fire_alarm) {
                 emsg += " ON";
             } else {
@@ -238,6 +238,32 @@ void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2
             } else {
                 emsg += " OFF";
             }
+            break;
+        case ON_EXIT_CHANGE:
+            if(pstate->exit_now) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_PROGRAMMING_CHANGE:
+            if(pstate->programming) {
+                emsg += " ON";
+            } else {
+                emsg += " OFF";
+            }
+            break;
+        case ON_ZONE_CHANGE:
+            if(pstate->zone_state == AD2_STATE_TROUBLE) {
+                emsg += " TROUBLE ";
+            } else
+            if(pstate->zone_state == AD2_STATE_OPEN) {
+                emsg += " OPEN ";
+            } else
+            if(pstate->zone_state == AD2_STATE_CLOSED) {
+                emsg += " CLOSE ";
+            }
+            emsg += msg;
             break;
         default:
             emsg += " " + msg;
@@ -358,10 +384,10 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                 }
             }
 
-            // Test FAULT REGEX list stop on first matching statement.
+            // Test TROUBLE REGEX list stop on first matching statement.
             /// only test if a list is supplied.
-            if (!done && eSearch->FAULT_REGEX_LIST.size()) {
-                for(auto &regexstr : eSearch->FAULT_REGEX_LIST) {
+            if (!done && eSearch->TROUBLE_REGEX_LIST.size()) {
+                for(auto &regexstr : eSearch->TROUBLE_REGEX_LIST) {
                     std::smatch m;
                     std::regex e(regexstr);
                     const auto& tmsg = msg;
@@ -369,8 +395,8 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     bool res = std::regex_search(tmsg, m, e);
                     if (res) {
                         // no match next subscriber.
-                        outformat = eSearch->FAULT_OUTPUT_FORMAT;
-                        eSearch->setState(AD2_STATE_FAULT);
+                        outformat = eSearch->TROUBLE_OUTPUT_FORMAT;
+                        eSearch->setState(AD2_STATE_TROUBLE);
                         // Clear last output results before we collect new.
                         eSearch->RESULT_GROUPS.clear();
                         // save the regex group results if any.
@@ -698,6 +724,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool SEND_READY_CHANGE = false;
                             bool SEND_ARMED_CHANGE = false;
                             bool SEND_CHIME_CHANGE = false;
+                            bool SEND_PROGRAMMING_CHANGE = false;
                             bool SEND_POWER_CHANGE = false;
                             bool SEND_BATTERY_CHANGE = false;
                             bool SEND_ALARM_CHANGE = false;
@@ -711,6 +738,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool ENTRY_DELAY = is_bit_set(ENTRYDELAY_BYTE, msg.c_str());
                             bool READY = is_bit_set(READY_BYTE, msg.c_str());
                             bool CHIME_ON = is_bit_set(CHIME_BYTE, msg.c_str());
+                            bool PROGRAMMING = is_bit_set(PROGMODE_BYTE, msg.c_str());
                             bool EXIT_NOW = false;
                             bool FIRE_ALARM = is_bit_set(FIRE_BYTE, msg.c_str());
                             bool AC_POWER = is_bit_set(ACPOWER_BYTE, msg.c_str());
@@ -809,6 +837,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                     SEND_CHIME_CHANGE = true;
                                 }
 
+                                // programming state change send
+                                if ( ad2ps->programming != PROGRAMMING ) {
+                                    SEND_PROGRAMMING_CHANGE = true;
+                                }
+
                                 // ac_power state change send
                                 if ( ad2ps->ac_power != AC_POWER ) {
                                     SEND_POWER_CHANGE = true;
@@ -871,7 +904,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // Save states for non even tracked changes
                             ad2ps->backlight_on  = is_bit_set(BACKLIGHT_BYTE, msg.c_str());
-                            ad2ps->programming_mode = is_bit_set(PROGMODE_BYTE, msg.c_str());
+                            ad2ps->programming = is_bit_set(PROGMODE_BYTE, msg.c_str());
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = (uint8_t) (msg[SYSSPECIFIC_BYTE] - '0') & 0xff;
@@ -897,7 +930,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // Send event if FIRE state changed
                             if ( SEND_FIRE_CHANGE ) {
-                                notifySubscribers(ON_FIRE, msg, ad2ps);
+                                notifySubscribers(ON_FIRE_CHANGE, msg, ad2ps);
                             }
 
                             // Send event if ready state changed
@@ -917,6 +950,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // Send event if chime_on state changed
                             if ( SEND_CHIME_CHANGE ) {
                                 notifySubscribers(ON_CHIME_CHANGE, msg, ad2ps);
+                            }
+
+                            // Send event if programming state changed
+                            if ( SEND_PROGRAMMING_CHANGE ) {
+                                notifySubscribers(ON_PROGRAMMING_CHANGE, msg, ad2ps);
                             }
 
                             // Send event if ac_power state changed

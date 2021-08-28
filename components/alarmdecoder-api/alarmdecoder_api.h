@@ -44,6 +44,15 @@ enum AD2_PARSER_STATES {
     AD2_PARSER_PROCESSING       = 3
 };
 
+/**
+ * AD2 zone STATES enum.
+ */
+typedef enum {
+    AD2_STATE_CLOSED = 0,
+    AD2_STATE_OPEN,
+    AD2_STATE_TROUBLE
+} ad2_zone_state_t;
+
 // The actual max is ~90 but leave some room for future.
 // WARN: use int8_t so must be <= 127 for overflow protection.
 #define ALARMDECODER_MAX_MESSAGE_SIZE 120
@@ -157,7 +166,7 @@ public:
     bool armed_away = false;
     bool armed_stay = false;
     bool backlight_on = false;
-    bool programming_mode = false;
+    bool programming = false;
     bool zone_bypassed = false;
     bool ac_power = false;
     bool chime_on = false;
@@ -177,7 +186,7 @@ public:
 
     std::string last_alpha_message = "";
     std::string last_numeric_message = "";
-
+    ad2_zone_state_t zone_state =  AD2_STATE_TROUBLE;
 };
 
 /**
@@ -202,15 +211,15 @@ typedef enum {
     ON_POWER_CHANGE,           ///< AC POWER STATE CHANGE
     ON_READY_CHANGE,           ///< READY STATE CHANGE
     ON_ALARM_CHANGE,           ///< ALARM BELL CHANGE
-    ON_FIRE,                   ///< FIRE ALARM
+    ON_FIRE_CHANGE,            ///< FIRE ALARM CHANGE
     ON_ZONE_BYPASSED_CHANGE,   ///< BYPASS STATE CHANGE
     ON_BOOT,                   ///< AD2 Firmware boot
     ON_CONFIG_RECEIVED,        ///< AD2 CONFIG RECEIVED
-    ON_ZONE_FAULT,             ///< ZONE FAULT EVENT
-    ON_ZONE_RESTORE,           ///< ZONE RESTORE EVENT
+    ON_ZONE_CHANGE,            ///< ZONE TRACKER EVENT
     ON_LOW_BATTERY,            ///< LOW BATTERY EVENT
     ON_PANIC,                  ///< PANIC EVENT
     ON_CHIME_CHANGE,           ///< Chime state change
+    ON_PROGRAMMING_CHANGE,     ///< Programming mode stage change
     ON_MESSAGE,                ///< ALPHA MESSAGE After parsing
     ON_REL,                    ///< !REL RELAY EVENT
     ON_EXP,                    ///< !EXP Zone Expander message
@@ -249,15 +258,6 @@ typedef enum {
 } ad2_message_t;
 
 /**
- * AD2 STATES enum.
- */
-typedef enum {
-    AD2_STATE_CLOSED = 0,
-    AD2_STATE_OPEN,
-    AD2_STATE_FAULT
-} ad2_state_t;
-
-/**
  * @brief EVENT Search virtual contact.
  *
  * A Virtual contact that is managed using filters and regular expressions
@@ -283,10 +283,10 @@ typedef enum {
  *  es->PRE_FILTER_REGEX = "!RFX:0123456,.*";
  *  es->OPEN_REGEX_LIST.push_back("RFX:0123456,1.......");
  *  es->CLOSED_REGEX_LIST.push_back("RFX:0123456,0.......");
- *  es->FAULT_REGEX_LIST.push_back("RFX:0123456,......1.");
+ *  es->TROUBLE_REGEX_LIST.push_back("RFX:0123456,......1.");
  *  es->OPEN_OUTPUT_FORMAT = "TEST SENSOR OPEN";
  *  es->CLOSED_OUTPUT_FORMAT = "TEST SENSOR CLOSE";
- *  es->FAULT_OUTPUT_FORMAT = "TEST SENSOR FAULT";
+ *  es->TROUBLE_OUTPUT_FORMAT = "TEST SENSOR TROUBLE";
  *  AD2Parse.subscribeTo(on_search_match_cb, es);
  *
  */
@@ -313,7 +313,7 @@ public:
         , reset_time_( 0 )
     { }
 
-    AD2EventSearch(ad2_state_t default_state, int reset_time_in_ms)
+    AD2EventSearch(ad2_zone_state_t default_state, int reset_time_in_ms)
         : current_state_(default_state)
         , default_state_(default_state)
         , reset_time_(reset_time_in_ms)
@@ -354,9 +354,9 @@ public:
     std::vector<std::string>
     CLOSED_REGEX_LIST;
 
-    ///< List of REGEX patterns when matched report a FAULT state.
+    ///< List of REGEX patterns when matched report a TROUBLE state.
     std::vector<std::string>
-    FAULT_REGEX_LIST;
+    TROUBLE_REGEX_LIST;
 
     ///< Vector for results of any regex groups '()'.
     std::vector<std::string>
@@ -370,7 +370,7 @@ public:
     ///< ex. CLOSED: "HVAC ${ON_OFF}"
     std::string OPEN_OUTPUT_FORMAT;
     std::string CLOSED_OUTPUT_FORMAT;
-    std::string FAULT_OUTPUT_FORMAT;
+    std::string TROUBLE_OUTPUT_FORMAT;
 
     ///< Event message. Message that triggered a change.
     std::string last_message;
@@ -460,15 +460,15 @@ public:
         {ON_POWER_CHANGE,       "POWER"},
         {ON_READY_CHANGE,       "READY"},
         {ON_ALARM_CHANGE,       "ALARM"},
-        {ON_FIRE,               "FIRE"},
+        {ON_FIRE_CHANGE,        "FIRE"},
         /*      {ON_ZONE_BYPASS_CHANGE, "BYPASS"}, */
         /*      {ON_BOOT,               "BOOT"}, */
         /*      {ON_CONFIG_RECEIVED,    "CONFIG"}, */
-        /*      {ON_ZONE_FAULT,         "ZONE FAULT"}, */
-        /*      {ON_ZONE_RESTORE,       "ZONE RESTORE"}, */
+        {ON_ZONE_CHANGE,        "ZONE"},
         {ON_LOW_BATTERY,        "LOW BATTERY"},
         /*      {ON_PANIC,              "PANIC"}, */
         {ON_CHIME_CHANGE,       "CHIME"},
+        {ON_PROGRAMMING_CHANGE, "PROGRAMMING"},
         {ON_MESSAGE,            "MESSAGE"},
         {ON_REL,                "RELAY"},
         {ON_EXP,                "EXPANDER"},
@@ -489,7 +489,7 @@ public:
     std::map<int, const std::string> state_str = {
         {AD2_STATE_CLOSED,"CLOSED"},
         {AD2_STATE_OPEN,  "OPEN"},
-        {AD2_STATE_FAULT, "FAULT"},
+        {AD2_STATE_TROUBLE, "TROUBLE"},
     };
 
     std::map<const std::string, ad2_message_t> message_type_id = {

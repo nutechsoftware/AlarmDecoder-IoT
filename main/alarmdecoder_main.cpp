@@ -211,7 +211,7 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
 }
 
 /**
- * @brief ON_FIRE
+ * @brief ON_FIRE_CHANGE
  * Called when FIRE state change event is triggered.
  * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
  * to make it clear FIRE ON = Contact LED ON
@@ -220,9 +220,9 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_FIRE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_FIRE_CB: FIRE(%i)", s->fire_alarm);
+    ESP_LOGI(TAG, "ON_FIRE_CHANGE_CB: FIRE(%i)", s->fire_alarm);
 }
 
 /**
@@ -678,7 +678,7 @@ void app_main()
     AD2Parse.subscribeTo(ON_DISARM, my_ON_DISARM_CB, nullptr);
     AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_FIRE, my_ON_FIRE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_FIRE_CHANGE, my_ON_FIRE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
 #endif
 
