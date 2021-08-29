@@ -852,7 +852,7 @@ void ad2_arm_away(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "2");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S5>";
+            msg = ad2_string_printf("K%01i1<S5>", address);
         }
 
         ESP_LOGI(TAG,"Sending ARM AWAY command");
@@ -893,7 +893,7 @@ void ad2_arm_stay(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "3");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S4>";
+            msg = ad2_string_printf("K%01i1<S4>", address);
         }
         ESP_LOGI(TAG,"Sending ARM STAY command to address %i using code '%s'", address, code.c_str());
         ad2_send(msg);
@@ -935,7 +935,7 @@ void ad2_disarm(int codeId, int vpartId)
         } else if (s->panel_type == DSC_PANEL) {
             // QUIRK: For DSC don't disarm if already disarmed. Unlike Ademoc no specific command AFAIK exists to disarm just the code. If I find one I will change this.
             if (s->armed_away || s->armed_stay) {
-                msg = ad2_string_printf("K%02i%s", address, code.c_str());
+                msg = ad2_string_printf("K%01i1%s", address, code.c_str());
             } else {
                 ESP_LOGI(TAG,"DSC: Already DISARMED not sending DISARM command");
             }
@@ -978,7 +978,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "9");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S6>";
+            msg = ad2_string_printf("K%01i1<S6>", address);
         }
 
         ESP_LOGI(TAG,"Sending CHIME toggle command");
@@ -1095,7 +1095,7 @@ void ad2_exit_now(int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s", address, "*");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S8>";
+            msg = ad2_string_printf("K%01i1<S8>", address);
         }
 
         ESP_LOGI(TAG,"Sending EXIT NOW command");

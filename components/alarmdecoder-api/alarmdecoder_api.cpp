@@ -575,6 +575,42 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, boo
     return ad2ps;
 }
 
+
+/**
+ * @brief Return a alpha description of a zone state. Use the AD2ZoneAlpha string if found
+ * or the standard 'ZONE XXX' template if not.
+ *
+ * @param [in]zone int value for the zone from 1-N
+ *
+ * @return const char * alpha for the zone.
+ *
+ */
+void AlarmDecoderParser::getZoneString(uint8_t zone, uint8_t value, std::string &alpha)
+{
+    if (AD2ZoneAlpha.count(zone)) {
+        alpha = AD2ZoneAlpha[zone];
+    } else {
+        alpha = "ZONE ";
+        alpha += std::to_string(zone);
+    }
+    alpha += " ";
+    alpha += state_str[value];
+}
+
+/**
+ * @brief Set the alpha description of a zone.
+ *
+ * @param [in]zone int value for the zone from 1-N
+ *
+ * @return const char * alpha for the zone.
+ *
+ */
+void AlarmDecoderParser::setZoneString(uint8_t zone, const char* alpha)
+{
+    AD2ZoneAlpha[zone] = alpha;
+}
+
+
 /**
  * @brief Consume bytes from an AlarmDecoder stream into a small ring
  * buffer for processing.
@@ -728,16 +764,16 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                     } else if (msg.find("!EXP:") == 0) {
                         MESSAGE_TYPE = EXP_MESSAGE_TYPE;
                         notifySubscribers(ON_EXP, msg, nostate);
+                        // DSC Zone Tracking use EXP messages and convert to zones.
+                        if (panel_type == 'D') {
+                            uint8_t exp_addr = atoi(msg.substr(5,2).c_str());
+                            uint8_t exp_chan = atoi(msg.substr(8,2).c_str());
+                            uint8_t zone = (exp_addr * 8) + exp_chan;
+                            uint8_t value = atoi(msg.substr(11,2).c_str());
 
-                        // Zone Tracking for DSC uses EXP messages.
-                        // Check if this is a DSC message stream look at any event for the panel type.
-                        // This makes a lot of assumptions. Presumably the first partition setup
-                        // is valid and a message has been received already.
-                        // TODO: Best to check Config settings early on.
-                        uint32_t amask = 0xffffffff;
-                        ad2ps = getAD2PState(&amask, false);
-                        if (ad2ps->panel_type == 'D') {
-
+                            // replace EXP message with zone fault string.
+                            getZoneString(zone, value, msg);
+                            notifySubscribers(ON_ZONE_CHANGE, msg, nostate);
                         }
                     } else if (msg.find("!RFX:") == 0) {
                         MESSAGE_TYPE = RFX_MESSAGE_TYPE;

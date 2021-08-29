@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### SM - Sean Mathews coder at f34r.com
 - [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
+- [X] CORE: Add 'ZONE' command.
+- [X] API: Add zone descriptions and zone tracking for DSC panels.
+- [X] API: DSC testing found some issues. Address settings are a combination of Partition and Slot# so 11 is P1 S1. Append default of slot '1' and use 'K' command.
 - [X] API: Add ON_CFG event handler and parsing of config and version strings.
 - [X] API & CORE: ad2_query_key_value -> AlarmDecoderParser::query_key_value_string. Needed in parser so moved from ad2_.
 - [X] API: ON_FIRE -> ON_FIRE_CHANGE for consistency.

@@ -196,6 +196,12 @@ public:
 typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
 
 /**
+ * Zone descriptions
+ * The key is the zone number
+ */
+typedef std::map<uint32_t, std::string> ad2zonealpha_t;
+
+/**
  * API Subscriber callback function pointer type
  */
 typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
@@ -275,7 +281,6 @@ typedef enum {
  *     for OPEN and CLOSE.
  *
  * - Trigger on Zone tracking algorithm event.
- *   - TODO: Need to integrate zone tracking and work it in here.
  *
  * Example to search for and track 5800 wireless or VPLEX bus device
  *  with a serial number of 0123456.
@@ -453,6 +458,12 @@ public:
     AD2VirtualPartitionState * getAD2PState(int address, bool update=false);
     AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
+    // get zone string using Alpha descriptor if found in AD2ZoneAlpha or use standard format 'ZONE XXX' if not found.
+    void getZoneString(uint8_t zone, uint8_t value, std::string &alpha);
+
+    // set zone string in AD2ZoneAlpha
+    void setZoneString(uint8_t zone, const char *alpha);
+
     // update firmware version trigger events to any subscribers
     void updateVersion(char *newversion);
 
@@ -524,6 +535,9 @@ public:
     char panel_type = UNKNOWN_PANEL;
 
 protected:
+    // Zone to Alpha descriptor string.
+    ad2zonealpha_t AD2ZoneAlpha;
+
     // Track all panel states in separate class.
     ad2pstates_t AD2PStates;
 

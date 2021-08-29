@@ -302,7 +302,7 @@ static void ad2uart_client_task(void *pvParameters)
     uart_write_bytes((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length());
 
     // send a 'V" and a 'C' command to get version and configuration from the AD2*.
-    std::string cmdline = "V\r\nC\r\n";
+    std::string cmdline = "V\r\n\r\nC\r\n\r\n\r\n";
     uart_write_bytes((uart_port_t)g_ad2_client_handle, cmdline.c_str(), cmdline.length());
 
     while (1) {
@@ -582,6 +582,9 @@ void app_main()
             ESP_LOGI(TAG, "init vpart slot %i mask address %i", n, x);
         }
     }
+
+    // Load Zone alpha descriptors.
+    AD2Parse.setZoneString(2, "TEST ROOM");
 
     // Initialize any attached sd card.
     hal_init_sd_card();
