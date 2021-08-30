@@ -575,7 +575,7 @@ void app_main()
     // Virtual partition 0 is the default partition for some notifications.
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         int x = -1;
-        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
+        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, nullptr, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
             AD2Parse.getAD2PState(x, true);
@@ -584,7 +584,14 @@ void app_main()
     }
 
     // Load Zone alpha descriptors.
-    AD2Parse.setZoneString(2, "TEST ROOM");
+    std::string alpha;
+    for (int n = 0; n <= AD2_MAX_ZONES; n++) {
+        alpha = "";
+        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, alpha);
+        if (alpha.length()) {
+            AD2Parse.setZoneString(n, alpha.c_str());
+        }
+    }
 
     // Initialize any attached sd card.
     hal_init_sd_card();
