@@ -179,8 +179,6 @@ static void _build_sendgrid_post(esp_http_client_handle_t client, request_messag
 
     // array: personalizations
     cJSON *_personalizations = cJSON_CreateArray();
-    cJSON *_pitem = cJSON_CreateObject();
-    cJSON_AddItemToArray(_personalizations, _pitem);
 
     // object: from
     cJSON *_from = cJSON_CreateObject();
@@ -194,19 +192,23 @@ static void _build_sendgrid_post(esp_http_client_handle_t client, request_messag
     cJSON_AddStringToObject(_text, "value", r->message.c_str());
 
     // add top level items to root
-    cJSON_AddItemToObject(_root, "personalizations", _personalizations);
+    cJSON_AddStringToObject(_root, "subject", ad2_string_printf("AD2 ALERT '%s'", r->message.c_str()).c_str());
     cJSON_AddItemToObject(_root, "from", _from);
+    cJSON_AddItemToObject(_root, "personalizations", _personalizations);
     cJSON_AddItemToObject(_root, "content", _content);
 
-    // _personalizations -> subject
-    cJSON_AddStringToObject(_pitem, "subject", ad2_string_printf("AD2 ALERT '%s'", r->message.c_str()).c_str());
-
     // _personalizations -> to[]
-    cJSON *_to = cJSON_CreateArray();
-    cJSON_AddItemToObject(_pitem, "to", _to);
-    cJSON *_email = cJSON_CreateObject();
-    cJSON_AddItemToArray(_to, _email);
-    cJSON_AddStringToObject(_email, "email", r->to.c_str());
+    std::vector<std::string> to_list;
+    ad2_tokenize(r->to, ", ", to_list);
+    for (auto &szto : to_list) {
+        cJSON *_to = cJSON_CreateArray();
+        cJSON *_pitem = cJSON_CreateObject();
+        cJSON_AddItemToArray(_personalizations, _pitem);
+        cJSON_AddItemToObject(_pitem, "to", _to);
+        cJSON *_email = cJSON_CreateObject();
+        cJSON_AddItemToArray(_to, _email);
+        cJSON_AddStringToObject(_email, "email", szto.c_str());
+    }
 
     // Build and save final json string and cleanup
     char *json = NULL;
@@ -523,9 +525,10 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, char *string)
         slot = strtol(buf.c_str(), NULL, 10);
     }
     if (slot >= 0) {
-        if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
+        if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
+            ad2_remove_ws(buf);
             ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
-            ad2_printf_host("Setting '%s' value finished.\r\n", subcmd.c_str());
+            ad2_printf_host("Setting '%s' value '%s' finished.\r\n", subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
             ad2_get_nv_slot_key_string(key.c_str(), slot, nullptr, buf);
@@ -567,6 +570,20 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
 
             /* setting */
             switch(buf[0]) {
+            case '-': // Remove entry
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_NOTIFY_SLOT, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
+                ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
+                break;
             case SK_NOTIFY_SLOT[0]: // Notification slot
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
@@ -817,7 +834,7 @@ static struct cli_command twilio_cmd_list[] = {
         "    - {phone|email}: [NXXXYYYZZZZ|user@example.com]\r\n"
         "- Sets the 'To' info for a given notification slot.\r\n"
         "  - ```" TWILIO_COMMAND " " TWILIO_TO_SUBCMD " {slot} {phone|email}```\r\n"
-        "    - {phone|email}: [NXXXYYYZZZZ|user@example.com]\r\n"
+        "    - {phone|email}: [NXXXYYYZZZZ|user@example.com, user2@example.com]\r\n"
         "- Sets the 'Type' for a given notification slot.\r\n"
         "  - ```" TWILIO_COMMAND " " TWILIO_TYPE_SUBCMD " {slot} {type}```\r\n"
         "    - {type}: [M|C|E]\r\n"
@@ -828,6 +845,7 @@ static struct cli_command twilio_cmd_list[] = {
         "    - {slot}\r\n"
         "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
+        "      - [-] Delete switch\r\n"
         "      - [N] Notification slot\r\n"
         "        -  Notification settings slot to use for sending this events.\r\n"
         "      - [D] Default state\r\n"

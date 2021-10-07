@@ -59,7 +59,7 @@ static int ap_retry_num = 0;
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 #else
-static esp_netif_t* g_netif = NULL;
+static esp_netif_t* _netif = NULL;
 #endif
 
 
@@ -347,7 +347,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
     case WIFI_EVENT_STA_CONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
 #if CONFIG_LWIP_IPV6
-        esp_netif_create_ip6_linklocal(g_netif);
+        esp_netif_create_ip6_linklocal(_netif);
 #endif
         hal_set_wifi_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
         break;
@@ -445,8 +445,6 @@ void hal_init_wifi(std::string &args)
         return;
     }
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
-
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL));
@@ -454,7 +452,7 @@ void hal_init_wifi(std::string &args)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL));
 #endif
 #else
-    g_netif = esp_netif_create_default_wifi_sta();
+    _netif = esp_netif_create_default_wifi_sta();
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL, NULL));
 #if CONFIG_LWIP_IPV6
@@ -559,8 +557,8 @@ void hal_init_wifi(std::string &args)
         ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
         ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
 #else
-        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(g_netif));
-        ESP_ERROR_CHECK(esp_netif_set_ip_info(g_netif, &ip_info));
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(_netif));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(_netif, &ip_info));
 #endif
 
         // assign DNS1 if avail.
@@ -570,7 +568,7 @@ void hal_init_wifi(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_MAIN, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_MAIN, &dns_info));
 #endif
         }
 
@@ -581,7 +579,7 @@ void hal_init_wifi(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
 #endif
         }
     } else {
@@ -643,8 +641,8 @@ void hal_init_eth(std::string &args)
 #endif
 #else
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
-    g_netif = esp_netif_new(&cfg);
-    esp_eth_set_default_handlers(g_netif);
+    _netif = esp_netif_new(&cfg);
+    esp_eth_set_default_handlers(_netif);
     ESP_ERROR_CHECK(esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL, NULL));
@@ -677,7 +675,7 @@ void hal_init_eth(std::string &args)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
 #pragma message "No netif in older espidf not using."
 #else
-    esp_netif_attach(g_netif, esp_eth_new_netif_glue(eth_handle));
+    esp_netif_attach(_netif, esp_eth_new_netif_glue(eth_handle));
 #endif
 
     // test DHCP or Static configuration
@@ -743,8 +741,8 @@ void hal_init_eth(std::string &args)
         ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
         ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_ETH, &ip_info));
 #else
-        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(g_netif));
-        ESP_ERROR_CHECK(esp_netif_set_ip_info(g_netif, &ip_info));
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(_netif));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(_netif, &ip_info));
 #endif
 
         // assign DNS1 if avail.
@@ -754,7 +752,7 @@ void hal_init_eth(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_MAIN, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_MAIN, &dns_info));
 #endif
         }
 
@@ -765,7 +763,7 @@ void hal_init_eth(std::string &args)
             ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
 #else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
-            ESP_ERROR_CHECK(esp_netif_set_dns_info(g_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
+            ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
 #endif
         }
     } else {
@@ -787,7 +785,7 @@ void hal_set_wifi_hostname(const char *hostname)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
 #else
-    ret = esp_netif_set_hostname(g_netif, hostname);
+    ret = esp_netif_set_hostname(_netif, hostname);
 #endif
     if(ret != ESP_OK ) {
         ESP_LOGE(TAG,"failed to set wifi hostname: %i %i '%s'", ret, errno, strerror(errno));
@@ -804,7 +802,7 @@ void hal_set_eth_hostname(const char *hostname)
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH, hostname);
 #else
-    ret = esp_netif_set_hostname(g_netif, hostname);
+    ret = esp_netif_set_hostname(_netif, hostname);
 #endif
     if(ret != ESP_OK ) {
         ESP_LOGE(TAG,"failed to set eth hostname: %i %i '%s'", ret, errno, strerror(errno));
@@ -914,7 +912,7 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "Ethernet HW Addr %02x:%02x:%02x:%02x:%02x:%02x",
                  mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 #if CONFIG_LWIP_IPV6
-        esp_netif_create_ip6_linklocal(g_netif);
+        esp_netif_create_ip6_linklocal(_netif);
 #endif
         break;
     case ETHERNET_EVENT_DISCONNECTED:

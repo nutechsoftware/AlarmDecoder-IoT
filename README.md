@@ -314,6 +314,7 @@ Pushover is a platform for sending and receiving push notifications. On the serv
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
+      - [-] Delete switch
       - [N] Notification slot
         -  Notification settings slot to use for sending this events.
       - [D] Default state
@@ -370,6 +371,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
+      - [-] Delete switch
       - [N] Notification slot
         -  Notification settings slot to use for sending this events.
       - [D] Default state
@@ -530,6 +532,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
+      - [-] Delete switch
       - [N] Notification sub topic path below the base
         -  Example: ```TEST``` full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/TEST```
       - [D] Default state
@@ -579,6 +582,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   # Set output format string for 'CLOSED' state [c].
   mqtt switch 1 c RF SENSOR 0123456 CLOSED
   # Set output format string for 'TROUBLE' stat
+  mqtt switch 1 f RF SENSOR 0123456 TROUBLE
   ```
 
 ##  6. <a name='building-firmware'></a>Building firmware

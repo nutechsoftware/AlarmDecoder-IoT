@@ -6,8 +6,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
-- [X] CORE: Add 'ZONE' command.
+- [X] CORE: Remove st-device-sdk-c no longer needed. Building for SmartThings is still done using STSDK tools.
+- [X] CORE: Fix stack exhaustion crash on some help commands with large text response.
+- [X] TWILIO: Add delete smart switch '-' command.
+- [X] PUSHOVER: Add delete smart switch '-' command.
+- [X] MQTT: Add delete smart switch '-' command.
+- [X] API: Add Zone tracking event triggers to AD2EventSearch class.
+- [X] API: Bug with 50PUL panel and comm failure message resetting fire bit exclude fire bit if msg[SYSSPECIFIC_BYTE] != '0'.
+- [X] TWILIO: Add support for multiple to addresses separated by commas.
+- [X] CORE: ad2source  with 'socket' [] needed for IPv6. RFC 3986, section 3.2.2: Host.
+- [X] CORE: Increase stack size of ad2uart_client adding 2k to make it 6k total now.
+- [X] API: Bug not reporting events on stateless events in notifySubscribers.
+- [X] CORE: ser2sock client code improvements and fix bug with IPv4 host address.
+- [X] CORE: Added ZONE list to VPART command. Only needed for DSC to associate zones to partitions.
 - [X] API: Add zone descriptions and zone tracking for DSC panels.
 - [X] API: DSC testing found some issues. Address settings are a combination of Partition and Slot# so 11 is P1 S1. Append default of slot '1' and use 'K' command.
 - [X] API: Add ON_CFG event handler and parsing of config and version strings.

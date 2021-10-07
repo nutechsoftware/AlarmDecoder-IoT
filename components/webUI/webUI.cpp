@@ -37,6 +37,7 @@ static const char *TAG = "WEBUI";
 // specific includes
 
 /* Constants that aren't configurable in menuconfig */
+//#define DEBUG_WEBUI
 #define PORT 10000
 #define MAX_CLIENTS 4
 #define MAX_FIFO_BUFFERS 30
@@ -516,7 +517,9 @@ esp_err_t file_get_handler(httpd_req_t *req)
 void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
 #if CONFIG_HTTPD_WS_SUPPORT
+#if defined(DEBUG_WEBUI)
     ESP_LOGI(TAG, "webui_on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
+#endif
     size_t fds = server_config.max_open_sockets;
     int client_fds[fds];
     if (server && hal_get_network_connected()) {

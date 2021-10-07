@@ -154,8 +154,6 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
  */
 static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
 {
-    int msg_id;
-    std::string topic;
 
     //ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
     esp_mqtt_client_handle_t client = event_data->client;
@@ -194,6 +192,53 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
 }
 
 /**
+ * @brief ON_ZONE_CHANGE callback for all AlarmDecoder API event subscriptions.
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
+ */
+void mqtt_on_zone_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    int msg_id;
+    if (mqtt_client != nullptr && s) {
+        ESP_LOGI(TAG, "mqtt_on_zone_change '%s'", msg->c_str());
+        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        sTopic+=mqttclient_UUID;
+        sTopic+="/zones/";
+
+        // zero pad 3 digit zone number string
+        char zstr[4];
+        snprintf(zstr, sizeof(zstr), "%03d", (int)s->zone);
+        sTopic+=zstr;
+
+        cJSON *root = cJSON_CreateObject();
+        std::string buf;
+        // grab the verb(FOO) 'ZONE FOO 001'
+        ad2_copy_nth_arg(buf, (char *)s->last_event_message.c_str(), 1);
+        cJSON_AddStringToObject(root, "state", buf.c_str());
+        cJSON_AddNumberToObject(root, "partition", s->partition);
+        std::string zalpha;
+        AD2Parse.getZoneString((int)s->zone, zalpha);
+        cJSON_AddStringToObject(root, "name", zalpha.c_str());
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+        // Non blocking. We must not block AlarmDecoderParser
+        msg_id = esp_mqtt_client_enqueue(mqtt_client,
+                                         sTopic.c_str(),
+                                         state,
+                                         0,
+                                         MQTT_DEF_QOS,
+                                         MQTT_DEF_RETAIN,
+                                         MQTT_DEF_STORE);
+        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
+        cJSON_free(state);
+        cJSON_Delete(root);
+    }
+}
+
+/**
  * @brief Generic callback for all AlarmDecoder API event subscriptions.
  *
  * @param [in]msg std::string panel message.
@@ -224,6 +269,9 @@ void mqtt_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *a
                                          MQTT_DEF_QOS,
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
+        if (msg_id == -1) {
+            ESP_LOGE(TAG, "esp_mqtt_client_enqueue failed.");
+        }
         cJSON_free(state);
         cJSON_Delete(root);
     }
@@ -337,6 +385,20 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
 
             /* setting */
             switch(buf[0]) {
+            case '-': // Remove entry
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_NOTIFY_TOPIC, NULL);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
+                ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
+                break;
             case SK_NOTIFY_TOPIC[0]: // MQTT Topic
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
@@ -616,6 +678,7 @@ static struct cli_command mqtt_cmd_list[] = {
         "    - {slot}\r\n"
         "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
+        "      - [-] Delete switch\r\n"
         "      - [N] Notification sub topic path below the base\r\n"
         "        -  Example: ```TEST``` full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/TEST```\r\n"
         "      - [D] Default state\r\n"
@@ -728,6 +791,9 @@ void mqtt_init()
     AD2Parse.subscribeTo(ON_ALARM_CHANGE, mqtt_on_state_change, (void *)ON_ALARM_CHANGE);
     AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, mqtt_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
     AD2Parse.subscribeTo(ON_EXIT_CHANGE, mqtt_on_state_change, (void *)ON_EXIT_CHANGE);
+    // SUbscribe to ON_ZONE_CHANGE events
+    AD2Parse.subscribeTo(ON_ZONE_CHANGE, mqtt_on_zone_change, (void *)ON_ZONE_CHANGE);
+
 
     // Register search based virtual switches.
     std::string key = std::string(MQTT_PREFIX) + std::string(MQTT_SAS_CFGKEY);

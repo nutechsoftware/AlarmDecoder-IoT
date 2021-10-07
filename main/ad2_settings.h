@@ -49,6 +49,7 @@
 
 // @brief Parent Key to store virtual partition slots
 #define VPART_CONFIG_KEY     "vpa"
+#define VPART_ZL_CONFIG_KEY  "vpz"
 
 // @brief Parent Key to store zone slots
 #define ZONES_ALPHA_CONFIG_KEY      "zna"

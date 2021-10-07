@@ -359,6 +359,20 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
 
             /* setting */
             switch(buf[0]) {
+            case '-': // Remove entry
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_NOTIFY_SLOT, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
+                ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
+                break;
             case SK_NOTIFY_SLOT[0]: // Notification slot
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
@@ -608,6 +622,7 @@ static struct cli_command pushover_cmd_list[] = {
         "    - {slot}\r\n"
         "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
+        "      - [-] Delete switch\r\n"
         "      - [N] Notification slot\r\n"
         "        -  Notification settings slot to use for sending this events.\r\n"
         "      - [D] Default state\r\n"
