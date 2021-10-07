@@ -40,6 +40,49 @@ extern "C" {
 #endif
 
 /**
+ * @brief Set the alpha descriptor for a given zone.
+ *
+ * @param [in]string command buffer pointer.
+ *
+ * @note command: zone <number> <string>
+ *   Valid zones are from 1 to AD2_MAX_ZONES
+ *
+ *    example.
+ *      AD2IOT # zone 1 TESTING ZONE ALPHA
+ *
+ */
+static void _cli_cmd_zone_event(char *string)
+{
+    std::string arg;
+    int zone = 0;
+
+    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
+        zone = strtol(arg.c_str(), NULL, 10);
+    }
+
+    if (zone > 0 && zone <= AD2_MAX_ZONES) {
+        if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+            if (arg.length()) {
+                if (arg.compare("''") == 0) {
+                    ad2_printf_host("Removing alpha for zone %i...\r\n", zone);
+                    ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
+                } else {
+                    ad2_printf_host("Setting alpha for zone %i to '%s'\r\n", zone, arg.c_str());
+                    ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
+                }
+            }
+        } else {
+            // show contents of this slot
+            std::string buf;
+            ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, buf);
+            ad2_printf_host("The alpha for zone %i is '%s'\r\n", zone, buf.c_str());
+        }
+    } else {
+        ESP_LOGE(TAG, "%s: Error (args) invalid zone # (1-%i).", __func__, AD2_MAX_ZONES);
+    }
+}
+
+/**
  * @brief Set the alarm code for a given code slot/id.
  *
  * @param [in]string command buffer pointer.
@@ -111,8 +154,13 @@ static void _cli_cmd_vpart_event(char *string)
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                ad2_printf_host("Setting vpart in slot %i to '%i'...\r\n", slot, address);
+                ad2_printf_host("Setting vpart in slot %i to '%i'.\r\n", slot, address);
                 ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, address);
+                // Grab the zone list if it provided
+                if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
+                    ad2_set_nv_slot_key_string(VPART_CONFIG_KEY,
+                                               slot, VPART_ZL_CONFIG_KEY, buf.c_str());
+                }
             } else {
                 // delete entry
                 ad2_printf_host("Deleting vpart in slot %i...\r\n", slot);
@@ -121,7 +169,9 @@ static void _cli_cmd_vpart_event(char *string)
         } else {
             // show contents of this slot
             ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, &address);
-            ad2_printf_host("The vpart in slot %i is %i\r\n", slot, address);
+            buf = "";
+            ad2_get_nv_slot_key_string(VPART_CONFIG_KEY, slot, VPART_ZL_CONFIG_KEY, buf);
+            ad2_printf_host("The vpart in slot %i is %i with a zone list of '%s'\r\n", slot, address, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
@@ -472,6 +522,20 @@ static struct cli_command cmd_list[] = {
         "      - ```" AD2_BUTTON " A 1 long```\r\n\r\n", _cli_cmd_butten_event
     },
     {
+        (char*)AD2_ZONE,(char*)
+        "- Manage zone strings.\r\n"
+        "  - ```" AD2_ZONE " {id} [value]```\r\n"
+        "    - {id}\r\n"
+        "      - Zone number 1-255.\r\n"
+        "    - [value]\r\n"
+        "      - An alpha string for the zone.\r\n"
+        "  - Examples\r\n"
+        "    - Set zone 1 alpha string.\r\n"
+        "      - ```" AD2_ZONE " 1 TESTING LAB```\r\n"
+        "    - Remove zone 1 alpha string.\r\n"
+        "      - ```" AD2_ZONE " 1 ''```\r\n\r\n", _cli_cmd_zone_event
+    },
+    {
         (char*)AD2_CODE,(char*)
         "- Manage user codes.\r\n"
         "  - ```" AD2_CODE " {id} [value]```\r\n"
@@ -493,14 +557,16 @@ static struct cli_command cmd_list[] = {
     {
         (char*)AD2_VPART,(char*)
         "- Manage virtual partitions.\r\n"
-        "  - ```" AD2_VPART " {id} {value}```\r\n"
+        "  - ```" AD2_VPART " {id} {value} [zone list]```\r\n"
         "    - {id}\r\n"
         "      - The virtual partition ID. 0 is the default.\r\n"
-        "    - [value]\r\n"
+        "    - {value}\r\n"
         "      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n"
+        "    - [zone list]\r\n"
+        "      - List of zone numbers associated with this partition for tracking.\r\n"
         "  - Examples\r\n"
-        "    - Set default address mask to 18 for an Ademco system.\r\n"
-        "      - ```" AD2_VPART " 0 18```\r\n"
+        "    - Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.\r\n"
+        "      - ```" AD2_VPART " 0 18 2,3,4```\r\n"
         "    - Set default send partition to 1 for a DSC system.\r\n"
         "      - ```" AD2_VPART " 0 1```\r\n"
         "    - Show address for partition 2.\r\n"

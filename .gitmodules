@@ -1,4 +1,0 @@
-[submodule "st-device-sdk-c"]
-	path = st-device-sdk-c
-	url = https://github.com/SmartThingsCommunity/st-device-sdk-c.git
-	branch = release/v1.4
