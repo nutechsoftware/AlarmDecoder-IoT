@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Remove st-device-sdk-c no longer needed. Building for SmartThings is still done using STSDK tools.
+- [X] CORE: Fix stack exhaustion crash on some help commands with large text response.
+- [X] TWILIO: Add delete smart switch '-' command.
+- [X] PUSHOVER: Add delete smart switch '-' command.
+- [X] MQTT: Add delete smart switch '-' command.
+- [X] API: Add Zone tracking event triggers to AD2EventSearch class.
+- [X] API: Bug with 50PUL panel and comm failure message resetting fire bit exclude fire bit if msg[SYSSPECIFIC_BYTE] != '0'.
+- [X] TWILIO: Add support for multiple to addresses separated by commas.
+- [X] CORE: ad2source  with 'socket' [] needed for IPv6. RFC 3986, section 3.2.2: Host.
+- [X] CORE: Increase stack size of ad2uart_client adding 2k to make it 6k total now.
+- [X] API: Bug not reporting events on stateless events in notifySubscribers.
+- [X] CORE: ser2sock client code improvements and fix bug with IPv4 host address.
+- [X] CORE: Added ZONE list to VPART command. Only needed for DSC to associate zones to partitions.
+- [X] API: Add zone descriptions and zone tracking for DSC panels.
+- [X] API: DSC testing found some issues. Address settings are a combination of Partition and Slot# so 11 is P1 S1. Append default of slot '1' and use 'K' command.
+- [X] API: Add ON_CFG event handler and parsing of config and version strings.
+- [X] API & CORE: ad2_query_key_value -> AlarmDecoderParser::query_key_value_string. Needed in parser so moved from ad2_.
+- [X] API: ON_FIRE -> ON_FIRE_CHANGE for consistency.
+- [X] API: Change from 'FAULT' to 'TROUBLE'. Fault indicates 'OPEN' for panel documentation so stick with OPEN/CLOSE/TROUBLE.
+- [X] API: Add search verb for Programming and EXIT change events and removed verbs from docs that were not wired and likely will never be wired.
 - [X] CORE: No IPv6 dhcp address assigned notification on ethernet interface. Missing callback for IPv6.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
@@ -17,7 +37,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
 - [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
-- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_

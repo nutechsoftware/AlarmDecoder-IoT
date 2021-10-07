@@ -27,6 +27,7 @@
 #define AD2_REBOOT   "restart"
 #define AD2_NETMODE  "netmode"
 #define AD2_BUTTON   "button"
+#define AD2_ZONE     "zone"
 #define AD2_CODE     "code"
 #define AD2_VPART    "vpart"
 #define AD2_SOURCE   "ad2source"

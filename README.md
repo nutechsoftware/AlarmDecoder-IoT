@@ -314,6 +314,7 @@ Pushover is a platform for sending and receiving push notifications. On the serv
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
+      - [-] Delete switch
       - [N] Notification slot
         -  Notification settings slot to use for sending this events.
       - [D] Default state
@@ -331,12 +332,12 @@ Pushover is a platform for sending and receiving push notifications. On the serv
       - [C] Close(OFF) state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty string to clear
-      - [F] Fault state regex search string list management.
+      - [F] Trouble state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty  string to clear
       - [o] Open output format string.
       - [c] Close output format string.
-      - [f] Fault output format string.
+      - [f] Trouble output format string.
 
 ###  5.6. <a name='twilio-notification-component'></a>Twilio notification component
 Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service (CPaaS) company based in San Francisco, California. Twilio allows software developers to programmatically make and receive phone calls, send and receive text messages, reliably send email, and perform other communication functions using its web service APIs. See: https://www.twilio.com/
@@ -370,6 +371,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
+      - [-] Delete switch
       - [N] Notification slot
         -  Notification settings slot to use for sending this events.
       - [D] Default state
@@ -387,12 +389,12 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
       - [C] Close(OFF) state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty string to clear
-      - [F] Fault state regex search string list management.
+      - [F] Trouble state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty  string to clear
       - [o] Open output format string.
       - [c] Close output format string.
-      - [f] Fault output format string.
+      - [f] Trouble output format string.
 
 - Example cli commands to setup a complete virtual contact.
   - Configure notification profiles..
@@ -418,7 +420,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     twilio to 2 15555551234
     twilio type 2 C
     ```
-  - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and FAULT REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
+  - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and TROUBLE REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
     ```console
     Twilio SmartSwitch #1 report
     # Set notification slot [N] to #0.
@@ -435,14 +437,14 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     twilio switch 1 O 1 !RFX:0123456,1.......
     # Set 'CLOSED' state REGEX Filter [C] #01.
     twilio switch 1 C 1 !RFX:0123456,0.......
-    # Set 'FAULT' state REGEX Filter [F] #01.
+    # Set 'TROUBLE' state REGEX Filter [F] #01.
     twilio switch 1 F 1 !RFX:0123456,......1.
     # Set output format string for 'OPEN' state [o].
     twilio switch 1 o RF SENSOR 0123456 OPEN
     # Set output format string for 'CLOSED' state [c].
     twilio switch 1 c RF SENSOR 0123456 CLOSED
-    # Set output format string for 'FAULT' state [f].
-    twilio switch 1 f RF SENSOR 0123456 FAULT
+    # Set output format string for 'TROUBLE' state [f].
+    twilio switch 1 f RF SENSOR 0123456 TROUBLE
     ```
   - Send notifications from profile in slot #2 in the example a Call profile when EVENT message "FIRE ON" or "FIRE OFF" are received. Use a Twiml string to define how the call is processed. This can include extensive external logic calling multiple people or just say something and hangup.
     ```console
@@ -484,32 +486,18 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     # Set output format string for 'CLOSED' state [c].
     twilio switch 3 c <Response><Say>Notification alert ON BATTERY BACKUP POWER</Say></Response>
     ```
-  - Existing search verbs. ```RFX``` and others are not useful here as they can be filtered by message type ```RFX``` directly. The more useful verbs contain a modifier such as ON/OFF. TODO: Add ZONE tracking verbs and algorithm.
+  - Search verbs
     ```
-    ARM STAY
-    ARM AWAY
-    DISARMED
-    POWER AC
-    POWER BATTERY
-    READY ON
-    READY OFF
-    ALARM ON
-    ALARM OFF
-    FIRE ON
-    FIRE OFF
-    LOW BATTERY
-    CHIME ON
-    CHIME OFF
-    MESSAGE
-    RELAY
-    EXPANDER
-    CONTACT ID
-    RFX
-    AUI
-    KPM
-    CRC
-    VER
-    ERR
+    arm {STAY|AWAY}
+    disarm
+    power {AC|BATTERY}
+    ready {ON|OFF}
+    alarm {ON/OFF}
+    fire {ON|OFF}
+    chime {ON|OFF}
+    exit {ON|OFF}
+    programming {ON|OFF}
+    zone {OPEN,CLOSE,TROUBLE} ZONE_NUMBER
     ```
 
 ###  5.7. <a name='mqtt-client-component'></a>MQTT client component
@@ -544,6 +532,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
+      - [-] Delete switch
       - [N] Notification sub topic path below the base
         -  Example: ```TEST``` full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/TEST```
       - [D] Default state
@@ -561,12 +550,12 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
       - [C] Close(OFF) state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty string to clear
-      - [F] Fault state regex search string list management.
+      - [F] Trouble state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty  string to clear
       - [o] Open output format string.
       - [c] Close output format string.
-      - [f] Fault output format string.
+      - [f] Trouble output format string.
 
 - Examples
   - Publish events to <device root>/switches/RF0180036 when the 5800 RF sensor with serial number 0123456 changes state.
@@ -586,13 +575,14 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   mqtt switch 1 O 1 !RFX:0123456,1.......
   # Set 'CLOSED' state REGEX Filter [C] #01.
   mqtt switch 1 C 1 !RFX:0123456,0.......
-  # Set 'FAULT' state REGEX Filter [F] #01.
+  # Set 'TROUBLE' state REGEX Filter [F] #01.
   mqtt switch 1 F 1 !RFX:0123456,......1.
   # Set output format string for 'OPEN' state [o].
   mqtt switch 1 o RF SENSOR 0123456 OPEN
   # Set output format string for 'CLOSED' state [c].
   mqtt switch 1 c RF SENSOR 0123456 CLOSED
-  # Set output format string for 'FAULT' stat
+  # Set output format string for 'TROUBLE' stat
+  mqtt switch 1 f RF SENSOR 0123456 TROUBLE
   ```
 
 ##  6. <a name='building-firmware'></a>Building firmware

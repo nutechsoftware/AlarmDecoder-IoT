@@ -65,7 +65,6 @@ std::string ad2_to_string(int n);
 std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password);
 std::string ad2_urlencode(const std::string str);
 void ad2_genUUID(uint8_t n, std::string& ret);
-int ad2_query_key_value(std::string &qry_str, const char *key, std::string &val);
 void ad2_lcase(std::string &str);
 void ad2_ucase(std::string &str);
 bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replaceStr);

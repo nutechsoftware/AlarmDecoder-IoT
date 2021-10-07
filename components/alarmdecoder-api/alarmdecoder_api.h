@@ -29,9 +29,9 @@
 #include <string.h>
 #include <string>
 #include <regex>
-#include <bits/stdc++.h>
+#include <list>
 #include <map>
-#include "esp_log.h"
+#include <chrono>
 
 using namespace std;
 
@@ -43,6 +43,15 @@ enum AD2_PARSER_STATES {
     AD2_PARSER_SCANNING_EOL     = 2,
     AD2_PARSER_PROCESSING       = 3
 };
+
+/**
+ * AD2 zone STATES enum tri-state.
+ */
+typedef enum AD2_ZONE_STATE {
+    AD2_STATE_CLOSED = 0,
+    AD2_STATE_OPEN,
+    AD2_STATE_TROUBLE
+} ad2_zone_state_t;
 
 // The actual max is ~90 but leave some room for future.
 // WARN: use int8_t so must be <= 127 for overflow protection.
@@ -64,6 +73,16 @@ enum AD2_PARSER_STATES {
 #define AMASK_END          38
 #define CURSOR_TYPE_POS    SECTION_3_START+19
 #define CURSOR_POS         SECTION_3_START+21
+
+// Last 4 hex values are extra info on newer Ademco panels not yet fully decoded.
+// NOTE: Indicate system issues Ex. with 'CHECK 107' the SYSB2 == 0x01 and SYSB4 == 0xff
+// [00000401000000100A--],007,[f70000e000070402080200000100ff],"CHECK 107 WIRE  EXPANSION       "
+// NOTE: One case where many zones had low bat but this one reported extra info on this zone.
+// [00000011100100000A--],024,[f70600ef10240040380200000010f0],"LOBAT 24                        "
+#define ADEMCO_EXTRA_SYSB1 SECTION_3_START+23
+#define ADEMCO_EXTRA_SYSB2 SECTION_3_START+25
+#define ADEMCO_EXTRA_SYSB3 SECTION_3_START+27
+#define ADEMCO_EXTRA_SYSB4 SECTION_3_START+29
 
 // BIT/DATA OFFSETS
 #define READY_BYTE          1
@@ -89,8 +108,65 @@ enum AD2_PARSER_STATES {
 
 #define ADEMCO_PANEL       'A'
 #define DSC_PANEL          'D'
+#define UNKNOWN_PANEL      '?'
 
+/**
+ * Callback event type ID's
+ */
+typedef enum AD2_EVENTS {
+    ON_RAW_MESSAGE = 1, ///< RAW panel message before parsing.
+    ON_ARM,                    ///< ARMED
+    ON_DISARM,                 ///< DISARMED
+    ON_POWER_CHANGE,           ///< AC POWER STATE CHANGE
+    ON_READY_CHANGE,           ///< READY STATE CHANGE
+    ON_ALARM_CHANGE,           ///< ALARM BELL CHANGE
+    ON_FIRE_CHANGE,            ///< FIRE ALARM CHANGE
+    ON_ZONE_BYPASSED_CHANGE,   ///< BYPASS STATE CHANGE
+    ON_BOOT,                   ///< AD2 Firmware boot
+    ON_CONFIG_RECEIVED,        ///< AD2 CONFIG RECEIVED
+    ON_ZONE_CHANGE,            ///< ZONE TRACKER EVENT
+    ON_LOW_BATTERY,            ///< LOW BATTERY EVENT
+    ON_PANIC,                  ///< PANIC EVENT
+    ON_CHIME_CHANGE,           ///< Chime state change
+    ON_PROGRAMMING_CHANGE,     ///< Programming mode stage change
+    ON_ALPHA_MESSAGE,          ///< ALPHA MESSAGE After parsing
+    ON_REL,                    ///< !REL RELAY EVENT
+    ON_EXP,                    ///< !EXP Zone Expander message
+    ON_LRR,                    ///< !LRR Long Range Contact ID message
+    ON_RFX,                    ///< !RFX 5800 RFX event with serial #
+    ON_SENDING_RECEIVED,       ///< SEND finished ".done"
+    ON_AUI,                    ///< !AUI message received
+    ON_KPM,                    ///< !KPM message normal alpha with header.
+    ON_KPE,                    ///< !KPE Keypad event message
+    ON_CRC,                    ///< !CRC event message
+    ON_CFG,                    ///< !CONFIG event message
+    ON_VER,                    ///< !VER message received
+    ON_ERR,                    ///< !ERR error event stats
+    ON_EXIT_CHANGE,            ///< Placeholder: EXIT CHANGE event ID
+    ON_SEARCH_MATCH,           ///< Placeholder: Pattern match subscriber match
+    ON_FIRMWARE_VERSION,       ///< Placeholder: Firmware available event
+    ON_RAW_RX_DATA
+} ad2_event_t;
 
+/**
+ * Message Type ID's
+ */
+typedef enum AD2_MESSAGE_TYPES {
+    UNKOWN_MESSAGE_TYPE = 0,
+    ALPHA_MESSAGE_TYPE,
+    LRR_MESSAGE_TYPE,
+    REL_MESSAGE_TYPE,
+    EXP_MESSAGE_TYPE,
+    RFX_MESSAGE_TYPE,
+    AUI_MESSAGE_TYPE,
+    KPM_MESSAGE_TYPE,
+    KPE_MESSAGE_TYPE,
+    CRC_MESSAGE_TYPE,
+    CFG_MESSAGE_TYPE,
+    VER_MESSAGE_TYPE,
+    ERR_MESSAGE_TYPE,
+    EVENT_MESSAGE_TYPE
+} ad2_message_t;
 
 /**
  * Utility functions/macros.
@@ -135,11 +211,75 @@ enum AD2_PARSER_STATES {
  *
  */
 
+/**
+ * Zone state storage class
+ */
+class AD2ZoneState
+{
+    ad2_zone_state_t _state = AD2_STATE_CLOSED;
+    unsigned long _state_auto_reset_time = 0;
+
+    bool _low_battery = false;
+    unsigned long _battery_auto_reset_time = 0;
+
+public:
+    ad2_zone_state_t state()
+    {
+        return _state;
+    }
+    void state(ad2_zone_state_t state)
+    {
+        _state = state;
+        _state_auto_reset_time = 0;
+    }
+    void state(ad2_zone_state_t state, unsigned long auto_reset_time)
+    {
+        _state = state;
+        _state_auto_reset_time = auto_reset_time;
+    }
+    void state_reset_time(unsigned long auto_reset_time)
+    {
+        _state_auto_reset_time = auto_reset_time;
+    }
+    unsigned long state_reset_time()
+    {
+        return _state_auto_reset_time;
+    }
+    bool low_battery()
+    {
+        return _low_battery;
+    }
+    void low_battery(bool low_battery)
+    {
+        _low_battery = low_battery;
+        _battery_auto_reset_time = 0;
+    }
+    void low_battery(unsigned long auto_reset_time)
+    {
+        _low_battery = true;
+        _battery_auto_reset_time = auto_reset_time;
+    }
+    void battery_reset_time(unsigned long auto_reset_time)
+    {
+        _battery_auto_reset_time = auto_reset_time;
+    }
+    unsigned long battery_reset_time()
+    {
+        return _battery_auto_reset_time;
+    }
+};
+
+/**
+ * @brief Virtual partition state container.
+ * Contains the active state for a partition including all zone
+ * states for the partition.
+ */
 class AD2VirtualPartitionState
 {
 public:
 
-    // Address mask filter for this partition
+    // 32 bit address mask filter for this partition
+    // bit 1 = partition 1(DSC) or Keypad address 1(Ademco)
     uint32_t address_mask_filter;
 
     // Partition number(external lookup required for Ademco)
@@ -157,7 +297,7 @@ public:
     bool armed_away = false;
     bool armed_stay = false;
     bool backlight_on = false;
-    bool programming_mode = false;
+    bool programming = false;
     bool zone_bypassed = false;
     bool ac_power = false;
     bool chime_on = false;
@@ -171,91 +311,23 @@ public:
     bool exit_now = false;
     uint8_t system_specific = 0;
     uint8_t beeps = 0;
-    char panel_type = '?';
+    char panel_type = UNKNOWN_PANEL;
     bool unused1 = false;
     bool unused2 = false;
 
     std::string last_alpha_message = "";
     std::string last_numeric_message = "";
+    std::string last_event_message = "";
 
+    // Zone # if zone event or 0 if not.
+    uint8_t zone = 0;
+
+    // Configured zones to track for this partition.
+    std::list<uint8_t> zone_list;
+
+    // Zone # to AD2ZoneState map
+    std::map<uint8_t, AD2ZoneState> zone_states;
 };
-
-/**
- * Virtual partition states.
- * The key is a mask that groups all partitions messages together.
- */
-typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
-
-/**
- * API Subscriber callback function pointer type
- */
-typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
-typedef void (*AD2ParserCallbackRawRXData_sub_t)(uint8_t *, size_t len, void *arg);
-
-/**
- * Callback event classes
- */
-typedef enum {
-    ON_RAW_MESSAGE = 1, ///< RAW panel message before parsing.
-    ON_ARM,                    ///< ARMED
-    ON_DISARM,                 ///< DISARMED
-    ON_POWER_CHANGE,           ///< AC POWER STATE CHANGE
-    ON_READY_CHANGE,           ///< READY STATE CHANGE
-    ON_ALARM_CHANGE,           ///< ALARM BELL CHANGE
-    ON_FIRE,                   ///< FIRE ALARM
-    ON_ZONE_BYPASSED_CHANGE,   ///< BYPASS STATE CHANGE
-    ON_BOOT,                   ///< AD2 Firmware boot
-    ON_CONFIG_RECEIVED,        ///< AD2 CONFIG RECEIVED
-    ON_ZONE_FAULT,             ///< ZONE FAULT EVENT
-    ON_ZONE_RESTORE,           ///< ZONE RESTORE EVENT
-    ON_LOW_BATTERY,            ///< LOW BATTERY EVENT
-    ON_PANIC,                  ///< PANIC EVENT
-    ON_CHIME_CHANGE,           ///< Chime state change
-    ON_MESSAGE,                ///< ALPHA MESSAGE After parsing
-    ON_REL,                    ///< !REL RELAY EVENT
-    ON_EXP,                    ///< !EXP Zone Expander message
-    ON_LRR,                    ///< !LRR Long Range Contact ID message
-    ON_RFX,                    ///< !RFX 5800 RFX event with serial #
-    ON_SENDING_RECEIVED,       ///< SEND finished ".done"
-    ON_AUI,                    ///< !AUI message received
-    ON_KPM,                    ///< !KPM message normal alpha with header.
-    ON_KPE,                    ///< !KPE Keypad event message
-    ON_CRC,                    ///< !CRC event message
-    ON_VER,                    ///< !VER message received
-    ON_ERR,                    ///< !ERR error event stats
-    ON_EXIT_CHANGE,            ///< Placeholder: EXIT CHANGE event ID
-    ON_SEARCH_MATCH,           ///< Placeholder: Pattern match subscriber match
-    ON_FIRMWARE_VERSION,       ///< Placeholder: Firmware available event
-    ON_RAW_RX_DATA
-} ad2_event_t;
-
-/**
- * Message Type ID's
- */
-typedef enum {
-    UNKOWN_MESSAGE_TYPE = 0,
-    ALPHA_MESSAGE_TYPE,
-    LRR_MESSAGE_TYPE,
-    REL_MESSAGE_TYPE,
-    EXP_MESSAGE_TYPE,
-    RFX_MESSAGE_TYPE,
-    AUI_MESSAGE_TYPE,
-    KPM_MESSAGE_TYPE,
-    KPE_MESSAGE_TYPE,
-    CRC_MESSAGE_TYPE,
-    VER_MESSAGE_TYPE,
-    ERR_MESSAGE_TYPE,
-    EVENT_MESSAGE_TYPE
-} ad2_message_t;
-
-/**
- * AD2 STATES enum.
- */
-typedef enum {
-    AD2_STATE_CLOSED = 0,
-    AD2_STATE_OPEN,
-    AD2_STATE_FAULT
-} ad2_state_t;
 
 /**
  * @brief EVENT Search virtual contact.
@@ -273,7 +345,6 @@ typedef enum {
  *     for OPEN and CLOSE.
  *
  * - Trigger on Zone tracking algorithm event.
- *   - TODO: Need to integrate zone tracking and work it in here.
  *
  * Example to search for and track 5800 wireless or VPLEX bus device
  *  with a serial number of 0123456.
@@ -283,10 +354,10 @@ typedef enum {
  *  es->PRE_FILTER_REGEX = "!RFX:0123456,.*";
  *  es->OPEN_REGEX_LIST.push_back("RFX:0123456,1.......");
  *  es->CLOSED_REGEX_LIST.push_back("RFX:0123456,0.......");
- *  es->FAULT_REGEX_LIST.push_back("RFX:0123456,......1.");
+ *  es->TROUBLE_REGEX_LIST.push_back("RFX:0123456,......1.");
  *  es->OPEN_OUTPUT_FORMAT = "TEST SENSOR OPEN";
  *  es->CLOSED_OUTPUT_FORMAT = "TEST SENSOR CLOSE";
- *  es->FAULT_OUTPUT_FORMAT = "TEST SENSOR FAULT";
+ *  es->TROUBLE_OUTPUT_FORMAT = "TEST SENSOR TROUBLE";
  *  AD2Parse.subscribeTo(on_search_match_cb, es);
  *
  */
@@ -313,7 +384,7 @@ public:
         , reset_time_( 0 )
     { }
 
-    AD2EventSearch(ad2_state_t default_state, int reset_time_in_ms)
+    AD2EventSearch(ad2_zone_state_t default_state, int reset_time_in_ms)
         : current_state_(default_state)
         , default_state_(default_state)
         , reset_time_(reset_time_in_ms)
@@ -354,9 +425,9 @@ public:
     std::vector<std::string>
     CLOSED_REGEX_LIST;
 
-    ///< List of REGEX patterns when matched report a FAULT state.
+    ///< List of REGEX patterns when matched report a TROUBLE state.
     std::vector<std::string>
-    FAULT_REGEX_LIST;
+    TROUBLE_REGEX_LIST;
 
     ///< Vector for results of any regex groups '()'.
     std::vector<std::string>
@@ -370,7 +441,7 @@ public:
     ///< ex. CLOSED: "HVAC ${ON_OFF}"
     std::string OPEN_OUTPUT_FORMAT;
     std::string CLOSED_OUTPUT_FORMAT;
-    std::string FAULT_OUTPUT_FORMAT;
+    std::string TROUBLE_OUTPUT_FORMAT;
 
     ///< Event message. Message that triggered a change.
     std::string last_message;
@@ -384,11 +455,16 @@ public:
 };
 
 /**
- * Subscriber callback container
+ * Subscriber callback container class
  */
 class AD2SubScriber
 {
 public:
+
+    // API Subscriber callback function pointer type
+    typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
+    typedef void (*AD2ParserCallbackRawRXData_sub_t)(uint8_t *, size_t len, void *arg);
+
     void *fn;
     void *varg;
     int   iarg;
@@ -398,19 +474,9 @@ public:
 };
 
 /**
- * Vector of subscribers type.
- */
-typedef std::vector<AD2SubScriber> subscribers_t;
-
-/**
- * Map by EVENT CLASS of lists of subscribers type.
- */
-typedef std::map<ad2_event_t, subscribers_t> ad2subs_t;
-
-/**
  * AlarmDecoder protocol parser class.
  *
- * Processes message fragments from AD2* protocol stream parsing
+ * @brief Processes message fragments from AD2* protocol stream parsing
  * complete messages and update the internal state values. Allow
  * subscriptions for events to be called when specific state values
  * change.
@@ -422,14 +488,14 @@ public:
     AlarmDecoderParser();
 
     // Subscribe to events by type.
-    void subscribeTo(ad2_event_t evt, AD2ParserCallback_sub_t sub, void *arg);
+    void subscribeTo(ad2_event_t evt, AD2SubScriber::AD2ParserCallback_sub_t sub, void *arg);
 
     // Subscribe to events by regex patterns on raw messages and standard event patterns like 'ARMED' or 'READY'.
     // ZONES EVENTS are also tracked and can be used in patterns.
-    void subscribeTo(AD2ParserCallback_sub_t fn, AD2EventSearch *event_search);
+    void subscribeTo(AD2SubScriber::AD2ParserCallback_sub_t fn, AD2EventSearch *event_search);
 
     // Subscibe to ON_RAW_RX_DATA events.
-    void subscribeTo(AD2ParserCallbackRawRXData_sub_t fn, void *arg);
+    void subscribeTo(AD2SubScriber::AD2ParserCallbackRawRXData_sub_t fn, void *arg);
 
     // Push data into state machine. Events fire if a complete message is
     // received.
@@ -444,32 +510,52 @@ public:
     // build a bitstring from a hex string
     std::string hex_to_binsz(void const * const ptr);
 
+    // query a key value string such as the config string for a specific key and return its value.
+    int query_key_value_string(std::string &query_str, const char *key, std::string &val);
+
     // get AD2PPState by mask create if flag is set and no match found.
     AD2VirtualPartitionState * getAD2PState(int address, bool update=false);
     AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
+    // get zone string using Alpha descriptor if found in AD2ZoneAlpha or use standard format 'ZONE XXX' if not found.
+    void getZoneString(uint8_t zone, std::string &alpha);
+
+    // set zone string in AD2ZoneAlpha
+    void setZoneString(uint8_t zone, const char *alpha);
+
     // update firmware version trigger events to any subscribers
     void updateVersion(char *newversion);
 
+    // return monotonic time in seconds since boot
+    unsigned long monotonicTime()
+    {
+        return std::chrono::duration_cast<std::chrono::seconds>
+               (std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    // check for zones that timeout. Restore and notify.
+    void checkZoneTimeout();
+
     void test();
 
-    // Human readable event id strings.
+    // Event ID to human readable constant strings.
     std::map<int, const std::string> event_str = {
+        {ON_RAW_MESSAGE,        "RAW"},
         {ON_ARM,                "ARMED"},
         {ON_DISARM,             "DISARMED"},
         {ON_POWER_CHANGE,       "POWER"},
         {ON_READY_CHANGE,       "READY"},
         {ON_ALARM_CHANGE,       "ALARM"},
-        {ON_FIRE,               "FIRE"},
+        {ON_FIRE_CHANGE,        "FIRE"},
         /*      {ON_ZONE_BYPASS_CHANGE, "BYPASS"}, */
         /*      {ON_BOOT,               "BOOT"}, */
         /*      {ON_CONFIG_RECEIVED,    "CONFIG"}, */
-        /*      {ON_ZONE_FAULT,         "ZONE FAULT"}, */
-        /*      {ON_ZONE_RESTORE,       "ZONE RESTORE"}, */
+        {ON_ZONE_CHANGE,        "ZONE"},
         {ON_LOW_BATTERY,        "LOW BATTERY"},
         /*      {ON_PANIC,              "PANIC"}, */
         {ON_CHIME_CHANGE,       "CHIME"},
-        {ON_MESSAGE,            "MESSAGE"},
+        {ON_PROGRAMMING_CHANGE, "PROG. MODE"},
+        {ON_ALPHA_MESSAGE,      "ALPHA MSG."},
         {ON_REL,                "RELAY"},
         {ON_EXP,                "EXPANDER"},
         {ON_LRR,                "CONTACT ID"},
@@ -479,6 +565,7 @@ public:
         {ON_KPM,                "KPM"},
         {ON_KPE,                "KPE"},
         {ON_CRC,                "CRC"},
+        {ON_CFG,                "CFG"},
         {ON_VER,                "VER"},
         {ON_ERR,                "ERR"},
         {ON_EXIT_CHANGE,        "EXIT"},
@@ -489,7 +576,7 @@ public:
     std::map<int, const std::string> state_str = {
         {AD2_STATE_CLOSED,"CLOSED"},
         {AD2_STATE_OPEN,  "OPEN"},
-        {AD2_STATE_FAULT, "FAULT"},
+        {AD2_STATE_TROUBLE, "TROUBLE"},
     };
 
     std::map<const std::string, ad2_message_t> message_type_id = {
@@ -502,19 +589,54 @@ public:
         {"KPM",   KPM_MESSAGE_TYPE},
         {"KPE",   KPE_MESSAGE_TYPE},
         {"CRC",   CRC_MESSAGE_TYPE},
+        {"CFG",   CFG_MESSAGE_TYPE},
         {"VER",   VER_MESSAGE_TYPE},
         {"ERR",   ERR_MESSAGE_TYPE},
         {"EVENT", EVENT_MESSAGE_TYPE},
     };
 
+    /**
+     * @brief Virtual partition states.
+     * The key is a mask that groups all partitions messages together.
+     */
+    typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
+
+    /**
+    * @brief Zone descriptions
+    * The key is the zone number
+    */
+    typedef std::map<uint32_t, std::string> ad2zonealpha_t;
+
+    /**
+     * Vector of subscribers type.
+     */
+    typedef std::vector<AD2SubScriber> subscribers_t;
+
+    /**
+     * Map by EVENT CLASS of lists of subscribers type.
+     */
+    typedef std::map<ad2_event_t, subscribers_t> ad2subs_t;
+
+    // AlarmDecoder config string
+    std::string ad2_config_string;
+
+    // AlarmDecoder version string
+    std::string ad2_version_string;
+
+    // AlarmDecoder mode / panel type
+    char panel_type = UNKNOWN_PANEL;
+
 protected:
-    // Track all panel states in separate class.
+    // Zone to Alpha descriptor string.
+    ad2zonealpha_t AD2ZoneAlpha;
+
+    // MAP of all partition states by mask.
     ad2pstates_t AD2PStates;
 
-    // Track all subscribers by subscription class.
+    // Map of subscribers by event type ID.
     ad2subs_t AD2Subscribers;
 
-    // @brief Notify a given subscriber group.
+    // Notify a given subscriber group.
     void notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate);
 
     // @brief Notify raw data subscribers some bytes were received from the AD2*.
