@@ -35,9 +35,9 @@
 	/vscode-markdown-toc-config -->
 <!-- /vscode-markdown-toc -->
 # AlarmDecoder IoT Network Appliance
- [Latest stable release ![Release Version](https://img.shields.io/github/release/nutechsoftware/AlarmDecoder-STSDK.svg?style=plastic) ![Release Date](https://img.shields.io/github/release-date/nutechsoftware/AlarmDecoder-STSDK.svg?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-STSDK/releases/latest/) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-STSDK/master?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-STSDK)
+ [Latest stable release ![Release Version](https://img.shields.io/github/release/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic) ![Release Date](https://img.shields.io/github/release-date/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/releases/latest/) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-IoT/master?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-IoT)
 
- [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-STSDK/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-STSDK/tree/dev) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-STSDK/dev?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-STSDK)
+ [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/tree/dev) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-IoT)
 
 ##  1. <a name='overview'></a>Overview
 
@@ -604,7 +604,7 @@ cd ~/esp
 ####  6.2.2. <a name='configure-the-project'></a>Configure the project
 
 ```
-./build.sh esp32 AlarmDecoder-STSDK menuconfig
+./build.sh esp32 AlarmDecoder-IoT menuconfig
 ```
 
 ####  6.2.3. <a name='build,-flash,-and-run'></a>Build, Flash, and Run
@@ -612,7 +612,7 @@ cd ~/esp
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-./build.sh esp32 AlarmDecoder-STSDK build flash monitor -p /dev/ttyUSB0
+./build.sh esp32 AlarmDecoder-IoT build flash monitor -p /dev/ttyUSB0
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)
