@@ -13,10 +13,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
-- [ ] CORE: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
+- [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
 - [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
-- [ ] API: Add Zone tracking algorithm event triggers to AD2EventSearch class.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
@@ -31,6 +30,44 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
+
+## [1.0.9] - 2021-10-07 Sean Mathews - coder @f34rdotcom
+Added zone change notification and several small fixes and improvements.
+### Added
+  - Zone tracking ON_ZONE_CHANGE events.
+  - Zone alpha descriptors.
+  - Zone partition assignment.
+  - Multiple recipients for email notifications.
+  - Delete smart switch sub commands [-] for components Twilio, Pushover, and MQTT.
+  - Zone state info published over MQTT with new ON_ZONE_CHANGE events.
+### Changed
+  - Fix help commands causing stack fault with large blocks of text.
+  - AlarmDecoder API some fixes some improvements.
+  - Misc IPv4/IPv6 issues and ser2sock client issues.
+  - Rename project to AlarmDecoder-IoT
+### Change log
+- [X] SM - CORE: Name change AlarmDecoder-STSDK -> AlarmDecoder-IoT in docs etc.
+- [X] SM - CORE: Remove st-device-sdk-c no longer needed. Building for SmartThings is still done using STSDK tools.
+- [X] SM - CORE: Fix stack exhaustion crash on some help commands with large text response.
+- [X] SM - TWILIO: Add delete smart switch '-' command.
+- [X] SM - PUSHOVER: Add delete smart switch '-' command.
+- [X] SM - MQTT: Add delete smart switch '-' command.
+- [X] SM - API: Add Zone tracking event triggers to AD2EventSearch class.
+- [X] SM - API: Bug with 50PUL panel and comm failure message resetting fire bit exclude fire bit if msg[SYSSPECIFIC_BYTE] != '0'.
+- [X] SM - TWILIO: Add support for multiple to addresses separated by commas.
+- [X] SM - CORE: ad2source  with 'socket' [] needed for IPv6. RFC 3986, section 3.2.2: Host.
+- [X] SM - CORE: Increase stack size of ad2uart_client adding 2k to make it 6k total now.
+- [X] SM - API: Bug not reporting events on stateless events in notifySubscribers.
+- [X] SM - CORE: ser2sock client code improvements and fix bug with IPv4 host address.
+- [X] SM - CORE: Added ZONE list to VPART command. Only needed for DSC to associate zones to partitions.
+- [X] SM - API: Add zone descriptions and zone tracking for DSC panels.
+- [X] SM - API: DSC testing found some issues. Address settings are a combination of Partition and Slot# so 11 is P1 S1. Append default of slot '1' and use 'K' command.
+- [X] SM - API: Add ON_CFG event handler and parsing of config and version strings.
+- [X] SM - API & CORE: ad2_query_key_value -> AlarmDecoderParser::query_key_value_string. Needed in parser so moved from ad2_.
+- [X] SM - API: ON_FIRE -> ON_FIRE_CHANGE for consistency.
+- [X] SM - API: Change from 'FAULT' to 'TROUBLE'. Fault indicates 'OPEN' for panel documentation so stick with OPEN/CLOSE/TROUBLE.
+- [X] SM - API: Add search verb for Programming and EXIT change events and removed verbs from docs that were not wired and likely will never be wired.
+- [X] SM - CORE: No IPv6 dhcp address assigned notification on ethernet interface. Missing callback for IPv6.
 
 ## [1.0.8] - 2021-08-20 Sean Mathews - coder @f34rdotcom
 ACL+IPv6, MQTT Client, Refactor headers etc. New simple and flexible ad2_add_http_sendQ serialized async HTTP request API for components.

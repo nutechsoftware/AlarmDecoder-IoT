@@ -377,96 +377,6 @@ void ad2_genUUID(uint8_t n, std::string& ret)
 }
 
 /**
- * @brief find value by name in query string config data
- *    param1=val1&param2=val2
- *
- * @arg [in]qry_string std::string * to scan for NV data.
- * @arg [in]key char * key to search for.
- * @arg [in]val std::string &. Result buffer for value.
- * @arg [in]val_size size of output buffer.
- *
- * @return int results. < -2 error, -1 not found, >= 0 result length
- *
- * @note val is cleared after param check.
- */
-int ad2_query_key_value(std::string  &qry_str, const char *key, std::string &val)
-{
-
-    /* Test parmeters. */
-    if ( !qry_str.length() || key == NULL) {
-        return -2;
-    }
-
-    /* Clear val first. */
-    val = "";
-
-    /* Init state machine args and get raw pointer to our query string. */
-    int keylen = strlen(key);
-    const char * qry_ptr = qry_str.c_str();
-
-    /* Process until we reach null terminator on the query string. */
-    while ( *qry_ptr ) {
-        const char *tp = qry_ptr;
-        int len = 0;
-        static char chr;
-
-        /* Scan the KEY looking for the next terminator. */
-        while ( (chr = *tp) != 0 ) {
-            if (chr == '=' || chr == '&') {
-                break;
-            }
-            len++;
-            tp++;
-        }
-
-        /* Test key for a match. */
-        if ( len && len == keylen ) {
-            if ( strncasecmp (key, qry_ptr, keylen) == 0 ) {
-
-                /* move the index */
-                len++;
-                tp++;
-
-                /* Test for null value. Still valid just return empty string. */
-                if ( !chr || chr == '&' ) {
-                    return val.length();
-                }
-
-                /* Save the value. */
-                while ( ( chr = *tp ) != 0 ) {
-                    if ( chr == '=' || chr == '&' ) {
-                        break;
-                    }
-                    val += chr;
-                    tp++;
-                }
-                return val.length();
-            }
-        }
-
-        /* End of string and key not found. We are done. */
-        if ( !chr ) {
-            return -1;
-        }
-
-        /* Keep looking skip last terminator. */
-        len++;
-
-        /* Scan till we start the next set. */
-        qry_ptr += len;
-        while ( chr && chr != '&' ) {
-            chr = *qry_ptr++;
-        }
-
-        /* End of string and not found. We are done. */
-        if ( !chr ) {
-            return -1;
-        }
-    }
-    return -1;
-}
-
-/**
  * @brief conver bytes in a std::string to upper case.
  *
  * @param [in]str std::string & to modify
@@ -942,7 +852,7 @@ void ad2_arm_away(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "2");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S5>";
+            msg = ad2_string_printf("K%01i1<S5>", address);
         }
 
         ESP_LOGI(TAG,"Sending ARM AWAY command");
@@ -983,7 +893,7 @@ void ad2_arm_stay(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "3");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S4>";
+            msg = ad2_string_printf("K%01i1<S4>", address);
         }
         ESP_LOGI(TAG,"Sending ARM STAY command to address %i using code '%s'", address, code.c_str());
         ad2_send(msg);
@@ -1025,7 +935,7 @@ void ad2_disarm(int codeId, int vpartId)
         } else if (s->panel_type == DSC_PANEL) {
             // QUIRK: For DSC don't disarm if already disarmed. Unlike Ademoc no specific command AFAIK exists to disarm just the code. If I find one I will change this.
             if (s->armed_away || s->armed_stay) {
-                msg = ad2_string_printf("K%02i%s", address, code.c_str());
+                msg = ad2_string_printf("K%01i1%s", address, code.c_str());
             } else {
                 ESP_LOGI(TAG,"DSC: Already DISARMED not sending DISARM command");
             }
@@ -1068,7 +978,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "9");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S6>";
+            msg = ad2_string_printf("K%01i1<S6>", address);
         }
 
         ESP_LOGI(TAG,"Sending CHIME toggle command");
@@ -1185,7 +1095,7 @@ void ad2_exit_now(int vpartId)
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s", address, "*");
         } else if (s->panel_type == DSC_PANEL) {
-            msg = "<S8>";
+            msg = ad2_string_printf("K%01i1<S8>", address);
         }
 
         ESP_LOGI(TAG,"Sending EXIT NOW command");
@@ -1319,6 +1229,10 @@ cJSON *ad2_get_ad2iot_device_info_json()
     cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
     std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
     cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
+
+    cJSON_AddStringToObject(root, "ad2_version_string", AD2Parse.ad2_version_string.c_str());
+    cJSON_AddStringToObject(root, "ad2_config_string", AD2Parse.ad2_config_string.c_str());
+
     return root;
 }
 
@@ -1338,7 +1252,7 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
         cJSON_AddBoolToObject(root, "armed_away", s->armed_away);
         cJSON_AddBoolToObject(root, "armed_stay", s->armed_stay);
         cJSON_AddBoolToObject(root, "backlight_on", s->backlight_on);
-        cJSON_AddBoolToObject(root, "programming_mode", s->programming_mode);
+        cJSON_AddBoolToObject(root, "programming", s->programming);
         cJSON_AddBoolToObject(root, "zone_bypassed", s->zone_bypassed);
         cJSON_AddBoolToObject(root, "ac_power", s->ac_power);
         cJSON_AddBoolToObject(root, "chime_on", s->chime_on);

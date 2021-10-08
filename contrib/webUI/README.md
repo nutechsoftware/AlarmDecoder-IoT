@@ -9,7 +9,7 @@ To access the web interface connect to the IP address or host name of the ESP32-
 ## Arguments
 - codeID : The codeid slot to use on the AD2IoT for arming etc.
 - vpartID : The vpart slot to use for this virutal keypad. If vpart is configured for address 18 then this virtual keypad will show that keypads partition state.
-- wsHost : To allow for easy development you can access the app.html using the browser file:///~/AlarmDecoder-STSDK/contrib/webUI/flash-drive/app.html?vpartID=0&codeID=0&wsHost=192.168.0.20 so the websocket connection will be to the ESP32-POE-ISO board but html content from a local filesystem.
+- wsHost : To allow for easy development you can access the app.html using the browser file:///~/AlarmDecoder-IoT/contrib/webUI/flash-drive/app.html?vpartID=0&codeID=0&wsHost=192.168.0.20 so the websocket connection will be to the ESP32-POE-ISO board but html content from a local filesystem.
 
 ## Examples
 -   http://192.168.0.1/app.html?vpartID=1&codeID=1

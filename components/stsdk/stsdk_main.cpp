@@ -782,7 +782,7 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
 }
 
 /**
- * @brief ON_FIRE.
+ * @brief ON_FIRE_CHANGE.
  * Called when the alarm panel FIRE alarm state changes.
  *
  * @param [in]msg std::string new version string.
@@ -790,12 +790,12 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  * @param [in]arg nullptr.
  *
  */
-void on_fire_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_fire_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
     AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
-        ESP_LOGI(TAG, "ON_FIRE: '%s'", msg->c_str());
+        ESP_LOGI(TAG, "ON_FIRE_CHANGE: '%s'", msg->c_str());
         if ( s->fire_alarm ) {
             cap_smokeDetector_data->set_smoke_value(cap_smokeDetector_data, caps_helper_smokeDetector.attr_smoke.value_detected);
             cap_alarm_bell_data->set_contact_value(cap_alarm_bell_data, caps_helper_contactSensor.attr_contact.value_open);
@@ -1041,7 +1041,7 @@ void stsdk_init(void)
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, on_chime_change_cb, nullptr);
 
     // Subscribe to FIRE events to update cap_smokeDetector capability.
-    AD2Parse.subscribeTo(ON_FIRE, on_fire_cb, nullptr);
+    AD2Parse.subscribeTo(ON_FIRE_CHANGE, on_fire_change_cb, nullptr);
 
     // Subscribe to AC_POWER change events to update cap_powerSource capability.
     AD2Parse.subscribeTo(ON_POWER_CHANGE, on_power_cb, nullptr);
@@ -1441,7 +1441,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
         // Called by ready so dont call ready or BOOM!
 
         // send fire state
-        on_fire_cb(&statestr, s, nullptr);
+        on_fire_change_cb(&statestr, s, nullptr);
 
         // send power state
         on_power_cb(&statestr, s, nullptr);

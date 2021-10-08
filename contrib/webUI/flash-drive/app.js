@@ -363,7 +363,7 @@ function getQueryStringParameterByName(name, url = window.location.href) {
 
 /**
  * Use commands 'vpart' and 'code' to configure the virtual keypad and code slot.
- *  https://github.com/nutechsoftware/AlarmDecoder-STSDK#base-commands
+ *  https://github.com/nutechsoftware/AlarmDecoder-IoT#base-commands
  */
 var vpartID = 0; var codeID = 0;
 var szvalue = null;

@@ -62,10 +62,10 @@ static const char *TAG = "TWILIO";
 #define SK_PREFILTER_REGEX   "P"
 #define SK_OPEN_REGEX_LIST   "O"
 #define SK_CLOSED_REGEX_LIST "C"
-#define SK_FAULT_REGEX_LIST  "F"
+#define SK_TROUBLE_REGEX_LIST  "F"
 #define SK_OPEN_OUTPUT_FMT   "o"
 #define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_FAULT_OUTPUT_FMT  "f"
+#define SK_TROUBLE_OUTPUT_FMT  "f"
 
 // Notification types
 #define TWILIO_NOTIFY_MESSAGE "M"
@@ -179,8 +179,6 @@ static void _build_sendgrid_post(esp_http_client_handle_t client, request_messag
 
     // array: personalizations
     cJSON *_personalizations = cJSON_CreateArray();
-    cJSON *_pitem = cJSON_CreateObject();
-    cJSON_AddItemToArray(_personalizations, _pitem);
 
     // object: from
     cJSON *_from = cJSON_CreateObject();
@@ -194,19 +192,23 @@ static void _build_sendgrid_post(esp_http_client_handle_t client, request_messag
     cJSON_AddStringToObject(_text, "value", r->message.c_str());
 
     // add top level items to root
-    cJSON_AddItemToObject(_root, "personalizations", _personalizations);
+    cJSON_AddStringToObject(_root, "subject", ad2_string_printf("AD2 ALERT '%s'", r->message.c_str()).c_str());
     cJSON_AddItemToObject(_root, "from", _from);
+    cJSON_AddItemToObject(_root, "personalizations", _personalizations);
     cJSON_AddItemToObject(_root, "content", _content);
 
-    // _personalizations -> subject
-    cJSON_AddStringToObject(_pitem, "subject", ad2_string_printf("AD2 ALERT '%s'", r->message.c_str()).c_str());
-
     // _personalizations -> to[]
-    cJSON *_to = cJSON_CreateArray();
-    cJSON_AddItemToObject(_pitem, "to", _to);
-    cJSON *_email = cJSON_CreateObject();
-    cJSON_AddItemToArray(_to, _email);
-    cJSON_AddStringToObject(_email, "email", r->to.c_str());
+    std::vector<std::string> to_list;
+    ad2_tokenize(r->to, ", ", to_list);
+    for (auto &szto : to_list) {
+        cJSON *_to = cJSON_CreateArray();
+        cJSON *_pitem = cJSON_CreateObject();
+        cJSON_AddItemToArray(_personalizations, _pitem);
+        cJSON_AddItemToObject(_pitem, "to", _to);
+        cJSON *_email = cJSON_CreateObject();
+        cJSON_AddItemToArray(_to, _email);
+        cJSON_AddStringToObject(_email, "email", szto.c_str());
+    }
 
     // Build and save final json string and cleanup
     char *json = NULL;
@@ -523,9 +525,10 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, char *string)
         slot = strtol(buf.c_str(), NULL, 10);
     }
     if (slot >= 0) {
-        if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
+        if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
+            ad2_remove_ws(buf);
             ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
-            ad2_printf_host("Setting '%s' value finished.\r\n", subcmd.c_str());
+            ad2_printf_host("Setting '%s' value '%s' finished.\r\n", subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
             ad2_get_nv_slot_key_string(key.c_str(), slot, nullptr, buf);
@@ -567,6 +570,20 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
 
             /* setting */
             switch(buf[0]) {
+            case '-': // Remove entry
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_NOTIFY_SLOT, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
+                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
+                ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
+                break;
             case SK_NOTIFY_SLOT[0]: // Notification slot
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
@@ -601,7 +618,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
 
             case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
             case SK_CLOSED_REGEX_LIST[0]: // Closed state REGEX list editor
-            case SK_FAULT_REGEX_LIST[0]: // Fault state REGEX list editor
+            case SK_TROUBLE_REGEX_LIST[0]: // Trouble state REGEX list editor
                 // Add index to file name to track N number of elements.
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
@@ -616,8 +633,8 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                     if (buf[0] == SK_CLOSED_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (buf[0] == SK_FAULT_REGEX_LIST[0]) {
-                        tmpsz = "FAULT";
+                    if (buf[0] == SK_TROUBLE_REGEX_LIST[0]) {
+                        tmpsz = "TROUBLE";
                     }
                     ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.c_str());
                     ad2_printf_host("%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
@@ -628,7 +645,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
 
             case SK_OPEN_OUTPUT_FMT[0]: // Open state output format string
             case SK_CLOSED_OUTPUT_FMT[0]: // Closed state output format string
-            case SK_FAULT_OUTPUT_FMT[0]: // Fault state output format string
+            case SK_TROUBLE_OUTPUT_FMT[0]: // Trouble state output format string
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 if (buf[0] == SK_OPEN_OUTPUT_FMT[0]) {
@@ -637,8 +654,8 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                 if (buf[0] == SK_CLOSED_OUTPUT_FMT[0]) {
                     tmpsz = "CLOSED";
                 }
-                if (buf[0] == SK_FAULT_OUTPUT_FMT[0]) {
-                    tmpsz = "FAULT";
+                if (buf[0] == SK_TROUBLE_OUTPUT_FMT[0]) {
+                    tmpsz = "TROUBLE";
                 }
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
                 ad2_printf_host("Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
@@ -659,10 +676,10 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                                SK_PREFILTER_REGEX
                                SK_OPEN_REGEX_LIST
                                SK_CLOSED_REGEX_LIST
-                               SK_FAULT_REGEX_LIST
+                               SK_TROUBLE_REGEX_LIST
                                SK_OPEN_OUTPUT_FMT
                                SK_CLOSED_OUTPUT_FMT
-                               SK_FAULT_OUTPUT_FMT;
+                               SK_TROUBLE_OUTPUT_FMT;
 
             ad2_printf_host("Twilio SmartSwitch #%i report\r\n", slot);
             // sub key suffix.
@@ -708,7 +725,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                     break;
                 case SK_OPEN_REGEX_LIST[0]:
                 case SK_CLOSED_REGEX_LIST[0]:
-                case SK_FAULT_REGEX_LIST[0]:
+                case SK_TROUBLE_REGEX_LIST[0]:
                     // * Find all sub keys and show info.
                     if (c == SK_OPEN_REGEX_LIST[0]) {
                         tmpsz = "OPEN";
@@ -716,8 +733,8 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                     if (c == SK_CLOSED_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (c == SK_FAULT_REGEX_LIST[0]) {
-                        tmpsz = "FAULT";
+                    if (c == SK_TROUBLE_REGEX_LIST[0]) {
+                        tmpsz = "TROUBLE";
                     }
                     for ( i = 1; i < MAX_SEARCH_KEYS; i++ ) {
                         out = "";
@@ -731,15 +748,15 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                     break;
                 case SK_OPEN_OUTPUT_FMT[0]:
                 case SK_CLOSED_OUTPUT_FMT[0]:
-                case SK_FAULT_OUTPUT_FMT[0]:
+                case SK_TROUBLE_OUTPUT_FMT[0]:
                     if (c == SK_OPEN_OUTPUT_FMT[0]) {
                         tmpsz = "OPEN";
                     }
                     if (c == SK_CLOSED_OUTPUT_FMT[0]) {
                         tmpsz = "CLOSED";
                     }
-                    if (c == SK_FAULT_OUTPUT_FMT[0]) {
-                        tmpsz = "FAULT";
+                    if (c == SK_TROUBLE_OUTPUT_FMT[0]) {
+                        tmpsz = "TROUBLE";
                     }
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
@@ -817,7 +834,7 @@ static struct cli_command twilio_cmd_list[] = {
         "    - {phone|email}: [NXXXYYYZZZZ|user@example.com]\r\n"
         "- Sets the 'To' info for a given notification slot.\r\n"
         "  - ```" TWILIO_COMMAND " " TWILIO_TO_SUBCMD " {slot} {phone|email}```\r\n"
-        "    - {phone|email}: [NXXXYYYZZZZ|user@example.com]\r\n"
+        "    - {phone|email}: [NXXXYYYZZZZ|user@example.com, user2@example.com]\r\n"
         "- Sets the 'Type' for a given notification slot.\r\n"
         "  - ```" TWILIO_COMMAND " " TWILIO_TYPE_SUBCMD " {slot} {type}```\r\n"
         "    - {type}: [M|C|E]\r\n"
@@ -828,6 +845,7 @@ static struct cli_command twilio_cmd_list[] = {
         "    - {slot}\r\n"
         "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
+        "      - [-] Delete switch\r\n"
         "      - [N] Notification slot\r\n"
         "        -  Notification settings slot to use for sending this events.\r\n"
         "      - [D] Default state\r\n"
@@ -845,12 +863,12 @@ static struct cli_command twilio_cmd_list[] = {
         "      - [C] Close(OFF) state regex search string list management.\r\n"
         "        - {arg1}: Index # 1-8\r\n"
         "        - {arg2}: Regex string for this slot or empty string to clear\r\n"
-        "      - [F] Fault state regex search string list management.\r\n"
+        "      - [F] Trouble state regex search string list management.\r\n"
         "        - {arg1}: Index # 1-8\r\n"
         "        - {arg2}: Regex string for this slot or empty  string to clear\r\n"
         "      - [o] Open output format string.\r\n"
         "      - [c] Close output format string.\r\n"
-        "      - [f] Fault output format string.\r\n\r\n", _cli_cmd_twilio_command_router
+        "      - [f] Trouble output format string.\r\n\r\n", _cli_cmd_twilio_command_router
     },
 };
 
@@ -887,10 +905,10 @@ void twilio_init()
             // We at least need some output format or skip
             ad2_get_nv_slot_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
             ad2_get_nv_slot_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSED_OUTPUT_FORMAT);
-            ad2_get_nv_slot_key_string(key.c_str(), i, SK_FAULT_OUTPUT_FMT, es1->FAULT_OUTPUT_FORMAT);
+            ad2_get_nv_slot_key_string(key.c_str(), i, SK_TROUBLE_OUTPUT_FMT, es1->TROUBLE_OUTPUT_FORMAT);
             if ( es1->OPEN_OUTPUT_FORMAT.length()
                     || es1->CLOSED_OUTPUT_FORMAT.length()
-                    || es1->FAULT_OUTPUT_FORMAT.length() ) {
+                    || es1->TROUBLE_OUTPUT_FORMAT.length() ) {
 
                 std::string notify_types_sz = "";
                 std::vector<std::string> notify_types_v;
@@ -906,8 +924,8 @@ void twilio_init()
                 }
                 ad2_get_nv_slot_key_string(key.c_str(), i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
 
-                // Load all regex search patterns for OPEN,CLOSE and FAULT sub keys.
-                std::string regex_sk_list = SK_FAULT_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
+                // Load all regex search patterns for OPEN,CLOSE and TROUBLE sub keys.
+                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
                 for(char& c : regex_sk_list) {
                     std::string sk = ad2_string_printf("%c", c);
                     for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
@@ -921,8 +939,8 @@ void twilio_init()
                             if (c == SK_CLOSED_REGEX_LIST[0]) {
                                 es1->CLOSED_REGEX_LIST.push_back(out);
                             }
-                            if (c == SK_FAULT_REGEX_LIST[0]) {
-                                es1->FAULT_REGEX_LIST.push_back(out);
+                            if (c == SK_TROUBLE_REGEX_LIST[0]) {
+                                es1->TROUBLE_REGEX_LIST.push_back(out);
                             }
                         }
                     }

@@ -27,6 +27,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
+// ESP-IDF includes
+#include "esp_log.h"
 #include "cJSON.h"
 #include <lwip/netdb.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)

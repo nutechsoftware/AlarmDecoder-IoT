@@ -24,13 +24,16 @@
 #define AD2_STACK_REPORT
 
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1080"
+#define FIRMWARE_VERSION      "AD2IOT-1090"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
 
 // @brief MAX virtual partition slots
 #define AD2_MAX_VPARTITION    9
+
+// @brief MAX zones
+#define AD2_MAX_ZONES         255
 
 // @brief MAX code slots
 #define AD2_MAX_CODE          99
@@ -46,6 +49,10 @@
 
 // @brief Parent Key to store virtual partition slots
 #define VPART_CONFIG_KEY     "vpa"
+#define VPART_ZL_CONFIG_KEY  "vpz"
+
+// @brief Parent Key to store zone slots
+#define ZONES_ALPHA_CONFIG_KEY      "zna"
 
 // @brief Parent Key to store code slots
 #define CODES_CONFIG_KEY      "codes"

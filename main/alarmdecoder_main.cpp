@@ -78,11 +78,6 @@ static const char *TAG = "AD2_IoT";
 extern "C" {
 #endif
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-#else
-extern esp_netif_t* g_netif;
-#endif
-
 /**
 * Control main task processing
 *  0 : running the main function.
@@ -116,7 +111,7 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  */
 
 /**
- * @brief ON_MESSAGE
+ * @brief ON_ALPHA_MESSAGE
  * Called when a full standard alarm state message is received
  * but before it is parsed so the virtual state will be based upon
  * the last message parsed.
@@ -127,20 +122,32 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
 #if 1
-#define EXTRA_INFO_EVERY 10
-    static int extra_info = EXTRA_INFO_EVERY;
+#define ON_MESS_EXTRA_INFO_EVERY 10
+    static int extra_info = ON_MESS_EXTRA_INFO_EVERY;
     if(!--extra_info) {
-        extra_info = EXTRA_INFO_EVERY;
+        extra_info = ON_MESS_EXTRA_INFO_EVERY;
         ESP_LOGI(TAG, "RAM left %d min %d maxblk %d", esp_get_free_heap_size(),esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
         ESP_LOGI(TAG, "AlarmDecoder parser stack free %d", uxTaskGetStackHighWaterMark(NULL));
     }
 #endif
 }
 
+/**
+ * @brief ON_ZONE_CHANGE
+ * Called when a ON_ZONE_CHANGE event occures.
+ *
+ * @param [in]msg std::string full AD2* message that triggered the event.
+ * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ *
+ */
+void my_ON_ZONE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    ESP_LOGI(TAG, "ON_ZONE_CHANGE_CB: EVSTR(%s)", (s ? s->last_event_message.c_str() : "UNKNOWN"));
+}
 
 
 /**
@@ -211,7 +218,7 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
 }
 
 /**
- * @brief ON_FIRE
+ * @brief ON_FIRE_CHANGE
  * Called when FIRE state change event is triggered.
  * Contact sensor shows ACTIVE(LED ON) on APP when 'Open' so reverse logic
  * to make it clear FIRE ON = Contact LED ON
@@ -220,9 +227,9 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  * @param [in]s AD2VirtualPartitionState updated partition state for message.
  *
  */
-void my_ON_FIRE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_FIRE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "ON_FIRE_CB: FIRE(%i)", s->fire_alarm);
+    ESP_LOGI(TAG, "ON_FIRE_CHANGE_CB: FIRE(%i)", s->fire_alarm);
 }
 
 /**
@@ -301,6 +308,10 @@ static void ad2uart_client_task(void *pvParameters)
     std::string breakline = "\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n";
     uart_write_bytes((uart_port_t)g_ad2_client_handle, breakline.c_str(), breakline.length());
 
+    // send a 'V" and a 'C' command to get version and configuration from the AD2*.
+    std::string cmdline = "V\r\n\r\nC\r\n\r\n\r\n";
+    uart_write_bytes((uart_port_t)g_ad2_client_handle, cmdline.c_str(), cmdline.length());
+
     while (1) {
         // do not process if main halted or network disconnected.
         if (!g_StopMainTask && hal_get_network_connected()) {
@@ -322,6 +333,118 @@ static void ad2uart_client_task(void *pvParameters)
 }
 
 /**
+ * ser2sock_client_task private helper.
+ *
+ */
+bool _ser2sock_client_connect()
+{
+    std::string buf;
+    int res;
+
+    // load settings from NVS
+    // host stored in slot 1
+    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
+                               AD2MODE_CONFIG_ARG_SLOT, nullptr, buf);
+
+    // Storage for parsed Host & Port to connect to.
+    int port = -1;
+    std::string host;
+    int addr_family = 0;
+    int size;
+#if CONFIG_LWIP_IPV6
+    bool isv6 = false;
+    struct sockaddr_in6 dest_addr6 = {};
+    dest_addr6.sin6_family = AF_INET6;
+#endif
+    struct sockaddr_in dest_addr = {};
+
+    std::regex rgx;
+    std::smatch matches;
+#if CONFIG_LWIP_IPV6
+    // test for IPv6 host:port RFC 3986, section 3.2.2: Host. Must be surrounded by square braces.
+    rgx = "^\\[(.*)\\]:(.*)$";
+    if (std::regex_search(buf, matches, rgx)) {
+        host = matches[1].str();
+        port = std::stoi(matches[2].str().c_str());
+        isv6 = true;
+    } else
+#endif
+    {
+        // Test for IPv4:PORT
+        rgx = "^(.*):(.*)$";
+        if (std::regex_search(buf, matches, rgx)) {
+            host = matches[1].str();
+            port = std::stoi(matches[2].str().c_str());
+        }
+    }
+
+    // no valid address parsed sleep and restart.
+    if (port == -1) {
+        ESP_LOGE(TAG, "Error parsing host:port from settings '%s'. Sleeping for 30 seconds.", buf.c_str());
+        // sleep a long time maybe the config will be updated live.
+        vTaskDelay(30000 / portTICK_PERIOD_MS);
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Connecting to ser2sock host '%s' on port %i", host.c_str(), port);
+
+    // detect IPv4 vs IPv6 host address see RFC 3986, section 3.2.2: Host
+#if CONFIG_LWIP_IPV6
+    if (isv6) {
+        //res = inet_pton(AF_INET6, host.c_str(), &dest_addr6.sin6_addr);
+        dest_addr6.sin6_port = htons(port);
+        addr_family = AF_INET6;
+        size = sizeof(struct sockaddr_in6);
+    } else
+#endif
+    {
+        dest_addr.sin_addr.s_addr = inet_addr(host.c_str());
+        dest_addr.sin_family = AF_INET;
+        dest_addr.sin_port = htons(port);
+        addr_family = AF_INET;
+        size = sizeof(struct sockaddr_in);
+    }
+
+    g_ad2_client_handle =  socket(addr_family, SOCK_STREAM, IPPROTO_TCP);
+    if (g_ad2_client_handle < 0) {
+        ESP_LOGE(TAG, "ser2sock client unable to create socket: errno %d", errno);
+        return false;
+    }
+    ESP_LOGI(TAG, "ser2sock client socket created, connecting to host %s on port %d", host.c_str(), port);
+
+#if CONFIG_LWIP_IPV6
+    if (isv6) {
+        res = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr6, size);
+    } else
+#endif
+    {
+        res = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, size);
+    }
+
+    if (res != 0) {
+        ESP_LOGE(TAG, "ser2sock client socket unable to connect: errno %d", errno);
+        close(g_ad2_client_handle);
+        g_ad2_client_handle = -1;
+        return false;
+    }
+    ESP_LOGI(TAG, "ser2sock client successfully connected");
+
+    // set socket non blocking.
+    fcntl(g_ad2_client_handle, F_SETFL, O_NONBLOCK);
+
+    // send break to AD2* be sure we are in run mode.
+    buf = "\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n";
+    send((uart_port_t)g_ad2_client_handle, buf.c_str(), buf.length(), 0);
+
+    // send a 'V" and a 'C' command to get version and configuration from the AD2*.
+    buf = "V\r\nC\r\n";
+    send((uart_port_t)g_ad2_client_handle, buf.c_str(), buf.length(), 0);
+
+    return true;
+}
+
+
+/**
  * @brief ser2sock client task
  * Connects and stays connected to ser2sock server to receive
  * AD2* protocol messages from an alarm system.
@@ -333,103 +456,52 @@ static void ser2sock_client_task(void *pvParameters)
 
     while (1) {
         if (hal_get_network_connected()) {
-            // load settings from NVS
-            // host stored in slot 1
-            std::string buf;
-            ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                       AD2MODE_CONFIG_ARG_SLOT, nullptr, buf);
 
-            std::vector<std::string> out;
-            ad2_tokenize(buf, ":", out);
-
-            // data sanity tests
-            bool connectok = false;
-            if (out[0].length() > 0) {
-                connectok = true;
-            }
-            int port = atoi(out[1].c_str());
-            if (port > 0) {
-                connectok = true;
-            }
-            std::string host = out[0];
-
-            // looks good. connect.
-            if (connectok) {
-                ESP_LOGI(TAG, "Connecting to ser2sock host %s:%i", host.c_str(), port);
-            } else {
-                ESP_LOGE(TAG, "Error parsing host:port from settings '%s'", buf.c_str());
-            }
-
-            int addr_family = 0;
-            int ip_protocol = 0;
-
-#if CONFIG_LWIP_IPV6
-            struct sockaddr_in6 dest_addr = {};
-            inet6_aton(host.c_str(), &dest_addr.sin6_addr);
-            dest_addr.sin6_family = AF_INET6;
-            dest_addr.sin6_port = htons(port);
-            dest_addr.sin6_scope_id = esp_netif_get_netif_impl_index(NULL);
-            addr_family = AF_INET6;
-            ip_protocol = IPPROTO_IPV6;
-            int size = sizeof(struct sockaddr_in6);
-#else
-            struct sockaddr_in dest_addr;
-            dest_addr.sin_addr.s_addr = inet_addr(host.c_str());
-            dest_addr.sin_family = AF_INET;
-            dest_addr.sin_port = htons(port);
-            addr_family = AF_INET;
-            ip_protocol = IPPROTO_IP;
-            int size = sizeof(struct sockaddr_in);
-#endif
-            g_ad2_client_handle =  socket(addr_family, SOCK_STREAM, ip_protocol);
-            if (g_ad2_client_handle < 0) {
-                ESP_LOGE(TAG, "ser2sock client unable to create socket: errno %d", errno);
-                break;
-            }
-            ESP_LOGI(TAG, "ser2sock client socket created, connecting to %s:%d", host.c_str(), port);
-
-            int err = connect(g_ad2_client_handle, (struct sockaddr *)&dest_addr, size);
-            if (err != 0) {
-                ESP_LOGE(TAG, "ser2sock client socket unable to connect: errno %d", errno);
-                break;
-            }
-            ESP_LOGI(TAG, "ser2sock client successfully connected");
-
-            // set socket non blocking.
-            fcntl(g_ad2_client_handle, F_SETFL, O_NONBLOCK);
-
-            while (1) {
-                // do not process if main halted.
-                if (!g_StopMainTask) {
-                    uint8_t rx_buffer[128];
-                    int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
-                    // test if error occurred
-                    if (len < 0) {
-                        if ( errno != EAGAIN && errno == EWOULDBLOCK ) {
-                            ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
-                            break;
+            if (_ser2sock_client_connect()) {
+                while (1) {
+                    // do not process if main halted.
+                    if (!g_StopMainTask) {
+                        uint8_t rx_buffer[128];
+                        int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
+                        // test if error occurred
+                        if (len < 0) {
+                            if ( errno != EAGAIN ) {
+                                ESP_LOGE(TAG, "ser2sock client recv failed: errno %d", errno);
+                                break;
+                            }
+                        }
+                        // Data received
+                        else {
+                            // Parse data from AD2* and report back to host.
+                            rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                            AD2Parse.put(rx_buffer, len);
                         }
                     }
-                    // Data received
-                    else {
-                        // Parse data from AD2* and report back to host.
-                        rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                        AD2Parse.put(rx_buffer, len);
+                    if (!hal_get_network_connected()) {
+                        break;
                     }
+                    vTaskDelay(10 / portTICK_PERIOD_MS);
+#if defined(AD2_STACK_REPORT)
+#define S2S_EXTRA_INFO_EVERY 1000
+                    static int extra_info = S2S_EXTRA_INFO_EVERY;
+                    if(!--extra_info) {
+                        extra_info = S2S_EXTRA_INFO_EVERY;
+                        ESP_LOGI(TAG, "ser2sock_client stack free %d", uxTaskGetStackHighWaterMark(NULL));
+                    }
+#endif
                 }
-                if (!hal_get_network_connected()) {
-                    break;
-                }
-                vTaskDelay(10 / portTICK_PERIOD_MS);
             }
 
+            ESP_LOGE(TAG, "ser2sock client shutting down socket and restarting in 3 seconds.");
             if (g_ad2_client_handle != -1) {
-                ESP_LOGE(TAG, "ser2sock client shutting down socket and restarting in 3 seconds.");
                 shutdown(g_ad2_client_handle, 0);
                 close(g_ad2_client_handle);
                 g_ad2_client_handle = -1;
-                vTaskDelay(3000 / portTICK_PERIOD_MS);
             }
+#if defined(AD2_STACK_REPORT)
+            ESP_LOGI(TAG, "ser2sock_client stack free %d", uxTaskGetStackHighWaterMark(NULL));
+#endif
+            vTaskDelay(3000 / portTICK_PERIOD_MS);
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -441,7 +513,7 @@ static void ser2sock_client_task(void *pvParameters)
  */
 void init_ser2sock_client()
 {
-    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*4, (void*)AF_INET, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*8, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
 }
 
 /**
@@ -492,7 +564,7 @@ void init_ad2_uart_client()
 
     // Main AlarmDecoderParser:
     // 20210815SM: 1220 bytes stack free.
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*4, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*6, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
 
 }
 
@@ -562,11 +634,33 @@ void app_main()
     // Virtual partition 0 is the default partition for some notifications.
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         int x = -1;
-        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, 0, &x);
+        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, nullptr, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
-            AD2Parse.getAD2PState(x, true);
-            ESP_LOGI(TAG, "init vpart slot %i mask address %i", n, x);
+            // If a zone list is provided then parse it and save in the zone_list.
+            std::string zlist;
+            ad2_get_nv_slot_key_string(VPART_CONFIG_KEY, n, VPART_ZL_CONFIG_KEY, zlist);
+            ad2_trim(zlist);
+            if (zlist.length()) {
+                AD2VirtualPartitionState *s = AD2Parse.getAD2PState(x, true);
+                std::vector<std::string> vres;
+                ad2_tokenize(zlist, ",", vres);
+                for (auto &zonestring : vres) {
+                    uint8_t z = std::atoi(zonestring.c_str());
+                    s->zone_list.push_front((uint8_t)z & 0xff);
+                }
+            }
+            ESP_LOGI(TAG, "init vpart slot %i address %i zones '%s'", n, x, zlist.c_str());
+        }
+    }
+
+    // Load Zone alpha descriptors.
+    std::string alpha;
+    for (int n = 0; n <= AD2_MAX_ZONES; n++) {
+        alpha = "";
+        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, alpha);
+        if (alpha.length()) {
+            AD2Parse.setZoneString(n, alpha.c_str());
         }
     }
 
@@ -672,13 +766,14 @@ void app_main()
 
 #if 1 // FIXME add build switch for release builds.
     // AlarmDecoder callback wire up for testing.
-    AD2Parse.subscribeTo(ON_MESSAGE, my_ON_MESSAGE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
     AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
     AD2Parse.subscribeTo(ON_DISARM, my_ON_DISARM_CB, nullptr);
     AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_FIRE, my_ON_FIRE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_FIRE_CHANGE, my_ON_FIRE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
 #endif
 
