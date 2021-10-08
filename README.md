@@ -514,6 +514,8 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
     - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
       - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
+    - Zone states by Zone ID(NNN) are kept under the ```zones``` below the device root topic.
+      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
 ####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration for MQTT message notifications
 - Publishes the virtual partition state using the following topic pattern.
   - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y
