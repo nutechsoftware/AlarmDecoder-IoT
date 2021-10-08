@@ -348,21 +348,21 @@ bool _ser2sock_client_connect()
 
     // Storage for parsed Host & Port to connect to.
     int port = -1;
-    bool isv6 = false;
     std::string host;
     int addr_family = 0;
     int size;
 #if CONFIG_LWIP_IPV6
+    bool isv6 = false;
     struct sockaddr_in6 dest_addr6 = {};
     dest_addr6.sin6_family = AF_INET6;
 #endif
     struct sockaddr_in dest_addr = {};
 
     std::regex rgx;
+    std::smatch matches;
 #if CONFIG_LWIP_IPV6
     // test for IPv6 host:port RFC 3986, section 3.2.2: Host. Must be surrounded by square braces.
     rgx = "^\\[(.*)\\]:(.*)$";
-    std::smatch matches;
     if (std::regex_search(buf, matches, rgx)) {
         host = matches[1].str();
         port = std::stoi(matches[2].str().c_str());
