@@ -38,6 +38,7 @@ Added ON_BEEP_CHANGE. Fixed and improved ON_ZONE_CHANGE events. Added ad2_bypass
   - Added ad2_bypass_zone helper.
   - Show zone fault and bypass zone capability to webUI.
 ### Changed
+  - Init virtual partitions early to keep ID's consistent.
   - Fixed some issues in zone tracking.
   - Fixed virtual zone ID's to be loaded early before any parsing of messages.
 ### Change log
@@ -63,7 +64,6 @@ Added zone change notification and several small fixes and improvements.
   - Delete smart switch sub commands [-] for components Twilio, Pushover, and MQTT.
   - Zone state info published over MQTT with new ON_ZONE_CHANGE events.
 ### Changed
-  - Init virtual partitions early to keep ID's consistent.
   - Fix help commands causing stack fault with large blocks of text.
   - AlarmDecoder API some fixes some improvements.
   - Misc IPv4/IPv6 issues and ser2sock client issues.
