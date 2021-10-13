@@ -248,6 +248,36 @@ class AD2ws {
       elem("b2_icon").className = ps.b2_icon_class;
       elem("b2_text").innerHTML = ps.b2_label;
     }
+
+    // report any zones in zone_alerts[]
+    // Fill all avail zone boxes empty the rest.
+    var zones = elem("zones");
+    var children = zones.childNodes;
+    var _idx = 0;
+    for (var i=0; i<children.length; i++) {
+      var child = zones.childNodes[i];
+      if (child.nodeType == 1) {
+        if (this.ad2emb_state.zone_alerts[_idx]) {
+          child.innerHTML = "";
+          child.className = "zone";
+          var zoneNumber = this.ad2emb_state.zone_alerts[_idx].zone;
+          var aTag = document.createElement("a");
+          aTag.setAttribute('id',"bypassHref");
+          aTag.setAttribute('class',"control small");
+          aTag.setAttribute('style',"cursor:pointer;color:white;text-decoration:underline");
+          aTag.innerHTML = "<span>" + zoneNumber + "</span>";
+          child.appendChild(aTag);
+          aTag.onclick = function() {
+            ad2ws.sendCommand("BYPASS", zoneNumber);
+          };
+        } else {
+          child.className = "zone empty";
+          child.innerHTML = "";
+        }
+        _idx++;
+      }
+    }
+
   }
 
   /* FIXME: docs on simple ws request api */
@@ -341,11 +371,11 @@ class AD2ws {
 
   /* process a command convert it into the correct syntax for ad2ws_handler() in the AD2IoT firmware webUI component.
       ['<EXIT>', '<STAY>', '<AWAY>', '<DISARM>', '<CHIME>', '<BYPASS>'] */
-  sendCommand(cmd) {
+  sendCommand(cmd, arg = '') {
     debug.info("sendCommand(" + cmd + ")");
     /* if we have something send it. */
     if (cmd.length) {
-      ad2ws.wsSendMessage("!SEND:<"+cmd+">");
+      ad2ws.wsSendMessage("!SEND:<"+cmd+">"+arg);
     }
 
   }

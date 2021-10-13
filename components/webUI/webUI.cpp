@@ -233,7 +233,9 @@ static void ws_alarmstate_async_send(void *arg)
 
                 // build the standard json AD2IoT device and alarm state object.
                 cJSON *root = ad2_get_partition_state_json(s);
+                cJSON *zone_alerts = ad2_get_partition_zone_alerts_json(s);
                 cJSON_AddStringToObject(root, "event", "SYNC");
+                cJSON_AddItemToObject(root, "zone_alerts", zone_alerts);
                 char *sys_info = cJSON_Print(root);
                 cJSON_Minify(sys_info);
                 httpd_ws_frame_t ws_pkt;
@@ -326,6 +328,10 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
                 ad2_panic_alarm(codeID, vpartID);
             } else if (sendbuf.rfind("<FIRE_ALARM>", 0) == 0) {
                 ad2_fire_alarm(codeID, vpartID);
+            } else if (sendbuf.rfind("<BYPASS>", 0) == 0) {
+                // <BYPASS>XX
+                std::string zone = sendbuf.substr(8, string::npos);
+                ad2_bypass_zone(codeID, vpartID, std::atoi(zone.c_str()));
             } else {
                 ESP_LOGI(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
             }
@@ -532,7 +538,9 @@ void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *
                     AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpartID);
                     if (temps && s->partition == temps->partition) {
                         cJSON *root = ad2_get_partition_state_json(s);
+                        cJSON *zone_alerts = ad2_get_partition_zone_alerts_json(s);
                         cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
+                        cJSON_AddItemToObject(root, "zone_alerts", zone_alerts);
                         char *sys_info = cJSON_Print(root);
                         cJSON_Minify(sys_info);
                         httpd_ws_frame_t ws_pkt;
@@ -623,6 +631,7 @@ void webui_server_task(void *pvParameters)
                 AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
                 AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
                 AD2Parse.subscribeTo(ON_CHIME_CHANGE, webui_on_state_change, (void *)ON_CHIME_CHANGE);
+                AD2Parse.subscribeTo(ON_BEEPS_CHANGE, webui_on_state_change, (void *)ON_BEEPS_CHANGE);
                 AD2Parse.subscribeTo(ON_FIRE_CHANGE, webui_on_state_change, (void *)ON_FIRE_CHANGE);
                 AD2Parse.subscribeTo(ON_POWER_CHANGE, webui_on_state_change, (void *)ON_POWER_CHANGE);
                 AD2Parse.subscribeTo(ON_READY_CHANGE, webui_on_state_change, (void *)ON_READY_CHANGE);
@@ -630,6 +639,8 @@ void webui_server_task(void *pvParameters)
                 AD2Parse.subscribeTo(ON_ALARM_CHANGE, webui_on_state_change, (void *)ON_ALARM_CHANGE);
                 AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, webui_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
                 AD2Parse.subscribeTo(ON_EXIT_CHANGE, webui_on_state_change, (void *)ON_EXIT_CHANGE);
+                // SUbscribe to ON_ZONE_CHANGE events
+                AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
             } else {
                 // error long 10s sleep.
                 ESP_LOGI(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
