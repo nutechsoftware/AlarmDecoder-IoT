@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [X] CORE: ad2term reset was not working. ```#if (GPIO_MAINLED != GPIO_NOT_USED)``` not working? Changed to use ``` #if defined(GPIO_AD2_RESET)```.
+- [X] CORE: ad2term reset was not working. ```#if (GPIO_AD2_RESET != GPIO_NOT_USED)``` not working? Changed to use ``` #if defined(GPIO_AD2_RESET)```.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
