@@ -125,6 +125,32 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
+
+    // match "Press *  to show faults" or "Hit * for faults" and send * to get zone list.
+    // FIXME: Multi Language support.
+    static unsigned long _last_faults_alert = 0;
+    if (s && s->panel_type == ADEMCO_PANEL) {
+        unsigned long _now = AD2Parse.monotonicTime();
+        if (msg->find("Hit * for faults") != std::string::npos ||
+                msg->find("Press *  to show faults") != std::string::npos) {
+            // Some other system may initiate the report so wait a bit first.
+            if (_last_faults_alert) {
+                if ( _now - _last_faults_alert > 5) {
+                    _last_faults_alert = 0;
+                    std::string msg = ad2_string_printf("K%02i%s", s->primary_address, "*");
+                    ESP_LOGI(TAG, "MESSAGE_CB: sending '%s' for zone fault report.", msg.c_str());
+                    ad2_send(msg);
+                }
+            } else {
+                _last_faults_alert = _now;
+            }
+        }
+        // clear alert if timeout.
+        if ( _now - _last_faults_alert > 30) {
+            _last_faults_alert = 0;
+        }
+
+    }
 #if 1
 #define ON_MESS_EXTRA_INFO_EVERY 10
     static int extra_info = ON_MESS_EXTRA_INFO_EVERY;
@@ -637,12 +663,15 @@ void app_main()
         ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, nullptr, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
+            // Init AD2PState and set primary address
+            AD2VirtualPartitionState *s = AD2Parse.getAD2PState(x, true);
+            s->primary_address = x;
+
             // If a zone list is provided then parse it and save in the zone_list.
             std::string zlist;
             ad2_get_nv_slot_key_string(VPART_CONFIG_KEY, n, VPART_ZL_CONFIG_KEY, zlist);
             ad2_trim(zlist);
             if (zlist.length()) {
-                AD2VirtualPartitionState *s = AD2Parse.getAD2PState(x, true);
                 std::vector<std::string> vres;
                 ad2_tokenize(zlist, ",", vres);
                 for (auto &zonestring : vres) {
@@ -764,9 +793,11 @@ void app_main()
     }
 #endif
 
-#if 1 // FIXME add build switch for release builds.
-    // AlarmDecoder callback wire up for testing.
+    // Zone tracking
     AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
+
+#if 0 // FIXME add build switch for release builds.
+    // AlarmDecoder callback wire up for testing.
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
     AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);

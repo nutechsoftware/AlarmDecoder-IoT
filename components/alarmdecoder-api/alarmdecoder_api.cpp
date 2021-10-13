@@ -29,6 +29,7 @@ static const char *TAG = "AD2API";
 #endif
 
 #define ZONE_TIMEOUT 60
+#define FIRE_TIMEOUT 30
 
 // nostate
 AD2VirtualPartitionState *nostate = nullptr;
@@ -600,6 +601,10 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, boo
         if (!ad2ps && update) {
             ad2ps = AD2PStates[*amask] = new AD2VirtualPartitionState;
             ad2ps->partition = AD2PStates.size();
+            ad2ps->primary_address = 0;
+#if defined(IDF_VER)
+            ESP_LOGI(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
+#endif
         }
 
     } else {
@@ -948,6 +953,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool SEND_ALARM_CHANGE = false;
                             bool SEND_ZONE_BYPASSED_CHANGE = false;
                             bool SEND_EXIT_CHANGE = false;
+                            bool SEND_BEEPS_CHANGE = false;
 
                             // state change tracking
                             bool ARMED_STAY = is_bit_set(ARMED_STAY_BYTE, msg.c_str());
@@ -956,6 +962,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool ENTRY_DELAY = is_bit_set(ENTRYDELAY_BYTE, msg.c_str());
                             bool READY = is_bit_set(READY_BYTE, msg.c_str());
                             bool CHIME_ON = is_bit_set(CHIME_BYTE, msg.c_str());
+                            uint8_t BEEPS = msg[BEEPMODE_BYTE] - '0';
                             bool PROGRAMMING = is_bit_set(PROGMODE_BYTE, msg.c_str());
                             bool EXIT_NOW = false;
                             bool FIRE_ALARM = is_bit_set(FIRE_BYTE, msg.c_str());
@@ -978,16 +985,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             if (ad2ps->panel_type == ADEMCO_PANEL) {
                                 if(ALPHAMSG.find("SYSTEM") == 0) {
                                     ADEMCO_SYS_MESSAGE = true;
-                                }
-
-                                // Skip fire bit on SYSTEM messages restore to current so we dont trip an event.
-                                if (ADEMCO_SYS_MESSAGE) {
-                                    FIRE_ALARM = ad2ps->fire_alarm;
-                                } else {
-                                    // clear fire if READY
-                                    if (ad2ps->fire_alarm && READY) {
-                                        FIRE_ALARM = 0;
-                                    }
                                 }
 
                                 // Restore battery state only track when it is a system message.
@@ -1036,15 +1033,29 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_READY_CHANGE = true;
                                 ad2ps->unknown_state = false;
                             } else {
-                                // fire state change send
-                                if ( ad2ps->fire_alarm != FIRE_ALARM ) {
-                                    // TODO: Test on DSC
-                                    // skip messages with Alarm sticky bit off unless clearing the event
-                                    if (ALARM_STICKY && !FIRE_ALARM) {
-                                        // restore current ignore change
-                                        FIRE_ALARM = ad2ps->fire_alarm;
-                                    } else {
+                                // fire state set on message
+                                // prevent bouncing of alarms from unexpected messages.
+                                // only timeout or on_ready will clear a fire.
+                                if ( FIRE_ALARM ) {
+                                    // fire bit set. Extend timeout.
+                                    ad2ps->fire_timeout = monotonicTime()+FIRE_TIMEOUT;
+                                    if (!ad2ps->fire_alarm) {
+                                        // trigger notify subscribers.
                                         SEND_FIRE_CHANGE = true;
+                                    }
+                                } else {
+                                    // restore current fire bit and clear
+                                    // on timeout.
+                                    if (ad2ps->fire_alarm) {
+                                        if (ad2ps->fire_timeout < monotonicTime()) {
+                                            // Clear state. Fire timeout.
+                                            FIRE_ALARM = false;
+                                            SEND_FIRE_CHANGE = true;
+                                            ad2ps->fire_timeout = 0;
+                                        } else {
+                                            // Restore state. Fire timer still active.
+                                            FIRE_ALARM = true;
+                                        }
                                     }
                                 }
 
@@ -1115,6 +1126,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_EXIT_CHANGE = true;
                             }
 
+                            // beeps state change send
+                            if ( ad2ps->beeps != BEEPS ) {
+                                SEND_BEEPS_CHANGE = true;
+                            }
+
                             // Save states for event tracked changes
                             ad2ps->armed_away = ARMED_AWAY;
                             ad2ps->armed_stay = ARMED_STAY;
@@ -1135,7 +1151,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps->alarm_event_occurred = is_bit_set(ALARMSTICKY_BYTE, msg.c_str());
                             ad2ps->system_issue = is_bit_set(SYSISSUE_BYTE, msg.c_str());
                             ad2ps->system_specific = (uint8_t) (msg[SYSSPECIFIC_BYTE] - '0') & 0xff;
-                            ad2ps->beeps = msg[BEEPMODE_BYTE] - '0';
+                            ad2ps->beeps = BEEPS;
 
                             // Extract the numeric value from section #2 HEX & DEC mix keep as string.
                             ad2ps->last_numeric_message = numeric_message;
@@ -1168,7 +1184,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             }
 
                             // Update zone tracking if Ademco panel zone list report
-                            if (ad2ps->panel_type == ADEMCO_PANEL) {
+                            if (ad2ps->panel_type == ADEMCO_PANEL && !ad2ps->programming) {
                                 // Restore all faulted zones ON_READY.
                                 if (SEND_READY_CHANGE && ad2ps->ready) {
                                     for (std::pair<uint8_t, AD2ZoneState> e : ad2ps->zone_states) {
@@ -1185,8 +1201,20 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 } else
                                     // If _not_ ready and _not_ system message update the zone state.
                                     if (!ADEMCO_SYS_MESSAGE && ad2ps->system_specific == 0 && extra_sys_4 != 0xff) {
-                                        // get the numeric section and use as a zone #. TODO: Test of HEX and convert to base 10.
-                                        uint8_t _zone = (uint8_t) strtol(ad2ps->last_numeric_message.c_str(), 0, 10);
+                                        // get the numeric section and use as a zone #.
+                                        // conver base 16 to base 10 if needed.
+                                        bool _ishex = std::count_if(ad2ps->last_numeric_message.begin(),
+                                                                    ad2ps->last_numeric_message.end(),
+                                        [](unsigned char c) {
+                                            return std::isalpha(c);
+                                        }) > 0;
+                                        uint8_t _zone = 0;
+                                        if (_ishex) {
+                                            _zone = (uint8_t) strtol(ad2ps->last_numeric_message.c_str(), 0, 16);
+                                        } else {
+                                            _zone = (uint8_t) strtol(ad2ps->last_numeric_message.c_str(), 0, 10);
+                                        }
+
                                         bool _send_event = false;
 
                                         // this message is part of the zone low battery report
@@ -1242,6 +1270,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 notifySubscribers(ON_CHIME_CHANGE, msg, ad2ps);
                             }
 
+                            // Send event if beeps state changed
+                            if ( SEND_BEEPS_CHANGE ) {
+                                notifySubscribers(ON_BEEPS_CHANGE, msg, ad2ps);
+                            }
+
                             // Send event if programming state changed
                             if ( SEND_PROGRAMMING_CHANGE ) {
                                 notifySubscribers(ON_PROGRAMMING_CHANGE, msg, ad2ps);
@@ -1272,6 +1305,13 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 notifySubscribers(ON_EXIT_CHANGE, msg, ad2ps);
                             }
 
+                            // Zone tracking timeouts.
+                            // TODO: Add to external periodic call. If we dont get messages this wont run.
+                            // Not a problem in most cases but in some cases such as DEDUPLICATE setting on the AD2*
+                            // this could be a problem.
+                            if (ad2ps->panel_type == ADEMCO_PANEL && !ad2ps->programming) {
+                                checkZoneTimeout();
+                            }
                         }
                     } else {
                         //TODO: Error statistics tracking
@@ -1283,12 +1323,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                 // call Search callback subscribers if a match is found for this message type.
                 notifySearchSubscribers(MESSAGE_TYPE, msg, ad2ps);
-
-                // Zone tracking timeouts.
-                // TODO: Add to external periodic call. If we dont get messages this wont run.
-                // Not a problem in most cases but in some cases such as DEDUPLICATE setting on the AD2*
-                // this could be a problem.
-                checkZoneTimeout();
 
 #ifdef MONITOR_PARSER_TIMING && defined(IDF_VER)
                 xEnd = esp_timer_get_time();

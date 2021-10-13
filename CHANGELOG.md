@@ -31,6 +31,29 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
 
+## [1.0.9 P1] - 2021-10-12 Sean Mathews - coder @f34rdotcom
+Added ON_BEEP_CHANGE. Fixed and improved ON_ZONE_CHANGE events. Added ad2_bypass_zone helper and added zone and bypass capability to webUI.
+### Added
+  - ON_BEEP_CHANGE event.
+  - Added ad2_bypass_zone helper.
+  - Show zone fault and bypass zone capability to webUI.
+### Changed
+  - Init virtual partitions early to keep ID's consistent.
+  - Fixed some issues in zone tracking.
+  - Fixed virtual zone ID's to be loaded early before any parsing of messages.
+### Change log
+- [X] SM - CORE: Be sure to init all virtual partitions early so they are consistent. If not configured virutal partitions ID's can change each reboot of the device.
+- [X] SM - CORE: Add ad2_bypass_zone.
+- [X] SM - WEBUI: Add <BYPASS> action.
+- [X] SM - API: Fixed bug in zone tracking timeout outside of context.
+- [X] SM - CORE: fix bug in vpart init skipped by no zone list.
+- [X] SM - API: Fix bug when HEX zones 0CA(cancel) converts to 0.
+- [X] SM - API: Change fire to use timeout same as zones to avoid bouncing.
+- [X] SM - WEBUI: Added ON_BEEPS_CHANGE event to notifications. Add ON_ZONE_CHANGE notification and zone info to websocket state request.
+- [X] SM - MQTT: Added ON_BEEPS_CHANGE event to notifications.
+- [X] SM - API: Add ON_BEEPS_CHANGE.
+- [X] SM - WEBUI: Add ZONE state to notification message.
+
 ## [1.0.9] - 2021-10-07 Sean Mathews - coder @f34rdotcom
 Added zone change notification and several small fixes and improvements.
 ### Added

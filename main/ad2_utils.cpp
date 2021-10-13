@@ -1105,6 +1105,49 @@ void ad2_exit_now(int vpartId)
     }
 }
 
+/**
+ * @brief Send a zone bypass command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]zone uint8_t[1-255] zone number
+ *
+ * FIXME: larger panels have 3 digit zones. Detect?
+ *
+ */
+void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone)
+{
+
+    // Get user code
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+
+    int address = -1;
+    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+
+    std::string msg;
+
+    // @brief get the vpart state
+    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+
+    if (s) {
+        if (s->panel_type == ADEMCO_PANEL) {
+            msg = ad2_string_printf("K%02i%s6%02i*", address, code.c_str(), zone);
+        } else if (s->panel_type == DSC_PANEL) {
+            msg = ad2_string_printf("K%01i1*1%02i#", address, zone);
+        }
+
+        ESP_LOGI(TAG,"Sending BYPASS ZONE command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
+    }
+}
 
 /**
  * @brief Send string to the AD2 devices after macro translation.
@@ -1275,6 +1318,36 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
     return root;
 }
 
+/**
+ * @brief Generate a standardized JSON string for s->zone_states.
+ *
+ * @param [in]AD2VirtualPartitionState * to use for json object.
+ *
+ * @return cJSON*
+ *
+ */
+cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *s)
+{
+    // OPEN zones.
+    cJSON *_zone_alerts = cJSON_CreateArray();
+    if (s) {
+        for (std::pair<uint8_t, AD2ZoneState> e : s->zone_states) {
+            if (s->zone_states[e.first].state() != AD2_STATE_CLOSED) {
+                cJSON *zone = cJSON_CreateObject();
+                std::string _state_string = AD2Parse.state_str[s->zone_states[e.first].state()];
+                // grab the verb(FOO) 'ZONE FOO 001'
+                cJSON_AddNumberToObject(zone, "zone", e.first);
+                cJSON_AddNumberToObject(zone, "partition", s->partition);
+                cJSON_AddStringToObject(zone, "state", _state_string.c_str());
+                std::string zalpha;
+                AD2Parse.getZoneString((int)s->zone, zalpha);
+                cJSON_AddStringToObject(zone, "name", zalpha.c_str());
+                cJSON_AddItemToArray(_zone_alerts, zone);
+            }
+        }
+    }
+    return _zone_alerts;
+}
 
 #define HTTP_SEND_QUEUE_SIZE 20  // More? Less?
 #define HTTP_SEND_RATE_LIMIT 200 // 5/s seems like a reasonable value to start with.

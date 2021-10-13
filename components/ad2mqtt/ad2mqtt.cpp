@@ -203,7 +203,7 @@ void mqtt_on_zone_change(std::string *msg, AD2VirtualPartitionState *s, void *ar
 {
     int msg_id;
     if (mqtt_client != nullptr && s) {
-        ESP_LOGI(TAG, "mqtt_on_zone_change '%s'", msg->c_str());
+        ESP_LOGI(TAG, "mqtt_on_zone_change '%s'", s->last_event_message.c_str());
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/zones/";
@@ -784,6 +784,7 @@ void mqtt_init()
     AD2Parse.subscribeTo(ON_ARM, mqtt_on_state_change, (void *)ON_ARM);
     AD2Parse.subscribeTo(ON_DISARM, mqtt_on_state_change, (void *)ON_DISARM);
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, mqtt_on_state_change, (void *)ON_CHIME_CHANGE);
+    AD2Parse.subscribeTo(ON_BEEPS_CHANGE, mqtt_on_state_change, (void *)ON_BEEPS_CHANGE);
     AD2Parse.subscribeTo(ON_FIRE_CHANGE, mqtt_on_state_change, (void *)ON_FIRE_CHANGE);
     AD2Parse.subscribeTo(ON_POWER_CHANGE, mqtt_on_state_change, (void *)ON_POWER_CHANGE);
     AD2Parse.subscribeTo(ON_READY_CHANGE, mqtt_on_state_change, (void *)ON_READY_CHANGE);

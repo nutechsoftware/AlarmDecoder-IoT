@@ -128,6 +128,7 @@ typedef enum AD2_EVENTS {
     ON_LOW_BATTERY,            ///< LOW BATTERY EVENT
     ON_PANIC,                  ///< PANIC EVENT
     ON_CHIME_CHANGE,           ///< Chime state change
+    ON_BEEPS_CHANGE,            ///< BEEP state change
     ON_PROGRAMMING_CHANGE,     ///< Programming mode stage change
     ON_ALPHA_MESSAGE,          ///< ALPHA MESSAGE After parsing
     ON_REL,                    ///< !REL RELAY EVENT
@@ -282,6 +283,9 @@ public:
     // bit 1 = partition 1(DSC) or Keypad address 1(Ademco)
     uint32_t address_mask_filter;
 
+    // primary address to use for this partition when constructed.
+    uint32_t primary_address;
+
     // Partition number(external lookup required for Ademco)
     uint8_t partition;
 
@@ -306,6 +310,7 @@ public:
     bool battery_low = false;
     bool entry_delay_off = false;
     bool fire_alarm = false;
+    unsigned long fire_timeout = 0;
     bool system_issue = false;
     bool perimeter_only = false;
     bool exit_now = false;
@@ -554,6 +559,7 @@ public:
         {ON_LOW_BATTERY,        "LOW BATTERY"},
         /*      {ON_PANIC,              "PANIC"}, */
         {ON_CHIME_CHANGE,       "CHIME"},
+        {ON_BEEPS_CHANGE,       "BEEPS"},
         {ON_PROGRAMMING_CHANGE, "PROG. MODE"},
         {ON_ALPHA_MESSAGE,      "ALPHA MSG."},
         {ON_REL,                "RELAY"},
