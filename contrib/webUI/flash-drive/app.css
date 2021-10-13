@@ -273,8 +273,7 @@ body {
 #zones .zone > a {
   background-color: #f00;
   color: #fff;
-  /*font-size: 40px;*/
-  font-size: 20px;
+  font-size: 30px;
   font-weight: bold;
   border-radius: 100%;
   position: relative;
