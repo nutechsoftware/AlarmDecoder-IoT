@@ -37,6 +37,7 @@ Improve BEEP and EXIT tracking and fixed ad2term reset option.
   - Improve BEEP and EXIT event tracking after testing on other panels.
   - Fixed reset option on ad2term command not resetting and locking up AD2*.
 ### Change log
+- [X] SM - CORE: update license with real data not template.
 - [X] SM - API: ON_BEEPS_CHANGE fix bouncing adding timeout.
 - [X] SM - API: ON_EXIT_CHANGE fix to only look at ARMED messages to avoid bouncing states on system messages.
 - [X] SM - CORE: ad2term reset was not working. ```#if (GPIO_AD2_RESET != GPIO_NOT_USED)``` not working? Changed to use ``` #if defined(GPIO_AD2_RESET)```.
