@@ -300,6 +300,11 @@ void hal_gpio_init(void)
     gpio_set_level((gpio_num_t)GPIO_MAINLED, MAINLED_GPIO_ON);
 #endif
 
+#if defined(GPIO_AD2_RESET)
+    gpio_set_direction(GPIO_AD2_RESET, GPIO_MODE_OUTPUT);
+    gpio_set_level(GPIO_AD2_RESET, 1);
+#endif
+
     // input button if enabled
 #if (GPIO_INPUT_BUTTON != GPIO_NOT_USED)
     io_conf.intr_type = GPIO_INTR_ANYEDGE;
@@ -931,13 +936,12 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
  */
 void hal_ad2_reset()
 {
+#if defined(GPIO_AD2_RESET)
+    ESP_LOGI(TAG, "Asserting reset on AD2.");
     gpio_pad_select_gpio(GPIO_AD2_RESET);
     gpio_set_direction(GPIO_AD2_RESET, GPIO_MODE_OUTPUT);
-#if (GPIO_AD2_RESET != GPIO_NOT_USED)
     gpio_set_level(GPIO_AD2_RESET, 0);
-#endif
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-#if (GPIO_AD2_RESET != GPIO_NOT_USED)
     gpio_set_level(GPIO_AD2_RESET, 1);
 #endif
 }
