@@ -6,7 +6,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [X] CORE: ad2term reset was not working. ```#if (GPIO_AD2_RESET != GPIO_NOT_USED)``` not working? Changed to use ``` #if defined(GPIO_AD2_RESET)```.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
@@ -31,6 +30,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
+
+## [1.0.9 P2] - 2021-10-17 Sean Mathews - coder @f34rdotcom
+Improve BEEP and EXIT tracking and fixed ad2term reset option.
+### Changed
+  - Improve BEEP and EXIT event tracking after testing on other panels.
+  - Fixed reset option on ad2term command not resetting and locking up AD2*.
+### Change log
+- [X] SM - API: ON_BEEPS_CHANGE fix bouncing adding timeout.
+- [X] SM - API: ON_EXIT_CHANGE fix to only look at ARMED messages to avoid bouncing states on system messages.
+- [X] SM - CORE: ad2term reset was not working. ```#if (GPIO_AD2_RESET != GPIO_NOT_USED)``` not working? Changed to use ``` #if defined(GPIO_AD2_RESET)```.
 
 ## [1.0.9 P1] - 2021-10-12 Sean Mathews - coder @f34rdotcom
 Added ON_BEEP_CHANGE. Fixed and improved ON_ZONE_CHANGE events. Added ad2_bypass_zone helper and added zone and bypass capability to webUI.

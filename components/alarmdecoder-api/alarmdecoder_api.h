@@ -316,6 +316,7 @@ public:
     bool exit_now = false;
     uint8_t system_specific = 0;
     uint8_t beeps = 0;
+    unsigned long beeps_timeout = 0;
     char panel_type = UNKNOWN_PANEL;
     bool unused1 = false;
     bool unused2 = false;

@@ -30,6 +30,7 @@ static const char *TAG = "AD2API";
 
 #define ZONE_TIMEOUT 60
 #define FIRE_TIMEOUT 30
+#define BEEPS_TIMEOUT 30
 
 // nostate
 AD2VirtualPartitionState *nostate = nullptr;
@@ -964,7 +965,6 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             bool CHIME_ON = is_bit_set(CHIME_BYTE, msg.c_str());
                             uint8_t BEEPS = msg[BEEPMODE_BYTE] - '0';
                             bool PROGRAMMING = is_bit_set(PROGMODE_BYTE, msg.c_str());
-                            bool EXIT_NOW = false;
                             bool FIRE_ALARM = is_bit_set(FIRE_BYTE, msg.c_str());
                             bool AC_POWER = is_bit_set(ACPOWER_BYTE, msg.c_str());
                             bool LOW_BATTERY = is_bit_set(LOWBATTERY_BYTE, msg.c_str());
@@ -975,6 +975,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             uint8_t extra_sys_2 = (uint8_t) strtol(msg.substr(ADEMCO_EXTRA_SYSB2, 2).c_str(), 0, 16);
                             uint8_t extra_sys_3 = (uint8_t) strtol(msg.substr(ADEMCO_EXTRA_SYSB3, 2).c_str(), 0, 16);
                             uint8_t extra_sys_4 = (uint8_t) strtol(msg.substr(ADEMCO_EXTRA_SYSB4, 2).c_str(), 0, 16);
+
+                            // virtual bit restore current state by default.
+                            bool EXIT_NOW = ad2ps->exit_now;
 
                             // Get section #4 alpha message and upper case for later searching
                             string ALPHAMSG = msg.substr(SECTION_4_START, 32);
@@ -1005,15 +1008,27 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // If we are armed we may be in exit mode
                             if (ARMED_STAY || ARMED_AWAY) {
                                 switch (ad2ps->panel_type) {
+                                // "ARMED ***STAY***                "
+                                // "ARMED ***AWAY***You may exit now"
                                 case ADEMCO_PANEL:
                                     if ( !ADEMCO_SYS_MESSAGE ) {
-                                        if( ALPHAMSG.find("MAY EXIT NOW") != string::npos ) {
-                                            EXIT_NOW = true;
+                                        if( ALPHAMSG.find("ARMED") == 0 ) {
+                                            if( ALPHAMSG.find("MAY EXIT NOW") != string::npos ) {
+                                                // on state change update and notify subscribers.
+                                                if (!ad2ps->exit_now) {
+                                                    // trigger notify subscribers.
+                                                    EXIT_NOW = true;
+                                                    SEND_EXIT_CHANGE = true;
+                                                }
+                                            } else {
+                                                // on state change update and notify subscribers.
+                                                if (ad2ps->exit_now) {
+                                                    EXIT_NOW = false;
+                                                    SEND_EXIT_CHANGE = true;
+                                                }
+                                            }
                                         }
                                         break;
-                                    } else {
-                                        // QUIRK: system etc message ignore state change restore current
-                                        EXIT_NOW = ad2ps->exit_now;
                                     }
                                     break;
                                 case DSC_PANEL:
@@ -1126,9 +1141,23 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                 SEND_EXIT_CHANGE = true;
                             }
 
-                            // beeps state change send
-                            if ( ad2ps->beeps != BEEPS ) {
-                                SEND_BEEPS_CHANGE = true;
+                            // Beep state set on message
+                            if ( BEEPS ) {
+                                // if different than current state notify.
+                                if ( ad2ps->beeps != BEEPS ) {
+                                    SEND_BEEPS_CHANGE = true;
+                                }
+                                // set timeout.
+                                ad2ps->beeps_timeout = monotonicTime()+BEEPS_TIMEOUT;
+                            } else {
+                                if ( ad2ps->beeps ) {
+                                    // restore state
+                                    BEEPS = ad2ps->beeps;
+                                    if ( ad2ps->beeps_timeout < monotonicTime() ) {
+                                        BEEPS = 0;
+                                        SEND_BEEPS_CHANGE = true;
+                                    }
+                                }
                             }
 
                             // Save states for event tracked changes
@@ -1225,34 +1254,34 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                                 _send_event = true;
                                             }
                                             ad2ps->zone_states[_zone].low_battery(monotonicTime()+ZONE_TIMEOUT);
-                                        } else {
-                                            // standard zone fault report.
-                                            // [00000011000000000A--],002,[f70600ef1002000018020000000000],"FAULT 02                        "
-                                            // check zone(system_issue) set for zone fault report entry.
-                                            // [00000401000000100A--],009,[f700001f1009040208020000000000],"CHECK 09                        "
-                                            if (ad2ps->system_issue) {
-                                                // Update the zone state object and set timeout
-                                                if (ad2ps->zone_states[_zone].state() != AD2_STATE_TROUBLE) {
-                                                    _send_event = true;
-                                                }
-                                                ad2ps->zone_states[_zone].state(AD2_STATE_TROUBLE, monotonicTime()+ZONE_TIMEOUT);
-                                            } else {
-                                                // Update the zone state object and set timeout
-                                                if (ad2ps->zone_states[_zone].state() != AD2_STATE_OPEN) {
-                                                    _send_event = true;
-                                                }
-                                                ad2ps->zone_states[_zone].state(AD2_STATE_OPEN, monotonicTime()+ZONE_TIMEOUT);
-                                            }
+                                        }
 
+                                        // standard zone fault report.
+                                        // [00000011000000000A--],002,[f70600ef1002000018020000000000],"FAULT 02                        "
+                                        // check zone(system_issue) set for zone fault report entry.
+                                        // [00000401000000100A--],009,[f700001f1009040208020000000000],"CHECK 09                        "
+                                        if (ad2ps->system_issue) {
+                                            // Update the zone state object and set timeout
+                                            if (ad2ps->zone_states[_zone].state() != AD2_STATE_TROUBLE) {
+                                                _send_event = true;
+                                            }
+                                            ad2ps->zone_states[_zone].state(AD2_STATE_TROUBLE, monotonicTime()+ZONE_TIMEOUT);
+                                        } else {
+                                            // Update the zone state object and set timeout
+                                            if (ad2ps->zone_states[_zone].state() != AD2_STATE_OPEN) {
+                                                _send_event = true;
+                                            }
+                                            ad2ps->zone_states[_zone].state(AD2_STATE_OPEN, monotonicTime()+ZONE_TIMEOUT);
+                                        }
+
+                                        // Send event notification if needed.
+                                        if (_send_event) {
                                             // Set the effected zone for the partition state.
                                             ad2ps->zone = _zone;
-
-                                            // Send event notification if needed.
-                                            if (_send_event) {
-                                                // Send zone change notification with partition state if found
-                                                notifySubscribers(ON_ZONE_CHANGE, msg, ad2ps);
-                                            }
+                                            // Send zone change notification with partition state if found
+                                            notifySubscribers(ON_ZONE_CHANGE, msg, ad2ps);
                                         }
+
                                     }
                             }
 
@@ -1324,7 +1353,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                 // call Search callback subscribers if a match is found for this message type.
                 notifySearchSubscribers(MESSAGE_TYPE, msg, ad2ps);
 
-#ifdef MONITOR_PARSER_TIMING && defined(IDF_VER)
+#if defined(MONITOR_PARSER_TIMING) && defined(IDF_VER)
                 xEnd = esp_timer_get_time();
                 xDifference = xEnd - xStart;
                 ESP_LOGI(TAG, "message processing time: %lldus", xDifference );
