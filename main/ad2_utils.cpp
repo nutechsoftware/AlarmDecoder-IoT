@@ -626,10 +626,16 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, const char *s, int value
         if (value == -1) {
             err = nvs_erase_key(my_handle, tkey.c_str());
         } else {
+            err = nvs_erase_key(my_handle, tkey.c_str());
             err = nvs_set_i32(my_handle, tkey.c_str(), value);
         }
-
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) in set or erase.", __func__, esp_err_to_name(err));
+        }
         err = nvs_commit(my_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+        }
         nvs_close(my_handle);
     }
 }
@@ -708,9 +714,16 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, const char *s, const 
         if (value == NULL) {
             err = nvs_erase_key(my_handle, tkey.c_str());
         } else {
+            err = nvs_erase_key(my_handle, tkey.c_str());
             err = nvs_set_str(my_handle, tkey.c_str(), value);
         }
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) in set or erase.", __func__, esp_err_to_name(err));
+        }
         err = nvs_commit(my_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+        }
         nvs_close(my_handle);
     }
 }
@@ -767,8 +780,15 @@ void ad2_set_nv_arg(const char *key, const char *value)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
+        err = nvs_erase_key(my_handle, key);
         err = nvs_set_str(my_handle, key, value);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+        }
         err = nvs_commit(my_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+        }
         nvs_close(my_handle);
     }
 }
