@@ -623,18 +623,19 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, const char *s, int value
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-        if (value == -1) {
-            err = nvs_erase_key(my_handle, tkey.c_str());
-        } else {
-            err = nvs_erase_key(my_handle, tkey.c_str());
+        err = nvs_erase_key(my_handle, tkey.c_str());
+        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+        }
+        if (value != -1) {
             err = nvs_set_i32(my_handle, tkey.c_str(), value);
-        }
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Error (%s) in set or erase.", __func__, esp_err_to_name(err));
-        }
-        err = nvs_commit(my_handle);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+            }
+            err = nvs_commit(my_handle);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+            }
         }
         nvs_close(my_handle);
     }
@@ -711,18 +712,19 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, const char *s, const 
 #ifdef DEBUG_NVS
         ESP_LOGI(TAG, "%s: saving sub key(%s)", __func__, tkey.c_str());
 #endif
-        if (value == NULL) {
-            err = nvs_erase_key(my_handle, tkey.c_str());
-        } else {
-            err = nvs_erase_key(my_handle, tkey.c_str());
+        err = nvs_erase_key(my_handle, tkey.c_str());
+        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+        }
+        if (value != NULL) {
             err = nvs_set_str(my_handle, tkey.c_str(), value);
-        }
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Error (%s) in set or erase.", __func__, esp_err_to_name(err));
-        }
-        err = nvs_commit(my_handle);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+            }
+            err = nvs_commit(my_handle);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+            }
         }
         nvs_close(my_handle);
     }
@@ -781,6 +783,9 @@ void ad2_set_nv_arg(const char *key, const char *value)
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         err = nvs_erase_key(my_handle, key);
+        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+        }
         err = nvs_set_str(my_handle, key, value);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
@@ -1208,6 +1213,53 @@ void ad2_send(std::string &buf)
 }
 
 /**
+ * @brief Format and send bytes to the host uart with !XXX prefix to be AD2 protcol compatible.
+ *
+ * @param [in]format const char * format string.
+ * @param [in]... variable args
+ *
+ * @return result
+ */
+// Track if the terminal line is busy
+static bool prefix_sent = false;
+int ad2_log_vprintf(const char *fmt, va_list args)
+{
+
+    // calculate size and make buffer
+    int len = vsnprintf(NULL, 0, fmt, args);
+    if (len) {
+        char *tbuf = nullptr;
+        tbuf = (char *)malloc(len+1);
+        len = vsnprintf(tbuf, len+1, fmt, args);
+        if (len) {
+            int pos = 0;
+            char ch;
+            while (pos<len) {
+                ch = tbuf[pos];
+                if (ch == '\r' || ch == '\n') {
+                    prefix_sent = false;
+                } else {
+                    // avoid nulls
+                    if (ch) {
+                        if (!prefix_sent) {
+                            prefix_sent = true;
+                            uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                            uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                        }
+                        uart_write_bytes(UART_NUM_0, &ch, 1);
+                    }
+                }
+                pos++;
+            }
+        }
+        if (tbuf) {
+            free(tbuf);
+        }
+    }
+    return len;
+}
+
+/**
  * @brief Format and send bytes to the host uart.
  *
  * @param [in]format const char * format string.
@@ -1332,6 +1384,7 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
         cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
         cJSON_AddStringToObject(root, "last_alpha_message", s->last_alpha_message.c_str());
         cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
+        cJSON_AddNumberToObject(root, "mask", s->address_mask_filter);
     } else {
         cJSON_AddStringToObject(root, "last_alpha_message", "Unknown");
     }
@@ -1358,6 +1411,7 @@ cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *s)
                 // grab the verb(FOO) 'ZONE FOO 001'
                 cJSON_AddNumberToObject(zone, "zone", e.first);
                 cJSON_AddNumberToObject(zone, "partition", s->partition);
+                cJSON_AddNumberToObject(zone, "mask", s->address_mask_filter);
                 cJSON_AddStringToObject(zone, "state", _state_string.c_str());
                 std::string zalpha;
                 AD2Parse.getZoneString((int)s->zone, zalpha);

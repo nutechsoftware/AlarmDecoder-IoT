@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Add ```address_mask_filter``` to ad2_get_partition_state_json and ad2_get_partition_zone_alerts_json as ```mask```.
+- [X] CORE: WIP. Add api callback for esp32 log output.
+- [X] CORE: Improve error handing on ad2_set nvs functions.
 - [X] CORE: Bump version, turn off stack event logs by default and add prefix to output messages for consistency
 - [X] CORE: Add  ```factory-reset``` command to clear the ```nvs``` partition and reboot.
 - [X] API: Fix mask in virtual partition not being updated on new events.

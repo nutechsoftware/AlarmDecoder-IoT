@@ -50,6 +50,7 @@ AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
 cJSON *ad2_get_ad2iot_device_info_json();
 cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *);
 cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *);
+int ad2_log_vprintf(const char *fmt, va_list args);
 void ad2_printf_host(const char *format, ...);
 void ad2_snprintf_host(const char *fmt, size_t size, ...);
 char ad2_network_mode(std::string &args);
