@@ -931,7 +931,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             // the function will return a value.
 
                             // store key internal for easy use.
-                            ad2ps->address_mask_filter = amask;
+                            ad2ps->address_mask_filter |= amask;
 
                             // Update the partition state based upon the new status message.
                             // get the panel type first
