@@ -74,6 +74,9 @@ static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 #define MQTT_DEF_RETAIN 1
 #define MQTT_DEF_STORE  0
 
+// LOG settings
+//#define MQTT_EVENT_LOGGING
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -160,35 +163,89 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
     // your_context_t *context = event->context;
     switch (event_data->event_id) {
     case MQTT_EVENT_CONNECTED:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+#endif
         mqtt_on_connect(client);
         break;
     case MQTT_EVENT_DISCONNECTED:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+#endif
         break;
     case MQTT_EVENT_SUBSCRIBED:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event_data->msg_id);
+#endif
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event_data->msg_id);
+#endif
         break;
     case MQTT_EVENT_PUBLISHED:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event_data->msg_id);
+#endif
         break;
     case MQTT_EVENT_DATA:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event_data->topic_len, event_data->topic);
         printf("DATA=%.*s\r\n", event_data->data_len, event_data->data);
+#endif
         break;
     case MQTT_EVENT_ERROR:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+#endif
         break;
     default:
+#if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "Other event id:%d", event_data->event_id);
+#endif
         break;
     }
 
     return ESP_OK;
+}
+
+/**
+ * @brief ON_LRR callback for all AlarmDecoder API event subscriptions.
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
+ */
+void mqtt_on_lrr(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    int msg_id;
+    if (mqtt_client != nullptr) {
+        ESP_LOGI(TAG, "mqtt_on_lrr '%s'", msg->c_str());
+        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        sTopic+=mqttclient_UUID;
+        sTopic+="/cid";
+
+        cJSON *root = cJSON_CreateObject();
+        cJSON_AddStringToObject(root, "event_message", msg->c_str());
+
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+
+        // Non blocking. We must not block AlarmDecoderParser
+        msg_id = esp_mqtt_client_enqueue(mqtt_client,
+                                         sTopic.c_str(),
+                                         state,
+                                         0,
+                                         MQTT_DEF_QOS,
+                                         MQTT_DEF_RETAIN,
+                                         MQTT_DEF_STORE);
+
+        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
+        cJSON_free(state);
+        cJSON_Delete(root);
+    }
 }
 
 /**
@@ -792,6 +849,7 @@ void mqtt_init()
     AD2Parse.subscribeTo(ON_ALARM_CHANGE, mqtt_on_state_change, (void *)ON_ALARM_CHANGE);
     AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, mqtt_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
     AD2Parse.subscribeTo(ON_EXIT_CHANGE, mqtt_on_state_change, (void *)ON_EXIT_CHANGE);
+    AD2Parse.subscribeTo(ON_LRR, mqtt_on_lrr, (void *)ON_LRR);
     // SUbscribe to ON_ZONE_CHANGE events
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, mqtt_on_zone_change, (void *)ON_ZONE_CHANGE);
 
