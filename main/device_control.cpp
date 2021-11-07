@@ -35,6 +35,7 @@ static const char *TAG = "UARTCLI";
 #include "esp_wifi.h"
 #include "driver/sdmmc_host.h"
 #include "esp_eth.h"
+#include "nvs_flash.h"
 
 // specific includes
 
@@ -325,6 +326,17 @@ void hal_gpio_init(void)
 void hal_restart()
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
+    ad2_printf_host("Restarting now\r\n");
+    esp_restart();
+}
+
+/**
+ * @brief restart the hardware
+ */
+void hal_factory_reset()
+{
+    ESP_LOGE(TAG, "%s: Restting to factory settings.", __func__);
+    nvs_flash_erase();
     ad2_printf_host("Restarting now\r\n");
     esp_restart();
 }

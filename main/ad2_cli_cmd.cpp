@@ -365,6 +365,19 @@ static void _cli_cmd_restart_event(char *string)
 }
 
 /**
+ * @brief event handler for factory-reset command
+ *
+ * @param [in]string command buffer pointer.
+ *
+ */
+static void _cli_cmd_factory_reset_event(char *string)
+{
+    hal_factory_reset();
+    hal_restart();
+}
+
+
+/**
  * @brief event handler for netmode command
  *
  * @param [in]string command buffer pointer.
@@ -611,6 +624,11 @@ static struct cli_command cmd_list[] = {
         "  - Examples:\r\n"
         "    - Set logging mode to INFO.\r\n"
         "      - ```" AD2_LOGMODE " I```\r\n\r\n", _cli_cmd_ad2logmode_event
+    },
+    {
+        (char*)AD2_ERASE_NVS,(char*)
+        "- Erase all NVS storage clearing all settings and reboot.\r\n"
+        "  - ```" AD2_ERASE_NVS "```\r\n\r\n, ", _cli_cmd_factory_reset_event
     }
 };
 
