@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Bump version, turn off stack event logs by default and add prefix to output messages for consistency
 - [X] CORE: Add  ```factory-reset``` command to clear the ```nvs``` partition and reboot.
 - [X] API: Fix mask in virtual partition not being updated on new events.
 - [X] MQTT: Add publish Contact ID event notifications to the topic ```ad2iot/<device id>/cid```. Remove excessive event logging used for development.
