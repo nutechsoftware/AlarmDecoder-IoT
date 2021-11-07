@@ -21,10 +21,10 @@
  *
  */
 // @brief Define for task stack reporting for tuning.
-#define AD2_STACK_REPORT
+//#define AD2_STACK_REPORT
 
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1092"
+#define FIRMWARE_VERSION      "AD2IOT-1093"
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -75,8 +75,11 @@
 // NV
 #define AD2_MAX_VALUE_SIZE 1024
 
+// Message prefix
+#define AD2PFX "!IOT: "
+
 // Signon message
-#define AD2_SIGNON "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
+#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
 
 // The virtual mount prefix for all file operations.
 #define AD2_MOUNT_POINT "/sdcard"
