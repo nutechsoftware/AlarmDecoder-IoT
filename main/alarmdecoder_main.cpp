@@ -290,6 +290,28 @@ void SER2SOCKD_ON_RAW_RX_DATA(uint8_t *buffer, size_t s, void *arg)
 #endif
 
 /**
+ * @brief Generic callback for all AlarmDecoder API event subscriptions.
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
+ */
+void ad2_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    int msg_id;
+    if (s) {
+        cJSON *root = ad2_get_partition_state_json(s);
+        cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+        ESP_LOGI(TAG, "state: %s", state);
+        cJSON_free(state);
+        cJSON_Delete(root);
+    }
+}
+
+/**
  * @brief Main task to monitor physical button(s) and update state led(s).
  *
  * @param [in]pvParameters currently not used NULL.
@@ -594,6 +616,7 @@ void init_ad2_uart_client()
 
 }
 
+
 /**
  * @brief main() app main entrypoint
  */
@@ -601,6 +624,7 @@ void app_main()
 {
 
     //// AlarmDecoder App main
+    esp_log_set_vprintf(&ad2_log_vprintf);
 
     // start with log level error.
     esp_log_level_set("*", ESP_LOG_NONE);        // set all components to ERROR level
@@ -620,7 +644,7 @@ void app_main()
     // Dump hardware info
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    ad2_printf_host("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
+    ad2_printf_host(AD2PFX "ESP32 with %d CPU cores, WiFi%s%s, ",
                     chip_info.cores,
                     (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
                     (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
@@ -631,7 +655,7 @@ void app_main()
                     (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
-    ad2_printf_host("Initialize NVS subsystem start.");
+    ad2_printf_host(AD2PFX "Initialize NVS subsystem start.");
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
@@ -646,7 +670,8 @@ void app_main()
     // Example of nvs_get_stats() to get the number of used entries and free entries:
     nvs_stats_t nvs_stats;
     nvs_get_stats(NULL, &nvs_stats);
-    ad2_printf_host("Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
+    ad2_printf_host(AD2PFX "NVS usage %.2f%%. Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
+                    nvs_stats.used_entries * 100.00 / nvs_stats.total_entries,
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
     // load and set the logging level.
@@ -746,10 +771,10 @@ void app_main()
     uart_cli_main();
 
     if (g_ad2_mode == 'S') {
-        ad2_printf_host("Delaying start of ad2source SOCKET after network is up.\r\n");
+        ad2_printf_host(AD2PFX "Delaying start of ad2source SOCKET after network is up.\r\n");
     } else if(g_ad2_mode != 'C') {
         ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
+        ad2_printf_host(AD2PFX "AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
     }
 
 #if CONFIG_STDK_IOT_CORE
@@ -765,7 +790,7 @@ void app_main()
     // get the network mode set default mode to 'N'
     std::string netmode_args;
     char net_mode = ad2_network_mode(netmode_args);
-    ad2_printf_host("AD2IoT 'netmode' set to '%c'.\r\n", net_mode);
+    ad2_printf_host(AD2PFX "'netmode' set to '%c'.\r\n", net_mode);
 
     /**
      * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.
@@ -793,11 +818,9 @@ void app_main()
     }
 #endif
 
-    // Zone tracking
-    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
-
 #if 0 // FIXME add build switch for release builds.
     // AlarmDecoder callback wire up for testing.
+    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
     AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
@@ -806,6 +829,19 @@ void app_main()
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_FIRE_CHANGE, my_ON_FIRE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
+#else
+    // Subscribe standard AlarmDecoder events
+    AD2Parse.subscribeTo(ON_ARM, ad2_on_state_change, (void *)ON_ARM);
+    AD2Parse.subscribeTo(ON_DISARM, ad2_on_state_change, (void *)ON_DISARM);
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_on_state_change, (void *)ON_CHIME_CHANGE);
+    AD2Parse.subscribeTo(ON_BEEPS_CHANGE, ad2_on_state_change, (void *)ON_BEEPS_CHANGE);
+    AD2Parse.subscribeTo(ON_FIRE_CHANGE, ad2_on_state_change, (void *)ON_FIRE_CHANGE);
+    AD2Parse.subscribeTo(ON_POWER_CHANGE, ad2_on_state_change, (void *)ON_POWER_CHANGE);
+    AD2Parse.subscribeTo(ON_READY_CHANGE, ad2_on_state_change, (void *)ON_READY_CHANGE);
+    AD2Parse.subscribeTo(ON_LOW_BATTERY, ad2_on_state_change, (void *)ON_LOW_BATTERY);
+    AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_on_state_change, (void *)ON_ALARM_CHANGE);
+    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, ad2_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+    AD2Parse.subscribeTo(ON_EXIT_CHANGE, ad2_on_state_change, (void *)ON_EXIT_CHANGE);
 #endif
 
     // Start components
@@ -823,7 +859,7 @@ void app_main()
         stsdk_connection_start();
     } else {
         ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
-        ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
+        ad2_printf_host(AD2PFX "'netmode' <> 'N' disabling SmartThings.\r\n");
     }
 #endif
 
