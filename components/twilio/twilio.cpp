@@ -388,98 +388,104 @@ esp_err_t _twilio_http_event_handler(esp_http_client_event_t *evt)
  */
 void on_search_match_cb_tw(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    AD2EventSearch *es = (AD2EventSearch *)arg;
-    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
-    // Container to store details needed for delivery.
-    request_message *r = new request_message();
-
-    // load our settings for this event type.
-    // es->INT_ARG is the notifiaction slot for this notification.
     std::string nvkey;
 
-    // save the [type] : Used to determin delivery using sendgrid or twilio servers.
-    nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TYPE_SUBCMD);
-    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->type);
-    r->type.resize(1);
+    AD2EventSearch *es = (AD2EventSearch *)arg;
+    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
 
-    // save the {sid} : twilio api sid
-    nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SID_SUBCMD);
-    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->sid);
+    // es->PTR_ARG is the notification slots std::list for this notification.
+    std::list<uint8_t> *notify_list = (std::list<uint8_t>*)es->PTR_ARG;
+    for (uint8_t const& notify_slot : *notify_list) {
 
-    // save the {token} : twilio api token
-    nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TOKEN_SUBCMD);
-    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->token);
+        // Container to store details needed for delivery.
+        request_message *r = new request_message();
 
-    // save the {from} : twilio api from
-    nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_FROM_SUBCMD);
-    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->from);
+        // load our settings for this event type.
 
-    // save the {to} : twilio api to
-    nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TO_SUBCMD);
-    ad2_get_nv_slot_key_string(nvkey.c_str(), es->INT_ARG, nullptr, r->to);
+        // save the [type] : Used to determin delivery using sendgrid or twilio servers.
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TYPE_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->type);
+        r->type.resize(1);
 
-    // save the message
-    r->message = es->out_message;
+        // save the {sid} : twilio api sid
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SID_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->sid);
 
-    // Settings specific for http_client_config
+        // save the {token} : twilio api token
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TOKEN_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->token);
 
-    // Configure the URL based upon the request type.
-    switch(r->type[0]) {
+        // save the {from} : twilio api from
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_FROM_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->from);
 
-    // Twilio Call api
-    //     https://www.twilio.com/docs/voice/api/sip-making-calls
-    case TWILIO_NOTIFY_CALL[0]:
-        // Build dynamic URL and set pointer to config_client->url;
-        r->url = ad2_string_printf(TWILIO_URL_FMT, r->sid.c_str(), "Calls.json");
-        r->config_client->url = r->url.c_str();
-        // POST and parse resutls for url to query.
-        r->state = TWILIO_NEXT_STATE_GET;
-        break;
+        // save the {to} : twilio api to
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TO_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->to);
 
-    // Twilio Messages api
-    //     https://www.twilio.com/docs/sms/api/message-resource
-    case TWILIO_NOTIFY_MESSAGE[0]:
-        // Build dynamic URL and set pointer to config_client->url;
-        r->url = ad2_string_printf(TWILIO_URL_FMT, r->sid.c_str(), "Messages.json");
-        r->config_client->url = r->url.c_str();
-        // Single POST request then done
-        r->state = TWILIO_NEXT_STATE_DONE;
-        break;
+        // save the message
+        r->message = es->out_message;
 
-    // SendGrid Email api.
-    //     https://docs.sendgrid.com/api-reference/mail-send/mail-send
-    case TWILIO_NOTIFY_EMAIL[0]:
-        // constant URL just set pointer to string.
-        r->config_client->url = SENDGRID_URL;
-        // Single POST request then done
-        r->state = TWILIO_NEXT_STATE_DONE;
-        break;
+        // Settings specific for http_client_config
 
-    // Unknown.
-    default:
-        ESP_LOGW(TAG, "Unknown message type '%c' aborting adding to sendQ.", r->type[0]);
-        // destroy storage class if we fail to add to the sendQ
-        delete r;
-        return;
-    }
+        // Configure the URL based upon the request type.
+        switch(r->type[0]) {
 
-    // set request type
-    r->config_client->method = HTTP_METHOD_POST;
+        // Twilio Call api
+        //     https://www.twilio.com/docs/voice/api/sip-making-calls
+        case TWILIO_NOTIFY_CALL[0]:
+            // Build dynamic URL and set pointer to config_client->url;
+            r->url = ad2_string_printf(TWILIO_URL_FMT, r->sid.c_str(), "Calls.json");
+            r->config_client->url = r->url.c_str();
+            // POST and parse resutls for url to query.
+            r->state = TWILIO_NEXT_STATE_GET;
+            break;
 
-    // optional define an internal event handler
-    r->config_client->event_handler = _twilio_http_event_handler;
+        // Twilio Messages api
+        //     https://www.twilio.com/docs/sms/api/message-resource
+        case TWILIO_NOTIFY_MESSAGE[0]:
+            // Build dynamic URL and set pointer to config_client->url;
+            r->url = ad2_string_printf(TWILIO_URL_FMT, r->sid.c_str(), "Messages.json");
+            r->config_client->url = r->url.c_str();
+            // Single POST request then done
+            r->state = TWILIO_NEXT_STATE_DONE;
+            break;
 
-    // required save internal class to user_data to be used in callback.
-    r->config_client->user_data = (void *)r; // Definition of grok.. see grok.
+        // SendGrid Email api.
+        //     https://docs.sendgrid.com/api-reference/mail-send/mail-send
+        case TWILIO_NOTIFY_EMAIL[0]:
+            // constant URL just set pointer to string.
+            r->config_client->url = SENDGRID_URL;
+            // Single POST request then done
+            r->state = TWILIO_NEXT_STATE_DONE;
+            break;
 
-    // Add client config to the http_sendQ for processing.
-    bool res = ad2_add_http_sendQ(r->config_client, _sendQ_ready_handler, _sendQ_done_handler);
-    if (res) {
-        ESP_LOGI(TAG,"Adding HTTP request to ad2_add_http_sendQ");
-    } else {
-        ESP_LOGE(TAG,"Error adding HTTP request to ad2_add_http_sendQ.");
-        // destroy storage class if we fail to add to the sendQ
-        delete r;
+        // Unknown.
+        default:
+            ESP_LOGW(TAG, "Unknown message type '%c' aborting adding to sendQ.", r->type[0]);
+            // destroy storage class if we fail to add to the sendQ
+            delete r;
+            return;
+        }
+
+        // set request type
+        r->config_client->method = HTTP_METHOD_POST;
+
+        // optional define an internal event handler
+        r->config_client->event_handler = _twilio_http_event_handler;
+
+        // required save internal class to user_data to be used in callback.
+        r->config_client->user_data = (void *)r; // Definition of grok.. see grok.
+
+        // Add client config to the http_sendQ for processing.
+        bool res = ad2_add_http_sendQ(r->config_client, _sendQ_ready_handler, _sendQ_done_handler);
+        if (res) {
+            ESP_LOGI(TAG,"Adding HTTP request to ad2_add_http_sendQ");
+        } else {
+            ESP_LOGE(TAG,"Error adding HTTP request to ad2_add_http_sendQ.");
+            // destroy storage class if we fail to add to the sendQ
+            delete r;
+        }
     }
 }
 
@@ -571,7 +577,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
             /* setting */
             switch(buf[0]) {
             case '-': // Remove entry
-                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_NOTIFY_SLOT, -1);
+                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_NOTIFY_SLOT, NULL);
                 ad2_set_nv_slot_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
                 ad2_set_nv_slot_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
@@ -585,11 +591,12 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                 ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
                 break;
             case SK_NOTIFY_SLOT[0]: // Notification slot
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                tmpsz = i < 0 ? "Clearing" : "Setting";
-                ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host("%s smartswitch #%i to use notification settings from slot #%i.\r\n", tmpsz.c_str(), slot, i);
+                // consume the arge and to EOL
+                ad2_copy_nth_arg(arg2, instring, 4, true);
+                ad2_trim(arg2);
+                tmpsz = arg2.length() == 0 ? "Clearing" : "Setting";
+                ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.length() ? arg2.c_str() : nullptr);
+                ad2_printf_host("%s smartswitch #%i to use notification settings from slots #%s.\r\n", tmpsz.c_str(), slot, arg2.c_str());
                 break;
             case SK_DEFAULT_STATE[0]: // Default state
                 ad2_copy_nth_arg(arg1, instring, 4);
@@ -689,9 +696,9 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, char *instri
                 switch(c) {
                 case SK_NOTIFY_SLOT[0]:
                     i = 0; // Default 0
-                    ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host("# Set notification slot [%c] to #%i.\r\n", c, i);
-                    ad2_printf_host("%s %s %i %c %i\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, i);
+                    ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
+                    ad2_printf_host("# Set notification slots [%c] to #%s.\r\n", c, out.c_str());
+                    ad2_printf_host("%s %s %i %c %s\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, out.c_str());
                     break;
                 case SK_DEFAULT_STATE[0]:
                     i = 0; // Default CLOSED
@@ -846,8 +853,8 @@ static struct cli_command twilio_cmd_list[] = {
         "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
         "    - {setting}\r\n"
         "      - [-] Delete switch\r\n"
-        "      - [N] Notification slot\r\n"
-        "        -  Notification settings slot to use for sending this events.\r\n"
+        "      - [N] Notification slots\r\n"
+        "        -  Comma seperated list of notification slots to use for sending this events.\r\n"
         "      - [D] Default state\r\n"
         "        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
         "      - [R] AUTO Reset.\r\n"
@@ -893,14 +900,23 @@ void twilio_init()
     std::string key = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SWITCH_SUBCMD);
     int subscribers = 0;
     for (int i = 1; i < 99; i++) {
-        int notification_slot = -1;
-        ad2_get_nv_slot_key_int(key.c_str(), i, SK_NOTIFY_SLOT, &notification_slot);
-        if (notification_slot >= 0) {
+        std::string slots;
+        ad2_get_nv_slot_key_string(key.c_str(), i, SK_NOTIFY_SLOT, slots);
+        if (slots.length()) {
             AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
 
+            // read notification slot list into std::list
+            std::list<uint8_t> *pslots = new std::list<uint8_t>;
+            std::vector<std::string> vres;
+            ad2_tokenize(slots, ",", vres);
+            for (auto &slotstring : vres) {
+                uint8_t s = std::atoi(slotstring.c_str());
+                pslots->push_front((uint8_t)s & 0xff);
+            }
+
             // Save the notification slot. That is all we need to complete the task.
-            es1->INT_ARG = notification_slot;
-            es1->PTR_ARG = nullptr;
+            es1->INT_ARG = 0;
+            es1->PTR_ARG = pslots;
 
             // We at least need some output format or skip
             ad2_get_nv_slot_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
