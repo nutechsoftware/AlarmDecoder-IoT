@@ -276,6 +276,7 @@ void mqtt_on_zone_change(std::string *msg, AD2VirtualPartitionState *s, void *ar
         ad2_copy_nth_arg(buf, (char *)s->last_event_message.c_str(), 1);
         cJSON_AddStringToObject(root, "state", buf.c_str());
         cJSON_AddNumberToObject(root, "partition", s->partition);
+        cJSON_AddNumberToObject(root, "mask", s->address_mask_filter);
         std::string zalpha;
         AD2Parse.getZoneString((int)s->zone, zalpha);
         cJSON_AddStringToObject(root, "name", zalpha.c_str());

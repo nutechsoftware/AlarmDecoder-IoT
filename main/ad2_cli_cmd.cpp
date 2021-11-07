@@ -154,13 +154,14 @@ static void _cli_cmd_vpart_event(char *string)
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                ad2_printf_host("Setting vpart in slot %i to '%i'.\r\n", slot, address);
                 ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, address);
                 // Grab the zone list if it provided
+                buf = "";
                 if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
                     ad2_set_nv_slot_key_string(VPART_CONFIG_KEY,
                                                slot, VPART_ZL_CONFIG_KEY, buf.c_str());
                 }
+                ad2_printf_host("Setting vpart in slot %i to '%i' with zone list '%s'.\r\n", slot, address, buf.c_str());
             } else {
                 // delete entry
                 ad2_printf_host("Deleting vpart in slot %i...\r\n", slot);
@@ -576,7 +577,7 @@ static struct cli_command cmd_list[] = {
         "    - {value}\r\n"
         "      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n"
         "    - [zone list]\r\n"
-        "      - List of zone numbers associated with this partition for tracking.\r\n"
+        "      - Comma seperated list of zone numbers associated with this partition for tracking.\r\n"
         "  - Examples\r\n"
         "    - Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.\r\n"
         "      - ```" AD2_VPART " 0 18 2,3,4```\r\n"

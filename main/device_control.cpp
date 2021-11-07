@@ -326,7 +326,7 @@ void hal_gpio_init(void)
 void hal_restart()
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
-    ad2_printf_host("Restarting now\r\n");
+    ad2_printf_host(AD2PFX "Restarting now\r\n");
     esp_restart();
 }
 
@@ -337,7 +337,7 @@ void hal_factory_reset()
 {
     ESP_LOGE(TAG, "%s: Restting to factory settings.", __func__);
     nvs_flash_erase();
-    ad2_printf_host("Restarting now\r\n");
+    ad2_printf_host(AD2PFX "Restarting now\r\n");
     esp_restart();
 }
 

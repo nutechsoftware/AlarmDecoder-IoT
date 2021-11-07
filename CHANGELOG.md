@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: More prefixes added to HOST uart port messages.
+- [X] CORE: Improve help on vpart command.
+- [X] MQTT: Add address_mask_filter to partition state.
 - [X] CORE: set ESP_LOG to call internal ad2_log_vprintf for log PREFIX formatting. Added prefix to usb host output calls.
 - [X] CORE: Remove ON_MESSAGE debug verbose dump added json state dump log only on alarm partition state change.
 - [X] CORE: Add ```address_mask_filter``` to ad2_get_partition_state_json and ad2_get_partition_zone_alerts_json as ```mask```.
