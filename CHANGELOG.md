@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] MQTT: Add publish Contact ID event notifications to the topic ```ad2iot/<device id>/cid```. Remove excessive event logging used for development.
 - [X] TWILIO & PUSHOVER: Modify virtual switches to allow for multiple notification slots per event. This makes it easy to have a single event both CALL and send an email using two notification slots. Or it could notify 10 people over email etc.
 - [X] CORE: Some glitch with writing to NV causing ESP_ERR_NVS_NOT_ENOUGH_SPACE but plenty exists. Solution delete before save.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
