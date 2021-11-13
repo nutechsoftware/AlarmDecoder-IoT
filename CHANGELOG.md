@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Continued removal of verbose logging.
 - [X] CORE: More prefixes added to HOST uart port messages.
 - [X] CORE: Improve help on vpart command.
 - [X] MQTT: Add address_mask_filter to partition state.

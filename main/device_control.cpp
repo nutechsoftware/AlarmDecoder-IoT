@@ -326,7 +326,7 @@ void hal_gpio_init(void)
 void hal_restart()
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
-    ad2_printf_host(AD2PFX "Restarting now\r\n");
+    ad2_printf_host(true, "Restarting now");
     esp_restart();
 }
 
@@ -337,7 +337,7 @@ void hal_factory_reset()
 {
     ESP_LOGE(TAG, "%s: Restting to factory settings.", __func__);
     nvs_flash_erase();
-    ad2_printf_host(AD2PFX "Restarting now\r\n");
+    ad2_printf_host(true, "Restarting now");
     esp_restart();
 }
 
@@ -971,7 +971,7 @@ bool hal_get_network_connected()
  */
 void hal_set_network_connected(bool set)
 {
-    ESP_LOGI(TAG, "hal_set_network_connected %i", set);
+    ESP_LOGD(TAG, "hal_set_network_connected %i", set);
     if (set) {
         xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
     } else {
@@ -1000,14 +1000,16 @@ void hal_init_sd_card()
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
     mount_config.format_if_mount_failed = false;
     mount_config.max_files = 5;
+    ad2_printf_host(true, "Mounting uSD card ");
 
-    ESP_LOGI(TAG, "Mounting uSD card");
     sdmmc_card_t *card = NULL;
     err = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
+        ad2_printf_host(false, "FAIL.");
         return;
     }
+    ad2_printf_host(false, "PASS.");
 }
 
 /* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */

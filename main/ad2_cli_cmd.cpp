@@ -64,10 +64,10 @@ static void _cli_cmd_zone_event(char *string)
         if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
             if (arg.length()) {
                 if (arg.compare("''") == 0) {
-                    ad2_printf_host("Removing alpha for zone %i...\r\n", zone);
+                    ad2_printf_host(false, "Removing alpha for zone %i...\r\n", zone);
                     ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
                 } else {
-                    ad2_printf_host("Setting alpha for zone %i to '%s'\r\n", zone, arg.c_str());
+                    ad2_printf_host(false, "Setting alpha for zone %i to '%s'\r\n", zone, arg.c_str());
                     ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
                 }
             }
@@ -75,7 +75,7 @@ static void _cli_cmd_zone_event(char *string)
             // show contents of this slot
             std::string buf;
             ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, buf);
-            ad2_printf_host("The alpha for zone %i is '%s'\r\n", zone, buf.c_str());
+            ad2_printf_host(false, "The alpha for zone %i is '%s'\r\n", zone, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid zone # (1-%i).", __func__, AD2_MAX_ZONES);
@@ -108,10 +108,10 @@ static void _cli_cmd_code_event(char *string)
         if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
             if (arg.length()) {
                 if (atoi(arg.c_str()) == -1) {
-                    ad2_printf_host("Removing code in slot %i...\r\n", slot);
+                    ad2_printf_host(false, "Removing code in slot %i...\r\n", slot);
                     ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, arg.c_str());
                 } else {
-                    ad2_printf_host("Setting code in slot %i to '%s'...\r\n", slot, arg.c_str());
+                    ad2_printf_host(false, "Setting code in slot %i to '%s'...\r\n", slot, arg.c_str());
                     ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, arg.c_str());
                 }
             }
@@ -119,7 +119,7 @@ static void _cli_cmd_code_event(char *string)
             // show contents of this slot
             std::string buf;
             ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, buf);
-            ad2_printf_host("The code in slot %i is '%s'\r\n", slot, buf.c_str());
+            ad2_printf_host(false, "The code in slot %i is '%s'\r\n", slot, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
@@ -161,10 +161,10 @@ static void _cli_cmd_vpart_event(char *string)
                     ad2_set_nv_slot_key_string(VPART_CONFIG_KEY,
                                                slot, VPART_ZL_CONFIG_KEY, buf.c_str());
                 }
-                ad2_printf_host("Setting vpart in slot %i to '%i' with zone list '%s'.\r\n", slot, address, buf.c_str());
+                ad2_printf_host(false, "Setting vpart in slot %i to '%i' with zone list '%s'.\r\n", slot, address, buf.c_str());
             } else {
                 // delete entry
-                ad2_printf_host("Deleting vpart in slot %i...\r\n", slot);
+                ad2_printf_host(false, "Deleting vpart in slot %i...\r\n", slot);
                 ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, -1);
             }
         } else {
@@ -172,7 +172,7 @@ static void _cli_cmd_vpart_event(char *string)
             ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, &address);
             buf = "";
             ad2_get_nv_slot_key_string(VPART_CONFIG_KEY, slot, VPART_ZL_CONFIG_KEY, buf);
-            ad2_printf_host("The vpart in slot %i is %i with a zone list of '%s'\r\n", slot, address, buf.c_str());
+            ad2_printf_host(false, "The vpart in slot %i is %i with a zone list of '%s'\r\n", slot, address, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
@@ -210,13 +210,13 @@ static void _cli_cmd_ad2source_event(char *string)
                 // save arg in slot 1
                 ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
                                            AD2MODE_CONFIG_ARG_SLOT, nullptr, arg.c_str());
-                ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 break;
             default:
-                ad2_printf_host("Invalid mode selected must be [S]ocket or [C]OM\r\n");
+                ad2_printf_host(false, "Invalid mode selected must be [S]ocket or [C]OM\r\n");
             }
         } else {
-            ad2_printf_host("Missing <arg>\r\n");
+            ad2_printf_host(false, "Missing <arg>\r\n");
         }
     } else {
         // get mode in slot 0
@@ -227,7 +227,7 @@ static void _cli_cmd_ad2source_event(char *string)
         ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
                                    AD2MODE_CONFIG_ARG_SLOT, nullptr, arg);
     }
-    ad2_printf_host("Current mode '%s %s'\r\n", (modesz[0]=='C'?"COM":"SOCKET"), arg.c_str());
+    ad2_printf_host(false, "Current mode '%s %s'\r\n", (modesz[0]=='C'?"COM":"SOCKET"), arg.c_str());
 
 }
 
@@ -242,7 +242,7 @@ static void _cli_cmd_ad2source_event(char *string)
  */
 static void _cli_cmd_ad2term_event(char *string)
 {
-    ad2_printf_host("Halting command line interface. Send '.' 3 times to break out and return.\r\n");
+    ad2_printf_host(false, "Halting command line interface. Send '.' 3 times to break out and return.\r\n");
     portENTER_CRITICAL(&spinlock);
     // save the main task state for later restore.
     int save_StopMainTask = g_StopMainTask;
@@ -279,7 +279,7 @@ static void _cli_cmd_ad2term_event(char *string)
             }
             if (len>0) {
                 rx_buffer[len] = 0;
-                ad2_printf_host((char*)rx_buffer);
+                ad2_printf_host(false, (char*)rx_buffer);
                 fflush(stdout);
             }
 
@@ -299,7 +299,7 @@ static void _cli_cmd_ad2term_event(char *string)
                 else {
                     // Parse data from AD2* and report back to host.
                     rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                    ad2_printf_host((char*)rx_buffer);
+                    ad2_printf_host(false, (char*)rx_buffer);
                     fflush(stdout);
                 }
             }
@@ -307,7 +307,7 @@ static void _cli_cmd_ad2term_event(char *string)
             // should not happen
         } else {
             ESP_LOGW(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-            ad2_printf_host("AD2IoT operating mode configured. Configure using ad2source command.\r\n");
+            ad2_printf_host(false, "AD2IoT operating mode configured. Configure using ad2source command.\r\n");
             break;
         }
 
@@ -347,7 +347,7 @@ static void _cli_cmd_ad2term_event(char *string)
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
-    ad2_printf_host("Resuming command line interface threads.\r\n");
+    ad2_printf_host(false, "Resuming command line interface threads.\r\n");
     portENTER_CRITICAL(&spinlock);
     // restore last state.
     g_StopMainTask = save_StopMainTask;
@@ -386,7 +386,7 @@ static void _cli_cmd_factory_reset_event(char *string)
  */
 static void _cli_cmd_netmode_event(char *string)
 {
-    ESP_LOGI(TAG, "%s: Setting network mode (%s).", __func__, string);
+    ESP_LOGD(TAG, "%s: Setting network mode (%s).", __func__, string);
     std::string mode;
     std::string arg;
     if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
@@ -398,17 +398,17 @@ static void _cli_cmd_netmode_event(char *string)
             ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, nullptr, mode[0]);
             ad2_copy_nth_arg(arg, string, 2);
             ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, nullptr, arg.c_str());
-            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
             break;
         default:
-            ad2_printf_host("Unknown network mode('%c') error.\r\n", mode[0]);
+            ad2_printf_host(false, "Unknown network mode('%c') error.\r\n", mode[0]);
             break;
         }
     }
     // show current mode.
     std::string args;
     char cmode = ad2_network_mode(args);
-    ad2_printf_host("The current network mode is '%c' with args '%s'.\r\n", cmode, args.c_str());
+    ad2_printf_host(false, "The current network mode is '%c' with args '%s'.\r\n", cmode, args.c_str());
 }
 
 /**
@@ -419,7 +419,7 @@ static void _cli_cmd_netmode_event(char *string)
  */
 static void _cli_cmd_ad2logmode_event(char *string)
 {
-    ESP_LOGI(TAG, "%s: Setting logging mode (%s).", __func__, string);
+    ESP_LOGD(TAG, "%s: Setting logging mode (%s).", __func__, string);
     std::string mode;
     std::string arg;
     if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
@@ -433,13 +433,13 @@ static void _cli_cmd_ad2logmode_event(char *string)
 
             break;
         default:
-            ad2_printf_host("Unknown logging mode('%c') error.\r\n", mode[0]);
+            ad2_printf_host(false, "Unknown logging mode('%c') error.\r\n", mode[0]);
             break;
         }
     }
     // show current mode.
     char cmode = ad2_log_mode();
-    ad2_printf_host("The current logging mode mode is '%c'.\r\n", cmode);
+    ad2_printf_host(false, "The current logging mode mode is '%c'.\r\n", cmode);
 }
 
 
@@ -465,7 +465,7 @@ static void _cli_cmd_butten_event(char *string)
     case 'B': // Redirect
         break;
     default:
-        ad2_printf_host("Unknown button ID expect A or B.\r\n");
+        ad2_printf_host(false, "Unknown button ID expect A or B.\r\n");
         return;
     }
 
@@ -489,7 +489,7 @@ static void _cli_cmd_butten_event(char *string)
         hal_change_switch_b_state(!hal_get_switch_b_state());
     }
 
-    ESP_LOGI(TAG, "%s: button_event : count %d, type %d", __func__, count, type);
+    ESP_LOGD(TAG, "%s: button_event : count %d, type %d", __func__, count, type);
 }
 
 /**

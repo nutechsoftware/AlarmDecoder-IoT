@@ -236,7 +236,6 @@ void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *
     std::string nvkey;
 
     AD2EventSearch *es = (AD2EventSearch *)arg;
-    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
 
     // es->PTR_ARG is the notification slots std::list for this notification.
     std::list<uint8_t> *notify_list = (std::list<uint8_t>*)es->PTR_ARG;
@@ -273,9 +272,7 @@ void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *
 
         // Add client config to the http_sendQ for processing.
         bool res = ad2_add_http_sendQ(r->config_client, _sendQ_ready_handler, _sendQ_done_handler);
-        if (res) {
-            ESP_LOGI(TAG,"Adding HTTP request to ad2_add_http_sendQ");
-        } else {
+        if (!res) {
             ESP_LOGE(TAG,"Error adding HTTP request to ad2_add_http_sendQ.");
             // destroy storage class if we fail to add to the sendQ
             delete r;
@@ -321,14 +318,14 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, char *string)
     if (slot >= 0) {
         if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
             ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
-            ad2_printf_host("Setting '%s' value finished.\r\n", subcmd.c_str());
+            ad2_printf_host(false, "Setting '%s' value finished.\r\n", subcmd.c_str());
         } else {
             buf = "";
             ad2_get_nv_slot_key_string(key.c_str(), slot, nullptr, buf);
-            ad2_printf_host("Current slot #%02i '%s' value '%s'\r\n", slot, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
+            ad2_printf_host(false, "Current slot #%02i '%s' value '%s'\r\n", slot, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
-        ad2_printf_host("Missing <slot>\r\n");
+        ad2_printf_host(false, "Missing <slot>\r\n");
     }
 }
 
@@ -375,7 +372,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
-                ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
+                ad2_printf_host(false, "Deleteing smartswitch #%i.\r\n", slot);
                 break;
             case SK_NOTIFY_SLOT[0]: // Notification slot
                 // consume the arge and to EOL
@@ -383,31 +380,31 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                 ad2_trim(arg2);
                 tmpsz = arg2.length() == 0 ? "Clearing" : "Setting";
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.length() ? arg2.c_str() : nullptr);
-                ad2_printf_host("%s smartswitch #%i to use notification settings from slots #%s.\r\n", tmpsz.c_str(), slot, arg2.c_str());
+                ad2_printf_host(false, "%s smartswitch #%i to use notification settings from slots #%s.\r\n", tmpsz.c_str(), slot, arg2.c_str());
                 break;
             case SK_DEFAULT_STATE[0]: // Default state
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
                 ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host("Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
+                ad2_printf_host(false, "Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
                 break;
             case SK_AUTO_RESET[0]: // Auto Reset
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
                 ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host("Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
+                ad2_printf_host(false, "Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
                 break;
             case SK_TYPE_LIST[0]: // Message type filter list
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
                 break;
             case SK_PREFILTER_REGEX[0]: // Pre filter REGEX
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
                 break;
 
             case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
@@ -431,9 +428,9 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                         tmpsz = "TROUBLE";
                     }
                     ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.c_str());
-                    ad2_printf_host("%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
+                    ad2_printf_host(false, "%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
                 } else {
-                    ad2_printf_host("Error invalid index %i. Valid values are 1-8.\r\n", slot, i);
+                    ad2_printf_host(false, "Error invalid index %i. Valid values are 1-8.\r\n", slot, i);
                 }
                 break;
 
@@ -452,7 +449,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                     tmpsz = "TROUBLE";
                 }
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
                 break;
 
             default:
@@ -475,7 +472,7 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                                SK_CLOSED_OUTPUT_FMT
                                SK_TROUBLE_OUTPUT_FMT;
 
-            ad2_printf_host("Pushover SmartSwitch #%i report\r\n", slot);
+            ad2_printf_host(false, "Pushover SmartSwitch #%i report\r\n", slot);
             // sub key suffix.
             std::string sk;
             for(char& c : args) {
@@ -484,37 +481,37 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                 case SK_NOTIFY_SLOT[0]:
                     i = 0; // Default 0
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host("# Set notification slots [%c] to #%s.\r\n", c, out.c_str());
-                    ad2_printf_host("%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
+                    ad2_printf_host(false, "# Set notification slots [%c] to #%s.\r\n", c, out.c_str());
+                    ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
                     break;
                 case SK_DEFAULT_STATE[0]:
                     i = 0; // Default CLOSED
                     ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host("# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
-                    ad2_printf_host("%s %s %i %c %i\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i);
+                    ad2_printf_host(false, "# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
+                    ad2_printf_host(false, "%s %s %i %c %i\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_AUTO_RESET[0]:
                     i = 0; // Defaut 0 or disabled
                     ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host("# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
-                    ad2_printf_host("%s %s %i %c %i\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i);
+                    ad2_printf_host(false, "# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
+                    ad2_printf_host(false, "%s %s %i %c %i\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_TYPE_LIST[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host("# Set message type list [%c]\r\n", c);
+                    ad2_printf_host(false, "# Set message type list [%c]\r\n", c);
                     if (out.length()) {
-                        ad2_printf_host("%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
+                        ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
                     } else {
-                        ad2_printf_host("# disabled\r\n");
+                        ad2_printf_host(false, "# disabled\r\n");
                     }
                     break;
                 case SK_PREFILTER_REGEX[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
                     if (out.length()) {
-                        ad2_printf_host("# Set pre filter REGEX [%c]\r\n", c);
-                        ad2_printf_host("%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
+                        ad2_printf_host(false, "# Set pre filter REGEX [%c]\r\n", c);
+                        ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
                     }
                     break;
                 case SK_OPEN_REGEX_LIST[0]:
@@ -535,8 +532,8 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                         std::string tsk = sk + ad2_string_printf("%02i", i);
                         ad2_get_nv_slot_key_string(key.c_str(), slot, tsk.c_str(), out);
                         if (out.length()) {
-                            ad2_printf_host("# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
-                            ad2_printf_host("%s %s %i %c %i %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i, out.c_str());
+                            ad2_printf_host(false, "# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
+                            ad2_printf_host(false, "%s %s %i %c %i %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i, out.c_str());
                         }
                     }
                     break;
@@ -555,15 +552,15 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *inst
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
                     if (out.length()) {
-                        ad2_printf_host("# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
-                        ad2_printf_host("%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
+                        ad2_printf_host(false, "# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
+                        ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
                     }
                     break;
                 }
             }
         }
     } else {
-        ad2_printf_host("Missing or invalid <slot> 1-99\r\n");
+        ad2_printf_host(false, "Missing or invalid <slot> 1-99\r\n");
         // TODO: DUMP when slot is 0 or 100
     }
 }
@@ -582,7 +579,7 @@ static void _cli_cmd_pushover_command_router(char *string)
 
     for(i = 0;; ++i) {
         if (PUSHOVER_SETTINGS[i] == 0) {
-            ad2_printf_host("What?\r\n");
+            ad2_printf_host(false, "What?\r\n");
             break;
         }
         if(subcmd.compare(PUSHOVER_SETTINGS[i]) == 0) {
@@ -748,7 +745,7 @@ void pushover_init()
         }
     }
 
-    ESP_LOGI(TAG, "Found and configured %i virtual switches.", subscribers);
+    ad2_printf_host(true, "%s: Init done. Found and configured %i virtual switches.", TAG, subscribers);
 
 }
 

@@ -220,7 +220,6 @@ void free_ws_session_storage(void *ctx)
  */
 static void ws_alarmstate_async_send(void *arg)
 {
-    ESP_LOGI(TAG, "ws_alarmstate_async_send: %i", (int)arg);
     int wsfd = (int)arg;
     if (wsfd) {
         if (server && hal_get_network_connected()) {
@@ -229,7 +228,6 @@ static void ws_alarmstate_async_send(void *arg)
             if (sess) {
                 // get the partition state based upon the virtual partition ID on the AD2IoT firmware.
                 AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpartID);
-                ESP_LOGI(TAG, "sending alarm panel state for virtual partition: %i", sess->vpartID);
 
                 // build the standard json AD2IoT device and alarm state object.
                 cJSON *root = ad2_get_partition_state_json(s);
@@ -271,7 +269,6 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
         ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
         return ret;
     }
-    ESP_LOGI(TAG, "websocket packet with message: %s and type %d", ws_pkt.payload, ws_pkt.type);
 
     if (ws_pkt.type == HTTPD_WS_TYPE_TEXT) {
 
@@ -290,7 +287,6 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
             int vpartID = atoi(args_v[0].c_str());
             ((ws_session_storage *)req->sess_ctx)->codeID = codeID;
             ((ws_session_storage *)req->sess_ctx)->vpartID = vpartID;
-            ESP_LOGI(TAG, "Got !SYNC request triggering to send current alarm state for virtual partition %i.", vpartID);
 
             // trigger an async send using httpd_queue_work
             return httpd_queue_work(req->handle, ws_alarmstate_async_send, (void *)httpd_req_to_sockfd(req));
@@ -333,7 +329,7 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
                 std::string zone = sendbuf.substr(8, string::npos);
                 ad2_bypass_zone(codeID, vpartID, std::atoi(zone.c_str()));
             } else {
-                ESP_LOGI(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
+                ESP_LOGW(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
             }
         }
     }
@@ -412,7 +408,6 @@ esp_err_t file_get_handler(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Connection", "close");
 
     // Open the file and spool it to the client.
-    ESP_LOGD(TAG, "opening file : %s", filepath.c_str());
     FILE *f = fopen(filepath.c_str(), "r");
     if (f == NULL) {
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
@@ -570,7 +565,7 @@ esp_err_t http_acl_test(httpd_handle_t hd, int sockfd)
     hal_get_socket_client_ip(sockfd, IP);
     /* ACL test */
     if (!webui_acl.find(IP)) {
-        ESP_LOGI(TAG, "Rejecting client connection from '%s'", IP.c_str());
+        ESP_LOGW(TAG, "Rejecting client connection from '%s'", IP.c_str());
         // FIXME: Not able to make it close clean. If I dont send something the the browser
         // will try again. Sending here is a problem because it will close before sending yet it helps?
         std::string Err = "HTTP/1.0 403 Forbidden\r\n\r\n\r\nAccess denied check ACL list\r\n";
@@ -619,10 +614,8 @@ void webui_server_task(void *pvParameters)
         if (hal_get_network_connected() && server==nullptr) {
 
             // Start the httpd server and handlers.
-            ESP_LOGI(TAG, "Starting web services on port: %d", server_config.server_port);
             if ((err = httpd_start(&server, &server_config)) == ESP_OK) {
                 // Set URI handlers
-                ESP_LOGI(TAG, "Registering URI handlers");
 #if CONFIG_HTTPD_WS_SUPPORT
                 httpd_register_uri_handler(server, &ad2ws_server);
 #endif
@@ -643,20 +636,19 @@ void webui_server_task(void *pvParameters)
                 AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
             } else {
                 // error long 10s sleep.
-                ESP_LOGI(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
+                ESP_LOGW(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
                 vTaskDelay(10000 / portTICK_PERIOD_MS);
             }
         } else {
             // network down
             if (!hal_get_network_connected() && server!=nullptr) {
-                ESP_LOGI(TAG, "Stopping web services on port: %d", server_config.server_port);
                 portENTER_CRITICAL(&spinlock);
                 httpd_handle_t ts = server;
                 server = nullptr;
                 portEXIT_CRITICAL(&spinlock);
                 err = httpd_stop(ts);
                 if (err != ESP_OK) {
-                    ESP_LOGI(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
+                    ESP_LOGW(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
                 }
             }
             // short 1s sleep
@@ -681,7 +673,7 @@ static void _cli_cmd_webui_event(char *string)
     ad2_lcase(cmd);
 
     if(cmd.compare(WEBUI_COMMAND) != 0) {
-        ad2_printf_host("What?\r\n");
+        ad2_printf_host(false, "What?\r\n");
         return;;
     }
 
@@ -693,7 +685,7 @@ static void _cli_cmd_webui_event(char *string)
     int i;
     for(i = 0;; ++i) {
         if (WEBUI_SUBCMD[i] == 0) {
-            ad2_printf_host("What?\r\n");
+            ad2_printf_host(false, "What?\r\n");
             break;
         }
         if(subcmd.compare(WEBUI_SUBCMD[i]) == 0) {
@@ -704,16 +696,15 @@ static void _cli_cmd_webui_event(char *string)
              * Enable/Disable WebUI daemon.
              */
             case WEBUI_SUBCMD_ENABLE_ID:
-                ESP_LOGI(TAG, "%s: enable/disable " WEBUI_COMMAND, __func__);
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
                     ad2_set_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
-                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                    ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
                 // show contents of this slot
                 int i;
                 ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &i);
-                ad2_printf_host("WebUI daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                ad2_printf_host(false, "WebUI daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                 break;
             /**
              * WebUI daemon IP/CIDR ACL list.
@@ -726,13 +717,13 @@ static void _cli_cmd_webui_event(char *string)
                     if (res == webui_acl.ACL_FORMAT_OK) {
                         ad2_set_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, arg.c_str());
                     } else {
-                        ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
+                        ad2_printf_host(false, "Error parsing ACL string. Check ACL format. Not saved.\r\n");
                     }
                 }
                 // show contents of this slot set default to allow all
                 acl = "0.0.0.0/0";
                 ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
-                ad2_printf_host(WEBUI_COMMAND " 'acl' set to '%s'.\r\n", acl.c_str());
+                ad2_printf_host(false, WEBUI_COMMAND " 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
                 break;
@@ -787,7 +778,7 @@ void webui_init(void)
     if (acl.length()) {
         int res = webui_acl.add(acl);
         if (res != webui_acl.ACL_FORMAT_OK) {
-            ESP_LOGI(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
+            ESP_LOGW(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
         }
     }
 
@@ -796,11 +787,11 @@ void webui_init(void)
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!enabled) {
-        ESP_LOGI(TAG, "webui disabled");
+        ad2_printf_host(true, "%s: service disabled.", TAG);
         return;
     }
 
-    ESP_LOGI(TAG, "Starting webui");
+    ad2_printf_host(true, "%s: Init done. Service starting.", TAG);
     xTaskCreate(&webui_server_task, "webui_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 

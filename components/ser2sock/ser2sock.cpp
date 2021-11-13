@@ -42,6 +42,7 @@ static const char *TAG = "SER2SOCKD";
 #include "ser2sock.h"
 
 /* Constants that aren't configurable in menuconfig */
+//#define S2SD_DEBUG
 #define PORT 10000
 #define MAX_CLIENTS 4
 #define MAX_FIFO_BUFFERS 30
@@ -134,7 +135,7 @@ static void _cli_cmd_ser2sockd_event(char *string)
     ad2_lcase(cmd);
 
     if(cmd.compare(SD2D_COMMAND) != 0) {
-        ad2_printf_host("What?\r\n");
+        ad2_printf_host(false, "What?\r\n");
         return;;
     }
 
@@ -146,7 +147,7 @@ static void _cli_cmd_ser2sockd_event(char *string)
     int i;
     for(i = 0;; ++i) {
         if (S2SD_SUBCMD[i] == 0) {
-            ad2_printf_host("What?\r\n");
+            ad2_printf_host(false, "What?\r\n");
             break;
         }
         if(subcmd.compare(S2SD_SUBCMD[i]) == 0) {
@@ -157,16 +158,16 @@ static void _cli_cmd_ser2sockd_event(char *string)
              * Enable/Disable ser2sock daemon.
              */
             case S2SD_SUBCMD_ENABLE_ID:
-                ESP_LOGI(TAG, "%s: enable/disable " SD2D_COMMAND, __func__);
+                ESP_LOGD(TAG, "%s: enable/disable " SD2D_COMMAND, __func__);
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
                     ad2_set_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
-                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                    ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
                 // show contents of this slot
                 int i;
                 ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &i);
-                ad2_printf_host("ser2sock daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                ad2_printf_host(false, "ser2sock daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                 break;
             /**
              * ser2sock daemon IP/CIDR ACL list.
@@ -179,13 +180,13 @@ static void _cli_cmd_ser2sockd_event(char *string)
                     if (res == ser2sock_acl.ACL_FORMAT_OK) {
                         ad2_set_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, arg.c_str());
                     } else {
-                        ad2_printf_host("Error parsing ACL string. Check ACL format. Not saved.\r\n");
+                        ad2_printf_host(false, "Error parsing ACL string. Check ACL format. Not saved.\r\n");
                     }
                 }
                 // show contents of this slot set default to allow all
                 acl = "0.0.0.0/0";
                 ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
-                ad2_printf_host("ser2sockd 'acl' set to '%s'.\r\n", acl.c_str());
+                ad2_printf_host(false, "ser2sockd 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
                 break;
@@ -238,7 +239,7 @@ void ser2sockd_init(void)
     if (acl.length()) {
         int res = ser2sock_acl.add(acl);
         if (res != ser2sock_acl.ACL_FORMAT_OK) {
-            ESP_LOGI(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
+            ESP_LOGW(TAG, "ACL parse error %i for '%s'", res, acl.c_str());
         }
     }
 
@@ -255,11 +256,11 @@ void ser2sockd_init(void)
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!enabled) {
-        ESP_LOGI(TAG, "ser2sockd disabled");
+        ad2_printf_host(true, "%s: Client disabled", TAG);
         return;
     }
 
-    ESP_LOGI(TAG, "Starting ser2sockd");
+    ad2_printf_host(true, "%s: Init done. Service starting.", TAG);
 
     // ser2sockd worker thread
     // 20210815SM: 1284 bytes stack free after first connection.
@@ -500,25 +501,25 @@ static int _add_fd(int fd, int fd_type)
                 int keep_alive = 1;
                 ret = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
                 if (ret < 0) {
-                    ESP_LOGI(TAG, "socket set keep-alive failed %d", errno);
+                    ESP_LOGE(TAG, "socket set keep-alive failed %d", errno);
                 }
 
                 int idle = 10;
                 ret = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
                 if (ret < 0) {
-                    ESP_LOGI(TAG, "socket set keep-idle failed %d", errno);
+                    ESP_LOGE(TAG, "socket set keep-idle failed %d", errno);
                 }
 
                 int interval = 5;
                 ret = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int));
                 if (ret < 0) {
-                    ESP_LOGI(TAG, "socket set keep-interval failed %d", errno);
+                    ESP_LOGE(TAG, "socket set keep-interval failed %d", errno);
                 }
 
                 int maxpkt = 3;
                 ret = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
                 if (ret < 0) {
-                    ESP_LOGI(TAG, "socket set keep-count failed %d", errno);
+                    ESP_LOGE(TAG, "socket set keep-count failed %d", errno);
                 }
             }
 
@@ -573,22 +574,28 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                             struct linger lo = { 1, 0 };
                             setsockopt(newsockfd, SOL_SOCKET, SO_LINGER, &lo, sizeof(lo));
                             close(newsockfd);
-                            ESP_LOGI(TAG, "Rejecting client connection from '%s'", IP.c_str());
+                            ESP_LOGW(TAG, "Rejecting client connection from '%s'", IP.c_str());
                         } else {
                             added_slot = _add_fd(newsockfd, CLIENT_SOCKET);
                             if (added_slot >= 0) {
+#if defined(S2SD_DEBUG)
                                 ESP_LOGI(TAG, "Socket connected slot %i from %s", added_slot, IP.c_str());
+#endif
                                 did_work = true;
                             } else {
-                                ESP_LOGI(TAG,"add slot error %i", added_slot);
+#if defined(S2SD_DEBUG)
+                                ESP_LOGE(TAG,"add slot error %i", added_slot);
+#endif
                                 close(newsockfd);
                                 if(added_slot == -1) {
-                                    ESP_LOGI(TAG, "Socket refused because no more space");
+                                    ESP_LOGW(TAG, "Socket refused. Max connections.");
                                 }
                             }
                         }
+#if defined(S2SD_DEBUG)
                     } else {
-                        ESP_LOGI(TAG,"accept errno: %i '%s' %i", errno, strerror(errno), listen_sock);
+                        ESP_LOGW(TAG,"accept errno: %i '%s' %i", errno, strerror(errno), listen_sock);
+#endif
                     }
                 } else {
                     errno = 0;
@@ -596,22 +603,28 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                         received = recv(my_fds[n].fd, (void *)buffer, sizeof(buffer), 0);
                     }
                     if (received == 0) {
+#if defined(S2SD_DEBUG)
                         ESP_LOGI(TAG, "Closing socket fd slot %i errno: %i '%s'", n,
                                  errno, strerror(errno));
+#endif
                         _cleanup_fd(n);
                     } else {
                         if (received < 0) {
                             if (errno == EAGAIN || errno == EINTR) {
                                 continue;
                             }
+#if defined(S2SD_DEBUG)
                             ESP_LOGI(TAG,
                                      "Closing socket errno: %i '%s'",
                                      errno, strerror(errno));
+#endif
                             _cleanup_fd(n);
                         } else {
                             did_work = true;
                             // FIXME: Need to keep it clean and not call back into main()
+#if defined(S2SD_DEBUG)
                             ESP_LOGI(TAG,"fd(%i) slot(%i) sending %i bytes to the AD2*", my_fds[n].fd, n, received);
+#endif
                             // FIXME: overide to send raw pointer and not buffer.
                             std::string tmp(buffer, received);
                             ad2_send(tmp);
@@ -687,12 +700,14 @@ void ser2sockd_server_task(void *pvParameters)
     fd_set read_fdset, write_fdset, except_fdset;
     struct timeval wait;
 
-
+#if defined(S2SD_DEBUG)
     ESP_LOGI(TAG, "ser2sock server task starting.");
-
+#endif
     for (;;) {
         if (hal_get_network_connected()) {
+#if defined(S2SD_DEBUG)
             ESP_LOGI(TAG, "network up creating listening socket");
+#endif
 #if CONFIG_LWIP_IPV6
             // IPv6 socket will listen on both IPv4 and IPv6 at the same time.
             bzero(&dest_addr.sin6_addr.un, sizeof(dest_addr.sin6_addr.un));
@@ -723,17 +738,18 @@ void ser2sockd_server_task(void *pvParameters)
             solinger.l_onoff = true;
             solinger.l_linger = 0;
             setsockopt(listen_sock, SOL_SOCKET, SO_LINGER, &solinger, sizeof(solinger));
-
+#if defined(S2SD_DEBUG)
             ESP_LOGI(TAG, "ser2sock server socket created %i", listen_sock);
-
+#endif
             int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
             if (err != 0) {
                 ESP_LOGE(TAG, "ser2sock server socket unable to bind: errno %d", errno);
                 ESP_LOGE(TAG, "ser2sock server IPPROTO: %d", addr_family);
                 goto CLEAN_UP;
             }
+#if defined(S2SD_DEBUG)
             ESP_LOGI(TAG, "ser2sock server socket bound, port %d", PORT);
-
+#endif
             err = listen(listen_sock, 1);
             if (err != 0) {
                 ESP_LOGE(TAG, "ser2sock server error occurred during listen: errno %d", errno);

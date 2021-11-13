@@ -577,7 +577,7 @@ void init_ad2_uart_client()
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
     ad2_tokenize(port_pins, ":", out);
-    ESP_LOGI(TAG, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
+    ad2_printf_host(true, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
     int tx_pin = atoi(out[0].c_str());
     int rx_pin = atoi(out[1].c_str());
 
@@ -635,7 +635,7 @@ void app_main()
     // init host(USB) uart port
     hal_host_uart_init();
 
-    ad2_printf_host(AD2_SIGNON, FIRMWARE_VERSION);
+    ad2_printf_host(false, AD2_SIGNON, FIRMWARE_VERSION);
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
     ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
@@ -644,33 +644,33 @@ void app_main()
     // Dump hardware info
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    ad2_printf_host(AD2PFX "ESP32 with %d CPU cores, WiFi%s%s, ",
+    ad2_printf_host(true, "ESP32 with %d CPU cores, WiFi%s%s, ",
                     chip_info.cores,
                     (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
                     (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 
-    ad2_printf_host("silicon revision %d, ", chip_info.revision);
+    ad2_printf_host(false, "silicon revision %d, ", chip_info.revision);
 
-    ad2_printf_host("%dMB %s flash\r\n", spi_flash_get_chip_size() / (1024 * 1024),
+    ad2_printf_host(false, "%dMB %s flash", spi_flash_get_chip_size() / (1024 * 1024),
                     (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
-    ad2_printf_host(AD2PFX "Initialize NVS subsystem start.");
+    ad2_printf_host(true, "Initialize NVS subsystem start.");
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
-        ad2_printf_host(" Not found or error clearing flash.");
+        ad2_printf_host(false, " Not found or error clearing flash.");
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
-    ad2_printf_host(" Done.\r\n");
+    ad2_printf_host(false, " Done.");
     ESP_ERROR_CHECK( err );
 
     // Example of nvs_get_stats() to get the number of used entries and free entries:
     nvs_stats_t nvs_stats;
     nvs_get_stats(NULL, &nvs_stats);
-    ad2_printf_host(AD2PFX "NVS usage %.2f%%. Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
+    ad2_printf_host(true, "NVS usage %.2f%%. Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)",
                     nvs_stats.used_entries * 100.00 / nvs_stats.total_entries,
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
@@ -704,7 +704,7 @@ void app_main()
                     s->zone_list.push_front((uint8_t)z & 0xff);
                 }
             }
-            ESP_LOGI(TAG, "init vpart slot %i address %i zones '%s'", n, x, zlist.c_str());
+            ad2_printf_host(true, "init vpart slot %i address %i zones '%s'", n, x, zlist.c_str());
         }
     }
 
@@ -771,10 +771,10 @@ void app_main()
     uart_cli_main();
 
     if (g_ad2_mode == 'S') {
-        ad2_printf_host(AD2PFX "Delaying start of ad2source SOCKET after network is up.\r\n");
+        ad2_printf_host(true, "Delaying start of ad2source SOCKET after network is up.");
     } else if(g_ad2_mode != 'C') {
         ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        ad2_printf_host(AD2PFX "AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
+        ad2_printf_host(true, "AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.");
     }
 
 #if CONFIG_STDK_IOT_CORE
@@ -790,7 +790,7 @@ void app_main()
     // get the network mode set default mode to 'N'
     std::string netmode_args;
     char net_mode = ad2_network_mode(netmode_args);
-    ad2_printf_host(AD2PFX "'netmode' set to '%c'.\r\n", net_mode);
+    ad2_printf_host(true, "'netmode' set to '%c'.", net_mode);
 
     /**
      * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.
@@ -859,7 +859,7 @@ void app_main()
         stsdk_connection_start();
     } else {
         ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
-        ad2_printf_host(AD2PFX "'netmode' <> 'N' disabling SmartThings.\r\n");
+        ad2_printf_host(true, "'netmode' <> 'N' disabling SmartThings.");
     }
 #endif
 

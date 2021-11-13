@@ -1221,7 +1221,7 @@ void ad2_send(std::string &buf)
  * @return result
  */
 // Track if the terminal line is busy
-static bool prefix_sent = false;
+static bool line_clear = false;
 int ad2_log_vprintf(const char *fmt, va_list args)
 {
 
@@ -1232,18 +1232,22 @@ int ad2_log_vprintf(const char *fmt, va_list args)
         tbuf = (char *)malloc(len+1);
         len = vsnprintf(tbuf, len+1, fmt, args);
         if (len) {
+            if (!line_clear) {
+                uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+            }
             int pos = 0;
             char ch;
             while (pos<len) {
                 ch = tbuf[pos];
-                if (ch == '\r' || ch == '\n') {
-                    prefix_sent = false;
+                if (ch == '\n') {
+                    line_clear = true;
+                    uart_write_bytes(UART_NUM_0, "\r\n", 2);
                 } else {
-                    // avoid nulls
-                    if (ch) {
-                        if (!prefix_sent) {
-                            prefix_sent = true;
-                            uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                    // avoid nulls and non binary data
+                    if (ch > 31 && ch < 127) {
+                        if (line_clear) {
+                            line_clear = false;
                             uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
                         }
                         uart_write_bytes(UART_NUM_0, &ch, 1);
@@ -1265,8 +1269,18 @@ int ad2_log_vprintf(const char *fmt, va_list args)
  * @param [in]format const char * format string.
  * @param [in]... variable args
  */
-void ad2_printf_host(const char *fmt, ...)
+void ad2_printf_host(bool prefix, const char *fmt, ...)
 {
+    if ( prefix ) {
+        if ( !line_clear ) {
+            // move to the next line.
+            uart_write_bytes(UART_NUM_0, "\r\n", 2);
+        }
+        line_clear = false;
+        // write prefix
+        uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+    }
+
     va_list args;
     va_start(args, fmt);
     std::string out = ad2_string_vaprintf(fmt, args);

@@ -158,7 +158,6 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
 static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
 {
 
-    //ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
     esp_mqtt_client_handle_t client = event_data->client;
     // your_context_t *context = event->context;
     switch (event_data->event_id) {
@@ -222,7 +221,6 @@ void mqtt_on_lrr(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     int msg_id;
     if (mqtt_client != nullptr) {
-        ESP_LOGI(TAG, "mqtt_on_lrr '%s'", msg->c_str());
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/cid";
@@ -242,7 +240,6 @@ void mqtt_on_lrr(std::string *msg, AD2VirtualPartitionState *s, void *arg)
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
 
-        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
         cJSON_free(state);
         cJSON_Delete(root);
     }
@@ -260,7 +257,6 @@ void mqtt_on_zone_change(std::string *msg, AD2VirtualPartitionState *s, void *ar
 {
     int msg_id;
     if (mqtt_client != nullptr && s) {
-        ESP_LOGI(TAG, "mqtt_on_zone_change '%s'", s->last_event_message.c_str());
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/zones/";
@@ -290,7 +286,6 @@ void mqtt_on_zone_change(std::string *msg, AD2VirtualPartitionState *s, void *ar
                                          MQTT_DEF_QOS,
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
-        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
         cJSON_free(state);
         cJSON_Delete(root);
     }
@@ -308,9 +303,6 @@ void mqtt_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *a
 {
     int msg_id;
     if (mqtt_client != nullptr && s) {
-#if 0
-        ESP_LOGE(TAG, "mqtt_on_state_change partition(%i) event(%s) message('%s')", s->partition, AD2Parse.event_str[(int)arg].c_str(), msg->c_str());
-#endif
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/partitions/";
@@ -359,7 +351,6 @@ void mqtt_free()
 void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
-    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s'", msg->c_str(), es->out_message.c_str());
 
     std::string message = es->out_message;
 
@@ -372,7 +363,6 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
     // publishing event
     int msg_id;
     if (mqtt_client != nullptr) {
-        ESP_LOGI(TAG, "Publishing to MQTT broker '%s'", message.c_str());
         std::string sTopic = MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/switches/";
@@ -389,7 +379,6 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
                                          MQTT_DEF_QOS,
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
-        ESP_LOGI(TAG, "queue result/message id: %i", msg_id);
         cJSON_free(state);
         cJSON_Delete(root);
     }
@@ -455,37 +444,37 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
-                ad2_printf_host("Deleteing smartswitch #%i.\r\n", slot);
+                ad2_printf_host(false, "Deleteing smartswitch #%i.\r\n", slot);
                 break;
             case SK_NOTIFY_TOPIC[0]: // MQTT Topic
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i MQTT topic to '%s'.\r\n", slot, arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i MQTT topic to '%s'.\r\n", slot, arg1.c_str());
                 break;
             case SK_DEFAULT_STATE[0]: // Default state
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
                 ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host("Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
+                ad2_printf_host(false, "Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
                 break;
             case SK_AUTO_RESET[0]: // Auto Reset
                 ad2_copy_nth_arg(arg1, instring, 4);
                 i = std::atoi (arg1.c_str());
                 ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host("Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
+                ad2_printf_host(false, "Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
                 break;
             case SK_TYPE_LIST[0]: // Message type filter list
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
                 break;
             case SK_PREFILTER_REGEX[0]: // Pre filter REGEX
                 // consume the arge and to EOL
                 ad2_copy_nth_arg(arg1, instring, 4, true);
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
                 break;
 
             case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
@@ -509,9 +498,9 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                         tmpsz = "TROUBLE";
                     }
                     ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.c_str());
-                    ad2_printf_host("%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
+                    ad2_printf_host(false, "%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
                 } else {
-                    ad2_printf_host("Error invalid index %i. Valid values are 1-8.\r\n", slot, i);
+                    ad2_printf_host(false, "Error invalid index %i. Valid values are 1-8.\r\n", slot, i);
                 }
                 break;
 
@@ -530,7 +519,7 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                     tmpsz = "TROUBLE";
                 }
                 ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host("Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
+                ad2_printf_host(false, "Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
                 break;
 
             default:
@@ -553,7 +542,7 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                                SK_CLOSED_OUTPUT_FMT
                                SK_TROUBLE_OUTPUT_FMT;
 
-            ad2_printf_host("MQTT SmartSwitch #%i report\r\n", slot);
+            ad2_printf_host(false, "MQTT SmartSwitch #%i report\r\n", slot);
             // sub key suffix.
             std::string sk;
             for(char& c : args) {
@@ -562,37 +551,37 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                 case SK_NOTIFY_TOPIC[0]:
                     out = ""; // Default 0
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host("# Set MQTT topic [%c] to '%s'.\r\n", c, out.c_str());
-                    ad2_printf_host("%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
+                    ad2_printf_host(false, "# Set MQTT topic [%c] to '%s'.\r\n", c, out.c_str());
+                    ad2_printf_host(false, "%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
                     break;
                 case SK_DEFAULT_STATE[0]:
                     i = 0; // Default CLOSED
                     ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host("# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
-                    ad2_printf_host("%s %s %i %c %i\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i);
+                    ad2_printf_host(false, "# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
+                    ad2_printf_host(false, "%s %s %i %c %i\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_AUTO_RESET[0]:
                     i = 0; // Defaut 0 or disabled
                     ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host("# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
-                    ad2_printf_host("%s %s %i %c %i\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i);
+                    ad2_printf_host(false, "# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
+                    ad2_printf_host(false, "%s %s %i %c %i\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i);
                     break;
                 case SK_TYPE_LIST[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host("# Set message type list [%c]\r\n", c);
+                    ad2_printf_host(false, "# Set message type list [%c]\r\n", c);
                     if (out.length()) {
-                        ad2_printf_host("%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
+                        ad2_printf_host(false, "%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
                     } else {
-                        ad2_printf_host("# disabled\r\n");
+                        ad2_printf_host(false, "# disabled\r\n");
                     }
                     break;
                 case SK_PREFILTER_REGEX[0]:
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
                     if (out.length()) {
-                        ad2_printf_host("# Set pre filter REGEX [%c]\r\n", c);
-                        ad2_printf_host("%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
+                        ad2_printf_host(false, "# Set pre filter REGEX [%c]\r\n", c);
+                        ad2_printf_host(false, "%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
                     }
                     break;
                 case SK_OPEN_REGEX_LIST[0]:
@@ -613,8 +602,8 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                         std::string tsk = sk + ad2_string_printf("%02i", i);
                         ad2_get_nv_slot_key_string(key.c_str(), slot, tsk.c_str(), out);
                         if (out.length()) {
-                            ad2_printf_host("# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
-                            ad2_printf_host("%s %s %i %c %i %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i, out.c_str());
+                            ad2_printf_host(false, "# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
+                            ad2_printf_host(false, "%s %s %i %c %i %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, i, out.c_str());
                         }
                     }
                     break;
@@ -633,15 +622,15 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, char *instring
                     out = "";
                     ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
                     if (out.length()) {
-                        ad2_printf_host("# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
-                        ad2_printf_host("%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
+                        ad2_printf_host(false, "# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
+                        ad2_printf_host(false, "%s %s %i %c %s\r\n", MQTT_COMMAND, MQTT_SAS_CFGKEY, slot, c, out.c_str());
                     }
                     break;
                 }
             }
         }
     } else {
-        ad2_printf_host("Missing or invalid <slot> 1-99\r\n");
+        ad2_printf_host(false, "Missing or invalid <slot> 1-99\r\n");
         // TODO: DUMP when slot is 0 or 100
     }
 }
@@ -661,7 +650,7 @@ static void _cli_cmd_mqtt_command_router(char *string)
 
     for(i = 0;; ++i) {
         if (MQTT_SUBCMD[i] == 0) {
-            ad2_printf_host("What?\r\n");
+            ad2_printf_host(false, "What?\r\n");
             break;
         }
         if(subcmd.compare(MQTT_SUBCMD[i]) == 0) {
@@ -670,17 +659,16 @@ static void _cli_cmd_mqtt_command_router(char *string)
              * MQTT Enable / Disable
              */
             case MQTT_ENABLE_CFGKEY_ID:   // 'enable' sub command
-                ESP_LOGI(TAG, "%s: enable/disable " MQTT_COMMAND, __func__);
                 arg = "";
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
                     ad2_set_nv_slot_key_int(MQTT_COMMAND, MQTT_ENABLE_CFGKEY_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
-                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                    ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
                 // show contents of this setting
                 int i;
                 ad2_get_nv_slot_key_int(MQTT_COMMAND, MQTT_ENABLE_CFGKEY_ID, nullptr, &i);
-                ad2_printf_host("MQTT client is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                ad2_printf_host(false, "MQTT client is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                 break;
 
             /**
@@ -690,11 +678,11 @@ static void _cli_cmd_mqtt_command_router(char *string)
                 // If arg provided then save.
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_set_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, arg.c_str());
-                    ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+                    ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 } else {
                     // show contents of this setting
                     ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, arg);
-                    ad2_printf_host("MQTT Broker 'url' set to '%s'.\r\n", arg.c_str());
+                    ad2_printf_host(false, "MQTT Broker 'url' set to '%s'.\r\n", arg.c_str());
                 }
                 break;
 
@@ -794,13 +782,13 @@ void mqtt_init()
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!enabled) {
-        ESP_LOGI(TAG, "MQTT client disabled");
+        ad2_printf_host(true, "%s client disabled", TAG);
         return;
     }
 
     // generate our client's unique user id. UUID.
     ad2_genUUID(0x10, mqttclient_UUID);
-    ESP_LOGI(TAG,"MQTT init UUID: %s", mqttclient_UUID.c_str());
+    ad2_printf_host(true, "%s init UUID: %s", TAG, mqttclient_UUID.c_str());
 
     // configure and start MQTT client
     esp_err_t err;
@@ -922,7 +910,8 @@ void mqtt_init()
         }
     }
 
-    ESP_LOGI(TAG, "Found and configured %i virtual switches.", subscribers);
+    ad2_printf_host(true, "%s: Init done. Found and configured %i virtual switches.", TAG, subscribers);
+
 }
 
 #ifdef __cplusplus

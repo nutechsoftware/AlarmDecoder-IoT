@@ -95,7 +95,7 @@ static void cli_process_command(char* input_string)
     command = cli_find_command(input_string);
 
     if (command == NULL) {
-        ad2_printf_host("command not found. please check 'help'\r\n");
+        ad2_printf_host(false, "command not found. please check 'help'\r\n");
         return;
     }
 
@@ -150,12 +150,12 @@ static void cli_cmd_help(char *cmd)
     cli_cmd_list_t* now = cli_cmd_list;
     std::string buf; // buffer to hold help argument
 
-    ad2_printf_host("\n");
+    ad2_printf_host(false, "\n");
     if (ad2_copy_nth_arg(buf, cmd, 1) >= 0) {
         cli_cmd_t *command;
         command = cli_find_command(buf.c_str());
         if (command != NULL) {
-            ad2_printf_host("Help for command '%s'\r\n\r\n", command->command);
+            ad2_printf_host(false, "Help for command '%s'\r\n\r\n", command->command);
             // spool bytes until we reach the null term.
             char *help_string = command->help_string;
             while (*help_string) {
@@ -163,10 +163,10 @@ static void cli_cmd_help(char *cmd)
                 uart_wait_tx_done(UART_NUM_0, 100);
                 help_string++;
             }
-            ad2_printf_host("\r\n");
+            ad2_printf_host(false, "\r\n");
             showhelp = false;
         } else {
-            ad2_printf_host(", Command not found '%s'\r\n", cmd);
+            ad2_printf_host(false, ", Command not found '%s'\r\n", cmd);
         }
     }
 
@@ -174,20 +174,20 @@ static void cli_cmd_help(char *cmd)
         int x = 0;
         bool sendpfx = false;
         bool sendsfx = false;
-        ad2_printf_host("Available AD2IoT terminal commands\r\n  [");
+        ad2_printf_host(false, "Available AD2IoT terminal commands\r\n  [");
         while (now) {
             if (!now->cmd) {
                 continue;
             }
             if (sendpfx && now->next) {
                 sendpfx = false;
-                ad2_printf_host(",\r\n   ");
+                ad2_printf_host(false, ",\r\n   ");
             }
             if (sendsfx) {
                 sendsfx = false;
-                ad2_printf_host(", ");
+                ad2_printf_host(false, ", ");
             }
-            ad2_printf_host("%s",now->cmd->command);
+            ad2_printf_host(false, "%s",now->cmd->command);
             x++;
             now = now->next;
             if (now) {
@@ -199,7 +199,7 @@ static void cli_cmd_help(char *cmd)
                 x = 0;
             }
         }
-        ad2_printf_host("]\r\n\r\nType help <command> for details on each command.\r\n\r\n");
+        ad2_printf_host(false, "]\r\n\r\nType help <command> for details on each command.\r\n\r\n");
     }
 }
 
@@ -292,31 +292,31 @@ static void esp_uart_cli_task(void *pvParameters)
                 break;
             case '\r':
                 break_count = 0;
-                ad2_printf_host("\r\n");
+                ad2_printf_host(false, "\r\n");
                 if (line_len) {
                     cli_process_command((char *)line);
                     memcpy(prev_line, line, MAX_UART_LINE_SIZE);
                     memset(line, 0, MAX_UART_LINE_SIZE);
                     line_len = 0;
                 }
-                ad2_printf_host(PROMPT_STRING);
+                ad2_printf_host(false, PROMPT_STRING);
                 break;
 
             case '\b':
                 break_count = 0;
                 //backspace
                 if (line_len > 0) {
-                    ad2_printf_host("\b \b");
+                    ad2_printf_host(false, "\b \b");
                     line[--line_len] = '\0';
                 }
                 break;
 
             case 0x03: //Ctrl + C
                 break_count = 0;
-                ad2_printf_host("^C\r\n");
+                ad2_printf_host(false, "^C\r\n");
                 memset(line, 0, MAX_UART_LINE_SIZE);
                 line_len = 0;
-                ad2_printf_host(PROMPT_STRING);
+                ad2_printf_host(false, PROMPT_STRING);
                 break;
 
             case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
@@ -327,8 +327,8 @@ static void esp_uart_cli_task(void *pvParameters)
                         memcpy(line, prev_line, MAX_UART_LINE_SIZE);
                         line_len = strlen((char*)line);
                         ad2_snprintf_host((const char *)&rx_buffer[i+1], 2);
-                        ad2_printf_host("\r\n");
-                        ad2_printf_host(PROMPT_STRING);
+                        ad2_printf_host(false, "\r\n");
+                        ad2_printf_host(false, PROMPT_STRING);
                         ad2_snprintf_host((const char *)line, line_len);
                         i+=3;
                         break;
@@ -365,8 +365,8 @@ static void esp_uart_cli_task(void *pvParameters)
                         portENTER_CRITICAL(&spinlock);
                         g_StopMainTask = 2;
                         portEXIT_CRITICAL(&spinlock);
-                        ad2_printf_host("Startup halted. Use the 'restart' command when finished to start normally.\r\n");
-                        ad2_printf_host(PROMPT_STRING);
+                        ad2_printf_host(false, "Startup halted. Use the 'restart' command when finished to start normally.\r\n");
+                        ad2_printf_host(false, PROMPT_STRING);
                         break_count = 0;
                     }
                 } else {
@@ -413,12 +413,12 @@ void uart_cli_main()
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", 1024*5, NULL, tskIDLE_PRIORITY+2, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    ad2_printf_host(AD2PFX "Send '.' three times in the next 5 seconds to stop the init.\r\n");
-    ad2_printf_host(PROMPT_STRING);
+    ad2_printf_host(true, "Send '.' three times in the next 5 seconds to stop the init.\r\n");
+    ad2_printf_host(false, PROMPT_STRING);
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
-    ad2_printf_host(AD2PFX "Starting main task.\r\n");
-    ad2_printf_host(PROMPT_STRING);
+    ad2_printf_host(true, "Starting main task.");
+    ad2_printf_host(false, PROMPT_STRING);
 
 }
 

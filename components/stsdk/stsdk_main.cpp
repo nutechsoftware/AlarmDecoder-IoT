@@ -197,13 +197,13 @@ static void _cli_cmd_enable_event(char *string)
     std::string arg;
     if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
         ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
-        ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+        ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
     }
 
     // show contents of this slot
     int i;
     ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &i);
-    ad2_printf_host("SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+    ad2_printf_host(false, "SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
 
 }
 
@@ -213,7 +213,7 @@ static void _cli_cmd_enable_event(char *string)
 static void _cli_cmd_cleanup_event(char *string)
 {
     ESP_LOGI(TAG, "%s: clean-up data with restart option", __func__);
-    ad2_printf_host("Calling clean-up for STSDK settings.\r\n");
+    ad2_printf_host(false, "Calling clean-up for STSDK settings.\r\n");
     st_conn_cleanup(ctx, true);
 }
 
@@ -238,14 +238,14 @@ static void _cli_cmd_stserial_event(char *string)
         err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-            ad2_printf_host("Failed setting value.\r\n");
+            ad2_printf_host(false, "Failed setting value.\r\n");
         } else {
-            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        ad2_printf_host("Missing <serialNumber>\r\n");
+        ad2_printf_host(false, "Missing <serialNumber>\r\n");
     }
 }
 
@@ -270,14 +270,14 @@ static void _cli_cmd_stpublickey_event(char *string)
         err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-            ad2_printf_host("Failed setting value.\r\n");
+            ad2_printf_host(false, "Failed setting value.\r\n");
         } else {
-            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        ad2_printf_host("Missing <publicKey>\r\n");
+        ad2_printf_host(false, "Missing <publicKey>\r\n");
     }
 }
 
@@ -302,14 +302,14 @@ static void _cli_cmd_stprivatekey_event(char *string)
         err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
         if ( err != ESP_OK) {
             ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-            ad2_printf_host("Failed setting value.\r\n");
+            ad2_printf_host(false, "Failed setting value.\r\n");
         } else {
-            ad2_printf_host("Success setting value. Restart required to take effect.\r\n");
+            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
         }
         err = nvs_commit(my_handle);
         nvs_close(my_handle);
     } else {
-        ad2_printf_host("Missing <privateKey>\r\n");
+        ad2_printf_host(false, "Missing <privateKey>\r\n");
     }
 }
 

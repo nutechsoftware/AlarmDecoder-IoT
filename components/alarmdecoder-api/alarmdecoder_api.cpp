@@ -604,7 +604,7 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, boo
             ad2ps->partition = AD2PStates.size();
             ad2ps->primary_address = 0;
 #if defined(IDF_VER)
-            ESP_LOGI(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
+            ESP_LOGD(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
 #endif
         }
 
