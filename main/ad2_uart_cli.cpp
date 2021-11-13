@@ -215,30 +215,30 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
     TickType_t cur = xTaskGetTickCount();
     TickType_t end = cur + pdMS_TO_TICKS(timeout_ms);
     while (xTaskGetTickCount() < end) {
-        portENTER_CRITICAL(&spinlock);
+        taskENTER_CRITICAL(&spinlock);
         if (g_StopMainTask != 1) {
-            portEXIT_CRITICAL(&spinlock);
+            taskEXIT_CRITICAL(&spinlock);
             break;
         }
-        portEXIT_CRITICAL(&spinlock);
+        taskEXIT_CRITICAL(&spinlock);
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
-    portENTER_CRITICAL(&spinlock);
+    taskENTER_CRITICAL(&spinlock);
     if (g_StopMainTask == 1) {
         // When there is no input("\n") for a set time, main task will be executed...
         g_StopMainTask = 0;
     }
-    portEXIT_CRITICAL(&spinlock);
+    taskEXIT_CRITICAL(&spinlock);
 
     if (g_StopMainTask != 0) {
         while (1) {
-            portENTER_CRITICAL(&spinlock);
+            taskENTER_CRITICAL(&spinlock);
             if (g_StopMainTask == 0) {
-                portEXIT_CRITICAL(&spinlock);
+                taskEXIT_CRITICAL(&spinlock);
                 break;
             }
-            portEXIT_CRITICAL(&spinlock);
+            taskEXIT_CRITICAL(&spinlock);
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
     }
@@ -362,9 +362,9 @@ static void esp_uart_cli_task(void *pvParameters)
                     // clear break state and exit while if break detected
                     if (break_count > 2) {
                         // break detected block main task from running and continue.
-                        portENTER_CRITICAL(&spinlock);
+                        taskENTER_CRITICAL(&spinlock);
                         g_StopMainTask = 2;
-                        portEXIT_CRITICAL(&spinlock);
+                        taskEXIT_CRITICAL(&spinlock);
                         ad2_printf_host(false, "Startup halted. Use the 'restart' command when finished to start normally.\r\n");
                         ad2_printf_host(false, PROMPT_STRING);
                         break_count = 0;
