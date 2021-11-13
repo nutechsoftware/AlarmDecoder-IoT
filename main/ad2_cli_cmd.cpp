@@ -396,7 +396,8 @@ static void _cli_cmd_netmode_event(char *string)
         case 'W':
         case 'E':
             ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, nullptr, mode[0]);
-            ad2_copy_nth_arg(arg, string, 2);
+            // Grab config argument string till the end of the line.
+            ad2_copy_nth_arg(arg, string, 2, true);
             ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, nullptr, arg.c_str());
             ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
             break;
