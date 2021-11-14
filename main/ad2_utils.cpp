@@ -1232,9 +1232,21 @@ int ad2_log_vprintf(const char *fmt, va_list args)
         tbuf = (char *)malloc(len+1);
         len = vsnprintf(tbuf, len+1, fmt, args);
         if (len) {
+            // don't log blank lines or send out \r\n.
+            tbuf[strcspn(tbuf, "\r\n")] = 0;
+            len = strlen(tbuf);
+            if (!len) {
+                if (!line_clear) {
+                    line_clear = false;
+                }
+                goto clean_up;
+            }
             if (!line_clear) {
-                uart_write_bytes(UART_NUM_0, "\r\n", 2);
-                uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                // check if continuation of log. Must start with "[I,W,E,D] ("
+                if ( (len > 3) && (strchr("IWED", tbuf[0]) != NULL) && (tbuf[1] == ' ' && tbuf[2] == '(') ) {
+                    uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                    uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                }
             }
             int pos = 0;
             char ch;
@@ -1256,6 +1268,7 @@ int ad2_log_vprintf(const char *fmt, va_list args)
                 pos++;
             }
         }
+clean_up:
         if (tbuf) {
             free(tbuf);
         }
@@ -1278,7 +1291,11 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
         }
         line_clear = false;
         // write prefix
-        uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+        std::string pfx = AD2PFX;
+        pfx += "N (";
+        pfx += ad2_to_string(esp_log_timestamp());
+        pfx += ") ";
+        uart_write_bytes(UART_NUM_0, pfx.c_str(), pfx.length());
     }
 
     va_list args;

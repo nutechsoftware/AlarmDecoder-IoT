@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: More console tidy and useability improvements.
 - [X] CORE: Swap portENTER_CRITICAL with taskENTER_CRITICAL. Same idea but correct use.
 - [X] CORE: Fix netmode command not being greedy and missing argument if it has a space such as a password :)
 - [X] CORE: Continued removal of verbose logging.

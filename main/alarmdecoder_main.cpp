@@ -305,7 +305,10 @@ void ad2_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *ar
         cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
         char *state = cJSON_Print(root);
         cJSON_Minify(state);
-        ESP_LOGI(TAG, "state: %s", state);
+
+        // Notify CLI of the new state for easy console diagnostics of panel.
+        ad2_printf_host(true, "AD2 State change: %s", state);
+
         cJSON_free(state);
         cJSON_Delete(root);
     }

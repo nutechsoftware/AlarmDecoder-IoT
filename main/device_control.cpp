@@ -798,7 +798,6 @@ void hal_init_eth(std::string &args)
 void hal_set_wifi_hostname(const char *hostname)
 {
     esp_err_t ret;
-    ESP_LOGI(TAG, "setting eth hostname to '%s'", hostname);
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
 #else
@@ -815,7 +814,6 @@ void hal_set_wifi_hostname(const char *hostname)
 void hal_set_eth_hostname(const char *hostname)
 {
     esp_err_t ret;
-    ESP_LOGI(TAG, "setting eth hostname to '%s'", hostname);
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH, hostname);
 #else
@@ -848,6 +846,7 @@ void hal_host_uart_init()
 }
 
 /** Event handler for IP_EVENT_ETH_GOT_IP */
+//#define DEBUG_IP_EVENT
 void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data)
 {
@@ -855,9 +854,10 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
     std::string IP = "";
     std::string MASK = "";
     std::string GW = "";
-
+#if defined(DEBUG_IP_EVENT)
     ESP_LOGI(TAG, "Network assigned new address");
     ESP_LOGI(TAG, "~~~~~~~~~~~");
+#endif
 #if CONFIG_LWIP_IPV6
     if (event_id == IP_EVENT_GOT_IP6) {
         ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
@@ -879,9 +879,13 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
 #if CONFIG_LWIP_IPV6
     }
 #endif
-
+#if defined(DEBUG_IP_EVENT)
     ESP_LOGI(TAG, "INTERFACE: %s", IF.c_str());
     ESP_LOGI(TAG, "IP: %s", IP.c_str());
+#endif
+    // Notify CLI of the new hardware MAC and IP address for easy management.
+    ad2_printf_host(true, "NEW IP ADDRESS: if(%s) addr(%s) mask(%s) gw(%s)", IF.c_str(), IP.c_str(), MASK.c_str(), GW.c_str());
+#if defined(DEBUG_IP_EVENT)
     if (MASK.length()) {
         ESP_LOGI(TAG, "NETMASK: %s", MASK.c_str());
     }
@@ -889,7 +893,7 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "GW: %s", GW.c_str());
     }
     ESP_LOGI(TAG, "~~~~~~~~~~~");
-
+#endif
     xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
     xEventGroupClearBits(g_ad2_net_event_group, NET_STA_DISCONNECT_BIT);
 }
