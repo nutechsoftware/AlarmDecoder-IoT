@@ -40,7 +40,6 @@ static const char *TAG = "AD2OTA";
 
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
 #define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS "stsdk"
 #define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
 #define OTA_SIGNATURE_SIZE 256
@@ -114,7 +113,7 @@ static void _task_fatal_error()
  */
 static void ota_task_func(void * command)
 {
-    // The argument if present is the build flag. If not then default to CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS
+    // The argument if present is the build flag. If not then default to FIRMWARE_BUILDFLAGS
     std::string buildflags;
     if (command != nullptr) {
         ad2_copy_nth_arg(buildflags, (char *)command, 1);
@@ -123,7 +122,7 @@ static void ota_task_func(void * command)
 
     ad2_trim(buildflags);
     if ( buildflags.length()==0 ) {
-        buildflags = CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS;
+        buildflags = FIRMWARE_BUILDFLAGS;
     }
 
     ad2_printf_host(true, "%s Starting OTA with build flags '%s'.", TAG, buildflags.c_str());
@@ -838,7 +837,7 @@ void ota_init()
  */
 void ota_do_version(char *arg)
 {
-    ad2_printf_host(true, "Installed version(" FIRMWARE_VERSION  ") available version(%s)", ota_available_version.c_str());
+    ad2_printf_host(true, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s)", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus

@@ -638,7 +638,7 @@ void app_main()
     // init host(USB) uart port
     hal_host_uart_init();
 
-    ad2_printf_host(false, AD2_SIGNON, FIRMWARE_VERSION);
+    ad2_printf_host(false, AD2_SIGNON, FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
     ESP_ERROR_CHECK(esp_tls_init_global_ca_store());

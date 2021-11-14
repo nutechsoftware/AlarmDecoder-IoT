@@ -26,6 +26,12 @@
 // @brief Firmware version string.
 #define FIRMWARE_VERSION      "AD2IOT-1093"
 
+#if defined(CONFIG_STDK_IOT_CORE)
+#define FIRMWARE_BUILDFLAGS "stsdk"
+#else
+#define FIRMWARE_BUILDFLAGS "webui"
+#endif
+
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
 
@@ -79,7 +85,7 @@
 #define AD2PFX "!IOT: "
 
 // Signon message
-#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
+#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)\r\n"
 
 // The virtual mount prefix for all file operations.
 #define AD2_MOUNT_POINT "/sdcard"
