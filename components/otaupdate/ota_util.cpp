@@ -125,7 +125,7 @@ static void ota_task_func(void * command)
         buildflags = FIRMWARE_BUILDFLAGS;
     }
 
-    ad2_printf_host(true, "%s Starting OTA with build flags '%s'.", TAG, buildflags.c_str());
+    ad2_printf_host(false, "Starting OTA update with build flags '%s'.\r\n", buildflags.c_str());
 
     esp_err_t ret = ota_https_update_device(buildflags.c_str());
     if (ret != ESP_OK) {
@@ -837,7 +837,7 @@ void ota_init()
  */
 void ota_do_version(char *arg)
 {
-    ad2_printf_host(true, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s)", ota_available_version.c_str());
+    ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus
