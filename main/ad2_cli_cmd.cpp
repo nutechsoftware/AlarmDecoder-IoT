@@ -243,12 +243,12 @@ static void _cli_cmd_ad2source_event(char *string)
 static void _cli_cmd_ad2term_event(char *string)
 {
     ad2_printf_host(false, "Halting command line interface. Send '.' 3 times to break out and return.\r\n");
-    portENTER_CRITICAL(&spinlock);
+    taskENTER_CRITICAL(&spinlock);
     // save the main task state for later restore.
     int save_StopMainTask = g_StopMainTask;
     // set main task to halted.
     g_StopMainTask = 2;
-    portEXIT_CRITICAL(&spinlock);
+    taskEXIT_CRITICAL(&spinlock);
 
     // let other tasks have time to stop.
     vTaskDelay(250 / portTICK_PERIOD_MS);
@@ -348,10 +348,10 @@ static void _cli_cmd_ad2term_event(char *string)
     }
 
     ad2_printf_host(false, "Resuming command line interface threads.\r\n");
-    portENTER_CRITICAL(&spinlock);
+    taskENTER_CRITICAL(&spinlock);
     // restore last state.
     g_StopMainTask = save_StopMainTask;
-    portEXIT_CRITICAL(&spinlock);
+    taskEXIT_CRITICAL(&spinlock);
 }
 
 /**

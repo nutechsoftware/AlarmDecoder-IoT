@@ -642,10 +642,10 @@ void webui_server_task(void *pvParameters)
         } else {
             // network down
             if (!hal_get_network_connected() && server!=nullptr) {
-                portENTER_CRITICAL(&spinlock);
+                taskENTER_CRITICAL(&spinlock);
                 httpd_handle_t ts = server;
                 server = nullptr;
-                portEXIT_CRITICAL(&spinlock);
+                taskEXIT_CRITICAL(&spinlock);
                 err = httpd_stop(ts);
                 if (err != ESP_OK) {
                     ESP_LOGW(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
