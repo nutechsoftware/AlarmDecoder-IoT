@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Partition change to better use the 4MB of storage. Added 44K to NVS config partition and 400K to the two OTA firmware partitions. Existing units should flash using ESP32 flash utility but AFAIK everything is done by partition name so nothing should break for existing units with original partition. Only issue would be if the firmware gets too big but that seems not likely.
 - [X] CORE: Improve cli and improve task control of console. Requires adding FREERTOS_USE_TRACE_FACILITY to config.
 - [X] CORE: Buildflags 'stsdk' or 'webui' automatic and included in version notifications for reference.
 - [X] CORE: More console tidy and useability improvements.
