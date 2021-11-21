@@ -60,6 +60,8 @@ extern "C" {
 
 // global thread control
 extern int g_StopMainTask;
+
+// global critical section handle
 extern portMUX_TYPE spinlock;
 
 // global AlarmDecoder parser class instance
@@ -71,7 +73,10 @@ extern int g_ad2_client_handle;
 // global ad2 connection mode ['S'ocket | 'C'om port]
 extern uint8_t g_ad2_mode;
 
-// global eventgroup for network sync and control.
+// global host console access mutex
+extern SemaphoreHandle_t g_ad2_console_mutex;
+
+// global eventgroup for network sync and control
 extern EventGroupHandle_t g_ad2_net_event_group;
 
 #ifdef __cplusplus

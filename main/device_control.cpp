@@ -840,7 +840,7 @@ void hal_host_uart_init()
     uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
 
     uart_param_config(UART_NUM_0, uart_config);
-    uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_driver_install(UART_NUM_0, MAX_UART_CMD_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
 
     free(uart_config);
 }

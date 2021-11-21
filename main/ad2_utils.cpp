@@ -23,6 +23,7 @@
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "freertos/task.h"
 
 static const char *TAG = "AD2UTIL";
 
@@ -1222,8 +1223,16 @@ void ad2_send(std::string &buf)
  */
 // Track if the terminal line is busy
 static bool line_clear = false;
-int ad2_log_vprintf(const char *fmt, va_list args)
+int ad2_log_vprintf_host(const char *fmt, va_list args)
 {
+    /* Get info on the task */
+    TaskStatus_t xTaskDetails;
+    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
+
+    // wait 500ms for access to the console.
+    if (!ad2_take_host_console(xTaskDetails.xHandle, 500)) {
+        return 0;
+    }
 
     // calculate size and make buffer
     int len = vsnprintf(NULL, 0, fmt, args);
@@ -1273,17 +1282,28 @@ clean_up:
             free(tbuf);
         }
     }
+
+    // release the console
+    ad2_give_host_console(xTaskDetails.xHandle);
+
     return len;
 }
 
 /**
  * @brief Format and send bytes to the host uart.
- *
+ * @param [in]bool prefix
  * @param [in]format const char * format string.
  * @param [in]... variable args
  */
 void ad2_printf_host(bool prefix, const char *fmt, ...)
 {
+    /* Get info on the task */
+    TaskStatus_t xTaskDetails;
+    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
+    // wait 500ms for access to the console.
+    if (!ad2_take_host_console(xTaskDetails.xHandle, 500)) {
+        return;
+    }
     if ( prefix ) {
         if ( !line_clear ) {
             // move to the next line.
@@ -1303,6 +1323,8 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
     std::string out = ad2_string_vaprintf(fmt, args);
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
+    // release the console
+    ad2_give_host_console(xTaskDetails.xHandle);
 }
 
 /**
@@ -1314,11 +1336,22 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
  */
 void ad2_snprintf_host(const char *fmt, size_t size, ...)
 {
+    /* Get info on the task */
+    TaskStatus_t xTaskDetails;
+    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
+
+    // wait 500ms for access to the console.
+    if (!ad2_take_host_console(xTaskDetails.xHandle, 500)) {
+        return;
+    }
+
     va_list args;
     va_start(args, size);
     std::string out = ad2_string_vasnprintf(fmt, size, args);
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
+    // release the console
+    ad2_give_host_console(xTaskDetails.xHandle);
 }
 
 /**
@@ -1650,6 +1683,85 @@ void ad2_set_log_mode(char m)
     }
 }
 
+
+/**
+ * @brief Console access control globals
+ */
+static TaskHandle_t LAST_OWNER = nullptr;
+static int console_locked = false;
+static unsigned long last_lock_time = 0;
+
+/**
+ * @brief return the last time in seconds the console was updated.
+ *
+ * @return unsigned long Monotonic time of last console udpate.
+ */
+unsigned long ad2_host_last_lock_time()
+{
+    return last_lock_time;
+}
+
+/**
+ * @brief Check if the given owner was the last owner
+ * of the host console.
+ *
+ * @param [in]owner TaskHandle_t
+ *
+ * @return int result
+ */
+int ad2_is_host_last(TaskHandle_t owner)
+{
+    int res = false;
+    res = LAST_OWNER == owner;
+    return res;
+}
+
+/**
+ * @brief Take owenrship of the host console.
+ *
+ * @param [in]owner TaskHandle_t
+ * @param [in]wait int time in ms to wait for an exclusive lock.
+ *
+ * @return int result
+ */
+int ad2_take_host_console(TaskHandle_t owner, int wait)
+{
+    int res = false;
+
+    taskENTER_CRITICAL(&spinlock);
+    // if already locked by same owner return success.
+    if (console_locked && LAST_OWNER == owner) {
+        res = true;
+        taskEXIT_CRITICAL(&spinlock);
+        goto done;
+    }
+    taskEXIT_CRITICAL(&spinlock);
+
+    res = xSemaphoreTake(g_ad2_console_mutex, pdMS_TO_TICKS(wait));
+    if (res == pdTRUE) {
+        LAST_OWNER = owner;
+        console_locked = true;
+    }
+done:
+    last_lock_time = AD2Parse.monotonicTime();
+    return res;
+}
+
+/**
+ * @brief Release ownership of the host console.
+ *
+ * @param [in]owner TaskHandle_t
+ *
+ * @return int result
+ */
+int ad2_give_host_console(TaskHandle_t owner)
+{
+    taskENTER_CRITICAL(&spinlock);
+    int res = xSemaphoreGive(g_ad2_console_mutex);
+    console_locked = false;
+    taskEXIT_CRITICAL(&spinlock);
+    return res;
+}
 
 #ifdef __cplusplus
 } // extern "C"

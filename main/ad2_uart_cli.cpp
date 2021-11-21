@@ -245,13 +245,15 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
 }
 
 /**
- * @brief UART CLI task
- * Echo back valid data and allow for simple left/right cursor navigation.
- *   Port: UART0
- *   Receive (Rx) buffer: on
- *   Receive (tx) buffer: off
- *   Flow control: off
- *   Event queue: off
+ * @brief UART command line interface CLI task.
+ * Consume host uart data and provide a simple terminal interface to this device.
+ *
+ * Terminal navigation support:
+ *    UP/DOWN last command/current command navigation.
+ *    BACKSPACE command line edit.
+ *    CTL+C Clear command start new.
+ *
+ *    Echo back valid data and allow for simple left/right cursor navigation.
  *
  * @param [in]pvParameters void * to parameters.
  *
@@ -261,17 +263,20 @@ static void esp_uart_cli_task(void *pvParameters)
 
     // Configure a temporary buffer for the incoming data
     uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
-    uint8_t line[MAX_UART_LINE_SIZE];
-    uint8_t prev_line[MAX_UART_LINE_SIZE];
-    memset(line, 0, MAX_UART_LINE_SIZE);
-    memset(prev_line, 0, MAX_UART_LINE_SIZE);
-    int line_len = 0;
+    uint8_t prev_cmd[MAX_UART_CMD_SIZE];
+    uint8_t _cmd_buffer[MAX_UART_CMD_SIZE];
+    int _cmd_len = 0;
+    memset(_cmd_buffer, 0, MAX_UART_CMD_SIZE);
+    memset(prev_cmd, 0, MAX_UART_CMD_SIZE);
 
     cli_register_command(&help_cmd);
 
+    /* Get info on the task */
+    TaskStatus_t xTaskDetails;
+    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
+
     // break sequence state
     static uint8_t break_count = 0;
-
     while (1) {
 
         // Read data from the UART
@@ -284,107 +289,134 @@ static void esp_uart_cli_task(void *pvParameters)
             continue;
         }
 
-        for (int i = 0; i < len; i++) {
-            switch(rx_buffer[i]) {
-            case '\n':
-                // silently ignore LF only respond to CR
-                break_count = 0;
-                break;
-            case '\r':
-                break_count = 0;
-                ad2_printf_host(false, "\r\n");
-                if (line_len) {
-                    cli_process_command((char *)line);
-                    memcpy(prev_line, line, MAX_UART_LINE_SIZE);
-                    memset(line, 0, MAX_UART_LINE_SIZE);
-                    line_len = 0;
-                }
-                ad2_printf_host(false, PROMPT_STRING);
-                break;
+        // if not last then reset prompt and show current command buffer
+        int last_console_owner = false;
+        taskENTER_CRITICAL(&spinlock);
+        if (ad2_is_host_last(xTaskDetails.xHandle)) {
+            last_console_owner = true;
+        }
+        taskEXIT_CRITICAL(&spinlock);
 
-            case '\b':
-                break_count = 0;
-                //backspace
-                if (line_len > 0) {
-                    ad2_printf_host(false, "\b \b");
-                    line[--line_len] = '\0';
-                }
-                break;
+        // if the console line was taken and its been idle redraw current command.
+        int last_console_time = AD2Parse.monotonicTime() - ad2_host_last_lock_time();
+        if (!last_console_owner && last_console_time > 1) {
+            ad2_printf_host(false, "\r\n", 2);
+            ad2_printf_host(false, PROMPT_STRING);
+            if (_cmd_len) {
+                ad2_snprintf_host( (const char *)_cmd_buffer, _cmd_len);
+            }
+        }
 
-            case 0x03: //Ctrl + C
-                break_count = 0;
-                ad2_printf_host(false, "^C\r\n");
-                memset(line, 0, MAX_UART_LINE_SIZE);
-                line_len = 0;
-                ad2_printf_host(false, PROMPT_STRING);
-                break;
+        if (len) {
+            // lock the console as we spool out the message
+            ad2_take_host_console(xTaskDetails.xHandle, 500);
 
-            case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
-                break_count = 0;
-                if ( rx_buffer[i+1] == 0x5B ) {
-                    switch (rx_buffer[i+2]) {
-                    case 0x41: //UP
-                        memcpy(line, prev_line, MAX_UART_LINE_SIZE);
-                        line_len = strlen((char*)line);
-                        ad2_snprintf_host((const char *)&rx_buffer[i+1], 2);
-                        ad2_printf_host(false, "\r\n");
-                        ad2_printf_host(false, PROMPT_STRING);
-                        ad2_snprintf_host((const char *)line, line_len);
-                        i+=3;
-                        break;
-                    case 0x42: //DOWN - ignore
-                        i+=3;
-                        break;
-                    case 0x43: //right
-                        if (line[line_len+1] != '\0') {
-                            line_len += 1;
-                            ad2_snprintf_host((const char *)&rx_buffer[i], 3);
-                        }
-                        i+=3;
-                        break;
-                    case 0x44: //left
-                        if (line_len > 0) {
-                            line_len -= 1;
-                            ad2_snprintf_host((const char *)&rx_buffer[i], 3);
-                        }
-                        i+=3;
-                        break;
-                    default:
-                        break;
+            for (int i = 0; i < len; i++) {
+                switch(rx_buffer[i]) {
+                case '\n':
+                    // silently ignore LF only respond to CR
+                    break_count = 0;
+                    break;
+                case '\r':
+                    break_count = 0;
+                    ad2_printf_host(false, "\r\n");
+                    if (_cmd_len) {
+                        cli_process_command((char *)_cmd_buffer);
+                        memcpy(prev_cmd, _cmd_buffer, MAX_UART_CMD_SIZE);
+                        memset(_cmd_buffer, 0, MAX_UART_CMD_SIZE);
+                        _cmd_len = 0;
                     }
-                }
-                break;
+                    ad2_printf_host(false, PROMPT_STRING);
+                    break;
 
-            default:
-                // detect a break sequence '...'
-                if (g_StopMainTask == 1 && rx_buffer[i] == '.') {
-                    break_count++;
-                    // clear break state and exit while if break detected
-                    if (break_count > 2) {
-                        // break detected block main task from running and continue.
-                        taskENTER_CRITICAL(&spinlock);
-                        g_StopMainTask = 2;
-                        taskEXIT_CRITICAL(&spinlock);
-                        ad2_printf_host(false, "Startup halted. Use the 'restart' command when finished to start normally.\r\n");
-                        ad2_printf_host(false, PROMPT_STRING);
+                case '\b':
+                    break_count = 0;
+                    //backspace
+                    if (_cmd_len > 0) {
+                        ad2_printf_host( false, "\b \b");
+                        _cmd_buffer[--_cmd_len] = '\0';
+                    }
+                    break;
+
+                case 0x03: //Ctrl + C
+                    break_count = 0;
+                    ad2_printf_host( false, "^C\r\n");
+                    memset(_cmd_buffer, 0, MAX_UART_CMD_SIZE);
+                    _cmd_len = 0;
+                    ad2_printf_host( false, PROMPT_STRING);
+                    break;
+
+                case 0x1B: //arrow keys : 0x1B 0x5B 0x41~44
+                    break_count = 0;
+                    if ( rx_buffer[i+1] == 0x5B ) {
+                        switch (rx_buffer[i+2]) {
+                        case 0x41: //UP
+                            memcpy(_cmd_buffer, prev_cmd, MAX_UART_CMD_SIZE);
+                            _cmd_len = strlen((char*)_cmd_buffer);
+                            ad2_snprintf_host( (const char *)&rx_buffer[i+1], 2);
+                            ad2_printf_host( false, "\r\n");
+                            ad2_printf_host( false, PROMPT_STRING);
+                            ad2_snprintf_host( (const char *)_cmd_buffer, _cmd_len);
+                            i+=3;
+                            break;
+                        case 0x42: //DOWN - ignore
+                            i+=3;
+                            break;
+                        case 0x43: //right
+                            if (_cmd_buffer[_cmd_len+1] != '\0') {
+                                _cmd_len += 1;
+                                ad2_snprintf_host( (const char *)&rx_buffer[i], 3);
+                            }
+                            i+=3;
+                            break;
+                        case 0x44: //left
+                            if (_cmd_len > 0) {
+                                _cmd_len -= 1;
+                                ad2_snprintf_host( (const char *)&rx_buffer[i], 3);
+                            }
+                            i+=3;
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                    break;
+
+                default:
+                    // detect a break sequence '...'
+                    if (g_StopMainTask == 1 && rx_buffer[i] == '.') {
+                        break_count++;
+                        // clear break state and exit while if break detected
+                        if (break_count > 2) {
+                            // break detected block main task from running and continue.
+                            taskENTER_CRITICAL(&spinlock);
+                            g_StopMainTask = 2;
+                            taskEXIT_CRITICAL(&spinlock);
+                            ad2_printf_host( false, "Startup halted. Use the 'restart' command when finished to start normally.\r\n");
+                            ad2_printf_host( false, PROMPT_STRING);
+                            break_count = 0;
+                        }
+                    } else {
                         break_count = 0;
                     }
-                } else {
-                    break_count = 0;
-                }
-                //check whether character is valid
-                if ((rx_buffer[i] >= ' ') && (rx_buffer[i] <= '~')) {
-                    if (line_len >= MAX_UART_LINE_SIZE - 2) {
-                        break;
+                    //check whether character is valid
+                    if ((rx_buffer[i] >= ' ') && (rx_buffer[i] <= '~')) {
+                        if (_cmd_len >= MAX_UART_CMD_SIZE - 2) {
+                            break;
+                        }
+
+                        // print character back
+                        ad2_snprintf_host( (const char *) &rx_buffer[i], 1);
+
+                        _cmd_buffer[_cmd_len++] = rx_buffer[i];
                     }
+                } // switch rx_buffer[i]
+            } //buf while loop
 
-                    // print character back
-                    ad2_snprintf_host((const char *) &rx_buffer[i], 1);
+            // release the console
+            ad2_give_host_console(xTaskDetails.xHandle);
+        }
 
-                    line[line_len++] = rx_buffer[i];
-                }
-            } // switch rx_buffer[i]
-        } //buf while loop
         vTaskDelay(10 / portTICK_PERIOD_MS);
 #if defined(AD2_STACK_REPORT)
 #define EXTRA_INFO_EVERY 1000
@@ -414,11 +446,9 @@ void uart_cli_main()
 
     // Press \n to halt further processing and just enable CLI processing.
     ad2_printf_host(true, "Send '.' three times in the next 5 seconds to stop the init.\r\n");
-    ad2_printf_host(false, PROMPT_STRING);
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
     ad2_printf_host(true, "Starting main task.");
-    ad2_printf_host(false, PROMPT_STRING);
 
 }
 

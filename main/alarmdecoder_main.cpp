@@ -86,7 +86,11 @@ extern "C" {
 */
 int g_StopMainTask = 0;
 
+// Critical section spin lock.
 portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
+
+// global host console access mutex
+extern SemaphoreHandle_t g_ad2_console_mutex = 0;
 
 // global AlarmDecoder parser class instance
 AlarmDecoderParser AD2Parse;
@@ -610,7 +614,7 @@ void init_ad2_uart_client()
                  UART_PIN_NO_CHANGE, // RTS
                  UART_PIN_NO_CHANGE);// CTS
 
-    uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_CMD_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
     free(uart_config);
 
     // Main AlarmDecoderParser:
@@ -621,13 +625,16 @@ void init_ad2_uart_client()
 
 
 /**
- * @brief main() app main entrypoint
+ * @brief AlarmDecoder App main
  */
 void app_main()
 {
 
-    //// AlarmDecoder App main
-    esp_log_set_vprintf(&ad2_log_vprintf);
+    // Create console access mutex.
+    g_ad2_console_mutex = xSemaphoreCreateMutex();
+
+    // Redirect ESP-IDF log to our own handler.
+    esp_log_set_vprintf(&ad2_log_vprintf_host);
 
     // start with log level error.
     esp_log_level_set("*", ESP_LOG_NONE);        // set all components to ERROR level

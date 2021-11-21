@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Improve cli and improve task control of console. Requires adding FREERTOS_USE_TRACE_FACILITY to config.
 - [X] CORE: Buildflags 'stsdk' or 'webui' automatic and included in version notifications for reference.
 - [X] CORE: More console tidy and useability improvements.
 - [X] CORE: Swap portENTER_CRITICAL with taskENTER_CRITICAL. Same idea but correct use.
