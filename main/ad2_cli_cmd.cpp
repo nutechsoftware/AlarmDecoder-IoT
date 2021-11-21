@@ -578,7 +578,7 @@ static struct cli_command cmd_list[] = {
         "    - {value}\r\n"
         "      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n"
         "    - [zone list]\r\n"
-        "      - Comma seperated list of zone numbers associated with this partition for tracking.\r\n"
+        "      - Comma separated list of zone numbers associated with this partition for tracking.\r\n"
         "  - Examples\r\n"
         "    - Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.\r\n"
         "      - ```" AD2_VPART " 0 18 2,3,4```\r\n"

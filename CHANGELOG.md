@@ -6,27 +6,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [X] CORE: Partition change to better use the 4MB of storage. Added 44K to NVS config partition and 400K to the two OTA firmware partitions. Existing units should flash using ESP32 flash utility but AFAIK everything is done by partition name so nothing should break for existing units with original partition. Only issue would be if the firmware gets too big but that seems not likely.
-- [X] CORE: Improve cli and improve task control of console. Requires adding FREERTOS_USE_TRACE_FACILITY to config.
-- [X] CORE: Buildflags 'stsdk' or 'webui' automatic and included in version notifications for reference.
-- [X] CORE: More console tidy and useability improvements.
-- [X] CORE: Swap portENTER_CRITICAL with taskENTER_CRITICAL. Same idea but correct use.
-- [X] CORE: Fix netmode command not being greedy and missing argument if it has a space such as a password :)
-- [X] CORE: Continued removal of verbose logging.
-- [X] CORE: More prefixes added to HOST uart port messages.
-- [X] CORE: Improve help on vpart command.
-- [X] MQTT: Add address_mask_filter to partition state.
-- [X] CORE: set ESP_LOG to call internal ad2_log_vprintf for log PREFIX formatting. Added prefix to usb host output calls.
-- [X] CORE: Remove ON_MESSAGE debug verbose dump added json state dump log only on alarm partition state change.
-- [X] CORE: Add ```address_mask_filter``` to ad2_get_partition_state_json and ad2_get_partition_zone_alerts_json as ```mask```.
-- [X] CORE: WIP. Add api callback for esp32 log output.
-- [X] CORE: Improve error handing on ad2_set nvs functions.
-- [X] CORE: Bump version, turn off stack event logs by default and add prefix to output messages for consistency
-- [X] CORE: Add  ```factory-reset``` command to clear the ```nvs``` partition and reboot.
-- [X] API: Fix mask in virtual partition not being updated on new events.
-- [X] MQTT: Add publish Contact ID event notifications to the topic ```ad2iot/<device id>/cid```. Remove excessive event logging used for development.
-- [X] TWILIO & PUSHOVER: Modify virtual switches to allow for multiple notification slots per event. This makes it easy to have a single event both CALL and send an email using two notification slots. Or it could notify 10 people over email etc.
-- [X] CORE: Some glitch with writing to NV causing ESP_ERR_NVS_NOT_ENOUGH_SPACE but plenty exists. Solution delete before save.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
@@ -51,6 +30,40 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
+
+## [1.0.9 P3] - 2021-11-22 Sean Mathews - coder @f34rdotcom
+### Added
+  - New command ```factory-reset``` to clear NVS config partition.
+  - Show panel state change JSON on CLI.
+### Changed
+  - Partition refactor to fill 4MB flash adding configuration and firmware storage space.
+  - Refactor CLI to reduce noise and make it easier to use.
+  - Pushover & Twilio allow for multiple API calls from single virtual switch event. Ex. Email + SMS Text.
+  - Automatic selection of build flags for ```upgrade``` command to use current build.
+  - ````version``` command now shows build flags.
+### Change log
+- [X] SM - CORE: Update README.MD commands from help and some small text changes.
+- [X] SM - CORE: Partition change to better use the 4MB of storage. Added 44K to NVS config partition and 400K to the two OTA firmware partitions. Existing units should flash using ESP32 flash utility but AFAIK everything is done by partition name so nothing should break for existing units with original partition. Only issue would be if the firmware gets too big but that seems not likely.
+- [X] SM - CORE: Improve cli and improve task control of console. Requires adding FREERTOS_USE_TRACE_FACILITY to config.
+- [X] SM - CORE: Buildflags 'stsdk' or 'webui' automatic and included in version notifications for reference.
+- [X] SM - CORE: More console tidy and useability improvements.
+- [X] SM - CORE: Swap portENTER_CRITICAL with taskENTER_CRITICAL. Same idea but correct use.
+- [X] SM - CORE: Fix netmode command not being greedy and missing argument if it has a space such as a password :)
+- [X] SM - CORE: Continued removal of verbose logging.
+- [X] SM - CORE: More prefixes added to HOST uart port messages.
+- [X] SM - CORE: Improve help on vpart command.
+- [X] SM - MQTT: Add address_mask_filter to partition state.
+- [X] SM - CORE: set ESP_LOG to call internal ad2_log_vprintf for log PREFIX formatting. Added prefix to usb host output calls.
+- [X] SM - CORE: Remove ON_MESSAGE debug verbose dump added json state dump log only on alarm partition state change.
+- [X] SM - CORE: Add ```address_mask_filter``` to ad2_get_partition_state_json and ad2_get_partition_zone_alerts_json as ```mask```.
+- [X] SM - CORE: WIP. Add api callback for esp32 log output.
+- [X] SM - CORE: Improve error handing on ad2_set nvs functions.
+- [X] SM - CORE: Bump version, turn off stack event logs by default and add prefix to output messages for consistency
+- [X] SM - CORE: Add  ```factory-reset``` command to clear the ```nvs``` partition and reboot.
+- [X] SM - API: Fix mask in virtual partition not being updated on new events.
+- [X] SM - MQTT: Add publish Contact ID event notifications to the topic ```ad2iot/<device id>/cid```. Remove excessive event logging used for development.
+- [X] SM - TWILIO & PUSHOVER: Modify virtual switches to allow for multiple notification slots per event. This makes it easy to have a single event both CALL and send an email using two notification slots. Or it could notify 10 people over email etc.
+- [X] SM - CORE: Some glitch with writing to NV causing ESP_ERR_NVS_NOT_ENOUGH_SPACE but plenty exists. Solution delete before save.
 
 ## [1.0.9 P2] - 2021-10-17 Sean Mathews - coder @f34rdotcom
 Improve BEEP and EXIT tracking and fixed ad2term reset option.

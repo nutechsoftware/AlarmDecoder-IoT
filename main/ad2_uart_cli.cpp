@@ -309,7 +309,7 @@ static void esp_uart_cli_task(void *pvParameters)
 
         if (len) {
             // lock the console as we spool out the message
-            ad2_take_host_console(xTaskDetails.xHandle, 500);
+            ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME);
 
             for (int i = 0; i < len; i++) {
                 switch(rx_buffer[i]) {

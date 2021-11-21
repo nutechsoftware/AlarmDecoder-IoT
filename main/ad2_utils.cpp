@@ -801,7 +801,7 @@ void ad2_set_nv_arg(const char *key, const char *value)
 
 
 /**
- * @brief Copy the Nth space seperated word from a string.
+ * @brief Copy the Nth space separated word from a string.
  *
  * @param dest pointer to std::string for output
  * @param [in]src pointer to input bytes
@@ -1230,7 +1230,7 @@ int ad2_log_vprintf_host(const char *fmt, va_list args)
     vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
 
     // wait 500ms for access to the console.
-    if (!ad2_take_host_console(xTaskDetails.xHandle, 500)) {
+    if (!ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME)) {
         return 0;
     }
 
@@ -1301,7 +1301,7 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
     TaskStatus_t xTaskDetails;
     vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
     // wait 500ms for access to the console.
-    if (!ad2_take_host_console(xTaskDetails.xHandle, 500)) {
+    if (!ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME)) {
         return;
     }
     if ( prefix ) {
@@ -1341,7 +1341,7 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
     vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
 
     // wait 500ms for access to the console.
-    if (!ad2_take_host_console(xTaskDetails.xHandle, 500)) {
+    if (!ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME)) {
         return;
     }
 
