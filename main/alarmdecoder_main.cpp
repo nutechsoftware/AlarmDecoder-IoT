@@ -128,8 +128,6 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  */
 void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-
     // match "Press *  to show faults" or "Hit * for faults" and send * to get zone list.
     // FIXME: Multi Language support.
     static unsigned long _last_faults_alert = 0;
@@ -142,7 +140,7 @@ void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void 
                 if ( _now - _last_faults_alert > 5) {
                     _last_faults_alert = 0;
                     std::string msg = ad2_string_printf("K%02i%s", s->primary_address, "*");
-                    ESP_LOGI(TAG, "MESSAGE_CB: sending '%s' for zone fault report.", msg.c_str());
+                    ad2_printf_host(true, "Sending '*' for zone report using address %i", s->primary_address);
                     ad2_send(msg);
                 }
             } else {
@@ -155,7 +153,7 @@ void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void 
         }
 
     }
-#if 1
+#if 0
 #define ON_MESS_EXTRA_INFO_EVERY 10
     static int extra_info = ON_MESS_EXTRA_INFO_EVERY;
     if(!--extra_info) {
@@ -830,7 +828,6 @@ void app_main()
 
 #if 0 // FIXME add build switch for release builds.
     // AlarmDecoder callback wire up for testing.
-    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
     AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
@@ -841,6 +838,7 @@ void app_main()
     AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
 #else
     // Subscribe standard AlarmDecoder events
+    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_ARM, ad2_on_state_change, (void *)ON_ARM);
     AD2Parse.subscribeTo(ON_DISARM, ad2_on_state_change, (void *)ON_DISARM);
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_on_state_change, (void *)ON_CHIME_CHANGE);

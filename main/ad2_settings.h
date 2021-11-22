@@ -85,7 +85,7 @@
 #define AD2PFX "!IOT: "
 
 // Signon message
-#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)\r\n"
+#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)"
 
 // The virtual mount prefix for all file operations.
 #define AD2_MOUNT_POINT "/sdcard"

@@ -445,7 +445,7 @@ void uart_cli_main()
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", 1024*5, NULL, tskIDLE_PRIORITY+2, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    ad2_printf_host(true, "Send '.' three times in the next 5 seconds to stop the init.\r\n");
+    ad2_printf_host(true, "Send '.' three times in the next 5 seconds to stop the init.");
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
     ad2_printf_host(true, "Starting main task.");
