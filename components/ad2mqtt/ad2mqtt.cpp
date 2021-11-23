@@ -70,9 +70,9 @@ static std::string mqttclient_UUID;
 static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 
 // Default MQTT message settings excluding LWT.
-#define MQTT_DEF_QOS    1
-#define MQTT_DEF_RETAIN 1
-#define MQTT_DEF_STORE  0
+#define MQTT_DEF_QOS    1 // AT Least Once
+#define MQTT_DEF_RETAIN 1 // Retain
+#define MQTT_DEF_STORE  0 // No local storage
 
 // LOG settings
 //#define MQTT_EVENT_LOGGING

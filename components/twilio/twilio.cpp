@@ -33,6 +33,7 @@ static const char *TAG = "TWILIO";
 #include "alarmdecoder_main.h"
 
 // specific includes
+#include <fmt/core.h>
 
 //#define DEBUG_TWILIO
 #define AD2_DEFAULT_TWILIO_SLOT 0
@@ -50,6 +51,7 @@ static const char *TAG = "TWILIO";
 #define TWILIO_FROM_SUBCMD    "from"
 #define TWILIO_TO_SUBCMD      "to"
 #define TWILIO_TYPE_SUBCMD    "type"
+#define TWILIO_FORMAT_SUBCMD  "format"
 #define TWILIO_SWITCH_SUBCMD  "switch"
 
 #define MAX_SEARCH_KEYS 9
@@ -113,6 +115,7 @@ public:
     std::string token;
     std::string from;
     std::string to;
+    std::string format;
     std::string message;
     std::string url;
     std::string post;
@@ -155,9 +158,16 @@ static void _build_twilio_call_post(esp_http_client_handle_t client, request_mes
     auth_header = "Basic " + ad2_make_basic_auth_string(r->sid, r->token);
     esp_http_client_set_header(client, "Authorization", auth_header.c_str());
 
+    // Build the Twiml message using the format and message as the arg
+    // TODO: Multiple args by splitting r->message using , or |
+    std::string twiml = fmt::format(r->format, r->message);
+#if defined(DEBUG_TWILIO)
+        ESP_LOGI(TAG, "Sending Twiml message: %s", twiml.c_str());
+#endif
+
     // Set post body
     r->post = "To=" + ad2_urlencode(r->to) + "&From=" + ad2_urlencode(r->from) + \
-              "&Twiml=" + ad2_urlencode(r->message);
+              "&Twiml=" + ad2_urlencode(twiml);
 
     // does not copy data just a pointer so we have to maintain memory.
     err = esp_http_client_set_post_field(client, r->post.c_str(), r->post.length());
@@ -403,11 +413,6 @@ void on_search_match_cb_tw(std::string *msg, AD2VirtualPartitionState *s, void *
 
         // load our settings for this event type.
 
-        // save the [type] : Used to determin delivery using sendgrid or twilio servers.
-        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TYPE_SUBCMD);
-        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->type);
-        r->type.resize(1);
-
         // save the {sid} : twilio api sid
         nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_SID_SUBCMD);
         ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->sid);
@@ -423,6 +428,15 @@ void on_search_match_cb_tw(std::string *msg, AD2VirtualPartitionState *s, void *
         // save the {to} : twilio api to
         nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TO_SUBCMD);
         ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->to);
+
+        // save the [type] : Used to determin delivery using sendgrid or twilio servers.
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_TYPE_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->type);
+        r->type.resize(1);
+
+        // save the {format} : output format string
+        nvkey = std::string(TWILIO_CFG_PREFIX) + std::string(TWILIO_FORMAT_SUBCMD);
+        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->format);
 
         // save the message
         r->message = es->out_message;
@@ -501,6 +515,7 @@ enum {
     TWILIO_FROM_SUBCMD_ID,
     TWILIO_TO_SUBCMD_ID,
     TWILIO_TYPE_SUBCMD_ID,
+    TWILIO_FORMAT_SUBCMD_ID,
     TWILIO_SWITCH_SUBCMD_ID
 };
 char * TWILIO_SUBCMDS [] = {
@@ -509,6 +524,7 @@ char * TWILIO_SUBCMDS [] = {
     (char*)TWILIO_FROM_SUBCMD,
     (char*)TWILIO_TO_SUBCMD,
     (char*)TWILIO_TYPE_SUBCMD,
+    (char*)TWILIO_FORMAT_SUBCMD,
     (char*)TWILIO_SWITCH_SUBCMD,
     0 // EOF
 };
@@ -535,7 +551,12 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, char *string)
     }
     if (slot >= 0) {
         if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
-            ad2_remove_ws(buf);
+
+            // don't remove ws from format string.
+            if (subcmd.compare(TWILIO_FORMAT_SUBCMD) != 0) {
+                ad2_remove_ws(buf);
+            }
+
             ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
             ad2_printf_host(false, "Setting '%s' value '%s' finished.\r\n", subcmd.c_str(), buf.c_str());
         } else {
@@ -805,9 +826,10 @@ static void _cli_cmd_twilio_command_router(char *string)
             switch(i) {
             case TWILIO_SID_SUBCMD_ID:   // 'sid' sub command
             case TWILIO_TOKEN_SUBCMD_ID: // 'token' sub command
-            case TWILIO_TYPE_SUBCMD_ID:  // 'to' sub command
-            case TWILIO_FROM_SUBCMD_ID:  // 'type' sub command
-            case TWILIO_TO_SUBCMD_ID:  // 'from' sub command
+            case TWILIO_FROM_SUBCMD_ID:  // 'from' sub command
+            case TWILIO_TO_SUBCMD_ID:  // 'to' sub command
+            case TWILIO_TYPE_SUBCMD_ID:  // 'type' sub command
+            case TWILIO_FORMAT_SUBCMD_ID:  // 'format' sub command
                 _cli_cmd_twilio_event_generic(subcmd, string);
                 break;
             case TWILIO_SWITCH_SUBCMD_ID:
@@ -850,6 +872,11 @@ static struct cli_command twilio_cmd_list[] = {
         "    - {type}: [M|C|E]\r\n"
         "      - Notification type [M]essage, [C]all, [E]mail.\r\n"
         "  - Example: ```" TWILIO_COMMAND " " TWILIO_TYPE_SUBCMD " 0 M```\r\n"
+        "- Sets the output format for a given notification slot.\r\n"
+        "  - ```" TWILIO_COMMAND " " TWILIO_FORMAT_SUBCMD " {slot} {string}```\r\n"
+        "    - {string}: Format string used to generate final output from switch output args string.\r\n"
+        "      -  Placeholder-based formatting syntax.\r\n"
+        "  - Example: ```" TWILIO_COMMAND " " TWILIO_FORMAT_SUBCMD " 2 <Response><Say>{0}</Say><Say>{0}</Say></Response>```\r\n"
         "- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n"
         "  - ```" TWILIO_COMMAND " " TWILIO_SWITCH_SUBCMD " {slot} {setting} {arg1} [arg2]```\r\n"
         "    - {slot}\r\n"
@@ -876,9 +903,9 @@ static struct cli_command twilio_cmd_list[] = {
         "      - [F] Trouble state regex search string list management.\r\n"
         "        - {arg1}: Index # 1-8\r\n"
         "        - {arg2}: Regex string for this slot or empty  string to clear\r\n"
-        "      - [o] Open output format string.\r\n"
-        "      - [c] Close output format string.\r\n"
-        "      - [f] Trouble output format string.\r\n\r\n", _cli_cmd_twilio_command_router
+        "      - [o] Open output string.\r\n"
+        "      - [c] Close output string.\r\n"
+        "      - [f] Trouble output string.\r\n\r\n", _cli_cmd_twilio_command_router
     },
 };
 

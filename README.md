@@ -381,6 +381,11 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     - {type}: [M|C|E]
       - Notification type [M]essage, [C]all, [E]mail.
   - Example: ```twilio type 0 M```
+- Sets the output format for a given notification slot.
+  - ```twilio format {slot} {string}```
+    - {string}: Format string used to generate final output from switch output args string.
+      -  Placeholder-based formatting syntax.
+  - Example: ```twilio format 2 <Response><Say>{0}</Say><Say>{0}</Say></Response>```
 - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
   - ```twilio switch {slot} {setting} {arg1} [arg2]```
     - {slot}
@@ -407,9 +412,9 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
       - [F] Trouble state regex search string list management.
         - {arg1}: Index # 1-8
         - {arg2}: Regex string for this slot or empty  string to clear
-      - [o] Open output format string.
-      - [c] Close output format string.
-      - [f] Trouble output format string.
+      - [o] Open output string.
+      - [c] Close output string.
+      - [f] Trouble output string.
 
 - Example cli commands to setup a complete virtual contact.
   - Configure notification profiles..
@@ -420,6 +425,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     twilio from 0 foo@example.com
     twilio to 0 bar@example.com
     twilio type 0 E
+    twilio format 0 {0}
 
     # Profile #1 SMS/Text message using api.twilio.com
     twilio sid 1 Abcdefg012345....
@@ -427,6 +433,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     twilio from 1 15555551234
     twilio to 1 15555551234
     twilio type 1 M
+    twilio format 1 {0}
 
     # Profile #2 Voice Twiml call using api.twilio.com
     twilio sid 2 Abcdefg012345....
@@ -434,6 +441,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     twilio from 2 15555551234
     twilio to 2 15555551234
     twilio type 2 C
+    twilio format 2 <Response><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say></Response>
     ```
   - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and TROUBLE REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
     ```console
@@ -477,9 +485,9 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     # Set 'CLOSED' state REGEX Filter [C] #01.
     twilio switch 2 C 1 FIRE OFF
     # Set output format string for 'OPEN' state [o].
-    twilio switch 2 o <Response><Say>Notification alert FIRE ALARM</Say></Response>
+    twilio switch 2 o FIRE ALARM ACTIVE
     # Set output format string for 'CLOSED' state [c].
-    twilio switch 2 c <Response><Say>Notification alert FIRE CLEAR</Say></Response>
+    twilio switch 2 c FIRE ALARM CLEAR
     ```
   - Send notifications from profile in slot #2 in the example a Call profile when EVENT message "POWER BATTERY" or "POWER AC" are received. Use a Twiml string to define how the call is processed. This can include extensive external logic calling multiple people or just say something and hangup.
     ```console
@@ -497,9 +505,9 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     # Set 'CLOSED' state REGEX Filter [C] #01.
     twilio switch 3 C 1 POWER BATTERY
     # Set output format string for 'OPEN' state [o].
-    twilio switch 3 o <Response><Say>Notification alert ON MAIN AC POWER</Say></Response>
+    twilio switch 3 o ON MAIN AC POWER
     # Set output format string for 'CLOSED' state [c].
-    twilio switch 3 c <Response><Say>Notification alert ON BATTERY BACKUP POWER</Say></Response>
+    twilio switch 3 c ON BATTERY BACKUP POWER
     ```
   - Search verbs
     ```
@@ -521,7 +529,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
 - Implementation notes:
   - Each client connects under the root topic of ```ad2iot``` with a sub topic level of the devices UUID.
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX```
-  - LWT is used to indicate ```online```/```offline``` ```state``` of client using ```status``` topic below the device root topic.
+  - Last Will and Testament (LWT) is used to indicate ```online```/```offline``` ```state``` of client using ```status``` topic below the device root topic.
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/status = {"state": "online"}```
   - Device specific info is in the ```info``` topic below the device root topic.
   - Partition state tracking with minimal traffic only when state changes. Each configured partition will be under the ```partitions``` topic below the device root topic.

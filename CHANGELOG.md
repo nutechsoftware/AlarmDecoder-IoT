@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
   - New command ```factory-reset``` to clear NVS config partition.
   - Show panel state change JSON on CLI.
+  - Twilio New ```format``` sub command using https://github.com/fmtlib/fmt.
 ### Changed
   - Partition refactor to fill 4MB flash adding configuration and firmware storage space.
   - Refactor CLI to reduce noise and make it easier to use.
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Automatic selection of build flags for ```upgrade``` command to use current build.
   - ````version``` command now shows build flags.
 ### Change log
+- [X] SM - TWILIO: With the ability to use multiple notification slots with notification (email, sms, call) needing different formatting it is necessary to add a new field 'format' to each notification slot.
 - [X] SM - CORE: Update README.MD commands from help and some small text changes.
 - [X] SM - CORE: Partition change to better use the 4MB of storage. Added 44K to NVS config partition and 400K to the two OTA firmware partitions. Existing units should flash using ESP32 flash utility but AFAIK everything is done by partition name so nothing should break for existing units with original partition. Only issue would be if the firmware gets too big but that seems not likely.
 - [X] SM - CORE: Improve cli and improve task control of console. Requires adding FREERTOS_USE_TRACE_FACILITY to config.

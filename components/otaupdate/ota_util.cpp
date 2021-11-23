@@ -738,7 +738,7 @@ static void ota_polling_task_func(void *arg)
 
         vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
 
-        ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
+        ESP_LOGI(TAG, "Starting check new version with current version '%s'-%s", FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
         if (ota_task_handle != NULL) {
             ESP_LOGI(TAG, "Device is currently updating skipping checks for now.");
