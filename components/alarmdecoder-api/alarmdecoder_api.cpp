@@ -1228,8 +1228,12 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                         }
                                     }
                                 } else
-                                    // If _not_ ready and _not_ system message update the zone state.
-                                    if (!ADEMCO_SYS_MESSAGE && ad2ps->system_specific == 0 && extra_sys_4 != 0xff) {
+                                    // _not_ ready _not_ special cases.
+                                    if (!ADEMCO_SYS_MESSAGE // not system message
+                                        && ad2ps->system_specific == 0
+                                        && extra_sys_4 != 0xff // avoid special flag
+                                        && !ad2ps->exit_now) // not exit countdown
+                                    {
                                         // get the numeric section and use as a zone #.
                                         // conver base 16 to base 10 if needed.
                                         bool _ishex = std::count_if(ad2ps->last_numeric_message.begin(),

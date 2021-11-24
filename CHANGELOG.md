@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Automatic selection of build flags for ```upgrade``` command to use current build.
   - ````version``` command now shows build flags.
 ### Change log
+- [X] SM - API: Ademco exit countdown timer trigger zone events. Lots of zones good test :) Exclude exit messages.
 - [X] SM - CORE: CLI add DELETE for some terminal configurations.
 - [X] SM - TWILIO: With the ability to use multiple notification slots with notification (email, sms, call) needing different formatting it is necessary to add a new field 'format' to each notification slot.
 - [X] SM - CORE: Update README.MD commands from help and some small text changes.
