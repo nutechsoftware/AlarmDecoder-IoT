@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Automatic selection of build flags for ```upgrade``` command to use current build.
   - ````version``` command now shows build flags.
 ### Change log
+- [X] SM - CORE: CLI add DELETE for some terminal configurations.
 - [X] SM - TWILIO: With the ability to use multiple notification slots with notification (email, sms, call) needing different formatting it is necessary to add a new field 'format' to each notification slot.
 - [X] SM - CORE: Update README.MD commands from help and some small text changes.
 - [X] SM - CORE: Partition change to better use the 4MB of storage. Added 44K to NVS config partition and 400K to the two OTA firmware partitions. Existing units should flash using ESP32 flash utility but AFAIK everything is done by partition name so nothing should break for existing units with original partition. Only issue would be if the firmware gets too big but that seems not likely.

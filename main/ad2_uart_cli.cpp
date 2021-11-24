@@ -35,6 +35,8 @@ static const char *TAG = "UARTCLI";
 // specific includes
 #include "ad2_cli_cmd.h"
 
+//#define DEBUG_CLI
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -312,6 +314,9 @@ static void esp_uart_cli_task(void *pvParameters)
             ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME);
 
             for (int i = 0; i < len; i++) {
+#if defined(DEBUG_CLI)
+                ESP_LOGI(TAG, "%s: chr(%.2x)", __func__, rx_buffer[i]);
+#endif
                 switch(rx_buffer[i]) {
                 case '\n':
                     // silently ignore LF only respond to CR
@@ -329,7 +334,8 @@ static void esp_uart_cli_task(void *pvParameters)
                     ad2_printf_host(false, PROMPT_STRING);
                     break;
 
-                case '\b':
+                case '\b': //backspace
+                case 0x7f: //delete
                     break_count = 0;
                     //backspace
                     if (_cmd_len > 0) {
