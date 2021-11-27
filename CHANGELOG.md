@@ -15,11 +15,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
 - [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
-- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
-- [ ] CORE: TODO: Ethernet hardware enable.
 - [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
@@ -42,7 +40,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - Pushover & Twilio allow for multiple API calls from single virtual switch event. Ex. Email + SMS Text.
   - Automatic selection of build flags for ```upgrade``` command to use current build.
   - ````version``` command now shows build flags.
+  - API ZONE_TRACKING fix countdown messages reporting as zone faults.
 ### Change log
+- [X] SM - WEBUI: Bad var name choice no function change.
 - [X] SM - API: Ademco exit countdown timer trigger zone events. Lots of zones good test :) Exclude exit messages.
 - [X] SM - CORE: CLI add DELETE for some terminal configurations.
 - [X] SM - TWILIO: With the ability to use multiple notification slots with notification (email, sms, call) needing different formatting it is necessary to add a new field 'format' to each notification slot.

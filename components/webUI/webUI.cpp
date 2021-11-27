@@ -701,10 +701,12 @@ static void _cli_cmd_webui_event(char *string)
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
+                {
                 // show contents of this slot
-                int i;
-                ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &i);
-                ad2_printf_host(false, "WebUI daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                int en = 0;
+                ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &en);
+                ad2_printf_host(false, "WebUI daemon is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
+                }
                 break;
             /**
              * WebUI daemon IP/CIDR ACL list.
