@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - ````version``` command now shows build flags.
   - API ZONE_TRACKING fix countdown messages reporting as zone faults.
 ### Change log
+- [X] SM - MISC: style fixes from prior work on this release.
+- [X] SM - CORE: Bump stack for AD2 uart parser to 8k. ser2sock_client_task already 8k. These task calls notifications and needs more!
+- [X] SM - WEBUI & CORE: Do not call subscribe after parser is running it is not thread safe. Prevent parsing of AD2* messages until all inits are done.
 - [X] SM - WEBUI: Bad var name choice no function change.
 - [X] SM - API: Ademco exit countdown timer trigger zone events. Lots of zones good test :) Exclude exit messages.
 - [X] SM - CORE: CLI add DELETE for some terminal configurations.

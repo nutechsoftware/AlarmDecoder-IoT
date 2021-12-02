@@ -162,7 +162,7 @@ static void _build_twilio_call_post(esp_http_client_handle_t client, request_mes
     // TODO: Multiple args by splitting r->message using , or |
     std::string twiml = fmt::format(r->format, r->message);
 #if defined(DEBUG_TWILIO)
-        ESP_LOGI(TAG, "Sending Twiml message: %s", twiml.c_str());
+    ESP_LOGI(TAG, "Sending Twiml message: %s", twiml.c_str());
 #endif
 
     // Set post body

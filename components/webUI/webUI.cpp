@@ -620,20 +620,6 @@ void webui_server_task(void *pvParameters)
                 httpd_register_uri_handler(server, &ad2ws_server);
 #endif
                 httpd_register_uri_handler(server, &file_server);
-                // Subscribe to AlarmDecoder events
-                AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
-                AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
-                AD2Parse.subscribeTo(ON_CHIME_CHANGE, webui_on_state_change, (void *)ON_CHIME_CHANGE);
-                AD2Parse.subscribeTo(ON_BEEPS_CHANGE, webui_on_state_change, (void *)ON_BEEPS_CHANGE);
-                AD2Parse.subscribeTo(ON_FIRE_CHANGE, webui_on_state_change, (void *)ON_FIRE_CHANGE);
-                AD2Parse.subscribeTo(ON_POWER_CHANGE, webui_on_state_change, (void *)ON_POWER_CHANGE);
-                AD2Parse.subscribeTo(ON_READY_CHANGE, webui_on_state_change, (void *)ON_READY_CHANGE);
-                AD2Parse.subscribeTo(ON_LOW_BATTERY, webui_on_state_change, (void *)ON_LOW_BATTERY);
-                AD2Parse.subscribeTo(ON_ALARM_CHANGE, webui_on_state_change, (void *)ON_ALARM_CHANGE);
-                AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, webui_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
-                AD2Parse.subscribeTo(ON_EXIT_CHANGE, webui_on_state_change, (void *)ON_EXIT_CHANGE);
-                // SUbscribe to ON_ZONE_CHANGE events
-                AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
             } else {
                 // error long 10s sleep.
                 ESP_LOGW(TAG, "Error calling httpd_start [%s]", esp_err_to_name(err));
@@ -702,10 +688,10 @@ static void _cli_cmd_webui_event(char *string)
                 }
 
                 {
-                // show contents of this slot
-                int en = 0;
-                ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &en);
-                ad2_printf_host(false, "WebUI daemon is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
+                    // show contents of this slot
+                    int en = 0;
+                    ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &en);
+                    ad2_printf_host(false, "WebUI daemon is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
                 }
                 break;
             /**
@@ -794,6 +780,22 @@ void webui_init(void)
     }
 
     ad2_printf_host(true, "%s: Init done. Service starting.", TAG);
+
+    // Subscribe to AlarmDecoder events
+    AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
+    AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, webui_on_state_change, (void *)ON_CHIME_CHANGE);
+    AD2Parse.subscribeTo(ON_BEEPS_CHANGE, webui_on_state_change, (void *)ON_BEEPS_CHANGE);
+    AD2Parse.subscribeTo(ON_FIRE_CHANGE, webui_on_state_change, (void *)ON_FIRE_CHANGE);
+    AD2Parse.subscribeTo(ON_POWER_CHANGE, webui_on_state_change, (void *)ON_POWER_CHANGE);
+    AD2Parse.subscribeTo(ON_READY_CHANGE, webui_on_state_change, (void *)ON_READY_CHANGE);
+    AD2Parse.subscribeTo(ON_LOW_BATTERY, webui_on_state_change, (void *)ON_LOW_BATTERY);
+    AD2Parse.subscribeTo(ON_ALARM_CHANGE, webui_on_state_change, (void *)ON_ALARM_CHANGE);
+    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, webui_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+    AD2Parse.subscribeTo(ON_EXIT_CHANGE, webui_on_state_change, (void *)ON_EXIT_CHANGE);
+    // SUbscribe to ON_ZONE_CHANGE events
+    AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
+
     xTaskCreate(&webui_server_task, "webui_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 

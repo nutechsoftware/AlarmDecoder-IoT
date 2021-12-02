@@ -86,6 +86,9 @@ extern "C" {
 */
 int g_StopMainTask = 0;
 
+// all module init have finished no more calls to AlarmDecoderParser::subscribeTo
+int g_init_done = 0;
+
 // Critical section spin lock.
 portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
 
@@ -367,7 +370,8 @@ static void ad2uart_client_task(void *pvParameters)
 
     while (1) {
         // do not process if main halted or network disconnected.
-        if (!g_StopMainTask && hal_get_network_connected()) {
+        // TODO: Cleanup continue to make it less network dependent.
+        if (g_init_done && !g_StopMainTask && hal_get_network_connected()) {
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
@@ -513,7 +517,7 @@ static void ser2sock_client_task(void *pvParameters)
             if (_ser2sock_client_connect()) {
                 while (1) {
                     // do not process if main halted.
-                    if (!g_StopMainTask) {
+                    if (g_init_done && !g_StopMainTask) {
                         uint8_t rx_buffer[128];
                         int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
                         // test if error occurred
@@ -617,7 +621,8 @@ void init_ad2_uart_client()
 
     // Main AlarmDecoderParser:
     // 20210815SM: 1220 bytes stack free.
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*6, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    // 20211201SM: expand to 8k. Main task for everything.
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*8, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
 
 }
 
@@ -910,6 +915,9 @@ void app_main()
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
 #endif
+
+    // Init finished parsing data from the AD2* can now safely start.
+    g_init_done = true;
 
 }
 
