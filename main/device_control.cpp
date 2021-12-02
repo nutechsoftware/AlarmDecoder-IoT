@@ -35,6 +35,7 @@ static const char *TAG = "UARTCLI";
 #include "esp_wifi.h"
 #include "driver/sdmmc_host.h"
 #include "esp_eth.h"
+#include "nvs_flash.h"
 
 // specific includes
 
@@ -325,7 +326,18 @@ void hal_gpio_init(void)
 void hal_restart()
 {
     ESP_LOGE(TAG, "%s: rebooting now.", __func__);
-    ad2_printf_host("Restarting now\r\n");
+    ad2_printf_host(true, "Restarting now");
+    esp_restart();
+}
+
+/**
+ * @brief restart the hardware
+ */
+void hal_factory_reset()
+{
+    ESP_LOGE(TAG, "%s: Restting to factory settings.", __func__);
+    nvs_flash_erase();
+    ad2_printf_host(true, "Restarting now");
     esp_restart();
 }
 
@@ -786,7 +798,6 @@ void hal_init_eth(std::string &args)
 void hal_set_wifi_hostname(const char *hostname)
 {
     esp_err_t ret;
-    ESP_LOGI(TAG, "setting eth hostname to '%s'", hostname);
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
 #else
@@ -803,7 +814,6 @@ void hal_set_wifi_hostname(const char *hostname)
 void hal_set_eth_hostname(const char *hostname)
 {
     esp_err_t ret;
-    ESP_LOGI(TAG, "setting eth hostname to '%s'", hostname);
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
     ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH, hostname);
 #else
@@ -830,12 +840,13 @@ void hal_host_uart_init()
     uart_config->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
 
     uart_param_config(UART_NUM_0, uart_config);
-    uart_driver_install(UART_NUM_0, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_driver_install(UART_NUM_0, MAX_UART_CMD_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
 
     free(uart_config);
 }
 
 /** Event handler for IP_EVENT_ETH_GOT_IP */
+//#define DEBUG_IP_EVENT
 void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
                            int32_t event_id, void *event_data)
 {
@@ -843,9 +854,10 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
     std::string IP = "";
     std::string MASK = "";
     std::string GW = "";
-
+#if defined(DEBUG_IP_EVENT)
     ESP_LOGI(TAG, "Network assigned new address");
     ESP_LOGI(TAG, "~~~~~~~~~~~");
+#endif
 #if CONFIG_LWIP_IPV6
     if (event_id == IP_EVENT_GOT_IP6) {
         ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
@@ -867,9 +879,13 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
 #if CONFIG_LWIP_IPV6
     }
 #endif
-
+#if defined(DEBUG_IP_EVENT)
     ESP_LOGI(TAG, "INTERFACE: %s", IF.c_str());
     ESP_LOGI(TAG, "IP: %s", IP.c_str());
+#endif
+    // Notify CLI of the new hardware MAC and IP address for easy management.
+    ad2_printf_host(true, "NEW IP ADDRESS: if(%s) addr(%s) mask(%s) gw(%s)", IF.c_str(), IP.c_str(), MASK.c_str(), GW.c_str());
+#if defined(DEBUG_IP_EVENT)
     if (MASK.length()) {
         ESP_LOGI(TAG, "NETMASK: %s", MASK.c_str());
     }
@@ -877,7 +893,7 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "GW: %s", GW.c_str());
     }
     ESP_LOGI(TAG, "~~~~~~~~~~~");
-
+#endif
     xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
     xEventGroupClearBits(g_ad2_net_event_group, NET_STA_DISCONNECT_BIT);
 }
@@ -959,7 +975,7 @@ bool hal_get_network_connected()
  */
 void hal_set_network_connected(bool set)
 {
-    ESP_LOGI(TAG, "hal_set_network_connected %i", set);
+    ESP_LOGD(TAG, "hal_set_network_connected %i", set);
     if (set) {
         xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
     } else {
@@ -988,14 +1004,16 @@ void hal_init_sd_card()
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
     mount_config.format_if_mount_failed = false;
     mount_config.max_files = 5;
+    ad2_printf_host(true, "Mounting uSD card ");
 
-    ESP_LOGI(TAG, "Mounting uSD card");
     sdmmc_card_t *card = NULL;
     err = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
+        ad2_printf_host(false, "FAIL.");
         return;
     }
+    ad2_printf_host(false, "PASS.");
 }
 
 /* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */

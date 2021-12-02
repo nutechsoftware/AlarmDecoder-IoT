@@ -33,6 +33,7 @@
 #define AD2_SOURCE   "ad2source"
 #define AD2_TERM     "ad2term"
 #define AD2_LOGMODE  "logmode"
+#define AD2_ERASE_NVS "factory-reset"
 #define AD2_UNLOCKER "teaser :c)"
 
 #ifdef __cplusplus

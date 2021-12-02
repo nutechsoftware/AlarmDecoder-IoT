@@ -15,11 +15,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
 - [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
-- [ ] CORE: Need a vacuum maintenance routine for nv storage to remove dead values or format partition to factory.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
 - [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
-- [ ] CORE: TODO: Ethernet hardware enable.
 - [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
@@ -30,6 +28,55 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
 - [ ] Update README.md to reflect `pio` build changes
+
+---
+## Releases
+## [1.0.9 P3] - 2021-11-22 Sean Mathews - coder @f34rdotcom
+Continued improvements found during daily use.
+### Added
+  - New standard command [```factory-reset```](README.md#standard-commands) to clear NVS config partition.
+  - Show panel state change JSON on CLI.
+  - Twilio New [```format```](README.md#configuration-for-twilio-notifications) sub command using https://github.com/fmtlib/fmt for simple formats with positional arguments ```{}``` for auto or ```{1}``` for indexed. Allows duplicate tags ```{1}{1}```. This allows for better control of the message sent to the Twilio API depending on the API type Email, SMS, Call.
+### Changed
+  - Partition refactor to fill 4MB flash adding configuration and firmware storage space. Max firmware size is now 1.9M. The current firmware size for ```webui``` build is ~1.2M - 65%. Config storage partition(nvs) increased from 16KB to 44KB.
+  - Refactor CLI to reduce noise and make it easier to use.
+  - Pushover & Twilio allow for multiple API calls from single virtual switch event. Ex. Email + SMS Text.
+  - Automatic selection of build flags for ```upgrade``` command to use current build.
+  - [```version```](README.md#standard-commands) command now shows build flags.
+  - API ZONE_TRACKING fix countdown messages reporting as zone faults.
+  - Fix don't call subscribe api after init(s) done.
+  - Bump stack to 8k on AD2 uart task same as ad2 socket client task.
+### Change log
+- [X] SM - CORE: Get task ID issue building with older espidf and freertos using stsdk build tool.
+- [X] SM - MISC: style fixes from prior work on this release.
+- [X] SM - CORE: Bump stack for AD2 uart parser to 8k. ser2sock_client_task already 8k. These task calls notifications and needs more!
+- [X] SM - WEBUI & CORE: Do not call subscribe after parser is running it is not thread safe. Prevent parsing of AD2* messages until all inits are done.
+- [X] SM - WEBUI: Bad var name choice no function change.
+- [X] SM - API: Ademco exit countdown timer trigger zone events. Lots of zones good test :) Exclude exit messages.
+- [X] SM - CORE: CLI add DELETE for some terminal configurations.
+- [X] SM - TWILIO: With the ability to use multiple notification slots with notification (email, sms, call) needing different formatting it is necessary to add a new field 'format' to each notification slot.
+- [X] SM - CORE: Update README.MD commands from help and some small text changes.
+- [X] SM - CORE: Partition change to better use the 4MB of storage. Added 44K to NVS config partition and 400K to the two OTA firmware partitions. Existing units should flash using ESP32 flash utility but AFAIK everything is done by partition name so nothing should break for existing units with original partition. Only issue would be if the firmware gets too big but that seems not likely.
+- [X] SM - CORE: Improve cli and improve task control of console. Requires adding FREERTOS_USE_TRACE_FACILITY to config.
+- [X] SM - CORE: Buildflags 'stsdk' or 'webui' automatic and included in version notifications for reference.
+- [X] SM - CORE: More console tidy and useability improvements.
+- [X] SM - CORE: Swap portENTER_CRITICAL with taskENTER_CRITICAL. Same idea but correct use.
+- [X] SM - CORE: Fix netmode command not being greedy and missing argument if it has a space such as a password :)
+- [X] SM - CORE: Continued removal of verbose logging.
+- [X] SM - CORE: More prefixes added to HOST uart port messages.
+- [X] SM - CORE: Improve help on vpart command.
+- [X] SM - MQTT: Add address_mask_filter to partition state.
+- [X] SM - CORE: set ESP_LOG to call internal ad2_log_vprintf for log PREFIX formatting. Added prefix to usb host output calls.
+- [X] SM - CORE: Remove ON_MESSAGE debug verbose dump added json state dump log only on alarm partition state change.
+- [X] SM - CORE: Add ```address_mask_filter``` to ad2_get_partition_state_json and ad2_get_partition_zone_alerts_json as ```mask```.
+- [X] SM - CORE: WIP. Add api callback for esp32 log output.
+- [X] SM - CORE: Improve error handing on ad2_set nvs functions.
+- [X] SM - CORE: Bump version, turn off stack event logs by default and add prefix to output messages for consistency
+- [X] SM - CORE: Add  ```factory-reset``` command to clear the ```nvs``` partition and reboot.
+- [X] SM - API: Fix mask in virtual partition not being updated on new events.
+- [X] SM - MQTT: Add publish Contact ID event notifications to the topic ```ad2iot/<device id>/cid```. Remove excessive event logging used for development.
+- [X] SM - TWILIO & PUSHOVER: Modify virtual switches to allow for multiple notification slots per event. This makes it easy to have a single event both CALL and send an email using two notification slots. Or it could notify 10 people over email etc.
+- [X] SM - CORE: Some glitch with writing to NV causing ESP_ERR_NVS_NOT_ENOUGH_SPACE but plenty exists. Solution delete before save.
 
 ## [1.0.9 P2] - 2021-10-17 Sean Mathews - coder @f34rdotcom
 Improve BEEP and EXIT tracking and fixed ad2term reset option.
