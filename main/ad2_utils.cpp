@@ -1225,12 +1225,8 @@ void ad2_send(std::string &buf)
 static bool line_clear = false;
 int ad2_log_vprintf_host(const char *fmt, va_list args)
 {
-    /* Get info on the task */
-    TaskStatus_t xTaskDetails;
-    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
-
     // wait 500ms for access to the console.
-    if (!ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME)) {
+    if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
         return 0;
     }
 
@@ -1284,7 +1280,7 @@ clean_up:
     }
 
     // release the console
-    ad2_give_host_console(xTaskDetails.xHandle);
+    ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
 
     return len;
 }
@@ -1297,11 +1293,8 @@ clean_up:
  */
 void ad2_printf_host(bool prefix, const char *fmt, ...)
 {
-    /* Get info on the task */
-    TaskStatus_t xTaskDetails;
-    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
     // wait 500ms for access to the console.
-    if (!ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME)) {
+    if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
         return;
     }
     if ( prefix ) {
@@ -1324,7 +1317,7 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
     // release the console
-    ad2_give_host_console(xTaskDetails.xHandle);
+    ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
 }
 
 /**
@@ -1336,12 +1329,8 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
  */
 void ad2_snprintf_host(const char *fmt, size_t size, ...)
 {
-    /* Get info on the task */
-    TaskStatus_t xTaskDetails;
-    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
-
     // wait 500ms for access to the console.
-    if (!ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME)) {
+    if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
         return;
     }
 
@@ -1351,7 +1340,7 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
     // release the console
-    ad2_give_host_console(xTaskDetails.xHandle);
+    ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
 }
 
 /**
@@ -1687,7 +1676,7 @@ void ad2_set_log_mode(char m)
 /**
  * @brief Console access control globals
  */
-static TaskHandle_t LAST_OWNER = nullptr;
+static void *LAST_OWNER = nullptr;
 static int console_locked = false;
 static unsigned long last_lock_time = 0;
 
@@ -1705,11 +1694,11 @@ unsigned long ad2_host_last_lock_time()
  * @brief Check if the given owner was the last owner
  * of the host console.
  *
- * @param [in]owner TaskHandle_t
+ * @param [in]owner void *
  *
  * @return int result
  */
-int ad2_is_host_last(TaskHandle_t owner)
+int ad2_is_host_last(void *owner)
 {
     int res = false;
     res = LAST_OWNER == owner;
@@ -1719,12 +1708,12 @@ int ad2_is_host_last(TaskHandle_t owner)
 /**
  * @brief Take owenrship of the host console.
  *
- * @param [in]owner TaskHandle_t
+ * @param [in]owner void *
  * @param [in]wait int time in ms to wait for an exclusive lock.
  *
  * @return int result
  */
-int ad2_take_host_console(TaskHandle_t owner, int wait)
+int ad2_take_host_console(void *owner, int wait)
 {
     int res = false;
 
@@ -1750,11 +1739,11 @@ done:
 /**
  * @brief Release ownership of the host console.
  *
- * @param [in]owner TaskHandle_t
+ * @param [in]owner void *
  *
  * @return int result
  */
-int ad2_give_host_console(TaskHandle_t owner)
+int ad2_give_host_console(void *owner)
 {
     taskENTER_CRITICAL(&spinlock);
     int res = xSemaphoreGive(g_ad2_console_mutex);

@@ -273,10 +273,6 @@ static void esp_uart_cli_task(void *pvParameters)
 
     cli_register_command(&help_cmd);
 
-    /* Get info on the task */
-    TaskStatus_t xTaskDetails;
-    vTaskGetInfo( nullptr, &xTaskDetails, pdTRUE, eInvalid);
-
     // break sequence state
     static uint8_t break_count = 0;
     while (1) {
@@ -294,7 +290,7 @@ static void esp_uart_cli_task(void *pvParameters)
         // if not last then reset prompt and show current command buffer
         int last_console_owner = false;
         taskENTER_CRITICAL(&spinlock);
-        if (ad2_is_host_last(xTaskDetails.xHandle)) {
+        if (ad2_is_host_last((void *)xTaskGetCurrentTaskHandle())) {
             last_console_owner = true;
         }
         taskEXIT_CRITICAL(&spinlock);
@@ -311,7 +307,7 @@ static void esp_uart_cli_task(void *pvParameters)
 
         if (len) {
             // lock the console as we spool out the message
-            ad2_take_host_console(xTaskDetails.xHandle, AD2_CONSOLE_LOCK_TIME);
+            ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME);
 
             for (int i = 0; i < len; i++) {
 #if defined(DEBUG_CLI)
@@ -420,7 +416,7 @@ static void esp_uart_cli_task(void *pvParameters)
             } //buf while loop
 
             // release the console
-            ad2_give_host_console(xTaskDetails.xHandle);
+            ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
         }
 
         vTaskDelay(10 / portTICK_PERIOD_MS);

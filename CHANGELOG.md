@@ -47,6 +47,7 @@ Continued improvements found during daily use.
   - Fix don't call subscribe api after init(s) done.
   - Bump stack to 8k on AD2 uart task same as ad2 socket client task.
 ### Change log
+- [X] SM - CORE: Get task ID issue building with older espidf and freertos using stsdk build tool.
 - [X] SM - MISC: style fixes from prior work on this release.
 - [X] SM - CORE: Bump stack for AD2 uart parser to 8k. ser2sock_client_task already 8k. These task calls notifications and needs more!
 - [X] SM - WEBUI & CORE: Do not call subscribe after parser is running it is not thread safe. Prevent parsing of AD2* messages until all inits are done.
