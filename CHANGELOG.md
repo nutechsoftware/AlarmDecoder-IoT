@@ -34,17 +34,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [1.0.9 P3] - 2021-11-22 Sean Mathews - coder @f34rdotcom
 Continued improvements found during daily use.
 ### Added
-  - New command ```factory-reset``` to clear NVS config partition.
+  - New standard command [```factory-reset```](README.md#standard-commands) to clear NVS config partition.
   - Show panel state change JSON on CLI.
-  - Twilio New [```format```](README.md#configuration_for_twilio_notifications) sub command using https://github.com/fmtlib/fmt for simple formats with positional arguments ```{}``` for auto or ```{1}``` for indexed. Allows duplicate ```{1}{1}``` using indexed. This allows for better control of the message sent to the Twilio API depending on the API type Email, SMS, Call.
+  - Twilio New [```format```](README.md#configuration_for_twilio_notifications) sub command using https://github.com/fmtlib/fmt for simple formats with positional arguments ```{}``` for auto or ```{1}``` for indexed. Allows duplicate tags ```{1}{1}```. This allows for better control of the message sent to the Twilio API depending on the API type Email, SMS, Call.
 ### Changed
   - Partition refactor to fill 4MB flash adding configuration and firmware storage space. Max firmware size is now 1.9M. The current firmware size for ```webui``` build is ~1.2M - 65%. Config storage partition(nvs) increased from 16KB to 44KB.
   - Refactor CLI to reduce noise and make it easier to use.
   - Pushover & Twilio allow for multiple API calls from single virtual switch event. Ex. Email + SMS Text.
   - Automatic selection of build flags for ```upgrade``` command to use current build.
-  - ````version``` command now shows build flags.
+  - [```version```](README.md#standard-commands) command now shows build flags.
   - API ZONE_TRACKING fix countdown messages reporting as zone faults.
-  - Fix don't call subscribe after init(s) done.
+  - Fix don't call subscribe api after init(s) done.
   - Bump stack to 8k on AD2 uart task same as ad2 socket client task.
 ### Change log
 - [X] SM - MISC: style fixes from prior work on this release.
