@@ -1,5 +1,7 @@
 style=otbs
 recursive
 formatted
-ignore-exclude-errors
+ignore-exclude-errors-x
 exclude="components/twilio/lib/fmt"
+exclude="build"
+exclude="st-device-sdk-c"
