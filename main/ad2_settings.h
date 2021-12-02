@@ -21,10 +21,16 @@
  *
  */
 // @brief Define for task stack reporting for tuning.
-#define AD2_STACK_REPORT
+//#define AD2_STACK_REPORT
 
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1092"
+#define FIRMWARE_VERSION      "AD2IOT-1093"
+
+#if defined(CONFIG_STDK_IOT_CORE)
+#define FIRMWARE_BUILDFLAGS "stsdk"
+#else
+#define FIRMWARE_BUILDFLAGS "webui"
+#endif
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
@@ -70,13 +76,19 @@
 
 // UART RX buffer size
 #define AD2_UART_RX_BUFF_SIZE  100
-#define MAX_UART_LINE_SIZE    (1024)
+#define MAX_UART_CMD_SIZE    (1024)
 
 // NV
 #define AD2_MAX_VALUE_SIZE 1024
 
+// Message prefix
+#define AD2PFX "!IOT: "
+
 // Signon message
-#define AD2_SIGNON "Starting AlarmDecoder AD2IoT network appliance version (%s)\r\n"
+#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)"
 
 // The virtual mount prefix for all file operations.
 #define AD2_MOUNT_POINT "/sdcard"
+
+// Console LOCK timeout
+#define AD2_CONSOLE_LOCK_TIME 500

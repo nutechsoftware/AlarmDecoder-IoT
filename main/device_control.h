@@ -129,6 +129,7 @@ void hal_led_blink(int switch_state, int delay, int count);
 void hal_change_led_mode(int noti_led_mode);
 void hal_gpio_init(void);
 void hal_restart();
+void hal_factory_reset();
 void hal_init_network_stack();
 void hal_init_wifi(std::string &args);
 void hal_init_eth(std::string &args);

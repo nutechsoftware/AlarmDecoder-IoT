@@ -36,9 +36,10 @@ static const char *TAG = "AD2OTA";
 #include "mbedtls/sha256.h"
 #include "mbedtls/ssl.h"
 
+//#define DEBUG_OTA
+
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
 #define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
-#define CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS "stsdk"
 #define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
 #define OTA_SIGNATURE_SIZE 256
@@ -112,7 +113,7 @@ static void _task_fatal_error()
  */
 static void ota_task_func(void * command)
 {
-    // The argument if present is the build flag. If not then default to CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS
+    // The argument if present is the build flag. If not then default to FIRMWARE_BUILDFLAGS
     std::string buildflags;
     if (command != nullptr) {
         ad2_copy_nth_arg(buildflags, (char *)command, 1);
@@ -121,10 +122,10 @@ static void ota_task_func(void * command)
 
     ad2_trim(buildflags);
     if ( buildflags.length()==0 ) {
-        buildflags = CONFIG_FIRMWARE_UPGRADE_DEFAULT_BUILDFLAGS;
+        buildflags = FIRMWARE_BUILDFLAGS;
     }
 
-    ESP_LOGI(TAG, "Starting OTA with build flags '%s'.", buildflags.c_str());
+    ad2_printf_host(false, "Starting OTA update with build flags '%s'.\r\n", buildflags.c_str());
 
     esp_err_t ret = ota_https_update_device(buildflags.c_str());
     if (ret != ESP_OK) {
@@ -132,7 +133,7 @@ static void ota_task_func(void * command)
         _task_fatal_error();
     }
 
-    ESP_LOGI(TAG, "Prepare to restart system!");
+    ad2_printf_host(true, "%s Prepare to restart system!", TAG);
     hal_restart();
 }
 
@@ -186,18 +187,15 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
 
     array = cJSON_GetObjectItem(profile, name_upgrade);
 
-    ESP_LOGI(TAG, "Checking if this version supports upgrade");
     for (int i = 0 ; i < cJSON_GetArraySize(array) ; i++) {
         char *upgrade = cJSON_GetArrayItem(array, i)->valuestring;
         if (strcmp(upgrade, FIRMWARE_VERSION) == 0) {
-            ESP_LOGD(TAG, "Test supported version '%s' PASS", upgrade);
             is_new_version = true;
             break;
         }
     }
 
     if (is_new_version) {
-        ESP_LOGI(TAG, "%s: Found current version update support.", __func__);
 
         /* latest */
         item = cJSON_GetObjectItem(profile, name_latest);
@@ -217,8 +215,6 @@ esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_i
         strncpy(latest_version, cJSON_GetStringValue(item), str_len);
         latest_version[str_len] = '\0';
         *new_version = latest_version;
-    } else {
-        ESP_LOGI(TAG, "%s: Not found current version update support.", __func__);
     }
 
 clean_up:
@@ -241,29 +237,31 @@ clean_up:
  */
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
+#if defined(DEBUG_OTA)
     switch(evt->event_id) {
     case HTTP_EVENT_ERROR:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_ERROR", __func__);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_ERROR", __func__);
         break;
     case HTTP_EVENT_ON_CONNECTED:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_CONNECTED", __func__);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_ON_CONNECTED", __func__);
         break;
     case HTTP_EVENT_HEADER_SENT:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_HEADER_SENT", __func__);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_HEADER_SENT", __func__);
         break;
     case HTTP_EVENT_ON_HEADER:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_HEADER, key=%s, value=%s", __func__, evt->header_key, evt->header_value);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_ON_HEADER, key=%s, value=%s", __func__, evt->header_key, evt->header_value);
         break;
     case HTTP_EVENT_ON_DATA:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_DATA, len=%d", __func__, evt->data_len);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_ON_DATA, len=%d", __func__, evt->data_len);
         break;
     case HTTP_EVENT_ON_FINISH:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_ON_FINISH", __func__);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_ON_FINISH", __func__);
         break;
     case HTTP_EVENT_DISCONNECTED:
-        ESP_LOGD(TAG, "%s: HTTP_EVENT_DISCONNECTED", __func__);
+        ESP_LOGI(TAG, "%s: HTTP_EVENT_DISCONNECTED", __func__);
         break;
     }
+#endif
     return ESP_OK;
 }
 
@@ -278,6 +276,7 @@ static void _http_cleanup(esp_http_client_handle_t client)
     esp_http_client_cleanup(client);
 }
 
+#if defined(DEBUG_OTA)
 static void _print_sha256 (const uint8_t *image_hash, const char *label)
 {
     char hash_print[OTA_CRYPTO_SHA256_LEN * 2 + 1];
@@ -285,18 +284,21 @@ static void _print_sha256 (const uint8_t *image_hash, const char *label)
     for (int i = 0; i < OTA_CRYPTO_SHA256_LEN; ++i) {
         sprintf(&hash_print[i * 2], "%02x", image_hash[i]);
     }
-    ESP_LOGD(TAG, "%s: %s: %s", __func__, label, hash_print);
+    ESP_LOGI(TAG, "%s: %s: %s", __func__, label, hash_print);
 }
+#endif
 
 static int _crypto_sha256(const unsigned char *src, size_t src_len, unsigned char *dst)
 {
     int ret;
-
-    ESP_LOGD(TAG, "%s: src: %d@%p, dst: %p", __func__, src_len, src, dst);
-
+#if defined(DEBUG_OTA)
+    ESP_LOGI(TAG, "%s: src: %d@%p, dst: %p", __func__, src_len, src, dst);
+#endif
     ret = mbedtls_sha256_ret(src, src_len, dst, 0);
     if (ret) {
-        ESP_LOGD(TAG, "%s: mbedtls_sha256_ret = -0x%04X", __func__, -ret);
+#if defined(DEBUG_OTA)
+        ESP_LOGI(TAG, "%s: mbedtls_sha256_ret = -0x%04X", __func__, -ret);
+#endif
         return ret;
     }
 
@@ -378,8 +380,9 @@ static bool _check_firmware_validation(const unsigned char *sha256, unsigned cha
     }
 
     // Dump buffer for debugging
+#if defined(DEBUG_OTA)
     _print_sha256(sha256, "SHA-256 for current firmware: ");
-
+#endif
     // Get the message digest info structure for SHA256
     if (_crypto_sha256(sha256, OTA_CRYPTO_SHA256_LEN, hash) != 0) {
         ESP_LOGE(TAG, "%s: invalid digest", __func__);
@@ -420,8 +423,9 @@ clean_up:
  */
 esp_err_t ota_https_update_device(const char *buildflags)
 {
+#if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: starting update", __func__);
-
+#endif
     esp_err_t ret = ESP_FAIL;
     bool b_ctx_init = false;
     unsigned int content_len;
@@ -473,22 +477,21 @@ esp_err_t ota_https_update_device(const char *buildflags)
 
     firmware_len = content_len - (OTA_DEFAULT_SIGNATURE_BUF_SIZE);
 
-    ESP_LOGI(TAG, "%s: Starting OTA upgrade", __func__);
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
         ESP_LOGE(TAG, "%s: Passive OTA partition not found", __func__);
         ret = ESP_FAIL;
         goto clean_up;
     }
+#if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: Writing to partition subtype %d at offset 0x%x", __func__,
              update_partition->subtype, update_partition->address);
-
+#endif
     ret = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s: esp_ota_begin failed, error=%d", __func__, ret);
         goto clean_up;
     }
-    ESP_LOGI(TAG, "%s: esp_ota_begin succeeded. Please Wait. This may take time.", __func__);
 
     upgrade_data_buf = (char *)malloc(OTA_DEFAULT_BUF_SIZE);
     if (!upgrade_data_buf) {
@@ -519,7 +522,9 @@ esp_err_t ota_https_update_device(const char *buildflags)
     while (1) {
         int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
         if (data_read == 0) {
+#if defined(DEBUG_OTA)
             ESP_LOGI(TAG, "%s: Connection closed,all data received", __func__);
+#endif
             break;
         }
         if (data_read < 0) {
@@ -559,9 +564,9 @@ esp_err_t ota_https_update_device(const char *buildflags)
             total_read_len += data_read;
         }
     }
-
+#if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: Total binary data length writen: %d", __func__, total_read_len);
-
+#endif
     if (mbedtls_sha256_finish_ret( &ctx, md) != 0) {
         ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
         ret = ESP_FAIL;
@@ -590,8 +595,9 @@ esp_err_t ota_https_update_device(const char *buildflags)
         goto clean_up;
     }
 
+#if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: esp_ota_set_boot_partition succeeded", __func__);
-
+#endif
 clean_up:
     if (b_ctx_init) {
         mbedtls_sha256_free(&ctx);
@@ -673,7 +679,9 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     while (1) {
         int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
         if (data_read == 0) {
+#if defined(DEBUG_OTA)
             ESP_LOGI(TAG, "%s: Connection closed,all data received", __func__);
+#endif
             break;
         }
         if (data_read < 0) {
@@ -693,8 +701,9 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
         }
     }
 
+#if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: received body size %d", __func__, total_read_len);
-
+#endif
     _http_cleanup(client);
 
     free(upgrade_data_buf);
@@ -729,7 +738,7 @@ static void ota_polling_task_func(void *arg)
 
         vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
 
-        ESP_LOGI(TAG, "Starting check new version with current version '%s'", FIRMWARE_VERSION);
+        ESP_LOGI(TAG, "Starting check new version with current version '%s'-%s", FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
         if (ota_task_handle != NULL) {
             ESP_LOGI(TAG, "Device is currently updating skipping checks for now.");
@@ -786,7 +795,7 @@ static void ota_polling_task_func(void *arg)
 void ota_do_update(char *command)
 {
     if (ota_task_handle != NULL) {
-        ESP_LOGI(TAG, "Device is currently updating.");
+        ESP_LOGW(TAG, "Device is currently updating.");
         return;
     }
     xTaskCreate(&ota_task_func, "ota_task_func", 1024*8, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
@@ -800,7 +809,7 @@ static struct cli_command ota_cmd_list[] = {
         (char*)OTA_UPGRADE_CMD,(char*)
         "- Preform an OTA upgrade now download and install new flash.\r\n"
         "  - ```" OTA_UPGRADE_CMD " [buildflag]```\r\n"
-        "    - [buildflag]: Specify build for the release. default to 'stsdk' if omitted.\r\n"
+        "    - [buildflag]: Specify build for the release. default current if omitted.\r\n"
         "      - See release page for details on available builds.\r\n\r\n", ota_do_update
     },
     {
@@ -828,7 +837,7 @@ void ota_init()
  */
 void ota_do_version(char *arg)
 {
-    ad2_printf_host("Installed version(" FIRMWARE_VERSION  ") available version(%s)\r\n", ota_available_version.c_str());
+    ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }
 
 #ifdef __cplusplus

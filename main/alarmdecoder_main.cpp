@@ -86,7 +86,14 @@ extern "C" {
 */
 int g_StopMainTask = 0;
 
+// all module init have finished no more calls to AlarmDecoderParser::subscribeTo
+int g_init_done = 0;
+
+// Critical section spin lock.
 portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
+
+// global host console access mutex
+extern SemaphoreHandle_t g_ad2_console_mutex = 0;
 
 // global AlarmDecoder parser class instance
 AlarmDecoderParser AD2Parse;
@@ -124,8 +131,6 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  */
 void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
-    ESP_LOGI(TAG, "MESSAGE_CB: '%s'", msg->c_str());
-
     // match "Press *  to show faults" or "Hit * for faults" and send * to get zone list.
     // FIXME: Multi Language support.
     static unsigned long _last_faults_alert = 0;
@@ -138,7 +143,7 @@ void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void 
                 if ( _now - _last_faults_alert > 5) {
                     _last_faults_alert = 0;
                     std::string msg = ad2_string_printf("K%02i%s", s->primary_address, "*");
-                    ESP_LOGI(TAG, "MESSAGE_CB: sending '%s' for zone fault report.", msg.c_str());
+                    ad2_printf_host(true, "Sending '*' for zone report using address %i", s->primary_address);
                     ad2_send(msg);
                 }
             } else {
@@ -151,7 +156,7 @@ void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void 
         }
 
     }
-#if 1
+#if 0
 #define ON_MESS_EXTRA_INFO_EVERY 10
     static int extra_info = ON_MESS_EXTRA_INFO_EVERY;
     if(!--extra_info) {
@@ -290,6 +295,31 @@ void SER2SOCKD_ON_RAW_RX_DATA(uint8_t *buffer, size_t s, void *arg)
 #endif
 
 /**
+ * @brief Generic callback for all AlarmDecoder API event subscriptions.
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
+ */
+void ad2_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    int msg_id;
+    if (s) {
+        cJSON *root = ad2_get_partition_state_json(s);
+        cJSON_AddStringToObject(root, "event", AD2Parse.event_str[(int)arg].c_str());
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+
+        // Notify CLI of the new state for easy console diagnostics of panel.
+        ad2_printf_host(true, "AD2 State change: %s", state);
+
+        cJSON_free(state);
+        cJSON_Delete(root);
+    }
+}
+
+/**
  * @brief Main task to monitor physical button(s) and update state led(s).
  *
  * @param [in]pvParameters currently not used NULL.
@@ -340,7 +370,8 @@ static void ad2uart_client_task(void *pvParameters)
 
     while (1) {
         // do not process if main halted or network disconnected.
-        if (!g_StopMainTask && hal_get_network_connected()) {
+        // TODO: Cleanup continue to make it less network dependent.
+        if (g_init_done && !g_StopMainTask && hal_get_network_connected()) {
             memset(rx_buffer, 0, AD2_UART_RX_BUFF_SIZE);
 
             // Read data from the UART
@@ -486,7 +517,7 @@ static void ser2sock_client_task(void *pvParameters)
             if (_ser2sock_client_connect()) {
                 while (1) {
                     // do not process if main halted.
-                    if (!g_StopMainTask) {
+                    if (g_init_done && !g_StopMainTask) {
                         uint8_t rx_buffer[128];
                         int len = recv(g_ad2_client_handle, rx_buffer, sizeof(rx_buffer) - 1, 0);
                         // test if error occurred
@@ -555,7 +586,7 @@ void init_ad2_uart_client()
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
     ad2_tokenize(port_pins, ":", out);
-    ESP_LOGI(TAG, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
+    ad2_printf_host(true, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
     int tx_pin = atoi(out[0].c_str());
     int rx_pin = atoi(out[1].c_str());
 
@@ -585,22 +616,28 @@ void init_ad2_uart_client()
                  UART_PIN_NO_CHANGE, // RTS
                  UART_PIN_NO_CHANGE);// CTS
 
-    uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_LINE_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
+    uart_driver_install((uart_port_t)g_ad2_client_handle, MAX_UART_CMD_SIZE * 2, 0, 0, NULL, ESP_INTR_FLAG_LOWMED);
     free(uart_config);
 
     // Main AlarmDecoderParser:
     // 20210815SM: 1220 bytes stack free.
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*6, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    // 20211201SM: expand to 8k. Main task for everything.
+    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*8, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
 
 }
 
+
 /**
- * @brief main() app main entrypoint
+ * @brief AlarmDecoder App main
  */
 void app_main()
 {
 
-    //// AlarmDecoder App main
+    // Create console access mutex.
+    g_ad2_console_mutex = xSemaphoreCreateMutex();
+
+    // Redirect ESP-IDF log to our own handler.
+    esp_log_set_vprintf(&ad2_log_vprintf_host);
 
     // start with log level error.
     esp_log_level_set("*", ESP_LOG_NONE);        // set all components to ERROR level
@@ -611,7 +648,7 @@ void app_main()
     // init host(USB) uart port
     hal_host_uart_init();
 
-    ad2_printf_host(AD2_SIGNON, FIRMWARE_VERSION);
+    ad2_printf_host(false, AD2_SIGNON, FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
     ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
@@ -620,33 +657,34 @@ void app_main()
     // Dump hardware info
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    ad2_printf_host("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
+    ad2_printf_host(true, "ESP32 with %d CPU cores, WiFi%s%s, ",
                     chip_info.cores,
                     (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
                     (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
 
-    ad2_printf_host("silicon revision %d, ", chip_info.revision);
+    ad2_printf_host(false, "silicon revision %d, ", chip_info.revision);
 
-    ad2_printf_host("%dMB %s flash\r\n", spi_flash_get_chip_size() / (1024 * 1024),
+    ad2_printf_host(false, "%dMB %s flash", spi_flash_get_chip_size() / (1024 * 1024),
                     (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize nvs partition for key value storage.
-    ad2_printf_host("Initialize NVS subsystem start.");
+    ad2_printf_host(true, "Initialize NVS subsystem start.");
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
-        ad2_printf_host(" Not found or error clearing flash.");
+        ad2_printf_host(false, " Not found or error clearing flash.");
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
-    ad2_printf_host(" Done.\r\n");
+    ad2_printf_host(false, " Done.");
     ESP_ERROR_CHECK( err );
 
     // Example of nvs_get_stats() to get the number of used entries and free entries:
     nvs_stats_t nvs_stats;
     nvs_get_stats(NULL, &nvs_stats);
-    ad2_printf_host("Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)\r\n",
+    ad2_printf_host(true, "NVS usage %.2f%%. Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)",
+                    nvs_stats.used_entries * 100.00 / nvs_stats.total_entries,
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
     // load and set the logging level.
@@ -679,7 +717,7 @@ void app_main()
                     s->zone_list.push_front((uint8_t)z & 0xff);
                 }
             }
-            ESP_LOGI(TAG, "init vpart slot %i address %i zones '%s'", n, x, zlist.c_str());
+            ad2_printf_host(true, "init vpart slot %i address %i zones '%s'", n, x, zlist.c_str());
         }
     }
 
@@ -746,10 +784,10 @@ void app_main()
     uart_cli_main();
 
     if (g_ad2_mode == 'S') {
-        ad2_printf_host("Delaying start of ad2source SOCKET after network is up.\r\n");
+        ad2_printf_host(true, "Delaying start of ad2source SOCKET after network is up.");
     } else if(g_ad2_mode != 'C') {
         ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        ad2_printf_host("AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.\r\n");
+        ad2_printf_host(true, "AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.");
     }
 
 #if CONFIG_STDK_IOT_CORE
@@ -765,7 +803,7 @@ void app_main()
     // get the network mode set default mode to 'N'
     std::string netmode_args;
     char net_mode = ad2_network_mode(netmode_args);
-    ad2_printf_host("AD2IoT 'netmode' set to '%c'.\r\n", net_mode);
+    ad2_printf_host(true, "'netmode' set to '%c'.", net_mode);
 
     /**
      * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.
@@ -793,9 +831,6 @@ void app_main()
     }
 #endif
 
-    // Zone tracking
-    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
-
 #if 0 // FIXME add build switch for release builds.
     // AlarmDecoder callback wire up for testing.
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
@@ -806,6 +841,20 @@ void app_main()
     AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_FIRE_CHANGE, my_ON_FIRE_CHANGE_CB, nullptr);
     AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
+#else
+    // Subscribe standard AlarmDecoder events
+    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
+    AD2Parse.subscribeTo(ON_ARM, ad2_on_state_change, (void *)ON_ARM);
+    AD2Parse.subscribeTo(ON_DISARM, ad2_on_state_change, (void *)ON_DISARM);
+    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_on_state_change, (void *)ON_CHIME_CHANGE);
+    AD2Parse.subscribeTo(ON_BEEPS_CHANGE, ad2_on_state_change, (void *)ON_BEEPS_CHANGE);
+    AD2Parse.subscribeTo(ON_FIRE_CHANGE, ad2_on_state_change, (void *)ON_FIRE_CHANGE);
+    AD2Parse.subscribeTo(ON_POWER_CHANGE, ad2_on_state_change, (void *)ON_POWER_CHANGE);
+    AD2Parse.subscribeTo(ON_READY_CHANGE, ad2_on_state_change, (void *)ON_READY_CHANGE);
+    AD2Parse.subscribeTo(ON_LOW_BATTERY, ad2_on_state_change, (void *)ON_LOW_BATTERY);
+    AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_on_state_change, (void *)ON_ALARM_CHANGE);
+    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, ad2_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+    AD2Parse.subscribeTo(ON_EXIT_CHANGE, ad2_on_state_change, (void *)ON_EXIT_CHANGE);
 #endif
 
     // Start components
@@ -823,7 +872,7 @@ void app_main()
         stsdk_connection_start();
     } else {
         ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
-        ad2_printf_host("'netmode' <> 'N' disabling SmartThings.\r\n");
+        ad2_printf_host(true, "'netmode' <> 'N' disabling SmartThings.");
     }
 #endif
 
@@ -866,6 +915,9 @@ void app_main()
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
 #endif
+
+    // Init finished parsing data from the AD2* can now safely start.
+    g_init_done = true;
 
 }
 

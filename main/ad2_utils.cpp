@@ -23,6 +23,7 @@
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "freertos/task.h"
 
 static const char *TAG = "AD2UTIL";
 
@@ -623,13 +624,20 @@ void ad2_set_nv_slot_key_int(const char *key, int slot, const char *s, int value
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
         std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-        if (value == -1) {
-            err = nvs_erase_key(my_handle, tkey.c_str());
-        } else {
-            err = nvs_set_i32(my_handle, tkey.c_str(), value);
+        err = nvs_erase_key(my_handle, tkey.c_str());
+        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
         }
-
-        err = nvs_commit(my_handle);
+        if (value != -1) {
+            err = nvs_set_i32(my_handle, tkey.c_str(), value);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+            }
+            err = nvs_commit(my_handle);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+            }
+        }
         nvs_close(my_handle);
     }
 }
@@ -705,12 +713,20 @@ void ad2_set_nv_slot_key_string(const char *key, int slot, const char *s, const 
 #ifdef DEBUG_NVS
         ESP_LOGI(TAG, "%s: saving sub key(%s)", __func__, tkey.c_str());
 #endif
-        if (value == NULL) {
-            err = nvs_erase_key(my_handle, tkey.c_str());
-        } else {
-            err = nvs_set_str(my_handle, tkey.c_str(), value);
+        err = nvs_erase_key(my_handle, tkey.c_str());
+        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
         }
-        err = nvs_commit(my_handle);
+        if (value != NULL) {
+            err = nvs_set_str(my_handle, tkey.c_str(), value);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+            }
+            err = nvs_commit(my_handle);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+            }
+        }
         nvs_close(my_handle);
     }
 }
@@ -767,15 +783,25 @@ void ad2_set_nv_arg(const char *key, const char *value)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
     } else {
+        err = nvs_erase_key(my_handle, key);
+        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
+            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+        }
         err = nvs_set_str(my_handle, key, value);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+        }
         err = nvs_commit(my_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
+        }
         nvs_close(my_handle);
     }
 }
 
 
 /**
- * @brief Copy the Nth space seperated word from a string.
+ * @brief Copy the Nth space separated word from a string.
  *
  * @param dest pointer to std::string for output
  * @param [in]src pointer to input bytes
@@ -1188,18 +1214,110 @@ void ad2_send(std::string &buf)
 }
 
 /**
- * @brief Format and send bytes to the host uart.
+ * @brief Format and send bytes to the host uart with !XXX prefix to be AD2 protcol compatible.
  *
  * @param [in]format const char * format string.
  * @param [in]... variable args
+ *
+ * @return result
  */
-void ad2_printf_host(const char *fmt, ...)
+// Track if the terminal line is busy
+static bool line_clear = false;
+int ad2_log_vprintf_host(const char *fmt, va_list args)
 {
+    // wait 500ms for access to the console.
+    if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
+        return 0;
+    }
+
+    // calculate size and make buffer
+    int len = vsnprintf(NULL, 0, fmt, args);
+    if (len) {
+        char *tbuf = nullptr;
+        tbuf = (char *)malloc(len+1);
+        len = vsnprintf(tbuf, len+1, fmt, args);
+        if (len) {
+            // don't log blank lines or send out \r\n.
+            tbuf[strcspn(tbuf, "\r\n")] = 0;
+            len = strlen(tbuf);
+            if (!len) {
+                if (!line_clear) {
+                    line_clear = false;
+                }
+                goto clean_up;
+            }
+            if (!line_clear) {
+                // check if continuation of log. Must start with "[I,W,E,D] ("
+                if ( (len > 3) && (strchr("IWED", tbuf[0]) != NULL) && (tbuf[1] == ' ' && tbuf[2] == '(') ) {
+                    uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                    uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                }
+            }
+            int pos = 0;
+            char ch;
+            while (pos<len) {
+                ch = tbuf[pos];
+                if (ch == '\n') {
+                    line_clear = true;
+                    uart_write_bytes(UART_NUM_0, "\r\n", 2);
+                } else {
+                    // avoid nulls and non binary data
+                    if (ch > 31 && ch < 127) {
+                        if (line_clear) {
+                            line_clear = false;
+                            uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                        }
+                        uart_write_bytes(UART_NUM_0, &ch, 1);
+                    }
+                }
+                pos++;
+            }
+        }
+clean_up:
+        if (tbuf) {
+            free(tbuf);
+        }
+    }
+
+    // release the console
+    ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
+
+    return len;
+}
+
+/**
+ * @brief Format and send bytes to the host uart.
+ * @param [in]bool prefix
+ * @param [in]format const char * format string.
+ * @param [in]... variable args
+ */
+void ad2_printf_host(bool prefix, const char *fmt, ...)
+{
+    // wait 500ms for access to the console.
+    if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
+        return;
+    }
+    if ( prefix ) {
+        if ( !line_clear ) {
+            // move to the next line.
+            uart_write_bytes(UART_NUM_0, "\r\n", 2);
+        }
+        line_clear = false;
+        // write prefix
+        std::string pfx = AD2PFX;
+        pfx += "N (";
+        pfx += ad2_to_string(esp_log_timestamp());
+        pfx += ") ";
+        uart_write_bytes(UART_NUM_0, pfx.c_str(), pfx.length());
+    }
+
     va_list args;
     va_start(args, fmt);
     std::string out = ad2_string_vaprintf(fmt, args);
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
+    // release the console
+    ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
 }
 
 /**
@@ -1211,11 +1329,18 @@ void ad2_printf_host(const char *fmt, ...)
  */
 void ad2_snprintf_host(const char *fmt, size_t size, ...)
 {
+    // wait 500ms for access to the console.
+    if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
+        return;
+    }
+
     va_list args;
     va_start(args, size);
     std::string out = ad2_string_vasnprintf(fmt, size, args);
     va_end(args);
     uart_write_bytes(UART_NUM_0, out.c_str(), out.length());
+    // release the console
+    ad2_give_host_console((void *)xTaskGetCurrentTaskHandle());
 }
 
 /**
@@ -1312,6 +1437,7 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
         cJSON_AddStringToObject(root, "panel_type", std::string(1, s->panel_type).c_str());
         cJSON_AddStringToObject(root, "last_alpha_message", s->last_alpha_message.c_str());
         cJSON_AddStringToObject(root, "last_numeric_messages", s->last_numeric_message.c_str()); // Can have HEX digits ex. 'FC'.
+        cJSON_AddNumberToObject(root, "mask", s->address_mask_filter);
     } else {
         cJSON_AddStringToObject(root, "last_alpha_message", "Unknown");
     }
@@ -1338,6 +1464,7 @@ cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *s)
                 // grab the verb(FOO) 'ZONE FOO 001'
                 cJSON_AddNumberToObject(zone, "zone", e.first);
                 cJSON_AddNumberToObject(zone, "partition", s->partition);
+                cJSON_AddNumberToObject(zone, "mask", s->address_mask_filter);
                 cJSON_AddStringToObject(zone, "state", _state_string.c_str());
                 std::string zalpha;
                 AD2Parse.getZoneString((int)s->zone, zalpha);
@@ -1545,6 +1672,85 @@ void ad2_set_log_mode(char m)
     }
 }
 
+
+/**
+ * @brief Console access control globals
+ */
+static void *LAST_OWNER = nullptr;
+static int console_locked = false;
+static unsigned long last_lock_time = 0;
+
+/**
+ * @brief return the last time in seconds the console was updated.
+ *
+ * @return unsigned long Monotonic time of last console udpate.
+ */
+unsigned long ad2_host_last_lock_time()
+{
+    return last_lock_time;
+}
+
+/**
+ * @brief Check if the given owner was the last owner
+ * of the host console.
+ *
+ * @param [in]owner void *
+ *
+ * @return int result
+ */
+int ad2_is_host_last(void *owner)
+{
+    int res = false;
+    res = LAST_OWNER == owner;
+    return res;
+}
+
+/**
+ * @brief Take owenrship of the host console.
+ *
+ * @param [in]owner void *
+ * @param [in]wait int time in ms to wait for an exclusive lock.
+ *
+ * @return int result
+ */
+int ad2_take_host_console(void *owner, int wait)
+{
+    int res = false;
+
+    taskENTER_CRITICAL(&spinlock);
+    // if already locked by same owner return success.
+    if (console_locked && LAST_OWNER == owner) {
+        res = true;
+        taskEXIT_CRITICAL(&spinlock);
+        goto done;
+    }
+    taskEXIT_CRITICAL(&spinlock);
+
+    res = xSemaphoreTake(g_ad2_console_mutex, pdMS_TO_TICKS(wait));
+    if (res == pdTRUE) {
+        LAST_OWNER = owner;
+        console_locked = true;
+    }
+done:
+    last_lock_time = AD2Parse.monotonicTime();
+    return res;
+}
+
+/**
+ * @brief Release ownership of the host console.
+ *
+ * @param [in]owner void *
+ *
+ * @return int result
+ */
+int ad2_give_host_console(void *owner)
+{
+    taskENTER_CRITICAL(&spinlock);
+    int res = xSemaphoreGive(g_ad2_console_mutex);
+    console_locked = false;
+    taskEXIT_CRITICAL(&spinlock);
+    return res;
+}
 
 #ifdef __cplusplus
 } // extern "C"
