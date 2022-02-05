@@ -545,7 +545,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "DISARM", "code": "1234"}```
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "FIRE_ALARM"}```
-    - Example(not tested) Home Assistant(HA) MQTT Alarm Control Panel yaml.
+    - Example (tested) Home Assistant(HA) MQTT Alarm Control Panel yaml.
       ```
       alarm_control_panel:
         - platform: mqtt
@@ -553,24 +553,30 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
           availability_topic: "ad2iot/{UUID}/status"
           availability_template: "{{ value_json.state }}"
           state_topic: "ad2iot/{UUID}/partitions/1"
-          value_template: >
-            {% if value_json.alarm_sounding == true || value_json.alarm_event_occurred == true %}triggered
-            {% elif value_json.armed_stay == true %}
-              {% if value_json.entry_delay_off == true %}armed_night
-              {% elif value_json.entry_delay_off == false %}armed_home
-              {% endif }
-            {% elif value_json.armed_away == true %}
-              {% if value_json.entry_delay_off == true %}armed_vacation
-              {% elif value_json.entry_delay_off == false %}armed_away
-              {% endif }
-            {% else %}disarmed
-            {% endif %}
           command_topic: "ad2iot/{UUID}/commands"
           code: REMOTE_CODE
           # available command verbs ["DISARM", "ARM_STAY", "ARM_AWAY", "EXIT", "CHIME_TOGGLE", "AUX_ALARM", "PANIC_ALARM", "FIRE_ALARM", "BYPASS", "SEND_RAW"]
           payload_arm_home: "ARM_STAY"
           payload_trigger: "PANIC_ALARM"
-          command_template: "{ vpart: 0, action: '{{ action }}', code: {{ code }}} }"
+          command_template: '{ "vpart": 0, "action": "{{ action }}", "code": "{{ code }}"}'
+          value_template: >-
+              {% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}
+                  triggered
+              {% elif value_json.armed_stay == true %}
+                  {% if value_json.entry_delay_off == true %}
+                      armed_night
+                  {% else %}
+                      armed_home
+                  {% endif %}
+              {% elif value_json.armed_away == true %}
+                  {% if value_json.entry_delay_off == true %}
+                      armed_vacation
+                  {% elif value_json.entry_delay_off == false %}
+                      armed_away
+                  {% endif %}
+              {% else %}
+                  disarmed
+              {% endif %}
       ```
 
 ####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration for MQTT message notifications
