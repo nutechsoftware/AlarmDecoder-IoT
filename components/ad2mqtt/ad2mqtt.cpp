@@ -212,7 +212,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                         std::string command( event_data->data, event_data->data_len );
                         // grab the json buffer
                         // {
-                        //   vpart: '{{ number virtual partition ID see ```vpart``` command. }}',
+                        //   vpart: {{ number virtual partition ID see ```vpart``` command. }},
                         //   code: '{{ string code }}',
                         //   action: '{{ string action }}',
                         //   arg: '{{ string argument }}'
