@@ -532,13 +532,47 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   - Last Will and Testament (LWT) is used to indicate ```online```/```offline``` ```state``` of client using ```status``` topic below the device root topic.
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/status = {"state": "online"}```
   - Device specific info is in the ```info``` topic below the device root topic.
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/info = {"firmware_version":"AD2IOT-1094","cpu_model":1,"cpu_revision":1,"cpu_cores":2,"cpu_features":["WiFi","BLE","BT"],"cpu_flash_size":4194304,"cpu_flash_type":"external","ad2_version_string":"08000002,V2.2a.8.9b-306,TX;RX;SM;VZ;RF;ZX;RE;AU;3X;CG;DD;MF;L2;KE;M2;CB;DS;ER;CR","ad2_config_string":"MODE=A&CONFIGBITS=ff05&ADDRESS=18&LRR=Y&COM=N&EXP=YYNNN&REL=YNNN&MASK=ffffffff&DEDUPLICATE=N"}```
   - Partition state tracking with minimal traffic only when state changes. Each configured partition will be under the ```partitions``` topic below the device root topic.
-    - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/partitions/1 =
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/1 =
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
-    - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
-      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
-    - Zone states by Zone ID(NNN) are kept under the ```zones``` below the device root topic.
-      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
+  - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
+  - Zone states by Zone ID(NNN) are kept under the ```zones``` below the device root topic.
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
+  - Remote ```commands``` subscription. If enabled the device will subscribe to ```commands``` below the device root topic. Warning! Only enable if on a secure broker as codes will be visible to subscribers.
+    - Publish JSON template ```{ "vpart": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "DISARM", "code": "1234"}```
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "FIRE_ALARM"}```
+    - Example(not tested) Home Assistant(HA) MQTT Alarm Control Panel yaml.
+      ```
+      alarm_control_panel:
+        - platform: mqtt
+          name: "AlarmDecoder IoT partition 1"
+          availability_topic: "ad2iot/{UUID}/status"
+          availability_template: "{{ value_json.state }}"
+          state_topic: "ad2iot/{UUID}/partitions/1"
+          value_template: >
+            {% if value_json.alarm_sounding == true || value_json.alarm_event_occurred == true %}triggered
+            {% elif value_json.armed_stay == true %}
+              {% if value_json.entry_delay_off == true %}armed_night
+              {% elif value_json.entry_delay_off == false %}armed_home
+              {% endif }
+            {% elif value_json.armed_away == true %}
+              {% if value_json.entry_delay_off == true %}armed_vacation
+              {% elif value_json.entry_delay_off == false %}armed_away
+              {% endif }
+            {% else %}disarmed
+            {% endif %}
+          command_topic: "ad2iot/{UUID}/commands"
+          code: REMOTE_CODE
+          # available command verbs ["DISARM", "ARM_STAY", "ARM_AWAY", "EXIT", "AUX_ALARM", "PANIC_ALARM", "FIRE_ALARM", "BYPASS", "SEND_RAW"]
+          payload_arm_home: "ARM_STAY"
+          payload_trigger: "PANIC_ALARM"
+          command_template: "{ vpart: 0, action: '{{ action }}', code: {{ code }}} }"
+      ```
+
 ####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration for MQTT message notifications
 - Publishes the virtual partition state using the following topic pattern.
   - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y
@@ -552,6 +586,10 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   - ```mqtt url {url}```
     - {url}: MQTT broker URL.
   - Example: ```mqtt url mqtt://mqtt.eclipseprojects.io```
+- Enable/Disable command subscription. Do not enable on public MQTT servers!
+  - ```mqtt commands [Y/N]```
+  -  {arg1}: [Y]es [N]o
+  - Example: ```mqtt commands Y```
 - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
   - ```mqtt switch {slot} {setting} {arg1} [arg2]```
     - {slot}

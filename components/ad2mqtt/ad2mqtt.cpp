@@ -41,6 +41,7 @@ static const char *TAG = "MQTT";
 #define MQTT_PREFIX         "mq"
 #define MQTT_ENABLE_CFGKEY  "enable"
 #define MQTT_URL_CFGKEY     "url"
+#define MQTT_CMDEN_CFGKEY   "commands"
 #define MQTT_SAS_CFGKEY     "switch"
 
 #define MAX_SEARCH_KEYS 9
@@ -61,13 +62,15 @@ static const char *TAG = "MQTT";
 #define MQTT_TOPIC_PREFIX "ad2iot"
 #define MQTT_LWT_TOPIC_SUFFIX "will"
 #define MQTT_LWT_MESSAGE "offline"
-
+#define MQTT_COMMANDS_TOPIC "commands"
+#define MQTT_COMMAND_MAX_DATA_LEN 256
 
 #define EXAMPLE_BROKER_URI "mqtt://mqtt.eclipseprojects.io"
 
 static esp_mqtt_client_handle_t mqtt_client = nullptr;
 static std::string mqttclient_UUID;
 static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
+static int commands_enabled = 0;
 
 // Default MQTT message settings excluding LWT.
 #define MQTT_DEF_QOS    1 // AT Least Once
@@ -76,10 +79,6 @@ static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 
 // LOG settings
 //#define MQTT_EVENT_LOGGING
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #if 0
 /**
@@ -108,13 +107,16 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
 {
     std::string topic;
 
-    // Subscribe to command inputs for remote control.
-    topic = MQTT_TOPIC_PREFIX "/";
-    topic += mqttclient_UUID;
-    topic += "/commands";
-    esp_mqtt_client_subscribe(client,
-                              topic.c_str(),
-                              MQTT_DEF_QOS);
+    // Subscribe to command inputs for remote control if enabled.
+    if (commands_enabled) {
+        ESP_LOGI(TAG, "Warning! MQTT commands subscription enabled. Not sure on public servers.");
+        topic = MQTT_TOPIC_PREFIX "/";
+        topic += mqttclient_UUID;
+        topic += "/" MQTT_COMMANDS_TOPIC;
+        esp_mqtt_client_subscribe(client,
+                                topic.c_str(),
+                                MQTT_DEF_QOS);
+    }
 
     // Publish we are Online
     topic = MQTT_TOPIC_PREFIX "/";
@@ -193,6 +195,103 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
         printf("TOPIC=%.*s\r\n", event_data->topic_len, event_data->topic);
         printf("DATA=%.*s\r\n", event_data->data_len, event_data->data);
 #endif
+        // test if commands subscription is enabled
+        if ( commands_enabled ) {
+            // Sanity test topic is the size of ```commands``` topic name.
+            // Topic pattern to confirm command
+            std::string topic_path;
+            topic_path = MQTT_TOPIC_PREFIX "/";
+            topic_path += mqttclient_UUID;
+            topic_path += "/" MQTT_COMMANDS_TOPIC;
+
+            if ( event_data->topic_len == topic_path.length() ) {
+                std::string topic( event_data->topic, event_data->topic_len );
+                if ( topic.compare(topic_path) == 0 ) {
+                    // sanity check the event_data->data_len
+                    if ( event_data->data_len < MQTT_COMMAND_MAX_DATA_LEN ) {
+                        std::string command( event_data->data, event_data->data_len );
+                        // grab the json buffer
+                        // {
+                        //   vpart: '{{ number virtual partition ID see ```vpart``` command. }}',
+                        //   code: '{{ string code }}',
+                        //   action: '{{ string action }}',
+                        //   arg: '{{ string argument }}'
+                        // }
+                        cJSON * root   = cJSON_Parse( command.c_str() );
+                        if (root) {
+                            cJSON *ovpart = NULL;
+                            cJSON *ocode = NULL;
+                            cJSON *oaction = NULL;
+                            cJSON *oarg = NULL;
+                            ovpart = cJSON_GetObjectItemCaseSensitive(root, "vpart");
+                            ocode = cJSON_GetObjectItemCaseSensitive(root, "code");
+                            oaction = cJSON_GetObjectItemCaseSensitive(root, "action");
+                            oarg = cJSON_GetObjectItemCaseSensitive(root, "arg");
+
+                            int vpart = 0; // default partition
+                            std::string code = "";
+                            std::string action = "";
+                            std::string arg = "";
+
+                            if ( cJSON_IsNumber(ovpart) ) {
+                                vpart = ovpart->valuedouble;
+                            }
+                            if ( cJSON_IsString(ocode) ) {
+                                code = ocode->valuestring;
+                            }
+                            if ( cJSON_IsString(oaction) && (oaction->valuestring != NULL) ) {
+                                action = oaction->valuestring;
+                            }
+                            if ( cJSON_IsString(oarg) && (oarg->valuestring != NULL) ) {
+                                arg = oarg->valuestring;
+                            }
+
+                            ESP_LOGI(TAG, "vpart: %i, code: '%s', action: %s, arg: %s", vpart, code.c_str(), action.c_str(), arg.c_str());
+
+                            if ( action.compare("DISARM") == 0 ) {
+                                ad2_disarm(code, vpart);
+                            } else
+                            if ( action.compare("ARM_STAY") == 0 ) {
+                                ad2_arm_stay(code, vpart);
+                            } else
+                            if ( action.compare("ARM_AWAY") == 0 ) {
+                                ad2_arm_away(code, vpart);
+                            } else
+                            if ( action.compare("EXIT") == 0 ) {
+                                ad2_exit_now(vpart);
+                            } else
+                            if ( action.compare("AUX_ALARM") == 0 ) {
+                                ad2_aux_alarm(vpart);
+                            } else
+                            if ( action.compare("PANIC_ALARM") == 0 ) {
+                                ad2_panic_alarm(vpart);
+                            } else
+                            if ( action.compare("FIRE_ALARM") == 0 ) {
+                                ad2_fire_alarm(vpart);
+                            } else
+                            if ( action.compare("BYPASS") == 0 ) {
+                                ad2_bypass_zone(code, vpart, std::atoi(arg.c_str()));
+                            } else
+                            if ( action.compare("SEND_RAW") == 0 ) {
+                                ad2_send(arg);
+                            } else {
+                                // unknown command
+                            }
+                            cJSON_Delete(root);
+                        } else {
+                            // JSON parse error
+                            ESP_LOGI(TAG, "json parse error");
+                        }
+                    } else {
+                        ESP_LOGI(TAG, "invalid data len");
+                    }
+                } else {
+                    ESP_LOGI(TAG, "invalid topic path");
+                }
+            } else {
+                ESP_LOGI(TAG, "invalid topic len");
+            }
+        }
         break;
     case MQTT_EVENT_ERROR:
 #if defined(MQTT_EVENT_LOGGING)
@@ -392,11 +491,13 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
 enum {
     MQTT_ENABLE_CFGKEY_ID = 0,
     MQTT_URL_CFGKEY_ID,
+    MQTT_CMDEN_CFGKEY_ID,
     MQTT_SAS_CFGKEY_ID
 };
 char * MQTT_SUBCMD [] = {
     (char*)MQTT_ENABLE_CFGKEY,
     (char*)MQTT_URL_CFGKEY,
+    (char*)MQTT_CMDEN_CFGKEY,
     (char*)MQTT_SAS_CFGKEY,
     0 // EOF
 };
@@ -666,7 +767,7 @@ static void _cli_cmd_mqtt_command_router(char *string)
                 }
 
                 // show contents of this setting
-                int i;
+                i=0;
                 ad2_get_nv_slot_key_int(MQTT_COMMAND, MQTT_ENABLE_CFGKEY_ID, nullptr, &i);
                 ad2_printf_host(false, "MQTT client is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                 break;
@@ -684,6 +785,25 @@ static void _cli_cmd_mqtt_command_router(char *string)
                     ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, arg);
                     ad2_printf_host(false, "MQTT Broker 'url' set to '%s'.\r\n", arg.c_str());
                 }
+                break;
+
+            /**
+             * MQTT commands enable / disable
+             */
+            case MQTT_CMDEN_CFGKEY_ID:   // 'commands' sub command
+                arg = "";
+                if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+                    ad2_set_nv_slot_key_int(MQTT_COMMAND, MQTT_CMDEN_CFGKEY_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    if ((arg[0] == 'Y' || arg[0] ==  'y')) {
+                        ad2_printf_host(false, "Warning! Enabling commands on a public sever will allow anyone to send commands to the panel. Be sure this is only enabled on private servers or servers with publish permissions.\r\n");
+                    }
+                    ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
+                }
+
+                // show contents of this setting
+                i = 0;
+                ad2_get_nv_slot_key_int(MQTT_COMMAND, MQTT_CMDEN_CFGKEY_ID, nullptr, &i);
+                ad2_printf_host(false, "MQTT command subscription is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
                 break;
 
             /**
@@ -719,6 +839,10 @@ static struct cli_command mqtt_cmd_list[] = {
         "  - ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " {url}```\r\n"
         "    - {url}: MQTT broker URL.\r\n"
         "  - Example: ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " mqtt://mqtt.eclipseprojects.io```\r\n"
+        "- Enable/Disable command subscription. Do not enable on public MQTT servers!\r\n"
+        "  - ```" MQTT_COMMAND " " MQTT_CMDEN_CFGKEY " [Y/N]```\r\n"
+        "  -  {arg1}: [Y]es [N]o\r\n"
+        "  - Example: ```" MQTT_COMMAND " " MQTT_CMDEN_CFGKEY " Y```\r\n"
         "- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n"
         "  - ```" MQTT_COMMAND " " MQTT_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n"
         "    - {slot}\r\n"
@@ -785,6 +909,9 @@ void mqtt_init()
         ad2_printf_host(true, "%s client disabled", TAG);
         return;
     }
+
+    // load commands subscription enable/disable setting
+    ad2_get_nv_slot_key_int(MQTT_COMMAND, MQTT_CMDEN_CFGKEY_ID, nullptr, &commands_enabled);
 
     // generate our client's unique user id. UUID.
     ad2_genUUID(0x10, mqttclient_UUID);
@@ -914,8 +1041,5 @@ void mqtt_init()
 
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_MQTT_CLIENT */
 

@@ -24,7 +24,7 @@
 //#define AD2_STACK_REPORT
 
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1093"
+#define FIRMWARE_VERSION      "AD2IOT-1094"
 
 #if defined(CONFIG_STDK_IOT_CORE)
 #define FIRMWARE_BUILDFLAGS "stsdk"

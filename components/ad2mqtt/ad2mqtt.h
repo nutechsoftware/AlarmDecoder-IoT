@@ -25,15 +25,8 @@
 #define _MQTT_H
 #if CONFIG_AD2IOT_MQTT_CLIENT
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void mqtt_register_cmds();
 void mqtt_init();
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* CONFIG_AD2IOT_MQTT_CLIENT */
 #endif /* _MQTT_H */

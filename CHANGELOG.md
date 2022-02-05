@@ -31,6 +31,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
+## [1.0.9 P4] - 2022-02-XX Sean Mathews - coder @fe4rdotcom
+Add missing logic for MQTT ```commands``` subscription with new ```commands``` enable/disable command. Misc minor cleanup of warnings. Refactor ad2_ helpers for arming to support code or codeID.
+### Added
+  - Enable/Disable feature for ```commands``` subscription with warning when enabling about security on public MQTT servers.
+    - ```mqtt commands [Y|N]```
+  - Missing logic behind ```commands``` subscription in the MQTT component.
+  - Update README with details on ```commands```.
+  - Refactor utils to allow for raw codes or codeID for ARM, DISARM, etc.
+  - Remove unnecessary code passed to ad2_ functions that don't need it.
+  - Remove forced C code sections. Need to clean all of them up now. Not an issue with newer build environment.
+  - Fixed warning on g_ad2_console_mutex.
+
 ## [1.0.9 P3] - 2021-11-22 Sean Mathews - coder @f34rdotcom
 Continued improvements found during daily use.
 ### Added

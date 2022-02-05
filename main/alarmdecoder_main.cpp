@@ -93,7 +93,7 @@ int g_init_done = 0;
 portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
 
 // global host console access mutex
-extern SemaphoreHandle_t g_ad2_console_mutex = 0;
+SemaphoreHandle_t g_ad2_console_mutex = nullptr;
 
 // global AlarmDecoder parser class instance
 AlarmDecoderParser AD2Parse;
