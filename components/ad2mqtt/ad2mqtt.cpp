@@ -114,8 +114,8 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
         topic += mqttclient_UUID;
         topic += "/" MQTT_COMMANDS_TOPIC;
         esp_mqtt_client_subscribe(client,
-                                topic.c_str(),
-                                MQTT_DEF_QOS);
+                                  topic.c_str(),
+                                  MQTT_DEF_QOS);
     }
 
     // Publish we are Online
@@ -250,32 +250,23 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
 
                             if ( action.compare("DISARM") == 0 ) {
                                 ad2_disarm(code, vpart);
-                            } else
-                            if ( action.compare("ARM_STAY") == 0 ) {
+                            } else if ( action.compare("ARM_STAY") == 0 ) {
                                 ad2_arm_stay(code, vpart);
-                            } else
-                            if ( action.compare("ARM_AWAY") == 0 ) {
+                            } else if ( action.compare("ARM_AWAY") == 0 ) {
                                 ad2_arm_away(code, vpart);
-                            } else
-                            if ( action.compare("EXIT") == 0 ) {
+                            } else if ( action.compare("EXIT") == 0 ) {
                                 ad2_exit_now(vpart);
-                            } else
-                            if ( action.compare("CHIME_TOGGLE") == 0 ) {
+                            } else if ( action.compare("CHIME_TOGGLE") == 0 ) {
                                 ad2_chime_toggle(code, vpart);
-                            } else
-                            if ( action.compare("AUX_ALARM") == 0 ) {
+                            } else if ( action.compare("AUX_ALARM") == 0 ) {
                                 ad2_aux_alarm(vpart);
-                            } else
-                            if ( action.compare("PANIC_ALARM") == 0 ) {
+                            } else if ( action.compare("PANIC_ALARM") == 0 ) {
                                 ad2_panic_alarm(vpart);
-                            } else
-                            if ( action.compare("FIRE_ALARM") == 0 ) {
+                            } else if ( action.compare("FIRE_ALARM") == 0 ) {
                                 ad2_fire_alarm(vpart);
-                            } else
-                            if ( action.compare("BYPASS") == 0 ) {
+                            } else if ( action.compare("BYPASS") == 0 ) {
                                 ad2_bypass_zone(code, vpart, std::atoi(arg.c_str()));
-                            } else
-                            if ( action.compare("SEND_RAW") == 0 ) {
+                            } else if ( action.compare("SEND_RAW") == 0 ) {
                                 ad2_send(arg);
                             } else {
                                 // unknown command
