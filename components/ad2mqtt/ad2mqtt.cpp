@@ -260,6 +260,9 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                             if ( action.compare("EXIT") == 0 ) {
                                 ad2_exit_now(vpart);
                             } else
+                            if ( action.compare("CHIME_TOGGLE") == 0 ) {
+                                ad2_chime_toggle(code, vpart);
+                            } else
                             if ( action.compare("AUX_ALARM") == 0 ) {
                                 ad2_aux_alarm(vpart);
                             } else

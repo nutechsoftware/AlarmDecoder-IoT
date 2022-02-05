@@ -567,7 +567,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
             {% endif %}
           command_topic: "ad2iot/{UUID}/commands"
           code: REMOTE_CODE
-          # available command verbs ["DISARM", "ARM_STAY", "ARM_AWAY", "EXIT", "AUX_ALARM", "PANIC_ALARM", "FIRE_ALARM", "BYPASS", "SEND_RAW"]
+          # available command verbs ["DISARM", "ARM_STAY", "ARM_AWAY", "EXIT", "CHIME_TOGGLE", "AUX_ALARM", "PANIC_ALARM", "FIRE_ALARM", "BYPASS", "SEND_RAW"]
           payload_arm_home: "ARM_STAY"
           payload_trigger: "PANIC_ALARM"
           command_template: "{ vpart: 0, action: '{{ action }}', code: {{ code }}} }"
