@@ -207,6 +207,13 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
             if ( event_data->topic_len == topic_path.length() ) {
                 std::string topic( event_data->topic, event_data->topic_len );
                 if ( topic.compare(topic_path) == 0 ) {
+
+                    // We only want fresh commands no recordings.
+                    // Check for retain flag skip if true.
+                    if ( event_data->retain ) {
+                        break;
+                    }
+
                     // sanity check the event_data->data_len
                     if ( event_data->data_len < MQTT_COMMAND_MAX_DATA_LEN ) {
                         std::string command( event_data->data, event_data->data_len );
@@ -246,7 +253,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                                 arg = oarg->valuestring;
                             }
 
-                            ESP_LOGI(TAG, "vpart: %i, code: '%s', action: %s, arg: %s", vpart, code.c_str(), action.c_str(), arg.c_str());
+                            ESP_LOGI(TAG, "retained: %i, vpart: %i, code: '%s', action: %s, arg: %s", event_data->retain, vpart, code.c_str(), action.c_str(), arg.c_str());
 
                             if ( action.compare("DISARM") == 0 ) {
                                 ad2_disarm(code, vpart);
