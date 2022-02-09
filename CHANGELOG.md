@@ -42,6 +42,15 @@ Add missing logic for MQTT ```commands``` subscription with new ```commands``` e
   - Remove unnecessary code passed to ad2_ functions that don't need it.
   - Remove forced C code sections. Need to clean all of them up now. Not an issue with newer build environment.
   - Fixed warning on g_ad2_console_mutex.
+### Change log
+  [ ] SM - MQTT: Support for Home Assistant/Others auto discovery.
+  [X] SM - MQTT: Add new command ```commands``` to enable/disable commands subscription.
+  [X] SM - MQTT: Remove forced cdecl calling to use C++.
+  [ ] SM - MQTT: Add new command ```prefix``` to set a prefix for all topics on the broker.
+  [X] SM - MQTT: Add new command to define signon messages to publish.
+  [X] SM - CORE: Refactor ad2_ routines to arm, disarm etc to support raw code as well as code id from ```code``` command.
+  [X] SM - CORE: ad2_utils remove forced cdecl calling to use C++ instead. TODO: I can now safely remove the extern 'C' from everything with the current build tools.
+  [X] SM - CORE: Fixed a few compiler warnings re. external with init.
 
 ## [1.0.9 P3] - 2021-11-22 Sean Mathews - coder @f34rdotcom
 Continued improvements found during daily use.

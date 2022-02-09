@@ -42,6 +42,7 @@ static const char *TAG = "MQTT";
 #define MQTT_ENABLE_CFGKEY  "enable"
 #define MQTT_URL_CFGKEY     "url"
 #define MQTT_CMDEN_CFGKEY   "commands"
+#define MQTT_PREFIX_CFGKEY  "prefix"
 #define MQTT_SAS_CFGKEY     "switch"
 
 #define MAX_SEARCH_KEYS 9
@@ -69,6 +70,7 @@ static const char *TAG = "MQTT";
 
 static esp_mqtt_client_handle_t mqtt_client = nullptr;
 static std::string mqttclient_UUID;
+static std::string mqttclient_PREFIX = "";
 static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 static int commands_enabled = 0;
 
@@ -110,7 +112,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     // Subscribe to command inputs for remote control if enabled.
     if (commands_enabled) {
         ESP_LOGI(TAG, "Warning! MQTT commands subscription enabled. Not sure on public servers.");
-        topic = MQTT_TOPIC_PREFIX "/";
+        topic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
         topic += mqttclient_UUID;
         topic += "/" MQTT_COMMANDS_TOPIC;
         esp_mqtt_client_subscribe(client,
@@ -119,7 +121,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     }
 
     // Publish we are Online
-    topic = MQTT_TOPIC_PREFIX "/";
+    topic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
     topic += mqttclient_UUID;
     topic += "/status";
     esp_mqtt_client_enqueue(client,
@@ -132,7 +134,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
 
     // Publish our device HW/FW info.
     cJSON *root = ad2_get_ad2iot_device_info_json();
-    topic = MQTT_TOPIC_PREFIX "/";
+    topic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
     topic += mqttclient_UUID;
     topic += "/info";
     char *state = cJSON_Print(root);
@@ -146,6 +148,92 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
                             MQTT_DEF_STORE);
     cJSON_free(state);
     cJSON_Delete(root);
+
+    // Publish panel config info for home assistant or others for discovery
+    // for each partition that is configured with 'vpart' command.
+    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
+        AD2VirtualPartitionState *s = AD2Parse.getAD2PState(n, false);
+        if (s) {
+            cJSON *proot = cJSON_CreateObject();
+
+            // Name
+            std::string value = "AlarmDecoder IoT P" + ad2_to_string(s->partition);
+            cJSON_AddStringToObject(proot, "name", value.c_str());
+
+            // uniqui_id
+            value  = "AlarmDecoder_IoT_P" + ad2_to_string(s->partition);
+            cJSON_AddStringToObject(proot, "unique_id", value.c_str());
+
+            // device_class. TODO configurable name?
+            cJSON_AddStringToObject(proot, "device_class", "alarm_control_panel");
+
+            // availability_topic.
+            // homeassistant/ad2iot/{UUID}/status
+            // TODO Configurable root. for now prefix must be set to 'homeassistant' to work.
+            // TODO Maybe configurable name.
+            value = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
+            value += mqttclient_UUID;
+            value += "/status";
+            cJSON_AddStringToObject(proot, "availability_topic", value.c_str());
+
+            // availability_template.
+            cJSON_AddStringToObject(proot, "availability_template", "{{ value_json.state }}");
+
+            // state_topic.
+            // homeassistant/ad2iot/{UUID}/partitions/1
+            value = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
+            value += mqttclient_UUID;
+            value += "/partitions/" + ad2_to_string(s->partition);
+            cJSON_AddStringToObject(proot, "state_topic", value.c_str());
+
+            // command_topic
+            // homeassistant/ad2iot/{UUID}/commands
+            value = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
+            value += mqttclient_UUID;
+            value += "/commands";
+            cJSON_AddStringToObject(proot, "command_topic", value.c_str());
+
+            // command_template
+            cJSON_AddStringToObject(proot, "command_template", "{ \"vpart\": 0, \"action\": \"{{ action }}\", \"code\": \"{{ code }}\"}");
+
+            // code
+            cJSON_AddStringToObject(proot, "code", "REMOTE_CODE");
+
+            // payload_arm_home(translate s/home/stay/.)
+            cJSON_AddStringToObject(proot, "payload_arm_home", "ARM_STAY");
+
+            // payload_arm_home(translate)
+            cJSON_AddStringToObject(proot, "payload_trigger", "PANIC_ALARM");
+
+            // value_template. Ugg. too long need breaks. Better way?
+            cJSON_AddStringToObject(proot, "value_template", "{% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}triggered{% elif value_json.armed_stay == true %}{% if value_json.entry_delay_off == true %}armed_night{% else %}armed_home{% endif %}{% elif value_json.armed_away == true %}{% if value_json.entry_delay_off == true %}armed_vacation{% elif value_json.entry_delay_off == false %}armed_away{% endif %}{% else %}disarmed{% endif %}");
+
+            char *szjson = cJSON_Print(proot);
+            cJSON_Minify(szjson);
+
+            // publish the config to the correct topic.
+            // homeassistant/alarm_control_panel/{UUID}/P1
+            // TODO: configurable root
+            // TODO: configurable retain?
+            topic = "homeassistant/alarm_control_panel/";
+            topic += mqttclient_UUID;
+            topic += "/P";
+            topic += ad2_to_string(s->partition);
+            topic += "/config";
+            esp_mqtt_client_enqueue(client,
+                                    topic.c_str(),
+                                    szjson,
+                                    0,
+                                    MQTT_DEF_QOS,
+                                    MQTT_DEF_RETAIN,
+                                    MQTT_DEF_STORE);
+            cJSON_free(szjson);
+            cJSON_Delete(proot);
+
+            // If a zone list is provided then publish zone configurations to broker.
+            // FIXME s->zone_list.push_front((uint8_t)z & 0xff);
+        }
+    }
 }
 
 /**
@@ -200,7 +288,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
             // Sanity test topic is the size of ```commands``` topic name.
             // Topic pattern to confirm command
             std::string topic_path;
-            topic_path = MQTT_TOPIC_PREFIX "/";
+            topic_path = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
             topic_path += mqttclient_UUID;
             topic_path += "/" MQTT_COMMANDS_TOPIC;
 
@@ -208,7 +296,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                 std::string topic( event_data->topic, event_data->topic_len );
                 if ( topic.compare(topic_path) == 0 ) {
 
-                    // We only want fresh commands no recordings.
+                    // We only want fresh messages no recordings.
                     // Check for retain flag skip if true.
                     if ( event_data->retain ) {
                         break;
@@ -253,7 +341,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                                 arg = oarg->valuestring;
                             }
 
-                            ESP_LOGI(TAG, "retained: %i, vpart: %i, code: '%s', action: %s, arg: %s", event_data->retain, vpart, code.c_str(), action.c_str(), arg.c_str());
+                            ESP_LOGI(TAG, "vpart: %i, code: '%s', action: %s, arg: %s", vpart, code.c_str(), action.c_str(), arg.c_str());
 
                             if ( action.compare("DISARM") == 0 ) {
                                 ad2_disarm(code, vpart);
@@ -321,7 +409,7 @@ void mqtt_on_lrr(std::string *msg, AD2VirtualPartitionState *s, void *arg)
 {
     int msg_id;
     if (mqtt_client != nullptr) {
-        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        std::string sTopic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/cid";
 
@@ -357,7 +445,7 @@ void mqtt_on_zone_change(std::string *msg, AD2VirtualPartitionState *s, void *ar
 {
     int msg_id;
     if (mqtt_client != nullptr && s) {
-        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        std::string sTopic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/zones/";
 
@@ -403,7 +491,7 @@ void mqtt_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *a
 {
     int msg_id;
     if (mqtt_client != nullptr && s) {
-        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        std::string sTopic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/partitions/";
         sTopic+=ad2_to_string(s->partition);
@@ -463,7 +551,7 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
     // publishing event
     int msg_id;
     if (mqtt_client != nullptr) {
-        std::string sTopic = MQTT_TOPIC_PREFIX "/";
+        std::string sTopic = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/switches/";
         sTopic+=topic;
@@ -493,12 +581,14 @@ enum {
     MQTT_ENABLE_CFGKEY_ID = 0,
     MQTT_URL_CFGKEY_ID,
     MQTT_CMDEN_CFGKEY_ID,
+    MQTT_PREFIX_CFGKEY_ID,
     MQTT_SAS_CFGKEY_ID
 };
 char * MQTT_SUBCMD [] = {
     (char*)MQTT_ENABLE_CFGKEY,
     (char*)MQTT_URL_CFGKEY,
     (char*)MQTT_CMDEN_CFGKEY,
+    (char*)MQTT_PREFIX_CFGKEY,
     (char*)MQTT_SAS_CFGKEY,
     0 // EOF
 };
@@ -808,6 +898,21 @@ static void _cli_cmd_mqtt_command_router(char *string)
                 break;
 
             /**
+             * MQTT topic prefix
+             */
+            case MQTT_PREFIX_CFGKEY_ID:   // 'prefix' sub command
+                // If arg provided then save.
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    ad2_set_nv_slot_key_string(MQTT_COMMAND, MQTT_PREFIX_CFGKEY_ID, nullptr, arg.c_str());
+                    ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
+                } else {
+                    // show contents of this setting
+                    ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_PREFIX_CFGKEY_ID, nullptr, arg);
+                    ad2_printf_host(false, "MQTT topic prefix set to '%s'.\r\n", arg.c_str());
+                }
+                break;
+
+            /**
              * MQTT Virtual switch command
              */
             case MQTT_SAS_CFGKEY_ID:
@@ -921,6 +1026,14 @@ void mqtt_init()
     // configure and start MQTT client
     esp_err_t err;
 
+    // load topic prefix setting
+    ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_PREFIX_CFGKEY_ID, nullptr, mqttclient_PREFIX);
+    ad2_remove_ws(mqttclient_PREFIX);
+    if (mqttclient_PREFIX.length()) {
+        // add a slash
+        mqttclient_PREFIX += "/";
+    }
+
     // load and parse the Broker URL if set.
     std::string brokerURL;
     ad2_get_nv_slot_key_string(MQTT_COMMAND, MQTT_URL_CFGKEY_ID, nullptr, brokerURL);
@@ -930,7 +1043,7 @@ void mqtt_init()
     }
 
     // Last Will topic
-    std::string LWT_TOPIC = MQTT_TOPIC_PREFIX "/";
+    std::string LWT_TOPIC = mqttclient_PREFIX + MQTT_TOPIC_PREFIX "/";
     LWT_TOPIC+=mqttclient_UUID;
     LWT_TOPIC+="/status";
 
