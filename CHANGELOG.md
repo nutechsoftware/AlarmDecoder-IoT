@@ -32,21 +32,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ---
 ## Releases
 ## [1.0.9 P4] - 2022-02-XX Sean Mathews - coder @fe4rdotcom
-Add missing logic for MQTT ```commands``` subscription with new ```commands``` enable/disable command. Misc minor cleanup of warnings. Refactor ad2_ helpers for arming to support code or codeID.
+Add missing logic for MQTT ```commands``` subscription with new ```commands``` enable/disable command. Misc minor cleanup of warnings. Refactor ad2_ helpers for arming to support code or codeID. Added initial support for Auto Discovery with Home Assistant and MQTT.
 ### Added
-  - Enable/Disable feature for ```commands``` subscription with warning when enabling about security on public MQTT servers.
+  - MQTT
+    - Enable/Disable feature for ```commands``` subscription with warning when enabling about security on public MQTT servers.
     - ```mqtt commands [Y|N]```
-  - Missing logic behind ```commands``` subscription in the MQTT component.
-  - Update README with details on ```commands```.
+    - Missing logic behind ```commands``` subscription in the MQTT component.
+    - Update README with details on ```commands```, ```tprefix``` and ```dprefix```.
+    - Add topic prefix command ```tprefix```.
+    - Add discovery topic prefix command ```dprefix``` for MQTT auto discovery.
+### Changed
   - Refactor utils to allow for raw codes or codeID for ARM, DISARM, etc.
   - Remove unnecessary code passed to ad2_ functions that don't need it.
   - Remove forced C code sections. Need to clean all of them up now. Not an issue with newer build environment.
   - Fixed warning on g_ad2_console_mutex.
 ### Change log
-  [ ] SM - MQTT: Support for Home Assistant/Others auto discovery.
+  [X] SM - MQTT: Support for Home Assistant/Others auto discovery.
+  [X] SM - MQTT: Add new command ```dprefix``` to set a prefix for publishing device config documents for MQTT auto discovery.
   [X] SM - MQTT: Add new command ```commands``` to enable/disable commands subscription.
   [X] SM - MQTT: Remove forced cdecl calling to use C++.
-  [ ] SM - MQTT: Add new command ```prefix``` to set a prefix for all topics on the broker.
+  [X] SM - MQTT: Add new command ```tprefix``` to set a prefix for all topics on the broker.
   [X] SM - MQTT: Add new command to define signon messages to publish.
   [X] SM - CORE: Refactor ad2_ routines to arm, disarm etc to support raw code as well as code id from ```code``` command.
   [X] SM - CORE: ad2_utils remove forced cdecl calling to use C++ instead. TODO: I can now safely remove the extern 'C' from everything with the current build tools.

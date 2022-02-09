@@ -533,6 +533,12 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/status = {"state": "online"}```
   - Device specific info is in the ```info``` topic below the device root topic.
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/info = {"firmware_version":"AD2IOT-1094","cpu_model":1,"cpu_revision":1,"cpu_cores":2,"cpu_features":["WiFi","BLE","BT"],"cpu_flash_size":4194304,"cpu_flash_type":"external","ad2_version_string":"08000002,V2.2a.8.9b-306,TX;RX;SM;VZ;RF;ZX;RE;AU;3X;CG;DD;MF;L2;KE;M2;CB;DS;ER;CR","ad2_config_string":"MODE=A&CONFIGBITS=ff05&ADDRESS=18&LRR=Y&COM=N&EXP=YYNNN&REL=YNNN&MASK=ffffffff&DEDUPLICATE=N"}```
+  - Topic prefix when configrued with ```tprefix``` will prefix all publish topics with a specified path.
+    - Example: Place ```ad2iot``` topic under the Home Assistant topic.
+      - ```tprefix homeassistant```
+  - Auto discovery device config if enabled with ```dprefix``` will publish the alarm panel device config for each partition and zone that is configured. See https://www.home-assistant.io/docs/mqtt/discovery/
+    - Example: Place discovery topic under Home Assistant.
+      - ```dtopic homeassistant```
   - Partition state tracking with minimal traffic only when state changes. Each configured partition will be under the ```partitions``` topic below the device root topic.
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/1 =
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
@@ -591,11 +597,19 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
 - Sets the URL to the MQTT broker.
   - ```mqtt url {url}```
     - {url}: MQTT broker URL.
-  - Example: ```mqtt url mqtt://mqtt.eclipseprojects.io```
+  - Example: ```mqtt url mqtt://user@pass:mqtt.example.com```
+- Topic prefix. Prefix to be used on publish topics.
+  - ```mqtt tprefix {prefix}```
+  -  {prefix}: Topic prefix.
+  - Example: ```mqtt tprefix somepath```
 - Enable/Disable command subscription. Do not enable on public MQTT servers!
   - ```mqtt commands [Y/N]```
   -  {arg1}: [Y]es [N]o
   - Example: ```mqtt commands Y```
+- Home Assistant discovery prefix. If set will enable publishing donfig details.
+  - ```mqtt dprefix {prefix}```
+  -  {prefix}: Home Assistant topic.
+  - Example: ```mqtt dprefix homeassistant```
 - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
   - ```mqtt switch {slot} {setting} {arg1} [arg2]```
     - {slot}
