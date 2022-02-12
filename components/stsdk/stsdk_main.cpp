@@ -1466,7 +1466,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
                             iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-    ota_do_update(nullptr);
+    hal_ota_do_update(nullptr);
 }
 
 #ifdef __cplusplus

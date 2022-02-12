@@ -76,6 +76,9 @@ static std::string mqttclient_DPREFIX = "";
 static std::vector<AD2EventSearch *> mqtt_AD2EventSearches;
 static int commands_enabled = 0;
 
+// prefix name lines to identy the source. User can change.
+#define NAME_PREFIX "AD2IoT"
+
 // Default MQTT message settings excluding LWT.
 #define MQTT_DEF_QOS    1 // AT Least Once
 #define MQTT_DEF_RETAIN 1 // Retain
@@ -100,6 +103,297 @@ esp_err_t outbox_set_pending(outbox_handle_t outbox, int msg_id, pending_state_t
     return ESP_FAIL;
 }
 #endif
+
+
+/**
+ * @brief helper to send config json for a binary sensor.
+ *
+ * @param [in]device_type const char *. ex. 'binary_sensor'
+ * @param [in]device_class const char *. ex. 'smoke'
+ * @param [in]type const char * type ex. 'zone'
+ * @param [in]id uint8_t unique ID within type 000 to 255
+ * @param [in]padding uint8_t padding digits of 0 for no ID
+ * @param [in]name_prefix const char *. The prefix for the generated name.
+ * @param [in]state_topic const char *. The state topic for the sensor.
+ * @param [in]state_template const char *. The template used to return ON/OFF for this topic.
+ */
+void mqtt_publish_device_config(const char * device_type, const char *device_class, const char *ad2type, uint8_t id, uint8_t padding, const char* name_prefix, const char * state_topic, const char *value_template)
+{
+    cJSON *root = cJSON_CreateObject();
+
+    // zero pad 3 digit ID number string if id > 0 else no ID
+    std::string szid;
+    if (id && padding) {
+        char zstr[256] = "";
+        snprintf(zstr, sizeof(zstr), "%0*d", padding, (int)id);
+        szid = zstr;
+    }
+
+    // Name
+    std::string value = name_prefix;
+    if (id) {
+        value += szid;
+    }
+    cJSON_AddStringToObject(root, "name", value.c_str());
+
+    // unique_id ad2iot_{ad2type}[_{id}]
+    // object_id ad2iot_{ad2type}[_{id}]
+    // ex. ad2iot_zone_1
+    value  = "ad2iot_";
+    value += ad2type;
+    if (id) {
+        value += szid;
+    }
+    cJSON_AddStringToObject(root, "unique_id", value.c_str());
+    cJSON_AddStringToObject(root, "object_id", value.c_str());
+
+    // set the device class
+    cJSON_AddStringToObject(root, "device_class", device_class);
+
+    // availability_topic fixed for all children of the ad2iot.
+    // homeassistant/ad2iot/{UUID}/status
+    // TODO Configurable root. for now prefix must be set to 'homeassistant' to work.
+    // TODO Maybe configurable name.
+    value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    value += mqttclient_UUID;
+    value += "/status";
+    cJSON_AddStringToObject(root, "availability_topic", value.c_str());
+
+    // availability_template.
+    cJSON_AddStringToObject(root, "availability_template", "{{ value_json.state }}");
+
+    // state topic
+    // ex. "homeassistant/ad2iot/41443245-4d42-4544-4410-98f4ab2233c4/zones/024"
+    cJSON_AddStringToObject(root, "state_topic", state_topic);
+
+    // value_template.
+    cJSON_AddStringToObject(root, "value_template", value_template);
+
+    // compress json and convert to char *
+    char *szjson = cJSON_Print(root);
+    cJSON_Minify(szjson);
+
+    // publish the config to the correct topic.
+    // homeassistant/alarm_control_panel/{UUID}/p1
+    // TODO: configurable root
+    // TODO: configurable retain?
+    std::string topic = "";
+    if (mqttclient_DPREFIX.length()) {
+        topic = mqttclient_DPREFIX;
+    }
+    topic += device_type;
+    topic += "/";
+    topic += mqttclient_UUID;
+    topic += "/";
+    topic += ad2type;
+    if (id) {
+        topic += szid;
+    }
+    topic += "/config";
+    esp_mqtt_client_enqueue(mqtt_client,
+                            topic.c_str(),
+                            szjson,
+                            0,
+                            MQTT_DEF_QOS,
+                            MQTT_DEF_RETAIN,
+                            MQTT_DEF_STORE);
+
+    cJSON_free(szjson);
+    cJSON_Delete(root);
+}
+
+/**
+ * @brief helper to send config json for a given partition.
+ *
+ */
+void mqtt_send_partition_config(AD2VirtualPartitionState *s)
+{
+    cJSON *root = cJSON_CreateObject();
+
+    // Partiting number string.
+    std::string szpid = ad2_to_string(s->partition);
+
+    // Name
+    std::string value = "AlarmDecoder IoT P" + szpid;
+    cJSON_AddStringToObject(root, "name", value.c_str());
+
+    // unique_id
+    value  = "ad2iot_p" + szpid;
+    cJSON_AddStringToObject(root, "unique_id", value.c_str());
+
+    // object_id (same as unique_id)
+    cJSON_AddStringToObject(root, "object_id", value.c_str());
+
+    // device_class. TODO configurable name?
+    cJSON_AddStringToObject(root, "device_class", "alarm_control_panel");
+
+    // sw_version.
+    cJSON_AddStringToObject(root, "sw_version", FIRMWARE_VERSION);
+
+
+    // availability_topic.
+    // homeassistant/ad2iot/{UUID}/status
+    // TODO Configurable root. for now prefix must be set to 'homeassistant' to work.
+    // TODO Maybe configurable name.
+    value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    value += mqttclient_UUID;
+    value += "/status";
+    cJSON_AddStringToObject(root, "availability_topic", value.c_str());
+
+    // availability_template.
+    cJSON_AddStringToObject(root, "availability_template", "{{ value_json.state }}");
+
+    // state_topic.
+    // homeassistant/ad2iot/{UUID}/partitions/1
+    value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    value += mqttclient_UUID;
+    value += "/partitions/" + szpid;
+    cJSON_AddStringToObject(root, "state_topic", value.c_str());
+
+    // command_topic
+    // homeassistant/ad2iot/{UUID}/commands
+    value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    value += mqttclient_UUID;
+    value += "/commands";
+    cJSON_AddStringToObject(root, "command_topic", value.c_str());
+
+    // command_template
+    cJSON_AddStringToObject(root, "icon", "mdi:shield-home");
+
+    // command_template
+    cJSON_AddStringToObject(root, "command_template", "{ \"vpart\": 0, \"action\": \"{{ action }}\", \"code\": \"{{ code }}\"}");
+
+    // code
+    cJSON_AddStringToObject(root, "code", "REMOTE_CODE");
+
+    // payload_arm_home(translate s/home/stay/.)
+    cJSON_AddStringToObject(root, "payload_arm_home", "ARM_STAY");
+
+    // payload_arm_home(translate)
+    cJSON_AddStringToObject(root, "payload_trigger", "PANIC_ALARM");
+
+    // value_template. Ugg. too long need breaks. Better way?
+    cJSON_AddStringToObject(root, "value_template", "{% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}triggered{% elif value_json.armed_stay == true %}{% if value_json.entry_delay_off == true %}armed_night{% else %}armed_home{% endif %}{% elif value_json.armed_away == true %}{% if value_json.entry_delay_off == true %}armed_vacation{% elif value_json.entry_delay_off == false %}armed_away{% endif %}{% else %}disarmed{% endif %}");
+
+    char *szjson = cJSON_Print(root);
+    cJSON_Minify(szjson);
+
+    // publish the config to the correct topic.
+    // homeassistant/alarm_control_panel/{UUID}/p1
+    // TODO: configurable root
+    // TODO: configurable retain?
+    std::string topic = "";
+    if (mqttclient_DPREFIX.length()) {
+        topic = mqttclient_DPREFIX;
+    }
+    topic += "alarm_control_panel/";
+    topic += mqttclient_UUID;
+    topic += "/p";
+    topic += szpid;
+    topic += "/config";
+    esp_mqtt_client_enqueue(mqtt_client,
+                            topic.c_str(),
+                            szjson,
+                            0,
+                            MQTT_DEF_QOS,
+                            MQTT_DEF_RETAIN,
+                            MQTT_DEF_STORE);
+    cJSON_free(szjson);
+    cJSON_Delete(root);
+
+    // Send panel_power_0 config
+    topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/partitions/";
+    topic += szpid;
+    mqtt_publish_device_config("binary_sensor", "power",
+    "ac_power", 0, 0, NAME_PREFIX " Alarm Panel A/C power",
+    topic.c_str(),
+    "{% if value_json.ac_power == true %}ON{% else %}OFF{% endif %}");
+
+    // send fire_pN
+    topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/partitions/";
+    topic += szpid;
+    mqtt_publish_device_config("binary_sensor", "smoke",
+    "fire_p", s->partition, 1, NAME_PREFIX " Fire Alarm P",
+    topic.c_str(),
+    "{% if value_json.fire_alarm == true %}ON{% else %}OFF{% endif %}");
+
+    // send chime_pN
+    topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/partitions/";
+    topic += szpid;
+    mqtt_publish_device_config("binary_sensor", "running",
+    "chime_p", s->partition, 1, NAME_PREFIX " Chime Mode P",
+    topic.c_str(),
+    "{% if value_json.chime_on == true %}ON{% else %}OFF{% endif %}");
+
+
+}
+
+/**
+ * @brief helper to send config json for every partition zones.
+ *
+ */
+void mqtt_send_fw_version(const char *available_version)
+{
+    int msg_id;
+    if (mqtt_client != nullptr) {
+        std::string sTopic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+        sTopic+=mqttclient_UUID;
+        sTopic+="/fw_version";
+
+        cJSON *root = cJSON_CreateObject();
+        cJSON_AddStringToObject(root, "installed", FIRMWARE_VERSION);
+        cJSON_AddStringToObject(root, "available", available_version);
+
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+
+        // Non blocking. We must not block AlarmDecoderParser
+        msg_id = esp_mqtt_client_enqueue(mqtt_client,
+                                         sTopic.c_str(),
+                                         state,
+                                         0,
+                                         MQTT_DEF_QOS,
+                                         MQTT_DEF_RETAIN,
+                                         MQTT_DEF_STORE);
+
+        cJSON_free(state);
+        cJSON_Delete(root);
+    }
+}
+
+/**
+ * @brief helper to send config json for every partition zones.
+ *
+ */
+void mqtt_send_partition_zone_configs(AD2VirtualPartitionState *s)
+{
+    // Send panel_power_0 config
+    std::string topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/zones/";
+
+
+    for (std::pair<uint8_t, AD2ZoneState> e : s->zone_states) {
+        if (s->zone_states[e.first].state() != AD2_STATE_CLOSED) {
+            // zero pad 3 digit ID number string
+            char zstr[4];
+            snprintf(zstr, sizeof(zstr), "%03d", (int)e.first);
+            std::string _top = topic;
+            _top += zstr;
+            mqtt_publish_device_config("binary_sensor", "motion",
+                "zone_", e.first, 3, NAME_PREFIX " Zone ",
+                _top.c_str(),
+                "{% if value_json.state == 'CLOSE' %}OFF{% else %}ON{% endif %}"
+            );
+        }
+    }
+}
 
 /**
  * @brief Callback for MQTT_EVENT_CONNECTED event.
@@ -126,7 +420,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
     topic += mqttclient_UUID;
     topic += "/status";
-    esp_mqtt_client_enqueue(client,
+    esp_mqtt_client_enqueue(mqtt_client,
                             topic.c_str(),
                             "{\"state\": \"online\"}",
                             0,
@@ -151,93 +445,26 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     cJSON_free(state);
     cJSON_Delete(root);
 
+    // set available version to current for now. Will be updated if new version available.
+    mqtt_send_fw_version(FIRMWARE_VERSION);
+
+    // Send firmware_update config
+    topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    topic += "/fw_version";
+    mqtt_publish_device_config("binary_sensor", "update",
+    "fw_version", 0, 0, NAME_PREFIX " Firmware",
+    topic.c_str(),
+    "{% if value_json.installed != value_json.available %}ON{% else %}OFF{% endif %}");
+
+
     // Publish panel config info for home assistant or others for discovery
     // for each partition that is configured with 'vpart' command.
     for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
         AD2VirtualPartitionState *s = AD2Parse.getAD2PState(n, false);
         if (s) {
-            cJSON *proot = cJSON_CreateObject();
-
-            // Name
-            std::string value = "AlarmDecoder IoT P" + ad2_to_string(s->partition);
-            cJSON_AddStringToObject(proot, "name", value.c_str());
-
-            // uniqui_id
-            value  = "AlarmDecoder_IoT_P" + ad2_to_string(s->partition);
-            cJSON_AddStringToObject(proot, "unique_id", value.c_str());
-
-            // device_class. TODO configurable name?
-            cJSON_AddStringToObject(proot, "device_class", "alarm_control_panel");
-
-            // availability_topic.
-            // homeassistant/ad2iot/{UUID}/status
-            // TODO Configurable root. for now prefix must be set to 'homeassistant' to work.
-            // TODO Maybe configurable name.
-            value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
-            value += mqttclient_UUID;
-            value += "/status";
-            cJSON_AddStringToObject(proot, "availability_topic", value.c_str());
-
-            // availability_template.
-            cJSON_AddStringToObject(proot, "availability_template", "{{ value_json.state }}");
-
-            // state_topic.
-            // homeassistant/ad2iot/{UUID}/partitions/1
-            value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
-            value += mqttclient_UUID;
-            value += "/partitions/" + ad2_to_string(s->partition);
-            cJSON_AddStringToObject(proot, "state_topic", value.c_str());
-
-            // command_topic
-            // homeassistant/ad2iot/{UUID}/commands
-            value = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
-            value += mqttclient_UUID;
-            value += "/commands";
-            cJSON_AddStringToObject(proot, "command_topic", value.c_str());
-
-            // command_template
-            cJSON_AddStringToObject(proot, "command_template", "{ \"vpart\": 0, \"action\": \"{{ action }}\", \"code\": \"{{ code }}\"}");
-
-            // code
-            cJSON_AddStringToObject(proot, "code", "REMOTE_CODE");
-
-            // payload_arm_home(translate s/home/stay/.)
-            cJSON_AddStringToObject(proot, "payload_arm_home", "ARM_STAY");
-
-            // payload_arm_home(translate)
-            cJSON_AddStringToObject(proot, "payload_trigger", "PANIC_ALARM");
-
-            // value_template. Ugg. too long need breaks. Better way?
-            cJSON_AddStringToObject(proot, "value_template", "{% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}triggered{% elif value_json.armed_stay == true %}{% if value_json.entry_delay_off == true %}armed_night{% else %}armed_home{% endif %}{% elif value_json.armed_away == true %}{% if value_json.entry_delay_off == true %}armed_vacation{% elif value_json.entry_delay_off == false %}armed_away{% endif %}{% else %}disarmed{% endif %}");
-
-            char *szjson = cJSON_Print(proot);
-            cJSON_Minify(szjson);
-
-            // publish the config to the correct topic.
-            // homeassistant/alarm_control_panel/{UUID}/P1
-            // TODO: configurable root
-            // TODO: configurable retain?
-            topic = "";
-            if (mqttclient_DPREFIX.length()) {
-                topic = mqttclient_DPREFIX;
-            }
-            topic += "alarm_control_panel/";
-            topic += mqttclient_UUID;
-            topic += "/P";
-            topic += ad2_to_string(s->partition);
-            topic += "/config";
-            esp_mqtt_client_enqueue(client,
-                                    topic.c_str(),
-                                    szjson,
-                                    0,
-                                    MQTT_DEF_QOS,
-                                    MQTT_DEF_RETAIN,
-                                    MQTT_DEF_STORE);
-            cJSON_free(szjson);
-            cJSON_Delete(proot);
-
-            // If a zone list is provided then publish zone configurations to broker.
-            // FIXME s->zone_list.push_front((uint8_t)z & 0xff);
+            mqtt_send_partition_config(s);
+            mqtt_send_partition_zone_configs(s);
         }
     }
 }
@@ -369,6 +596,8 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                                 ad2_bypass_zone(code, vpart, std::atoi(arg.c_str()));
                             } else if ( action.compare("SEND_RAW") == 0 ) {
                                 ad2_send(arg);
+                            } else if ( action.compare("FW_UPDATE") == 0 ) {
+                                hal_ota_do_update();
                             } else {
                                 // unknown command
                             }
@@ -437,6 +666,20 @@ void mqtt_on_lrr(std::string *msg, AD2VirtualPartitionState *s, void *arg)
         cJSON_free(state);
         cJSON_Delete(root);
     }
+}
+
+/**
+ * @brief ON_FIRMWARE_VERSION
+ * Called when a new firmware version is available.
+ *
+ * @param [in]msg std::string new version string.
+ * @param [in]s nullptr
+ * @param [in]arg nullptr.
+ *
+ */
+void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+{
+    mqtt_send_fw_version(msg->c_str());
 }
 
 /**
@@ -1122,6 +1365,8 @@ void mqtt_init()
     // SUbscribe to ON_ZONE_CHANGE events
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, mqtt_on_zone_change, (void *)ON_ZONE_CHANGE);
 
+    // subscribe to firmware updates available events.
+    AD2Parse.subscribeTo(ON_FIRMWARE_VERSION, on_new_firmware_cb, nullptr);
 
     // Register search based virtual switches.
     std::string key = std::string(MQTT_PREFIX) + std::string(MQTT_SAS_CFGKEY);

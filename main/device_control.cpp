@@ -38,6 +38,7 @@ static const char *TAG = "UARTCLI";
 #include "nvs_flash.h"
 
 // specific includes
+#include "ota_util.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -969,6 +970,16 @@ bool hal_get_network_connected()
 {
     return xEventGroupGetBits(g_ad2_net_event_group) & NET_STA_CONNECT_BIT;
 }
+
+/**
+ * @brief Do an OTA update.
+ */
+void hal_ota_do_update()
+{
+    ota_do_update(nullptr);
+}
+
+
 
 /**
  * @brief get CONNECTED state.
