@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.0.9 P4] - 2022-02-XX Sean Mathews - coder @f34rdotcom
+## [1.0.9 P4] - 2022-02-22 Sean Mathews - coder @f34rdotcom
 Add missing logic for MQTT ```commands``` subscription with new ```commands``` enable/disable command. Misc minor cleanup of warnings. Refactor ad2_ helpers for arming to support code or codeID. Added initial support for Auto Discovery with Home Assistant and MQTT.
 ### Added
   - MQTT
@@ -43,12 +43,15 @@ Add missing logic for MQTT ```commands``` subscription with new ```commands``` e
     - Add topic prefix command ```tprefix```.
     - Add discovery topic prefix command ```dprefix``` for MQTT auto discovery.
 ### Changed
+  - Change ```zone``` command to expect a json string that is not currently validated as the last argument.
+    - ```{"alpha": "zone alpha descriptor", "type": "zone type string"}```.
   - Refactor utils to allow for raw codes or codeID for ARM, DISARM, etc.
   - Remove unnecessary code passed to ad2_ functions that don't need it.
   - Remove forced C code sections. Need to clean all of them up now. Not an issue with newer build environment.
   - Fixed warning on g_ad2_console_mutex.
 ### Change log
-  - [X] SM - Added hal wrapper for ota_do_update(hal_ota_do_update) and updated any use of ota_do_update from outside of main.
+  - [X] SM - MQTT: Refactor publish function to make it easy to use in the code.
+  - [X] SM - HAL: Added hal wrapper for ota_do_update(hal_ota_do_update) and updated any use of ota_do_update from outside of main.
   - [X] SM - MQTT: Added commands verbs ```[DISARM, ARM_STAY, FW_UPDATE, ARM_AWAY, EXIT, CHIME_TOGGLE, AUX_ALARM, PANIC_ALARM, FIRE_ALARM, BYPASS, SEND_RAW, FW_UPDATE]```.
   - [X] SM - MQTT: Support for Home Assistant/Others auto discovery.
   - [X] SM - MQTT: Add new command ```dprefix``` to set a prefix for publishing device config documents for MQTT auto discovery.

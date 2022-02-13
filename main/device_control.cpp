@@ -974,9 +974,9 @@ bool hal_get_network_connected()
 /**
  * @brief Do an OTA update.
  */
-void hal_ota_do_update()
+void hal_ota_do_update(const char * arg)
 {
-    ota_do_update(nullptr);
+    ota_do_update((char*)arg);
 }
 
 

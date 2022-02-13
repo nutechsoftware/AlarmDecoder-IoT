@@ -650,6 +650,35 @@ void AlarmDecoderParser::setZoneString(uint8_t zone, const char* alpha)
     AD2ZoneAlpha[zone] = alpha;
 }
 
+/**
+ * @brief Return a type of a zone state. Use the AD2ZoneType string if found
+ * or the standard 'motion' template if not.
+ *
+ * @param [in]zone int value for the zone from 1-N
+ * @param [out]type std::string * type for the zone.
+ *
+ */
+void AlarmDecoderParser::getZoneType(uint8_t zone, std::string &type)
+{
+    if (AD2ZoneType.count(zone)) {
+        type = AD2ZoneType[zone];
+    } else {
+        type = "motion";
+    }
+}
+
+/**
+ * @brief Set the type of a zone.
+ *
+ * @param [in]zone int value for the zone from 1-N
+ *
+ * @return const char * type for the zone.
+ *
+ */
+void AlarmDecoderParser::setZoneType(uint8_t zone, const char* type)
+{
+    AD2ZoneType[zone] = type;
+}
 
 /**
  * @brief Consume bytes from an AlarmDecoder stream into a small ring
@@ -1349,7 +1378,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                     } else {
                         //TODO: Error statistics tracking
 #if defined(IDF_VER)
-                        ESP_LOGE(TAG, "!ERR: BAD PROTOCOL PREFIX.");
+                        ESP_LOGE(TAG, "!ERR: BAD PROTOCOL PREFIX. '%s'", msg.c_str());
 #endif
                     }
                 }

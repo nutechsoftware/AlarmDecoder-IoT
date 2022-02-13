@@ -721,13 +721,18 @@ void app_main()
         }
     }
 
-    // Load Zone alpha descriptors.
-    std::string alpha;
-    for (int n = 0; n <= AD2_MAX_ZONES; n++) {
-        alpha = "";
-        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, alpha);
-        if (alpha.length()) {
-            AD2Parse.setZoneString(n, alpha.c_str());
+    // Load Zone config string and save.
+    std::string config;
+    for (int n = 1; n <= AD2_MAX_ZONES; n++) {
+        config = "";
+        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, config);
+        if (config.length()) {
+            // Parse JSON string
+            cJSON *json = cJSON_Parse(config.c_str());
+            if (json) {
+                AD2Parse.setZoneString(n, cJSON_GetObjectItem(json, "alpha")->valuestring);
+                AD2Parse.setZoneType(n, cJSON_GetObjectItem(json, "type")->valuestring);
+            }
         }
     }
 
