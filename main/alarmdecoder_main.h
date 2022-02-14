@@ -64,6 +64,9 @@ extern int g_StopMainTask;
 // global critical section handle
 extern portMUX_TYPE spinlock;
 
+// global host console access mutex
+extern SemaphoreHandle_t g_ad2_console_mutex;
+
 // global AlarmDecoder parser class instance
 extern AlarmDecoderParser AD2Parse;
 

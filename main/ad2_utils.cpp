@@ -40,10 +40,6 @@ static const char *TAG = "AD2UTIL";
 #include "nvs_flash.h"
 #include "mbedtls/base64.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 /**
  * @brief Parse an acl string and add to our list of networks.
@@ -850,21 +846,17 @@ int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining)
 /**
  * @brief Send the ARM AWAY command to the alarm panel.
  *
- * @details using the code in slot codeId and address in
+ * @details using the given code and address in
  * slot vpartId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]code std::string &
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_arm_away(int codeId, int vpartId)
+void ad2_arm_away(std::string &code, int vpartId)
 {
-
-    // Get user code
-    std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
     ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
@@ -889,7 +881,7 @@ void ad2_arm_away(int codeId, int vpartId)
 }
 
 /**
- * @brief Send the ARM STAY command to the alarm panel.
+ * @brief Send the ARM AWAY command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
  * slot vpartId send the correct command to the AD2 device
@@ -900,12 +892,30 @@ void ad2_arm_away(int codeId, int vpartId)
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_arm_stay(int codeId, int vpartId)
+void ad2_arm_away(int codeId, int vpartId)
 {
 
     // Get user code
     std::string code;
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+
+    ad2_arm_away(code, vpartId);
+}
+
+/**
+ * @brief Send the ARM STAY command to the alarm panel.
+ *
+ * @details using the given code and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]code std::string &
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_arm_stay(std::string &code, int vpartId)
+{
 
     int address = -1;
     ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
@@ -929,7 +939,7 @@ void ad2_arm_stay(int codeId, int vpartId)
 }
 
 /**
- * @brief Send the DISARM command to the alarm panel.
+ * @brief Send the ARM STAY command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
  * slot vpartId send the correct command to the AD2 device
@@ -940,13 +950,29 @@ void ad2_arm_stay(int codeId, int vpartId)
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_disarm(int codeId, int vpartId)
+void ad2_arm_stay(int codeId, int vpartId)
 {
-
     // Get user code
     std::string code;
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
+    ad2_arm_stay(code, vpartId);
+}
+
+/**
+ * @brief Send the DISARM command to the alarm panel.
+ *
+ * @details using a given code and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]code std::string &
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_disarm(std::string &code, int vpartId)
+{
     int address = -1;
     ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
 
@@ -974,7 +1000,7 @@ void ad2_disarm(int codeId, int vpartId)
 }
 
 /**
- * @brief Toggle Chime mode.
+ * @brief Send the DISARM command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
  * slot vpartId send the correct command to the AD2 device
@@ -985,12 +1011,29 @@ void ad2_disarm(int codeId, int vpartId)
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_chime_toggle(int codeId, int vpartId)
+void ad2_disarm(int codeId, int vpartId)
 {
-
     // Get user code
     std::string code;
     ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+
+    ad2_disarm(code, vpartId);
+}
+
+/**
+ * @brief Toggle Chime mode.
+ *
+ * @details using a given code and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]code std:string &
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_chime_toggle(std::string &code, int vpartId)
+{
 
     int address = -1;
     ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
@@ -1015,7 +1058,7 @@ void ad2_chime_toggle(int codeId, int vpartId)
 }
 
 /**
- * @brief Send the FIRE PANIC command to the alarm panel.
+ * @brief Toggle Chime mode.
  *
  * @details using the code in slot codeId and address in
  * slot vpartId send the correct command to the AD2 device
@@ -1026,7 +1069,28 @@ void ad2_chime_toggle(int codeId, int vpartId)
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_fire_alarm(int codeId, int vpartId)
+void ad2_chime_toggle(int codeId, int vpartId)
+{
+
+    // Get user code
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+
+    ad2_chime_toggle(code,vpartId);
+}
+
+/**
+ * @brief Send the FIRE PANIC command to the alarm panel.
+ *
+ * @details using the address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ *
+ */
+void ad2_fire_alarm(int vpartId)
 {
 
     // Get the address/partition mask for multi partition support.
@@ -1043,16 +1107,15 @@ void ad2_fire_alarm(int codeId, int vpartId)
 /**
  * @brief Send the PANIC command to the alarm panel.
  *
- * @details using the code in slot codeId and address in
+ * @details using the address in
  * slot vpartId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]codeId int [0 - AD2_MAX_CODE]
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_panic_alarm(int codeId, int vpartId)
+void ad2_panic_alarm(int vpartId)
 {
 
     // Get the address/partition mask for multi partition support.
@@ -1070,16 +1133,15 @@ void ad2_panic_alarm(int codeId, int vpartId)
 /**
  * @brief Send the AUX(medical) PANIC command to the alarm panel.
  *
- * @details using the code in slot codeId and address in
+ * @details using the address in
  * slot vpartId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]codeId int [0 - AD2_MAX_CODE]
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
-void ad2_aux_alarm(int codeId, int vpartId)
+void ad2_aux_alarm(int vpartId)
 {
 
     // Get the address/partition mask for multi partition support.
@@ -1097,12 +1159,11 @@ void ad2_aux_alarm(int codeId, int vpartId)
 /**
  * @brief Send the EXIT now command to the alarm panel.
  *
- * @details using the code in slot codeId and address in
+ * @details using the address in
  * slot vpartId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]codeId int [0 - AD2_MAX_CODE]
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  *
  */
@@ -1139,19 +1200,15 @@ void ad2_exit_now(int vpartId)
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]code std::string &
  * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
  * @param [in]zone uint8_t[1-255] zone number
  *
  * FIXME: larger panels have 3 digit zones. Detect?
  *
  */
-void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone)
+void ad2_bypass_zone(std::string &code, int vpartId, uint8_t zone)
 {
-
-    // Get user code
-    std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
 
     int address = -1;
     ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
@@ -1173,6 +1230,30 @@ void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone)
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
     }
+}
+
+/**
+ * @brief Send a zone bypass command to the alarm panel.
+ *
+ * @details using the code in slot codeId and address in
+ * slot vpartId send the correct command to the AD2 device
+ * based upon the alarm type. Slots 0 are used as defaults.
+ * The message will be sent using the AlarmDecoder 'K' protocol.
+ *
+ * @param [in]codeId int [0 - AD2_MAX_CODE]
+ * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]zone uint8_t[1-255] zone number
+ *
+ * FIXME: larger panels have 3 digit zones. Detect?
+ *
+ */
+void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone)
+{
+    // Get user code
+    std::string code;
+    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+
+    ad2_bypass_zone(code, vpartId, zone);
 }
 
 /**
@@ -1752,6 +1833,3 @@ int ad2_give_host_console(void *owner)
     return res;
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif

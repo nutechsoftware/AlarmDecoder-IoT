@@ -64,10 +64,10 @@ static void _cli_cmd_zone_event(char *string)
         if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
             if (arg.length()) {
                 if (arg.compare("''") == 0) {
-                    ad2_printf_host(false, "Removing alpha for zone %i...\r\n", zone);
+                    ad2_printf_host(false, "Removing settings string for zone %i...\r\n", zone);
                     ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
                 } else {
-                    ad2_printf_host(false, "Setting alpha for zone %i to '%s'\r\n", zone, arg.c_str());
+                    ad2_printf_host(false, "Saving settings string for zone %i to '%s'\r\n", zone, arg.c_str());
                     ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
                 }
             }
@@ -75,7 +75,7 @@ static void _cli_cmd_zone_event(char *string)
             // show contents of this slot
             std::string buf;
             ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, buf);
-            ad2_printf_host(false, "The alpha for zone %i is '%s'\r\n", zone, buf.c_str());
+            ad2_printf_host(false, "The settings for zone %i is '%s'\r\n", zone, buf.c_str());
         }
     } else {
         ESP_LOGE(TAG, "%s: Error (args) invalid zone # (1-%i).", __func__, AD2_MAX_ZONES);
@@ -538,16 +538,16 @@ static struct cli_command cmd_list[] = {
     },
     {
         (char*)AD2_ZONE,(char*)
-        "- Manage zone strings.\r\n"
+        "- Manage zone settings string.\r\n"
         "  - ```" AD2_ZONE " {id} [value]```\r\n"
         "    - {id}\r\n"
         "      - Zone number 1-255.\r\n"
         "    - [value]\r\n"
-        "      - An alpha string for the zone.\r\n"
+        "      - json zone settings string for this zone.\r\n"
         "  - Examples\r\n"
-        "    - Set zone 1 alpha string.\r\n"
-        "      - ```" AD2_ZONE " 1 TESTING LAB```\r\n"
-        "    - Remove zone 1 alpha string.\r\n"
+        "    - Set zone 1 configuration string.\r\n"
+        "      - ```" AD2_ZONE " 1 {\"type\": \"smoke\", \"alpha\": \"TESTING LAB SMOKE\"}```\r\n"
+        "    - Remove zone 1 settings string.\r\n"
         "      - ```" AD2_ZONE " 1 ''```\r\n\r\n", _cli_cmd_zone_event
     },
     {

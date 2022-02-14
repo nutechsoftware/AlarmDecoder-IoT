@@ -93,7 +93,7 @@ int g_init_done = 0;
 portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
 
 // global host console access mutex
-extern SemaphoreHandle_t g_ad2_console_mutex = 0;
+SemaphoreHandle_t g_ad2_console_mutex = nullptr;
 
 // global AlarmDecoder parser class instance
 AlarmDecoderParser AD2Parse;
@@ -721,13 +721,18 @@ void app_main()
         }
     }
 
-    // Load Zone alpha descriptors.
-    std::string alpha;
-    for (int n = 0; n <= AD2_MAX_ZONES; n++) {
-        alpha = "";
-        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, alpha);
-        if (alpha.length()) {
-            AD2Parse.setZoneString(n, alpha.c_str());
+    // Load Zone config string and save.
+    std::string config;
+    for (int n = 1; n <= AD2_MAX_ZONES; n++) {
+        config = "";
+        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, config);
+        if (config.length()) {
+            // Parse JSON string
+            cJSON *json = cJSON_Parse(config.c_str());
+            if (json) {
+                AD2Parse.setZoneString(n, cJSON_GetObjectItem(json, "alpha")->valuestring);
+                AD2Parse.setZoneType(n, cJSON_GetObjectItem(json, "type")->valuestring);
+            }
         }
     }
 
