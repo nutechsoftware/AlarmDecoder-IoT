@@ -423,6 +423,30 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
             mqtt_send_partition_zone_configs(s);
         }
     }
+
+    // Send virtual switches in mqtt_AD2EventSearches
+    topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+    topic += mqttclient_UUID;
+    for (auto &sw : mqtt_AD2EventSearches) {
+        // Grab the topic using the virtusal switch ID pre saved into INT_ARG
+        std::string name = "NA";
+        std::string key = std::string(MQTT_PREFIX) + std::string(MQTT_SAS_CFGKEY);
+        ad2_get_nv_slot_key_string(key.c_str(), sw->INT_ARG, SK_NOTIFY_TOPIC, name);
+        ad2_trim(name);
+        std::string _type = "door";
+
+        mqtt_publish_device_config("binary_sensor", _type.c_str(), "switch_",
+                                   sw->INT_ARG, true,
+        name.c_str(), false, {
+            {
+                { "state_topic", topic+"/switches/"+ad2_to_string(sw->INT_ARG) },
+                { "value_template", "{{value_json.state}}" },
+                { "availability_topic", topic+"/status" }
+            }
+        }
+                              );
+    }
+
 }
 
 /**
@@ -747,19 +771,14 @@ void on_search_match_cb_mqtt(std::string *msg, AD2VirtualPartitionState *s, void
 
     std::string message = es->out_message;
 
-    // Grab the topic using the virtusal switch ID pre saved into INT_ARG
-    std::string topic = "NA";
-    std::string key = std::string(MQTT_PREFIX) + std::string(MQTT_SAS_CFGKEY);
-    ad2_get_nv_slot_key_string(key.c_str(), es->INT_ARG, SK_NOTIFY_TOPIC, topic);
-    ad2_trim(topic);
-
+    // Grab the topic using the virtual switch ID pre saved into INT_ARG
     // publishing event
     int msg_id;
     if (mqtt_client != nullptr) {
         std::string sTopic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
         sTopic+=mqttclient_UUID;
         sTopic+="/switches/";
-        sTopic+=topic;
+        sTopic+=ad2_to_string(es->INT_ARG);
         cJSON *root = cJSON_CreateObject();
         cJSON_AddStringToObject(root, "state", es->out_message.c_str());
         char *state = cJSON_Print(root);
@@ -1186,10 +1205,11 @@ static struct cli_command mqtt_cmd_list[] = {
         "  - ```" MQTT_COMMAND " " MQTT_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n"
         "    - {slot}\r\n"
         "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
+        "        - full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/{slot}\r\n"
         "    - {setting}\r\n"
         "      - [-] Delete switch\r\n"
-        "      - [N] Notification sub topic path below the base\r\n"
-        "        -  Example: ```TEST``` full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/TEST```\r\n"
+        "      - [N] Notification device name\r\n"
+        "        -  Example: ```TEST``` - {\"name\": \"TEST\"}\r\n"
         "      - [D] Default state\r\n"
         "        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
         "      - [R] AUTO Reset.\r\n"

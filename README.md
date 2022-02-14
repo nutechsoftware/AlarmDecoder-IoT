@@ -634,11 +634,11 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   # Set 'TROUBLE' state REGEX Filter [F] #01.
   mqtt switch 1 F 1 !RFX:0123456,......1.
   # Set output format string for 'OPEN' state [o].
-  mqtt switch 1 o OFF
+  mqtt switch 1 o ON
   # Set output format string for 'CLOSED' state [c].
-  mqtt switch 1 c ON
+  mqtt switch 1 c OFF
   # Set output format string for 'TROUBLE' stat
-  mqtt switch 1 f OFF
+  mqtt switch 1 f ON
   ```
 
 ##  6. <a name='building-firmware'></a>Building firmware
