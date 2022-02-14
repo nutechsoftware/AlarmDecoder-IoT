@@ -587,10 +587,11 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   - ```mqtt switch {slot} {setting} {arg1} [arg2]```
     - {slot}
       - 1-99 : Supports multiple virtual smart alert switches.
+        - full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/{slot}
     - {setting}
       - [-] Delete switch
-      - [N] Notification sub topic path below the base
-        -  Example: ```TEST``` full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/TEST```
+      - [N] Notification device name
+        -  Example: ```TEST``` - {"name": "TEST"}
       - [D] Default state
         - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)
       - [R] AUTO Reset.
