@@ -526,8 +526,14 @@ public:
     // get zone string using Alpha descriptor if found in AD2ZoneAlpha or use standard format 'ZONE XXX' if not found.
     void getZoneString(uint8_t zone, std::string &alpha);
 
-    // set zone string in AD2ZoneAlpha
+    // set zone alpha string in AD2ZoneAlpha
     void setZoneString(uint8_t zone, const char *alpha);
+
+    // get zone string using zone type if found in AD2ZoneType or use standard format 'motion' if not found.
+    void getZoneType(uint8_t zone, std::string &type);
+
+    // set zone type string in AD2ZoneType
+    void setZoneType(uint8_t zone, const char *alpha);
 
     // update firmware version trigger events to any subscribers
     void updateVersion(char *newversion);
@@ -609,7 +615,7 @@ public:
     typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
 
     /**
-    * @brief Zone descriptions
+    * @brief Zone config strings
     * The key is the zone number
     */
     typedef std::map<uint32_t, std::string> ad2zonealpha_t;
@@ -636,6 +642,9 @@ public:
 protected:
     // Zone to Alpha descriptor string.
     ad2zonealpha_t AD2ZoneAlpha;
+
+    // Zone to type string.
+    ad2zonealpha_t AD2ZoneType;
 
     // MAP of all partition states by mask.
     ad2pstates_t AD2PStates;

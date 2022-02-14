@@ -229,16 +229,16 @@ Configuration is currently only available over the USB serial port using a comma
     - Remove virtual partition in slot 2.
       - ```vpart 2 -1```
        - Note: address -1 will remove an entry.
-- Manage zone strings.
+- Manage zone settings string.
   - ```zone {id} [value]```
     - {id}
       - Zone number 1-255.
     - [value]
-      - An alpha string for the zone.
+      - json zone settings string for this zone.
   - Examples
-    - Set zone 1 alpha string.
-      - ```zone 1 TESTING LAB```
-    - Remove zone 1 alpha string.
+    - Set zone 1 configuration string.
+      - ```zone 1 {"type": "smoke", "alpha": "TESTING LAB SMOKE"}```
+    - Remove zone 1 settings string.
       - ```zone 1 ''```
 - Manage AlarmDecoder protocol source.
   - ```ad2source [{mode} {arg}]```
@@ -528,17 +528,36 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
 
 - Implementation notes:
   - Each client connects under the root topic of ```ad2iot``` with a sub topic level of the devices UUID.
-    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX```
   - Last Will and Testament (LWT) is used to indicate ```online```/```offline``` ```state``` of client using ```status``` topic below the device root topic.
-    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/status = {"state": "online"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/status = online```
   - Device specific info is in the ```info``` topic below the device root topic.
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/info = {"firmware_version":"AD2IOT-1094","cpu_model":1,"cpu_revision":1,"cpu_cores":2,"cpu_features":["WiFi","BLE","BT"],"cpu_flash_size":4194304,"cpu_flash_type":"external","ad2_version_string":"08000002,V2.2a.8.9b-306,TX;RX;SM;VZ;RF;ZX;RE;AU;3X;CG;DD;MF;L2;KE;M2;CB;DS;ER;CR","ad2_config_string":"MODE=A&CONFIGBITS=ff05&ADDRESS=18&LRR=Y&COM=N&EXP=YYNNN&REL=YNNN&MASK=ffffffff&DEDUPLICATE=N"}```
+  - Topic prefix when configrued with ```tprefix``` will prefix all publish topics with a specified path.
+    - Example: Place ```ad2iot``` topic under the ```homeassistant``` topic.
+      - ```tprefix homeassistant```
+  - Auto Discovery topic ```dprefix``` will publish the alarm panel device config for each partition, zone, and sensor configured. See https://www.home-assistant.io/docs/mqtt/discovery/
+    - Example: Place discovery topic under Home Assistant.
+      - ```dtopic homeassistant```
   - Partition state tracking with minimal traffic only when state changes. Each configured partition will be under the ```partitions``` topic below the device root topic.
-    - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/partitions/1 =
+    - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/1 =
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
-    - Custom virtual switches with user defined topics are kept under the ```switches``` below the device root topic.
-      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/switches/RF0180036 = {"state":"RF SENSOR 0180036 CLOSED"}```
-    - Zone states by Zone ID(NNN) are kept under the ```zones``` below the device root topic.
-      - Example: ```ad2iot/41443245-4d42-4544-4410-30aea49e7130/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
+  - Custom virtual switches with user defined topics are under the ```switches``` below the device root topic.
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/RF0123456 = {"state":"ON"}```
+  - Zone states by Zone ID(NNN) are under the ```zones``` below the device root topic.
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
+  - Remote ```commands``` subscription. If enabled the device will subscribe to ```commands``` below the device root topic. Warning! Only enable if on a secure broker as codes will be visible to subscribers.
+    - Publish JSON template ```{ "vpart": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "DISARM", "code": "1234"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "FIRE_ALARM"}```
+  - Contact ID reporting if found will be published to ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/cid```
+    - Example: ```{ "event_message": "!LRR:002,1,CID_3441,ff"}```
+
+  - Home Assistant intigration.
+    - Configure ```dprefix``` to ```homeassistant``` or the location you have configured HA to look for MQTT discovery topics.
+    - Optional configure ```tprefix``` to ```homeassistant``` to force the ```ad2iot``` topic to be under the default HA mqtt topic.
+    - MQTT Auto Discovery setup See https://www.home-assistant.io/docs/mqtt/discovery/
 ####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration for MQTT message notifications
 - Publishes the virtual partition state using the following topic pattern.
   - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y
@@ -551,7 +570,19 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
 - Sets the URL to the MQTT broker.
   - ```mqtt url {url}```
     - {url}: MQTT broker URL.
-  - Example: ```mqtt url mqtt://mqtt.eclipseprojects.io```
+  - Example: ```mqtt url mqtt://user@pass:mqtt.example.com```
+- Topic prefix. Prefix to be used on publish topics.
+  - ```mqtt tprefix {prefix}```
+  -  {prefix}: Topic prefix.
+  - Example: ```mqtt tprefix somepath```
+- Enable/Disable command subscription. Do not enable on public MQTT servers!
+  - ```mqtt commands [Y/N]```
+  -  {arg1}: [Y]es [N]o
+  - Example: ```mqtt commands Y```
+- MQTT auto discovery prefix for topic to publish config documents.
+  - ```mqtt dprefix {prefix}```
+  -  {prefix}: MQTT auto discovery topic root.
+  - Example: ```mqtt dprefix homeassistant```
 - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
   - ```mqtt switch {slot} {setting} {arg1} [arg2]```
     - {slot}
@@ -603,11 +634,11 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   # Set 'TROUBLE' state REGEX Filter [F] #01.
   mqtt switch 1 F 1 !RFX:0123456,......1.
   # Set output format string for 'OPEN' state [o].
-  mqtt switch 1 o RF SENSOR 0123456 OPEN
+  mqtt switch 1 o ON
   # Set output format string for 'CLOSED' state [c].
-  mqtt switch 1 c RF SENSOR 0123456 CLOSED
+  mqtt switch 1 c OFF
   # Set output format string for 'TROUBLE' stat
-  mqtt switch 1 f RF SENSOR 0123456 TROUBLE
+  mqtt switch 1 f ON
   ```
 
 ##  6. <a name='building-firmware'></a>Building firmware
