@@ -206,8 +206,7 @@ void mqtt_send_partition_config(AD2VirtualPartitionState *s)
     // alarm_control_panel
     mqtt_publish_device_config("alarm_control_panel", "alarm_control_panel", "p",
                                s->partition, true,
-    NAME_PREFIX " Partition #", true, {
-        {
+    NAME_PREFIX " Partition #", true, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}triggered{% elif value_json.armed_stay == true %}{% if value_json.entry_delay_off == true %}armed_night{% else %}armed_home{% endif %}{% elif value_json.armed_away == true %}{% if value_json.entry_delay_off == true %}armed_vacation{% elif value_json.entry_delay_off == false %}armed_away{% endif %}{% else %}disarmed{% endif %}" },
             { "command_topic", topic+"/commands"},
@@ -219,45 +218,38 @@ void mqtt_send_partition_config(AD2VirtualPartitionState *s)
             { "icon", "mdi:shield-home"},
             { "sw_version", FIRMWARE_VERSION}
         }
-    }
-                              );
+    });
 
 
     // ac_power
     mqtt_publish_device_config("binary_sensor", "power", "ac_power",
                                0, false,
-    NAME_PREFIX " AC Power", false, {
-        {
+    NAME_PREFIX " AC Power", false, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.ac_power == true %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
         }
-    }
-                              );
+    });
 
     // partition fire
     mqtt_publish_device_config("binary_sensor", "smoke", "fire_p",
                                s->partition, true,
-    NAME_PREFIX " Fire Partition #", true, {
-        {
+    NAME_PREFIX " Fire Partition #", true, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.fire_alarm == true %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
         }
-    }
-                              );
+    });
 
     // partition chime
     mqtt_publish_device_config("binary_sensor", "running", "chime_p",
                                s->partition, true,
-    NAME_PREFIX " Chime Mode Partition #", true, {
-        {
+    NAME_PREFIX " Chime Mode Partition #", true, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.chime_on == true %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
         }
-    }
-                              );
+    });
 
 }
 
@@ -319,14 +311,12 @@ void mqtt_send_partition_zone_configs(AD2VirtualPartitionState *s)
 
         mqtt_publish_device_config("binary_sensor", _type.c_str(), "zone_",
                                    zn, true,
-        _alpha.c_str(), false, {
-            {
+        _alpha.c_str(), false, {{
                 { "state_topic", topic+"/zones/"+ad2_to_string(zn) },
                 { "value_template", "{% if value_json.state == 'CLOSE' %}OFF{% else %}ON{% endif %}" },
                 { "availability_topic", topic+"/status"}
             }
-        }
-                                  );
+        });
     }
 }
 
@@ -392,27 +382,23 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     topic += mqttclient_UUID;
     mqtt_publish_device_config("binary_sensor", "update", "fw_version",
                                0, false,
-    NAME_PREFIX " Firmware", false, {
-        {
+    NAME_PREFIX " Firmware", false, {{
             { "state_topic", topic+"/fw_version" },
             { "value_template", "{% if value_json.installed != value_json.available %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
         }
-    }
-                              );
+    });
 
 
     mqtt_publish_device_config("button", "update", "fw_update",
                                0, false,
-    NAME_PREFIX " Start firmware update", false, {
-        {
+    NAME_PREFIX " Start firmware update", false, {{
             { "availability_topic", topic+"/fw_version" },
             { "availability_template", "{% if value_json.installed != value_json.available %}online{% else %}offline{% endif %}" },
             { "command_topic", topic+"/commands" },
             { "payload_press", "{\"action\": \"FW_UPDATE\"}" }
         }
-    }
-                              );
+    });
 
     // Publish panel config info for home assistant or others for discovery
     // for each partition that is configured with 'vpart' command.
@@ -435,16 +421,15 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
         ad2_trim(name);
         std::string _type = "door";
 
-        mqtt_publish_device_config("binary_sensor", _type.c_str(), "switch_",
-                                   sw->INT_ARG, true,
-        name.c_str(), false, {
-            {
+        mqtt_publish_device_config(
+            "binary_sensor", _type.c_str(), "switch_",
+            sw->INT_ARG, true,
+        name.c_str(), false, {{
                 { "state_topic", topic+"/switches/"+ad2_to_string(sw->INT_ARG) },
                 { "value_template", "{{value_json.state}}" },
                 { "availability_topic", topic+"/status" }
             }
-        }
-                                  );
+        });
     }
 
 }
