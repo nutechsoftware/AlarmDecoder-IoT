@@ -444,7 +444,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
                 { "availability_topic", topic+"/status" }
             }
         }
-                              );
+                                  );
     }
 
 }
