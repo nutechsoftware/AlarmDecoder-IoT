@@ -30,20 +30,20 @@
 // Debugging NVS
 //#define DEBUG_NVS
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Communication with AD2* device / host
-
+void ad2_arm_away(std::string &code, int vpartId);
 void ad2_arm_away(int codeId, int vpartId);
+void ad2_arm_stay(std::string &code, int vpartId);
 void ad2_arm_stay(int codeId, int vpartId);
+void ad2_disarm(std::string &code, int vpartId);
 void ad2_disarm(int codeId, int vpartId);
+void ad2_chime_toggle(std::string &code, int vpartId);
 void ad2_chime_toggle(int codeId, int vpartId);
-void ad2_fire_alarm(int codeId, int vpartId);
-void ad2_panic_alarm(int codeId, int vpartId);
-void ad2_aux_alarm(int codeId, int vpartId);
+void ad2_fire_alarm(int vpartId);
+void ad2_panic_alarm(int vpartId);
+void ad2_aux_alarm(int vpartId);
 void ad2_exit_now(int vpartId);
+void ad2_bypass_zone(std::string &code, int vpartId, uint8_t zone);
 void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone);
 void ad2_send(std::string &buf);
 AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
@@ -157,9 +157,6 @@ typedef bool (*ad2_http_sendQ_done_cb_t)(esp_err_t, esp_http_client_handle_t, es
 void ad2_init_http_sendQ();
 bool ad2_add_http_sendQ(esp_http_client_config_t*, ad2_http_sendQ_ready_cb_t, ad2_http_sendQ_done_cb_t);
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _AD2_UTILS_H */
 

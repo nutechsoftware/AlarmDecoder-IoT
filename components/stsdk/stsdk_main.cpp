@@ -464,7 +464,7 @@ void cap_fire_cmd_cb(struct caps_momentary_data *caps_data)
     if (fire_trigger_count >= 3) {
         ESP_LOGI(TAG, "Sending fire signal to panel.");
         // send a fire panic F1 button to the panel.
-        ad2_fire_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+        ad2_fire_alarm(AD2_DEFAULT_VPA_SLOT);
     } else {
         if (fire_trigger_timer) {
             xTimerReset(fire_trigger_timer, 1000 / portTICK_PERIOD_MS);
@@ -509,7 +509,7 @@ void cap_panic_alarm_cmd_cb(struct caps_momentary_data *caps_data)
     if (panic_trigger_count >= 3) {
         ESP_LOGI(TAG, "Sending panic alarm signal to panel.");
         // send PANIC command to the panel.
-        ad2_panic_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+        ad2_panic_alarm(AD2_DEFAULT_VPA_SLOT);
     } else {
         if (panic_trigger_timer) {
             xTimerReset(panic_trigger_timer, 1000 / portTICK_PERIOD_MS);
@@ -555,7 +555,7 @@ void cap_aux_alarm_cmd_cb(struct caps_momentary_data *caps_data)
     if (aux_trigger_count >= 3) {
         ESP_LOGI(TAG, "Sending aux alarm signal to panel.");
         // send AUX ALARM command to the panel.
-        ad2_aux_alarm(AD2_DEFAULT_CODE_SLOT, AD2_DEFAULT_VPA_SLOT);
+        ad2_aux_alarm(AD2_DEFAULT_VPA_SLOT);
     } else {
         if (aux_trigger_timer) {
             xTimerReset(aux_trigger_timer, 1000 / portTICK_PERIOD_MS);
@@ -1466,7 +1466,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
 void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
                             iot_cap_cmd_data_t *cmd_data, void *usr_data)
 {
-    ota_do_update(nullptr);
+    hal_ota_do_update(nullptr);
 }
 
 #ifdef __cplusplus
