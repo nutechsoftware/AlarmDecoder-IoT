@@ -1000,6 +1000,9 @@ void twilio_init()
 
                 // keep track of how many for user feedback.
                 subscribers++;
+            } else {
+                // incomplete switch call distructor.
+                es1->~AD2EventSearch();
             }
         }
     }

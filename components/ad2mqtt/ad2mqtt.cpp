@@ -106,16 +106,16 @@ esp_err_t outbox_set_pending(outbox_handle_t outbox, int msg_id, pending_state_t
 
 
 /**
- * @brief helper to send config json for a binary sensor.
+ * @brief helper to send config json for auto discovery.
  *
- * @param [in]device_type const char *. ex. 'binary_sensor'
- * @param [in]device_class const char *. ex. 'smoke'
- * @param [in]type const char * type ex. 'zone'
- * @param [in]id uint8_t unique ID within type 000 to 255
- * @param [in]id_append_id bool append id to [unique|object]_id fields.
- * @param [in]name const char *. The name.
- * @param [in]name_append_id bool append id to name field
- * @param [in]pairs std::map<std::string,std::string> attributes to add to config.
+ * @param [in]device_type - const char * - ex. 'binary_sensor'
+ * @param [in]device_class - const char * - ex. 'smoke'
+ * @param [in]type - const char * - ex. 'zone'
+ * @param [in]id - uint8_t - unique ID 000 to 255 for type
+ * @param [in]id_append_id - bool - append id to [unique|object]_id fields
+ * @param [in]name - const char * - name
+ * @param [in]name_append_id - bool - append id to name field
+ * @param [in]pairs - std::map<std::string,std::string> - attributes to add to config.
  */
 void mqtt_publish_device_config(const char *device_type, const char *device_class,
                                 const char *ad2type, uint8_t id, bool id_append_id,
@@ -151,8 +151,8 @@ void mqtt_publish_device_config(const char *device_type, const char *device_clas
     // set the device class
     cJSON_AddStringToObject(root, "device_class", device_class);
 
+    // add the name value pairs
     for (const auto& kv : pairs) {
-        // add the name value pairs
         cJSON_AddStringToObject(root, kv.first.c_str(), kv.second.c_str());
     }
 
@@ -160,10 +160,7 @@ void mqtt_publish_device_config(const char *device_type, const char *device_clas
     char *szjson = cJSON_Print(root);
     cJSON_Minify(szjson);
 
-    // publish the config to the correct topic.
-    // homeassistant/alarm_control_panel/{UUID}/p1
-    // TODO: configurable root
-    // TODO: configurable retain?
+    // set the correct topic for the config document
     std::string topic = "";
     if (mqttclient_DPREFIX.length()) {
         topic = mqttclient_DPREFIX;
@@ -178,7 +175,7 @@ void mqtt_publish_device_config(const char *device_type, const char *device_clas
     }
     topic += "/config";
 
-    // non blocking.
+    // non blocking publish
     esp_mqtt_client_enqueue(mqtt_client,
                             topic.c_str(),
                             szjson,
@@ -187,6 +184,7 @@ void mqtt_publish_device_config(const char *device_type, const char *device_clas
                             MQTT_DEF_RETAIN,
                             MQTT_DEF_STORE);
 
+    // cleanup free memory
     cJSON_free(szjson);
     cJSON_Delete(root);
 }
@@ -1391,6 +1389,9 @@ void mqtt_init()
 
             // keep track of how many for user feedback.
             subscribers++;
+        } else {
+            // incomplete switch call distructor.
+            es1->~AD2EventSearch();
         }
     }
 
