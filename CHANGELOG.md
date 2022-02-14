@@ -50,7 +50,7 @@ Add missing logic for MQTT ```commands``` subscription with new ```commands``` e
   - Remove forced C code sections. Need to clean all of them up now. Not an issue with newer build environment.
   - Fixed warning on g_ad2_console_mutex.
 ### Change log
-  = [X] SM - MISC: Fix small memory leak in virtual switch usage in Pushover, Twilio and MQTT.
+  - [X] SM - MISC: Fix small memory leak in virtual switch usage in Pushover, Twilio and MQTT.
   - [X] SM - MQTT: Refactor publish function to make it easy to use in the code.
   - [X] SM - HAL: Added hal wrapper for ota_do_update(hal_ota_do_update) and updated any use of ota_do_update from outside of main.
   - [X] SM - MQTT: Added commands verbs ```[DISARM, ARM_STAY, FW_UPDATE, ARM_AWAY, EXIT, CHIME_TOGGLE, AUX_ALARM, PANIC_ALARM, FIRE_ALARM, BYPASS, SEND_RAW, FW_UPDATE]```.
