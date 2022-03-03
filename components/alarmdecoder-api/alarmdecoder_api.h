@@ -218,6 +218,7 @@ typedef enum AD2_MESSAGE_TYPES {
 class AD2ZoneState
 {
     ad2_zone_state_t _state = AD2_STATE_CLOSED;
+    bool _is_system = false;
     unsigned long _state_auto_reset_time = 0;
 
     bool _low_battery = false;
@@ -237,6 +238,12 @@ public:
     {
         _state = state;
         _state_auto_reset_time = auto_reset_time;
+    }
+    void is_system(bool is_system) {
+        _is_system = is_system;
+    }
+    bool is_system() {
+        return _is_system;
     }
     void state_reset_time(unsigned long auto_reset_time)
     {

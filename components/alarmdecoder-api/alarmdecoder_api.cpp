@@ -1277,6 +1277,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                             _zone = (uint8_t) strtol(ad2ps->last_numeric_message.c_str(), 0, 10);
                                         }
 
+                                        // Flag as system if HEX value.
+                                        ad2ps->zone_states[_zone].is_system(_ishex);
+
                                         bool _send_event = false;
 
                                         // this message is part of the zone low battery report

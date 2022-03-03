@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] MQTT: Add system flag for zone notification publish.
+- [X] API: Add support for system flags in zones. On Ademco special zones for system events exist such as 0xFC for "Failed Call" state.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
