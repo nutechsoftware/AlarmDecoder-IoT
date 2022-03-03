@@ -239,10 +239,12 @@ public:
         _state = state;
         _state_auto_reset_time = auto_reset_time;
     }
-    void is_system(bool is_system) {
+    void is_system(bool is_system)
+    {
         _is_system = is_system;
     }
-    bool is_system() {
+    bool is_system()
+    {
         return _is_system;
     }
     void state_reset_time(unsigned long auto_reset_time)
