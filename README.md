@@ -538,7 +538,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
       - ```tprefix homeassistant```
   - Auto Discovery topic ```dprefix``` will publish the alarm panel device config for each partition, zone, and sensor configured. See https://www.home-assistant.io/docs/mqtt/discovery/
     - Example: Place discovery topic under Home Assistant.
-      - ```dtopic homeassistant```
+      - ```dprefix homeassistant```
   - Partition state tracking with minimal traffic only when state changes. Each configured partition will be under the ```partitions``` topic below the device root topic.
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/1 =
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
