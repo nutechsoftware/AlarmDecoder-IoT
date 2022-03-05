@@ -1111,9 +1111,9 @@ static void _cli_cmd_mqtt_command_router(char *string)
                 break;
 
             /**
-             * MQTT topic prefix
+             * MQTT topic tprefix
              */
-            case MQTT_TPREFIX_CFGKEY_ID:   // 'prefix' sub command
+            case MQTT_TPREFIX_CFGKEY_ID:   // 'tprefix' sub command
                 // If arg provided then save.
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_remove_ws(arg);
