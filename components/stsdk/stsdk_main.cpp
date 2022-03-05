@@ -39,7 +39,6 @@ static const char *TAG = "STSDK";
 #include "tcpip_adapter.h"
 #else
 #include "esp_netif.h"
-#include "esp_tls.h"
 #endif
 
 // specific includes
