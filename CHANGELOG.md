@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] FTPD: Adding new FTP server to allow update of uSD web pages remotely. With ACL access can be limited to a specific subnet mask or single address.
 - [X] STSDK: Build error with stsdk and latest stsdk build environment.
 - [X] MQTT: Add system flag for zone notification publish.
 - [X] API: Add support for system flags in zones. On Ademco special zones for system events exist such as 0xFC for "Failed Call" state.
