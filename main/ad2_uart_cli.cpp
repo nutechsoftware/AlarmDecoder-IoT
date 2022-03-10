@@ -181,7 +181,7 @@ static void cli_cmd_help(char *cmd)
             if (!now->cmd) {
                 continue;
             }
-            if (sendpfx && now->next) {
+            if (sendpfx) {
                 sendpfx = false;
                 ad2_printf_host(false, ",\r\n   ");
             }

@@ -74,6 +74,11 @@ static const char *TAG = "AD2_IoT";
 #include "ad2mqtt.h"
 #endif
 
+// FTP daemon support
+#if CONFIG_AD2IOT_FTP_DAEMON
+#include "ftpd.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -769,6 +774,11 @@ void app_main()
     mqtt_register_cmds();
 #endif
 
+#if CONFIG_AD2IOT_FTP_DAEMON
+    // Register FTPD DAEMON commands.
+    ftpd_register_cmds();
+#endif
+
     // Register AD2 CLI commands.
     register_ad2_cli_cmd();
 
@@ -899,6 +909,10 @@ void app_main()
 #if CONFIG_AD2IOT_MQTT_CLIENT
     // Initialize MQTT client
     mqtt_init();
+#endif
+#if CONFIG_AD2IOT_FTP_DAEMON
+    // Initialize FTP daemon
+    ftpd_init();
 #endif
 
     // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
