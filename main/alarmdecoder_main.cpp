@@ -692,6 +692,9 @@ void app_main()
                     nvs_stats.used_entries * 100.00 / nvs_stats.total_entries,
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
+    // Initialize any attached sd card.
+    hal_init_sd_card();
+
     // load and set the logging level.
     ad2_set_log_mode(ad2_log_mode());
 
@@ -740,9 +743,6 @@ void app_main()
             }
         }
     }
-
-    // Initialize any attached sd card.
-    hal_init_sd_card();
 
 #if CONFIG_STDK_IOT_CORE
     // Register STSDK CLI commands.
