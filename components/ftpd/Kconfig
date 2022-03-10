@@ -1,0 +1,7 @@
+menu "AD2iot * FTP daemon"
+    config AD2IOT_FTP_DAEMON
+        bool "Enable FTP daemon"
+        default n
+        help
+            Enable simple ftp server for content updates on uSD device.
+endmenu
