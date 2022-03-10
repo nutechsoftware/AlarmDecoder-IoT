@@ -19,6 +19,8 @@
     * 5.6.1. [Configuration for Twilio notifications](#configuration-for-twilio-notifications)
   * 5.7. [MQTT client component](#mqtt-client-component)
     * 5.7.1. [Configuration for MQTT message notifications](#configuration-for-mqtt-message-notifications)
+  * 5.8. [FTP daemon component](#ftp-daemon-component)
+    * 5.8.1. [Configuration for FTP daemon](#configuration-for-ftp-daemon)
 * 6. [Building firmware](#building-firmware)
   * 6.1. [PlatformIO](#platformio)
     * 6.1.1. [TODO: Setup notes](#todo:-setup-notes)
@@ -641,6 +643,25 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   # Set output format string for 'TROUBLE' stat
   mqtt switch 1 f ON
   ```
+###  5.8. <a name='ftp-daemon-component'></a>FTP daemon component
+The File Transfer Protocol (FTP) is a standard communication protocol used for the transfer of computer files from a server to a client on a computer network. FTP is built on a client–server model architecture using separate control and data connections between the client and the server. FTP users may authenticate themselves with a clear-text sign-in protocol, normally in the form of a username and password, but can connect anonymously if the server is configured to allow it.
+
+If enabled the daemon will allow update of files on the attached uSD card. This allows for update of HTML or configuration settings from a secure host on the local network. To secure the FTP daemon the ACL needs to be configured to allow limited access to this service.
+
+This daemon only supports one command and control connection at a time. Be sure to disable or limit the client used to a single connection or the client may appear to stall or timeout.
+
+####  5.8.1. <a name='configuration-for-ftp-daemon'></a>Configuration for FTP daemon
+- ```ftpd {sub command} {arg}```
+  - {sub command}
+    - [enable] Enable / Disable ftp daemon
+      -  {arg1}: [Y]es [N]o
+        - [N] Default state
+        - Example: ```ftpd enable Y```
+    - [acl] Set / Get ACL list
+      - {arg1}: ACL LIST
+      -  String of CIDR values separated by commas.
+        - Default: Empty string disables ACL list
+        - Example: ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
 
 ##  6. <a name='building-firmware'></a>Building firmware
 ###  6.1. <a name='platformio'></a>PlatformIO
@@ -750,9 +771,10 @@ AD2IOT #
 AD2IOT # help
 
 Available AD2IoT terminal commands
-  [ser2sockd, twilio, pushover, webui, mqtt, restart,
-   netmode, button, zone, code, vpart, ad2source,
-   ad2term, logmode, factory-reset, help, upgrade, version]
+  [ser2sockd, twilio, pushover, webui, mqtt, ftpd,
+   restart, netmode, button, zone, code, vpart,
+   ad2source, ad2term, logmode, factory-reset, help, upgrade,
+   version]
 
 Type help <command> for details on each command.
 

@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [X] WEBUI: Moved content into www folder on uSD to protect sensitive data.
+- [X] WEBUI: Moved content into ```www``` folder on uSD to protect sensitive data. Users that upgrade can use FTPD to create the folder and move the files. This will be necessary when adding config files into the uSD that they are outside of the document root for the webUI component.
 - [X] FTPD: Adding new FTP server to allow update of uSD web pages remotely. With ACL access can be limited to a specific subnet mask or single address.
 - [X] STSDK: Build error with stsdk and latest stsdk build environment.
 - [X] MQTT: Add system flag for zone notification publish.
