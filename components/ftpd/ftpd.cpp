@@ -535,6 +535,11 @@ void FTPD::closeConnection()
         close(m_clientSocket);
         m_clientSocket = -1;
     }
+    // clear out last connection state
+    m_save_clear = 0;
+    m_save = "";
+    m_isAuthenticated = false;
+    m_lastCommand = "";
 }
 
 /**
