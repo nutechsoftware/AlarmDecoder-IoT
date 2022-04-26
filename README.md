@@ -20,7 +20,7 @@
   * 5.7. [MQTT client component](#mqtt-client-component)
     * 5.7.1. [Configuration for MQTT message notifications](#configuration-for-mqtt-message-notifications)
   * 5.8. [FTP daemon component](#ftp-daemon-component)
-    * 5.8.1. [Configuration for FTP daemon](#configuration-for-ftp-daemon)
+    * 5.8.1. [Configuration for FTP server](#configuration-for-ftp-server)
 * 6. [Building firmware](#building-firmware)
   * 6.1. [PlatformIO](#platformio)
     * 6.1.1. [TODO: Setup notes](#todo:-setup-notes)
@@ -45,7 +45,7 @@
 
 This project provides an example framework for building an IoT network appliance to monitor and control one or many alarm systems.
 
-The [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) integrates the AD2pHAT from AlarmDecoder.com and a ESP32-POE-ISO. The result is a device that easily connects to a compatible alarm system and publishes the alarm state to a public or private MQTT server for monitoring. The device can also be configured to initiate SIP voice calls, SMS messages, or e-mail when a user defined alarm state is triggered. The typical time from the device firmware start to delivery of the first state event is less than 10 seconds. Typical latency between an alarm event and message delivery is 20ms on a local network.
+The [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) integrates the AD2pHAT from AlarmDecoder.com and a ESP32-POE-ISO. The result is a device that easily connects to a compatible alarm system and publishes the alarm state to a public or private MQTT server for monitoring. The device can also be configured to initiate SIP voice calls, text messages, or e-mail when a user defined alarm state is triggered. The typical time from the device firmware start to delivery of the first state event is less than 10 seconds. Typical latency between an alarm event and message delivery is 20ms on a local network.
 
 The device firmware is stored in the onboard non-volatile flash making the device resistant to corruption. With OTA update support the flash can be securely loaded with the latest version in just a few seconds over HTTPS.
 
@@ -64,7 +64,7 @@ If the upgrade fails it may be the result of low memory on the device. Try disab
 See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
 
 ###  3.1. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
-- Enabled components: Pushover, Twilio, Sendgrid, Ser2sock, SmartThings.
+- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings.
 
 This is the default buildflag. This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 
@@ -81,19 +81,20 @@ https://smartthings.developer.samsung.com/partner/enroll
 - Use the SmartThings/Samsung developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055). Generate a serial number and keys and register them in the management portal and configure the device with the validated keys.
 
 ###  3.2. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
-- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT.
+- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
 
 This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThings driver is disabled and the webui component is enabled.
 
-Copy the contents of flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single MSDOS partition. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
+Copy the contents of contrib/webUI/flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single FAT32 partition. Optionally place the sample configuration file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini) on the root directory for remote config management. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
 
 ##  4. <a name='configuring-the-ad2iot-device'></a>Configuring the AD2IoT device
-Configuration is currently only available over the USB serial port using a command line interface.
+Configuration is available directly over the USB serial port using a command line interface or over the network by uploading the config file using an ftp client from a trusted ip address.
 
-&#x2757; Do not connect the [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) to alarm panel power when connected to a computer. If connection from both PC and alarm at the same time is needed be sure to connect to the alarm panel power first then connect to the PC last. The power from the panel when first connected to the AD2IoT will provide an unstable 5v output for a few microseconds. This unstable voltage can be sent back through the USB to the host computer causing the host to detect the voltage fault and halt.
-
-- Connect the ESP32 development board USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
+- Connect the AD2IoT ESP32 USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
   - If needed the drivers for different operating systems can be downloaded [here](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware).
+- Using a uSD card place the sample config file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini) on a FAT32 partition the uSD card and reboot the device. Then connect to the AD2IoT using FileZilla or other ftp client to manage the config file. The AD2IoT will reboot after the file is changed to load the settings.
+  - Be sure to set "Limit number of simultaneous connections" "Maximum number of connections" to 1. The ftp server on the AD2IoT only supports 1 connection at a time.
+  - Be sure to set the ftpd acl to only allow trusted systems to manage the files on the uSD card.
 
 ##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
 - Configure the initial AD2IoT device settings
@@ -114,9 +115,9 @@ Configuration is currently only available over the USB serial port using a comma
       - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password.
       - ```netmode E mode=d```
     - Configure the default partition in slot 0 for the partition to connect to SmartThings.
-      - ```vpart 0 18```
-    - Define each virtual partition. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
-      - ```vpart 1 22```
+      - ```part 0 18```
+    - Define each partition. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
+      - ```part 1 22```
     - Set a default code in slot ```0``` to ARM/DISARM etc a partition.
       - ```code 0 4112```
     - Enable webui daemon and configure the ACL.
@@ -131,7 +132,7 @@ Configuration is currently only available over the USB serial port using a comma
     - Disable networking to allow the SmartThings driver to manage the network hardware and allow adopting over 802.11 b/g/n 2.4ghz Wi-Fi.
       - ```netmode N```
     - Configure the default partition in slot 0 for the partition to connect to the SmartThings app.
-      - ```vpart 0 18```
+      - ```part 0 18```
     - Enable the SmartThings driver.
       - ```stenable Y```
     - Restart for these changes to take effect.
@@ -183,17 +184,30 @@ Configuration is currently only available over the USB serial port using a comma
       - ```netmode E mode=d&dns2=4.2.2.2```
     - Ethernet Static IPv4 address.
       - ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```
-- Simulate a button press event.
-  - ```button {id} {count} {type}```
+- Manage virtual switch settings.
+  - ```switch {id} {setting} {arg1} [arg2]```
     - {id}
-      - ID of the button to push [A|B].
-    - {count}
-      - Number of times the button was pushed.
-    - {type}
-      - The type of event 'short' or 'long'.
-  - Examples
-    - Send a single LONG press to button A.
-      - ```button A 1 long```
+      - 1-255 : Virtual switches ID.
+    - {setting}
+      - [-|delete] Delete switch
+      - [default] Default state
+        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)
+      - [reset] Auto reset.
+        - {arg1}:  time in ms 0 to disable
+      - [type] Message type filter.
+        - {arg1}: Message type list separated by ',' or empty to disables filter.
+          - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]
+            - For EVENT type the message will be generated by the API and not the AD2
+      - [filter] Pre filter REGEX or empty to disable.
+      - [open] Open(ON) state regex search string list management.
+        - {arg1}: Index # 1-8
+        - {arg2}: Regex string for this slot or empty string  to clear
+      - [close] Close(OFF) state regex search string list management.
+        - {arg1}: Index # 1-8
+        - {arg2}: Regex string for this slot or empty string to clear
+      - [trouble] Trouble state regex search string list management.
+        - {arg1}: Index # 1-8
+        - {arg2}: Regex string for this slot or empty  string to clear
 - Manage user codes.
   - ```code {id} [value]```
     - {id}
@@ -208,28 +222,28 @@ Configuration is currently only available over the USB serial port using a comma
     - Show code in slot #3.
       - ```code 3```
     - Remove code for slot 2.
-      - ```code 2 -1```
+      - ```code 2 -```
         - Note: value -1 will remove an entry.
 - Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.
   - ```ad2term [reset]```
     - Note: To exit press ... three times fast.
-- Manage virtual partitions.
-  - ```vpart {id} {value} [zone list]```
+- Manage partitions.
+  - ```part {id} {value} [zone list]```
     - {id}
-      - The virtual partition ID. 0 is the default.
+      - The partition ID. 0 is the default.
     - {value}
       - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.
     - [zone list]
       - Comma separated list of zone numbers associated with this partition for tracking.
   - Examples
     - Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.
-      - ```vpart 0 18 2,3,4```
+      - ```part 0 18 2,3,4```
     - Set default send partition to 1 for a DSC system.
-      - ```vpart 0 1```
+      - ```part 0 1```
     - Show address for partition 2.
-      - ```vpart 2```
-    - Remove virtual partition in slot 2.
-      - ```vpart 2 -1```
+      - ```part 2```
+    - Remove partition in slot 2.
+      - ```part 2 -1```
        - Note: address -1 will remove an entry.
 - Manage zone settings string.
   - ```zone {id} [value]```
@@ -327,35 +341,51 @@ Pushover is a platform for sending and receiving push notifications. On the serv
     - {hash}: Pushover ```User Key```.
   - Example: ```pushover userkey 0 aabbccdd112233..```
 - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
-  - ```pushover switch {slot} {setting} {arg1} [arg2]```
-    - {slot}
+  - ```pushover switch {id} {setting} {arg1} [arg2]```
+    - {id}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
       - [-] Delete switch
-      - [N] Notification slots
+      - [notify] Notification slots
         -  Comma separated list of notification slots to use for sending this events.
-      - [D] Default state
-        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)
-      - [R] AUTO Reset.
-        - {arg1}:  time in ms 0 to disable
-      - [T] Message type filter.
-        - {arg1}: Message type list separated by ',' or empty to disables filter.
-          - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]
-            - For EVENT type the message will be generated by the API and not the AD2
-      - [P] Pre filter REGEX or empty to disable.
-      - [O] Open(ON) state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty string  to clear
-      - [C] Close(OFF) state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty string to clear
-      - [F] Trouble state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty  string to clear
-      - [o] Open output format string.
-      - [c] Close output format string.
-      - [f] Trouble output format string.
+      - [open] Open output format string.
+      - [close] Close output format string.
+      - [trouble] Trouble output format string.
+  - Global switch settings for this example
 
+    ```console
+    [switch 1]
+    default = 0
+    reset = 0
+    types = RFX
+    filter = !RFX:0123456,.*
+    open 1 = !RFX:0123456,1.......
+    close 1 = !RFX:0123456,0.......
+    trouble 1 = !RFX:0123456,......1.
+    ```
+
+- Example cli commands to setup a complete virtual contact.
+  - Configure notification profiles..
+    ```console
+    # Pushover config section
+    [pushover]
+
+    # Profile 0
+    apptoken 0 aabbccdd112233...
+    userkey 0 aabbccdd112233...
+
+    # Profile 1
+    apptoken 1 aabbccdd112233...
+    userkey 1 aabbccdd112233...
+    ```
+
+  - Send pushover notification from profiles in slot #0 and #1 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and TROUBLE REGEX patterns.
+    ```console
+    switch 1 notify 0, 1
+    switch 1 open RF SENSOR 0123456 OPEN
+    switch 1 close RF SENSOR 0123456 CLOSED
+    switch 1 trouble RF SENSOR 0123456 TROUBLE
+    ```
 ###  5.6. <a name='twilio-notification-component'></a>Twilio notification component
 Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service (CPaaS) company based in San Francisco, California. Twilio allows software developers to programmatically make and receive phone calls, send and receive text messages, reliably send email, and perform other communication functions using its web service APIs. See: https://www.twilio.com/
 
@@ -380,8 +410,7 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
     - {phone|email}: [NXXXYYYZZZZ|user@example.com, user2@example.com]
 - Sets the 'Type' for a given notification slot.
   - ```twilio type {slot} {type}```
-    - {type}: [M|C|E]
-      - Notification type [M]essage, [C]all, [E]mail.
+    - {type}: [text|call|email]
   - Example: ```twilio type 0 M```
 - Sets the output format for a given notification slot.
   - ```twilio format {slot} {string}```
@@ -389,127 +418,90 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
       -  Placeholder-based formatting syntax.
   - Example: ```twilio format 2 <Response><Say>{0}</Say><Say>{0}</Say></Response>```
 - Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
-  - ```twilio switch {slot} {setting} {arg1} [arg2]```
-    - {slot}
+  - ```twilio switch {id} {setting} {arg1} [arg2]```
+    - {id}
       - 1-99 : Supports multiple virtual smart alert switches.
     - {setting}
       - [-] Delete switch
-      - [N] Notification slots
+      - [notify] Notification slots
         -  Comma separated list of notification slots to use for sending this events.
-      - [D] Default state
-        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)
-      - [R] AUTO Reset.
-        - {arg1}:  time in ms 0 to disable
-      - [T] Message type filter.
-        - {arg1}: Message type list separated by ',' or empty to disables filter.
-          - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]
-            - For EVENT type the message will be generated by the API and not the AD2
-      - [P] Pre filter REGEX or empty to disable.
-      - [O] Open(ON) state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty string  to clear
-      - [C] Close(OFF) state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty string to clear
-      - [F] Trouble state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty  string to clear
-      - [o] Open output string.
-      - [c] Close output string.
-      - [f] Trouble output string.
+      - [open] Open output string.
+      - [close] Close output string.
+      - [trouble] Trouble output string.
 
+  - Global switch settings for this example
+    ```console
+    [switch 1]
+    default = 0
+    reset = 0
+    types = RFX
+    filter = !RFX:0123456,.*
+    open 1 = !RFX:0123456,1.......
+    close 1 = !RFX:0123456,0.......
+    trouble 1 = !RFX:0123456,......1.
+
+    [switch 2]
+    default = 0
+    reset = 0
+    types = EVENT
+    open 1 FIRE ON
+    close 1 FIRE OFF
+
+    [switch 3]
+    default = 0
+    reset = 0
+    types = EVENT
+    open 1 POWER AC
+    close 1 POWER BATTERY
+    ```
 - Example cli commands to setup a complete virtual contact.
   - Configure notification profiles..
     ```console
-    # Profile #0 EMail using api.sendgrid.com
-    twilio sid 0 NA
-    twilio token 0 Abcdefg012345....
-    twilio from 0 foo@example.com
-    twilio to 0 bar@example.com
-    twilio type 0 E
-    twilio format 0 {0}
+    # Twilio config section
+    [twilio]
 
-    # Profile #1 SMS/Text message using api.twilio.com
-    twilio sid 1 Abcdefg012345....
-    twilio token 1 Abcdefg012345....
-    twilio from 1 15555551234
-    twilio to 1 15555551234
-    twilio type 1 M
-    twilio format 1 {0}
+    # Profile #0 EMail using api.sendgrid.com
+    sid 0 NA
+    token 0 Abcdefg012345....
+    from 0 foo@example.com
+    to 0 bar@example.com
+    type 0 email
+    format 0 {0}
+
+    # Profile #1 Text message using api.twilio.com
+    sid 1 Abcdefg012345....
+    token 1 Abcdefg012345....
+    from 1 15555551234
+    to 1 15555551234
+    type 1 text
+    format 1 {0}
 
     # Profile #2 Voice Twiml call using api.twilio.com
-    twilio sid 2 Abcdefg012345....
-    twilio token 2 Abcdefg012345....
-    twilio from 2 15555551234
-    twilio to 2 15555551234
-    twilio type 2 C
-    twilio format 2 <Response><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say></Response>
+    sid 2 Abcdefg012345....
+    token 2 Abcdefg012345....
+    from 2 15555551234
+    to 2 15555551234
+    type 2 call
+    format 2 <Response><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say></Response>
     ```
   - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and TROUBLE REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
     ```console
-    Twilio SmartSwitch #1 report
-    # Set notification slots [N] to #0,1,2
-    twilio switch 1 N 0,1,2
-    # Set default virtual switch state [D] to 'CLOSED'(0)
-    twilio switch 1 D 0
-    # Set auto reset time in ms [R] to 'DISABLED'
-    twilio switch 1 R 0
-    # Set message type list [T]
-    twilio switch 1 T RFX
-    # Set pre filter REGEX [P]
-    twilio switch 1 P !RFX:0123456,.*
-    # Set 'OPEN' state REGEX Filter [O] #01.
-    twilio switch 1 O 1 !RFX:0123456,1.......
-    # Set 'CLOSED' state REGEX Filter [C] #01.
-    twilio switch 1 C 1 !RFX:0123456,0.......
-    # Set 'TROUBLE' state REGEX Filter [F] #01.
-    twilio switch 1 F 1 !RFX:0123456,......1.
-    # Set output format string for 'OPEN' state [o].
-    twilio switch 1 o RF SENSOR 0123456 OPEN
-    # Set output format string for 'CLOSED' state [c].
-    twilio switch 1 c RF SENSOR 0123456 CLOSED
-    # Set output format string for 'TROUBLE' state [f].
-    twilio switch 1 f RF SENSOR 0123456 TROUBLE
+    switch 1 notify 0,1,2
+    switch 1 open RF SENSOR 0123456 OPEN
+    switch 1 close RF SENSOR 0123456 CLOSED
+    switch 1 trouble RF SENSOR 0123456 TROUBLE
     ```
   - Send notifications from profile in slot #2 in the example a Call profile when EVENT message "FIRE ON" or "FIRE OFF" are received. Use a Twiml string to define how the call is processed. This can include extensive external logic calling multiple people or just say something and hangup.
     ```console
-    Twilio SmartSwitch #2 report
-    # Set notification slots [N] to #2
-    twilio switch 2 N 2
-    # Set default virtual switch state [D] to 'CLOSED'(0)
-    twilio switch 2 D 0
-    # Set auto reset time in ms [R] to 'DISABLED'
-    twilio switch 2 R 0
-    # Set message type list [T]
-    twilio switch 2 T EVENT
-    # Set 'OPEN' state REGEX Filter [O] #01.
-    twilio switch 2 O 1 FIRE ON
-    # Set 'CLOSED' state REGEX Filter [C] #01.
-    twilio switch 2 C 1 FIRE OFF
-    # Set output format string for 'OPEN' state [o].
-    twilio switch 2 o FIRE ALARM ACTIVE
-    # Set output format string for 'CLOSED' state [c].
-    twilio switch 2 c FIRE ALARM CLEAR
+    switch 2 notify 2
+    switch 2 open FIRE ALARM ACTIVE
+    switch 2 close FIRE ALARM CLEAR
     ```
   - Send notifications from profile in slot #2 in the example a Call profile when EVENT message "POWER BATTERY" or "POWER AC" are received. Use a Twiml string to define how the call is processed. This can include extensive external logic calling multiple people or just say something and hangup.
     ```console
-    Twilio SmartSwitch #3 report
-    # Set notification slots [N] to #2
-    twilio switch 3 N 2
-    # Set default virtual switch state [D] to 'CLOSED'(0)
-    twilio switch 3 D 0
-    # Set auto reset time in ms [R] to 'DISABLED'
-    twilio switch 3 R 0
-    # Set message type list [T]
-    twilio switch 3 T EVENT
-    # Set 'OPEN' state REGEX Filter [O] #01.
-    twilio switch 3 O 1 POWER AC
-    # Set 'CLOSED' state REGEX Filter [C] #01.
-    twilio switch 3 C 1 POWER BATTERY
-    # Set output format string for 'OPEN' state [o].
-    twilio switch 3 o ON MAIN AC POWER
-    # Set output format string for 'CLOSED' state [c].
-    twilio switch 3 c ON BATTERY BACKUP POWER
+    switch 3 notify 2
+    switch 3 open ON MAIN AC POWER
+    switch 3 close ON BATTERY BACKUP POWER
     ```
   - Search verbs
     ```
@@ -549,10 +541,10 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   - Zone states by Zone ID(NNN) are under the ```zones``` below the device root topic.
     - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
   - Remote ```commands``` subscription. If enabled the device will subscribe to ```commands``` below the device root topic. Warning! Only enable if on a secure broker as codes will be visible to subscribers.
-    - Publish JSON template ```{ "vpart": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "DISARM", "code": "1234"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"vpart": 0, "action": "FIRE_ALARM"}```
+    - Publish JSON template ```{ "part": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"part": 0, "action": "DISARM", "code": "1234"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"part": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"part": 0, "action": "FIRE_ALARM"}```
   - Contact ID reporting if found will be published to ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/cid```
     - Example: ```{ "event_message": "!LRR:002,1,CID_3441,ff"}```
 
@@ -561,87 +553,66 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - Optional configure ```tprefix``` to ```homeassistant``` to force the ```ad2iot``` topic to be under the default HA mqtt topic.
     - MQTT Auto Discovery setup See https://www.home-assistant.io/docs/mqtt/discovery/
 ####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration for MQTT message notifications
-- Publishes the virtual partition state using the following topic pattern.
+- Publishes the partition state using the following topic pattern.
   - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y
   - X: The unique id using the ESP32 WiFi mac address.
-  - Y: The virtual partition ID 1-9 or a Virtual switch sub topic.
+  - Y: The partition ID 1-9 or a Virtual switch sub topic.
 - [enable] Enable / Disable MQTT client
   -  {arg1}: [Y]es [N]o
     - [N] Default state
   - Example: ```mqtt enable Y```
-- Sets the URL to the MQTT broker.
+- [url] Sets the URL to the MQTT broker.
   - ```mqtt url {url}```
     - {url}: MQTT broker URL.
   - Example: ```mqtt url mqtt://user@pass:mqtt.example.com```
-- Topic prefix. Prefix to be used on publish topics.
+- [tprefix] Set prefix to be used on all topics.
   - ```mqtt tprefix {prefix}```
   -  {prefix}: Topic prefix.
   - Example: ```mqtt tprefix somepath```
-- Enable/Disable command subscription. Do not enable on public MQTT servers!
+- [commands] Enable/Disable command subscription. Do not enable on public MQTT servers!
   - ```mqtt commands [Y/N]```
   -  {arg1}: [Y]es [N]o
   - Example: ```mqtt commands Y```
-- MQTT auto discovery prefix for topic to publish config documents.
+- [dprefix] Auto discovery prefix for topic to publish config documents.
   - ```mqtt dprefix {prefix}```
   -  {prefix}: MQTT auto discovery topic root.
   - Example: ```mqtt dprefix homeassistant```
-- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
-  - ```mqtt switch {slot} {setting} {arg1} [arg2]```
-    - {slot}
-      - 1-99 : Supports multiple virtual smart alert switches.
-        - full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/{slot}
+- Enable notification and set configuration settings for an existing  ```switch```.
+  - ```mqtt switch {id} {setting} {arg1} [arg2]```
+    - {id}
+      - 1-255 : Existing switch ID defined using the ```switch``` command.
+        - full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/{id}
     - {setting}
       - [-] Delete switch
-      - [N] Notification device name
-        -  Example: ```TEST``` - {"name": "TEST"}
-      - [D] Default state
-        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)
-      - [R] AUTO Reset.
-        - {arg1}:  time in ms 0 to disable
-      - [T] Message type filter.
-        - {arg1}: Message type list separated by ',' or empty to disables filter.
-          - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]
-            - For EVENT type the message will be generated by the API and not the AD2
-      - [P] Pre filter REGEX or empty to disable.
-      - [O] Open(ON) state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty string  to clear
-      - [C] Close(OFF) state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty string to clear
-      - [F] Trouble state regex search string list management.
-        - {arg1}: Index # 1-8
-        - {arg2}: Regex string for this slot or empty  string to clear
-      - [o] Open output format string.
-      - [c] Close output format string.
-      - [f] Trouble output format string.
-
+      - [description] Device discovery json string
+        -  Example: {"description": ""}
+      - [open] Open output format string.
+      - [close] Close output format string.
+      - [trouble] Trouble output format string.
 - Examples
-  - Publish events to <device root>/switches/RF0180036 when the 5800 RF sensor with serial number 0123456 changes state.
+  - Publish events to <device root>/switches/1 when the 5800 RF sensor with serial number 0123456 changes state.
   ```console
-  MQTT SmartSwitch #1 report
-  # Set MQTT topic [N] to 'RF0123456'.
-  mqtt switch 1 N RF1234567
-  # Set default virtual switch state [D] to 'CLOSED'(0)
-  mqtt switch 1 D 0
-  # Set auto reset time in ms [R] to 'DISABLED'
-  mqtt switch 1 R 0
-  # Set message type list [T]
-  mqtt switch 1 T RFX
-  # Set pre filter REGEX [P]
-  mqtt switch 1 P !RFX:0123456,.*
-  # Set 'OPEN' state REGEX Filter [O] #01.
-  mqtt switch 1 O 1 !RFX:0123456,1.......
-  # Set 'CLOSED' state REGEX Filter [C] #01.
-  mqtt switch 1 C 1 !RFX:0123456,0.......
-  # Set 'TROUBLE' state REGEX Filter [F] #01.
-  mqtt switch 1 F 1 !RFX:0123456,......1.
-  # Set output format string for 'OPEN' state [o].
-  mqtt switch 1 o ON
-  # Set output format string for 'CLOSED' state [c].
-  mqtt switch 1 c OFF
-  # Set output format string for 'TROUBLE' stat
-  mqtt switch 1 f ON
+  ## switch 1 global configuration.
+  [switch 1]
+  default = 0
+  reset = 0
+  types = RFX
+  filter = !RFX:0123456,.*
+  open 1 = !RFX:0123456,1.......
+  close 1 = !RFX:0123456,0.......
+  trouble 1 = !RFX:0123456,......1.
+
+  # MQTT config settings section
+  [mqtt]
+  enable = true
+  commands = true
+  tprefix = homeassistant
+  dprefix = homeassistant
+  url = mqtt://user:pass@testmqtt.example.com/
+  switch 1 description {"name": "RFX_SN_0123456"}
+  switch 1 open {"state": "on"}
+  switch 1 close {"state": "off"}
+  switch 1 trouble {"state": "trouble"}
   ```
 ###  5.8. <a name='ftp-daemon-component'></a>FTP daemon component
 The File Transfer Protocol (FTP) is a standard communication protocol used for the transfer of computer files from a server to a client on a computer network. FTP is built on a client–server model architecture using separate control and data connections between the client and the server. FTP users may authenticate themselves with a clear-text sign-in protocol, normally in the form of a username and password, but can connect anonymously if the server is configured to allow it.
@@ -650,7 +621,19 @@ If enabled the daemon will allow update of files on the attached uSD card. This 
 
 This daemon only supports one command and control connection at a time. Be sure to disable or limit the client used to a single connection or the client may appear to stall or timeout.
 
-####  5.8.1. <a name='configuration-for-ftp-daemon'></a>Configuration for FTP daemon
+####  5.8.1. <a name='configuration-for-ftp-server'></a>Configuration for ftp server
+- ```ftpd {sub command} {arg}```
+  - {sub command}
+    - [enable] Enable / Disable ftp daemon
+      -  {arg1}: [Y]es [N]o
+        - [N] Default state
+        - Example: ```ftpd enable Y```
+    - [acl] Set / Get ACL list
+      - {arg1}: ACL LIST
+      -  String of CIDR values separated by commas.
+        - Default: Empty string disables ACL list
+        - Example: ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+
 - ```ftpd {sub command} {arg}```
   - {sub command}
     - [enable] Enable / Disable ftp daemon
@@ -731,8 +714,8 @@ I (504) !IOT: Starting AlarmDecoder AD2IoT network appliance version (AD2IOT-109
 !IOT: N (517) ESP32 with 2 CPU cores, WiFi/BT/BLE, silicon revision 1, 4MB external flash
 !IOT: N (527) Initialize NVS subsystem start. Done.
 !IOT: N (547) NVS usage 17.51%. Count: UsedEntries = (331), FreeEntries = (1559), AllEntries = (1890)
-!IOT: N (547) init vpart slot 0 address 18 zones '2,5'
-!IOT: N (557) init vpart slot 1 address 23 zones '3,6'
+!IOT: N (547) init part slot 0 address 18 zones '2,5'
+!IOT: N (557) init part slot 1 address 23 zones '3,6'
 !IOT: N (607) Mounting uSD card PASS.
 !IOT: N (667) Initialize AD2 UART client using txpin(4) rxpin(36)
 !IOT: N (667) Send '.' three times in the next 5 seconds to stop the init.
@@ -772,9 +755,10 @@ AD2IOT # help
 
 Available AD2IoT terminal commands
   [ser2sockd, twilio, pushover, webui, mqtt, ftpd,
-   restart, netmode, button, zone, code, vpart,
+   restart, netmode, switch, zone, code, part,
    ad2source, ad2term, logmode, factory-reset, help, upgrade,
    version]
+
 
 Type help <command> for details on each command.
 
