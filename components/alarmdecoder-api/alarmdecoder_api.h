@@ -47,11 +47,11 @@ enum AD2_PARSER_STATES {
 /**
  * AD2 zone STATES enum tri-state.
  */
-typedef enum AD2_ZONE_STATE {
+typedef enum AD2_CMD_ZONE_STATE {
     AD2_STATE_CLOSED = 0,
     AD2_STATE_OPEN,
     AD2_STATE_TROUBLE
-} ad2_zone_state_t;
+} AD2_CMD_ZONE_state_t;
 
 // The actual max is ~90 but leave some room for future.
 // WARN: use int8_t so must be <= 127 for overflow protection.
@@ -179,7 +179,7 @@ typedef enum AD2_MESSAGE_TYPES {
                     (((x) & 0x000000ffUL) << 24))
 
 /**
- * Data structure for each Virtual partition state.
+ * Data structure for each partition state.
  *
  * https://www.alarmdecoder.com/wiki/index.php/Protocol
  *
@@ -217,7 +217,7 @@ typedef enum AD2_MESSAGE_TYPES {
  */
 class AD2ZoneState
 {
-    ad2_zone_state_t _state = AD2_STATE_CLOSED;
+    AD2_CMD_ZONE_state_t _state = AD2_STATE_CLOSED;
     bool _is_system = false;
     unsigned long _state_auto_reset_time = 0;
 
@@ -225,16 +225,16 @@ class AD2ZoneState
     unsigned long _battery_auto_reset_time = 0;
 
 public:
-    ad2_zone_state_t state()
+    AD2_CMD_ZONE_state_t state()
     {
         return _state;
     }
-    void state(ad2_zone_state_t state)
+    void state(AD2_CMD_ZONE_state_t state)
     {
         _state = state;
         _state_auto_reset_time = 0;
     }
-    void state(ad2_zone_state_t state, unsigned long auto_reset_time)
+    void state(AD2_CMD_ZONE_state_t state, unsigned long auto_reset_time)
     {
         _state = state;
         _state_auto_reset_time = auto_reset_time;
@@ -280,11 +280,11 @@ public:
 };
 
 /**
- * @brief Virtual partition state container.
+ * @brief partition state container.
  * Contains the active state for a partition including all zone
  * states for the partition.
  */
-class AD2VirtualPartitionState
+class AD2PartitionState
 {
 public:
 
@@ -399,7 +399,7 @@ public:
         , reset_time_( 0 )
     { }
 
-    AD2EventSearch(ad2_zone_state_t default_state, int reset_time_in_ms)
+    AD2EventSearch(AD2_CMD_ZONE_state_t default_state, int reset_time_in_ms)
         : current_state_(default_state)
         , default_state_(default_state)
         , reset_time_(reset_time_in_ms)
@@ -477,7 +477,7 @@ class AD2SubScriber
 public:
 
     // API Subscriber callback function pointer type
-    typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
+    typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2PartitionState*, void *arg);
     typedef void (*AD2ParserCallbackRawRXData_sub_t)(uint8_t *, size_t len, void *arg);
 
     void *fn;
@@ -529,8 +529,8 @@ public:
     int query_key_value_string(std::string &query_str, const char *key, std::string &val);
 
     // get AD2PPState by mask create if flag is set and no match found.
-    AD2VirtualPartitionState * getAD2PState(int address, bool update=false);
-    AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
+    AD2PartitionState * getAD2PState(int address, bool update=false);
+    AD2PartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
     // get zone string using Alpha descriptor if found in AD2ZoneAlpha or use standard format 'ZONE XXX' if not found.
     void getZoneString(uint8_t zone, std::string &alpha);
@@ -618,10 +618,10 @@ public:
     };
 
     /**
-     * @brief Virtual partition states.
+     * @brief partition states.
      * The key is a mask that groups all partitions messages together.
      */
-    typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
+    typedef std::map<uint32_t, AD2PartitionState *> ad2pstates_t;
 
     /**
     * @brief Zone config strings
@@ -662,14 +662,14 @@ protected:
     ad2subs_t AD2Subscribers;
 
     // Notify a given subscriber group.
-    void notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate);
+    void notifySubscribers(ad2_event_t ev, std::string &msg, AD2PartitionState *pstate);
 
     // @brief Notify raw data subscribers some bytes were received from the AD2*.
     // @note this currently happens before parsing.
     void notifyRawDataSubscribers(uint8_t *data, size_t len);
 
     // @brief Notify a given subscriber group.
-    void notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2VirtualPartitionState *s);
+    void notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2PartitionState *s);
 
     // Parser state control starts out as AD2_PARSER_RESET.
     int AD2_Parser_State;

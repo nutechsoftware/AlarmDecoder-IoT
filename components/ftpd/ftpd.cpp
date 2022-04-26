@@ -40,6 +40,8 @@ static const char *TAG = "FTPD";
 #define FTPD_SUBCMD_ENABLE    "enable"
 #define FTPD_SUBCMD_ACL       "acl"
 
+#define FTPD_CONFIG_SECTION   "ftpd"
+
 // enable verbose debug logging
 //#define FTPD_DEBUG
 
@@ -1547,10 +1549,6 @@ void FTPD::start()
     struct sockaddr_in dest_addr;
 #endif
 
-#if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "ftp daemon task starting.");
-#endif
-
     m_serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (m_serverSocket == -1) {
         ESP_LOGE(TAG, "Failed to create listen socket. Exiting with error: %s", strerror(errno));
@@ -1637,7 +1635,7 @@ int FTPD::waitForFTPClient()
  * ex.
  *   [COMMAND] 0 arg...
  */
-static void _cli_cmd_ftpd_event(char *string)
+static void _cli_cmd_ftpd_event(const char *string)
 {
 
     // key value validation
@@ -1656,6 +1654,7 @@ static void _cli_cmd_ftpd_event(char *string)
     ad2_lcase(subcmd);
 
     int i;
+    bool en;
     for(i = 0;; ++i) {
         if (FTPD_SUBCMD[i] == 0) {
             ad2_printf_host(false, "What?\r\n");
@@ -1670,14 +1669,14 @@ static void _cli_cmd_ftpd_event(char *string)
              */
             case FTPD_SUBCMD_ENABLE_ID:
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
-                    ad2_set_nv_slot_key_int(FTPD_COMMAND, FTPD_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_set_config_key_bool(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ENABLE, (arg[0] == 'Y' || arg[0] ==  'y'));
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
                 // show contents of this slot
-                int i;
-                ad2_get_nv_slot_key_int(FTPD_COMMAND, FTPD_SUBCMD_ENABLE_ID, nullptr, &i);
-                ad2_printf_host(false, "ftp daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                en = false;
+                ad2_get_config_key_bool(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ENABLE, &en);
+                ad2_printf_host(false, "ftp daemon is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
                 break;
             /**
              * ftp daemon IP/CIDR ACL list.
@@ -1688,14 +1687,14 @@ static void _cli_cmd_ftpd_event(char *string)
                     ad2ftpd_acl.clear();
                     int res = ad2ftpd_acl.add(arg);
                     if (res == ad2ftpd_acl.ACL_FORMAT_OK) {
-                        ad2_set_nv_slot_key_string(FTPD_COMMAND, FTPD_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                        ad2_set_config_key_string(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ACL, arg.c_str());
                     } else {
                         ad2_printf_host(false, "Error parsing ACL string. Check ACL format. Not saved.\r\n");
                     }
                 }
                 // show contents of this slot set default to allow all
                 acl = "0.0.0.0/0";
-                ad2_get_nv_slot_key_string(FTPD_COMMAND, FTPD_SUBCMD_ACL_ID, nullptr, acl);
+                ad2_get_config_key_string(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ACL, acl);
                 ad2_printf_host(false, "ftpd 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
@@ -1713,6 +1712,10 @@ static void _cli_cmd_ftpd_event(char *string)
  */
 void ftp_daemon_task(void *pvParameters)
 {
+#if defined(FTPD_DEBUG)
+    ESP_LOGI(TAG, "ftp daemon task starting.");
+#endif
+
     if (ad2ftpd != nullptr) {
         ad2ftpd->start();
     }
@@ -1757,13 +1760,30 @@ void ftpd_register_cmds()
  */
 void ftpd_init()
 {
+    // if netif not enabled then we can't start.
+    if (!hal_get_netif_started()) {
+        ad2_printf_host(true, "%s daemon disabled. Network interface not enabled.", TAG);
+        return;
+    }
+
+    bool en = false;
+    ad2_get_config_key_bool(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ENABLE, &en);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!en) {
+        ad2_printf_host(true, "%s daemon disabled.", TAG);
+        return;
+    }
+
+    ad2_printf_host(true, "%s daemon init starting", TAG);
+
     // init the ftpd class.
     ad2ftpd = new FTPD();
     ad2ftpd->setCallbacks(new FTPDFileCallbacks());
 
     // load and parse ACL if set or set default to allow all.
     std::string acl = "0.0.0.0/0";
-    ad2_get_nv_slot_key_string(FTPD_COMMAND, FTPD_SUBCMD_ACL_ID, nullptr, acl);
+    ad2_get_config_key_string(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ACL, acl);
     if (acl.length()) {
         int res = ad2ftpd_acl.add(acl);
         if (res != ad2ftpd_acl.ACL_FORMAT_OK) {
@@ -1771,7 +1791,7 @@ void ftpd_init()
         }
     }
 
-    ad2_printf_host(true, "%s: Init done. Service starting.", TAG);
+    ad2_printf_host(true, "%s: Init done. Daemon starting.", TAG);
     xTaskCreate(&ftp_daemon_task, "ftp_daemon_task", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }

@@ -67,7 +67,7 @@ int ota_get_polling_period_day();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
 esp_err_t ota_https_update_device(const char *buildflags);
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
-void ota_do_version(char *arg);
+void ota_do_version(const char *arg);
 
 extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
 extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
@@ -792,7 +792,7 @@ static void ota_polling_task_func(void *arg)
 /**
  * @brief Initiate and OTA update
  */
-void ota_do_update(char *command)
+void ota_do_update(const char *command)
 {
     if (ota_task_handle != NULL) {
         ESP_LOGW(TAG, "Device is currently updating.");
@@ -835,7 +835,7 @@ void ota_init()
 /**
  * @brief Show installed and available version
  */
-void ota_do_version(char *arg)
+void ota_do_version(const char *arg)
 {
     ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }

@@ -52,6 +52,8 @@ static const char *TAG = "SER2SOCKD";
 #define S2SD_SUBCMD_ENABLE    "enable"
 #define S2SD_SUBCMD_ACL       "acl"
 
+#define S2SD_CONFIG_SECTION "ser2sockd"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -126,7 +128,7 @@ enum {
  * ex.
  *   [COMMAND] 0 arg...
  */
-static void _cli_cmd_ser2sockd_event(char *string)
+static void _cli_cmd_ser2sockd_event(const char *string)
 {
 
     // key value validation
@@ -145,6 +147,7 @@ static void _cli_cmd_ser2sockd_event(char *string)
     ad2_lcase(subcmd);
 
     int i;
+    bool en;
     for(i = 0;; ++i) {
         if (S2SD_SUBCMD[i] == 0) {
             ad2_printf_host(false, "What?\r\n");
@@ -159,14 +162,14 @@ static void _cli_cmd_ser2sockd_event(char *string)
              */
             case S2SD_SUBCMD_ENABLE_ID:
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
-                    ad2_set_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_set_config_key_bool(S2SD_CONFIG_SECTION, S2SD_SUBCMD_ENABLE, (arg[0] == 'Y' || arg[0] ==  'y'));
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
                 // show contents of this slot
-                int i;
-                ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &i);
-                ad2_printf_host(false, "ser2sock daemon is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+                en = false;
+                ad2_get_config_key_bool(S2SD_CONFIG_SECTION, S2SD_SUBCMD_ENABLE, &en);
+                ad2_printf_host(false, "ser2sock daemon is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
                 break;
             /**
              * ser2sock daemon IP/CIDR ACL list.
@@ -177,14 +180,14 @@ static void _cli_cmd_ser2sockd_event(char *string)
                     ser2sock_acl.clear();
                     int res = ser2sock_acl.add(arg);
                     if (res == ser2sock_acl.ACL_FORMAT_OK) {
-                        ad2_set_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                        ad2_set_config_key_string(S2SD_CONFIG_SECTION, S2SD_SUBCMD_ACL, arg.c_str());
                     } else {
                         ad2_printf_host(false, "Error parsing ACL string. Check ACL format. Not saved.\r\n");
                     }
                 }
                 // show contents of this slot set default to allow all
                 acl = "0.0.0.0/0";
-                ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
+                ad2_get_config_key_string(S2SD_CONFIG_SECTION, S2SD_SUBCMD_ACL, acl);
                 ad2_printf_host(false, "ser2sockd 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
@@ -234,7 +237,7 @@ void ser2sockd_init(void)
 {
     // load and parse ACL if set or set default to allow all.
     std::string acl = "0.0.0.0/0";
-    ad2_get_nv_slot_key_string(SD2D_COMMAND, S2SD_SUBCMD_ACL_ID, nullptr, acl);
+    ad2_get_config_key_string(S2SD_CONFIG_SECTION, S2SD_SUBCMD_ACL, acl);
     if (acl.length()) {
         int res = ser2sock_acl.add(acl);
         if (res != ser2sock_acl.ACL_FORMAT_OK) {
@@ -250,16 +253,16 @@ void ser2sockd_init(void)
         _fifo_init(&my_fds[x].send_buffer, MAX_FIFO_BUFFERS);
     }
 
-    int enabled = 0;
-    ad2_get_nv_slot_key_int(SD2D_COMMAND, S2SD_SUBCMD_ENABLE_ID, nullptr, &enabled);
+    bool en = false;
+    ad2_get_config_key_bool(S2SD_CONFIG_SECTION, S2SD_SUBCMD_ENABLE, &en);
 
     // nothing more needs to be done once commands are set if not enabled.
-    if (!enabled) {
+    if (!en) {
         ad2_printf_host(true, "%s: Client disabled", TAG);
         return;
     }
 
-    ad2_printf_host(true, "%s: Init done. Service starting.", TAG);
+    ad2_printf_host(true, "%s: Init done, daemon starting.", TAG);
 
     // ser2sockd worker thread
     // 20210815SM: 1284 bytes stack free after first connection.

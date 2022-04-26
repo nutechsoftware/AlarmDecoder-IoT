@@ -195,14 +195,14 @@ static void _cli_cmd_enable_event(char *string)
     ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
     std::string arg;
     if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+        ad2_set_config_key_bool(STSDK_ENABLE, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
         ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
     }
 
     // show contents of this slot
-    int i;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &i);
-    ad2_printf_host(false, "SmartThings SDK driver is '%s'.\r\n", (i ? "Enabled" : "Disabled"));
+    bool en = false;
+    ad2_get_config_key_bool(STSDK_ENABLE, nullptr, &en);
+    ad2_printf_host(false, "SmartThings SDK driver is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
 
 }
 
@@ -670,7 +670,7 @@ void cap_disarm_cmd_cb(struct caps_momentary_data *caps_data)
  * @param [in]arg nullptr.
  *
  */
-void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_new_firmware_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "NEW FIRMWARE: '%s'", msg->c_str());
     cap_available_version_set((char*)msg->c_str());
@@ -685,10 +685,10 @@ void on_new_firmware_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  * @param [in]arg nullptr.
  *
  */
-void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_arm_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_ARM: '%s'", msg->c_str());
         if (s->armed_stay) {
@@ -731,10 +731,10 @@ void on_arm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * @param [in]arg nullptr.
  *
  */
-void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_disarm_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_DISARM: '%s'", msg->c_str());
 
@@ -762,10 +762,10 @@ void on_disarm_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * @param [in]arg nullptr.
  *
  */
-void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_chime_change_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_CHIME_CHANGE: '%s'", msg->c_str());
         if ( s->chime_on ) {
@@ -789,10 +789,10 @@ void on_chime_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  * @param [in]arg nullptr.
  *
  */
-void on_fire_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_fire_change_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_FIRE_CHANGE: '%s'", msg->c_str());
         if ( s->fire_alarm ) {
@@ -819,10 +819,10 @@ void on_fire_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * @param [in]arg nullptr.
  *
  */
-void on_power_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_power_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_POWER_CHANGE: '%i'", s->ac_power);
         if ( s->ac_power ) {
@@ -846,10 +846,10 @@ void on_power_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * @param [in]arg nullptr.
  *
  */
-void on_low_battery_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_low_battery_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_LOW_BATTERY: '%i'", s->battery_low);
 
@@ -874,10 +874,10 @@ void on_low_battery_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * @param [in]arg nullptr.
  *
  */
-void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_alarm_change_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_ALARM_CHANGE: '%i'", s->alarm_sounding);
         if ( s->alarm_sounding ) {
@@ -903,10 +903,10 @@ void on_alarm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg
  * @param [in]arg nullptr.
  *
  */
-void on_zone_bypassed_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_zone_bypassed_change_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_ZONE_BYPASSED_CHANGE: '%i'", s->zone_bypassed);
         if ( s->zone_bypassed ) {
@@ -930,10 +930,10 @@ void on_zone_bypassed_change_cb(std::string *msg, AD2VirtualPartitionState *s, v
  * @param [in]arg nullptr.
  *
  */
-void on_exit_now_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_exit_now_change_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_EXIT_NOW_CHANGE: '%i'", s->exit_now);
         if ( s->exit_now ) {
@@ -958,10 +958,10 @@ void on_exit_now_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *
  * @param [in]arg nullptr.
  *
  */
-void on_ready_to_arm_change_cb(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_ready_to_arm_change_cb(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // @brief Only listen to events for the default partition we are watching.
-    AD2VirtualPartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState *defs = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if ((s && defs) && s->partition == defs->partition) {
         ESP_LOGI(TAG, "ON_READY_CHANGE: '%i'", s->ready);
         // first message from AD2* fresh state to all devices
@@ -1002,11 +1002,11 @@ void stsdk_init(void)
     unsigned int device_info_len = device_info_end - device_info_start;
     int iot_err;
 
-    int enabled = 0;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &enabled);
+    bool en = false;
+    ad2_get_config_key_bool(STSDK_ENABLE, 0, nullptr, &en);
 
     // nothing more needs to be done once commands are set if not enabled.
-    if (!enabled) {
+    if (!en) {
         ESP_LOGI(TAG, "STSDK disabled");
         return;
     }
@@ -1424,7 +1424,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
     // FIXME: using DEFAULT slot for now. Needs to be configurable
     // and if possible selectable from ST App so partition can be
     // selected from a list.
-    AD2VirtualPartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
+    AD2PartitionState * s = ad2_get_partition_state(AD2_DEFAULT_VPA_SLOT);
     if (s != nullptr && !s->unknown_state) {
         std::string statestr = "REFRESH";
         if (s->armed_stay || s->armed_away) {
@@ -1458,7 +1458,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
         on_exit_now_change_cb(&statestr, s, nullptr);
 
     } else {
-        ESP_LOGE(TAG, "vpart[%u] not found or not received first message.", AD2_DEFAULT_VPA_SLOT);
+        ESP_LOGE(TAG, "part[%u] not found or not received first message.", AD2_DEFAULT_VPA_SLOT);
     }
 }
 

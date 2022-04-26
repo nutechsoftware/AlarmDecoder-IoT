@@ -43,7 +43,8 @@ extern "C" {
 
 static struct cli_command_list *cli_cmd_list;
 
-static void cli_cmd_help(char *string);
+// forward decl
+static void cli_cmd_help(const char *string);
 
 /**
  * @brief command list for module
@@ -146,7 +147,7 @@ void cli_register_command(cli_cmd_t* cmd)
  *
  * @param [in]cmd char * command string with args if any.
  */
-static void cli_cmd_help(char *cmd)
+static void cli_cmd_help(const char *cmd)
 {
     bool showhelp = true;
     cli_cmd_list_t* now = cli_cmd_list;

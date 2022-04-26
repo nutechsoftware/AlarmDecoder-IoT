@@ -38,6 +38,11 @@ static const char *TAG = "AD2_IoT";
 #endif
 // specific includes
 
+#if CONFIG_AD2IOT_USD_CONFIG
+// SimpleIni
+#include <SimpleIni.h>
+#endif /* CONFIG_AD2IOT_USD_CONFIG */
+
 // OTA updates
 #include "ota_util.h"
 
@@ -112,6 +117,9 @@ uint8_t g_ad2_mode = 0;
 // global ad2 network EventGroup
 EventGroupHandle_t g_ad2_net_event_group = nullptr;
 
+// uSD card mounted
+bool g_uSD_mounted = false;
+
 // Device LED mode
 int noti_led_mode = LED_ANIMATION_MODE_IDLE;
 
@@ -131,10 +139,10 @@ int noti_led_mode = LED_ANIMATION_MODE_IDLE;
  * @note WARNING the message may be invalid.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     // match "Press *  to show faults" or "Hit * for faults" and send * to get zone list.
     // FIXME: Multi Language support.
@@ -177,10 +185,10 @@ void my_ON_ALPHA_MESSAGE_CB(std::string *msg, AD2VirtualPartitionState *s, void 
  * Called when a ON_ZONE_CHANGE event occures.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_ZONE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_ZONE_CHANGE_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_ZONE_CHANGE_CB: EVSTR(%s)", (s ? s->last_event_message.c_str() : "UNKNOWN"));
 }
@@ -191,10 +199,10 @@ void my_ON_ZONE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
  * Called when a LRR message is received.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_LRR_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "LRR_CB: %s",msg->c_str());
 }
@@ -204,10 +212,10 @@ void my_ON_LRR_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * Called when the READY state change event is triggered.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_READY_CHANGE_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_READY_CHANGE: READY(%i) EXIT(%i) STAY(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_stay, s->armed_away);
 }
@@ -217,10 +225,10 @@ void my_ON_READY_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  * Called when a ARM event is triggered.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_ARM_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_ARM: READY(%i) EXIT(%i) STAY(%i) AWAY(%i)", s->ready, s->exit_now, s->armed_stay, s->armed_away);
 }
@@ -230,10 +238,10 @@ void my_ON_ARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * Called when a DISARM event is triggered.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_DISARM_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_DISARM: READY(%i)", s->ready);
 }
@@ -245,10 +253,10 @@ void my_ON_DISARM_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
  * to make it clear Chime ON = Contact LED ON
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_CHIME_CHANGE: CHIME(%i)", s->chime_on);
 }
@@ -260,10 +268,10 @@ void my_ON_CHIME_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *
  * to make it clear FIRE ON = Contact LED ON
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_FIRE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_FIRE_CHANGE_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_FIRE_CHANGE_CB: FIRE(%i)", s->fire_alarm);
 }
@@ -275,10 +283,10 @@ void my_ON_FIRE_CHANGE_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
  * to make it clear LOW BATTERY ON = Contact LED ON
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  */
-void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void my_ON_LOW_BATTERY_CB(std::string *msg, AD2PartitionState *s, void *arg)
 {
     ESP_LOGI(TAG, "ON_LOW_BATTERY_CB: BATTERY(%i)", s->battery_low);
 }
@@ -289,7 +297,7 @@ void my_ON_LOW_BATTERY_CB(std::string *msg, AD2VirtualPartitionState *s, void *a
  * Called when data is sent into the parser.
  *
  * @param [in]msg std::string full AD2* message that triggered the event.
- * @param [in]s AD2VirtualPartitionState updated partition state for message.
+ * @param [in]s AD2PartitionState updated partition state for message.
  *
  * @note this is done before parsing.
  */
@@ -303,11 +311,11 @@ void SER2SOCKD_ON_RAW_RX_DATA(uint8_t *buffer, size_t s, void *arg)
  * @brief Generic callback for all AlarmDecoder API event subscriptions.
  *
  * @param [in]msg std::string panel message.
- * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]s AD2PartitionState *.
  * @param [in]arg cast as int for event type (ON_ARM,,,).
  *
  */
-void ad2_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void ad2_on_state_change(std::string *msg, AD2PartitionState *s, void *arg)
 {
     int msg_id;
     if (s) {
@@ -398,15 +406,11 @@ static void ad2uart_client_task(void *pvParameters)
  * ser2sock_client_task private helper.
  *
  */
-bool _ser2sock_client_connect()
+bool _ser2sock_client_connect(const char *args)
 {
-    std::string buf;
+    // load the host and port params from the mode args.
+    std::string buf = args;
     int res;
-
-    // load settings from NVS
-    // host stored in slot 1
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_ARG_SLOT, nullptr, buf);
 
     // Storage for parsed Host & Port to connect to.
     int port = -1;
@@ -427,7 +431,7 @@ bool _ser2sock_client_connect()
     rgx = "^\\[(.*)\\]:(.*)$";
     if (std::regex_search(buf, matches, rgx)) {
         host = matches[1].str();
-        port = std::stoi(matches[2].str().c_str());
+        port = std::atoi(matches[2].str().c_str());
         isv6 = true;
     } else
 #endif
@@ -436,7 +440,7 @@ bool _ser2sock_client_connect()
         rgx = "^(.*):(.*)$";
         if (std::regex_search(buf, matches, rgx)) {
             host = matches[1].str();
-            port = std::stoi(matches[2].str().c_str());
+            port = std::atoi(matches[2].str().c_str());
         }
     }
 
@@ -519,7 +523,7 @@ static void ser2sock_client_task(void *pvParameters)
     while (1) {
         if (hal_get_network_connected()) {
 
-            if (_ser2sock_client_connect()) {
+            if (_ser2sock_client_connect((const char *)pvParameters)) {
                 while (1) {
                     // do not process if main halted.
                     if (g_init_done && !g_StopMainTask) {
@@ -573,21 +577,19 @@ static void ser2sock_client_task(void *pvParameters)
 /**
  * @brief Start ser2sock client task
  */
-void init_ser2sock_client()
+void init_ser2sock_client(const char *args)
 {
-    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*8, (void*)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*8, (void*)strdup(args), tskIDLE_PRIORITY+2, NULL);
 }
 
 /**
  *  @brief Initialize the uart connected to the AD2 device
  */
-void init_ad2_uart_client()
+void init_ad2_uart_client(const char *args)
 {
-    // load settings from NVS
-    // host stored in slot 1
-    std::string port_pins;
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_ARG_SLOT, nullptr, port_pins);
+    // load the GPIO pin TX:RX from the mode args.
+    std::string port_pins = args;
+
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
     ad2_tokenize(port_pins, ":", out);
@@ -631,6 +633,19 @@ void init_ad2_uart_client()
 
 }
 
+
+/**
+ * @brief dump memory stats for debugging and tuning.
+ *
+ */
+void dump_mem_stats()
+{
+    float Total = heap_caps_get_total_size(MALLOC_CAP_32BIT);
+    float Free_Size = heap_caps_get_free_size(MALLOC_CAP_32BIT);
+    float DRam = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    float IRam = heap_caps_get_free_size(MALLOC_CAP_32BIT) - heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    ad2_printf_host(true, "Total Heap Size %.2f Kb\nFree Space %.2f Kb\nDRAM  %.2f Kb\nIRAM  %.2f Kb\n",Total/1024,Free_Size/1024,DRam/1024,IRam/1024);
+}
 
 /**
  * @brief AlarmDecoder App main
@@ -692,30 +707,40 @@ void app_main()
                     nvs_stats.used_entries * 100.00 / nvs_stats.total_entries,
                     nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
 
-    // Initialize any attached sd card.
-    hal_init_sd_card();
+    // Initialize attached uSD card.
+    if (hal_init_sd_card()) {
+        g_uSD_mounted = true;
+#if CONFIG_AD2IOT_USD_CONFIG
+        // Load uSD Configuration ini
+        size_t mem_a = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        ad2_load_usd_config();
+        size_t mem_b = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        ad2_printf_host(true, "Total ini configuration memory usage: %d", mem_a - mem_b);
+#endif
+    } /* hal_init_sd_card() */
 
     // load and set the logging level.
-    ad2_set_log_mode(ad2_log_mode());
+    hal_set_log_mode(ad2_get_log_mode());
 
     // create event group
     g_ad2_net_event_group = xEventGroupCreate();
 
-    // init the virtual partition database from NV storage
-    // see iot_cli_cmd::vpart
-    // Virtual partition 0 is the default partition for some notifications.
-    for (int n = 0; n <= AD2_MAX_VPARTITION; n++) {
+    // init the partition database from config storage
+    // see ad2_cli_cmd::part
+    // partition 0 is the default partition for some notifications.
+    for (int n = 0; n <= AD2_MAX_PARTITION; n++) {
         int x = -1;
-        ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, n, nullptr, &x);
+        std::string _section = AD2PART_CONFIG_SECTION + std::to_string(n);
+        ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
             // Init AD2PState and set primary address
-            AD2VirtualPartitionState *s = AD2Parse.getAD2PState(x, true);
+            AD2PartitionState *s = AD2Parse.getAD2PState(x, true);
             s->primary_address = x;
 
             // If a zone list is provided then parse it and save in the zone_list.
             std::string zlist;
-            ad2_get_nv_slot_key_string(VPART_CONFIG_KEY, n, VPART_ZL_CONFIG_KEY, zlist);
+            ad2_get_config_key_string(_section.c_str(), PART_CONFIG_ZONES, zlist);
             ad2_trim(zlist);
             if (zlist.length()) {
                 std::vector<std::string> vres;
@@ -725,15 +750,15 @@ void app_main()
                     s->zone_list.push_front((uint8_t)z & 0xff);
                 }
             }
-            ad2_printf_host(true, "init vpart slot %i address %i zones '%s'", n, x, zlist.c_str());
+            ad2_printf_host(true, "init part slot %i address %i zones '%s'", n, x, zlist.c_str());
         }
     }
-
-    // Load Zone config string and save.
+    // Load Zone config "description" json string parse and save to AD2Parse class.
     std::string config;
     for (int n = 1; n <= AD2_MAX_ZONES; n++) {
         config = "";
-        ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, n, nullptr, config);
+        std::string _section = AD2ZONE_CONFIG_SECTION + std::to_string(n);
+        ad2_get_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, config);
         if (config.length()) {
             // Parse JSON string
             cJSON *json = cJSON_Parse(config.c_str());
@@ -783,15 +808,25 @@ void app_main()
     register_ad2_cli_cmd();
 
     // Load AD2IoT operating mode [Socket|UART] and argument
-    std::string ad2_mode;
-    ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                               AD2MODE_CONFIG_MODE_SLOT, nullptr, ad2_mode);
+    std::string ad2_mode_string = "";
+    ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, ad2_mode_string);
 
-    // Load AD2 connection type Com|Socket
-    g_ad2_mode = ad2_mode[0];
+
+    // Create stream for parsing.
+    std::istringstream ss(ad2_mode_string);
+
+    // Load AD2 connection type Com|Socket from mode string
+    std::string temp_mode;
+    std::getline(ss, temp_mode, ' ');
+    g_ad2_mode = temp_mode[0];
+
+    // Load the connection args from the stream.
+    std::string ad2_mode_args;
+    std::getline(ss, ad2_mode_args, ' ');
+
     // If the hardware is local UART start it now.
     if (g_ad2_mode == 'C') {
-        init_ad2_uart_client();
+        init_ad2_uart_client(ad2_mode_args.c_str());
     }
 
     // Start the CLI.
@@ -806,18 +841,18 @@ void app_main()
     }
 
 #if CONFIG_STDK_IOT_CORE
-    int stEN = -1;
-    ad2_get_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, &stEN);
+    bool stEN = -1;
+    ad2_get_config_key_bool(AD2MAIN_CONFIG_SECTION, STSDK_ENABLE, &stEN);
+    // Enable STSDK if no setting found.
     if (stEN == -1) {
-        // Enable STSDK if no setting found.
         ESP_LOGI(TAG,"STSDK enable setting not found. Saving new enabled by default.");
-        ad2_set_nv_slot_key_int(STSDK_ENABLE, 0, nullptr, 1);
+        ad2_set_config_key_bool(AD2MAIN_CONFIG_SECTION, STSDK_ENABLE, true);
     }
 #endif
 
     // get the network mode set default mode to 'N'
     std::string netmode_args;
-    char net_mode = ad2_network_mode(netmode_args);
+    char net_mode = ad2_get_network_mode(netmode_args);
     ad2_printf_host(true, "'netmode' set to '%c'.", net_mode);
 
     /**
@@ -926,7 +961,7 @@ void app_main()
 
     // If the AD2* is a socket connection we can hopefully start it now.
     if (g_ad2_mode == 'S') {
-        init_ser2sock_client();
+        init_ser2sock_client(ad2_mode_args.c_str());
     }
 
 #if CONFIG_AD2IOT_SER2SOCKD

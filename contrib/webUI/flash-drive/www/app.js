@@ -2,7 +2,7 @@ var panel_states =  {
   "unknown":{
     "status_class": "not_ready",
     "icon_class": "icon house with_key",
-    "label":"No partition state found. vpartID not found on AD2IoT check vpart config settings.",
+    "label":"No partition state found. partID not found on AD2IoT check part config settings.",
     "b1_label": "Unknown",
     "b2_label": "Unknown"
   },
@@ -118,10 +118,10 @@ var Debugger = function(klass) {
 const elem = id => document.getElementById(id);
 
 class AD2ws {
-  constructor(vpartID, codeID, wsHost) {
+  constructor(partID, codeID, wsHost) {
       this.isDebug = true;
       this.debug = Debugger(this);
-      this.vpartID = vpartID;
+      this.partID = partID;
       this.codeID = codeID;
       this.wsHost = wsHost;
       this.connecting = false;
@@ -294,7 +294,7 @@ class AD2ws {
         this.connecting = true;
         this.ws = new WebSocket(url);
 
-        /* On open send SYNC request for the virtual partition id */
+        /* On open send SYNC request for the partition id */
         this.ws.onopen = e => {
             this.debug.info("Web socket open");
             this.connecting = false;
@@ -348,7 +348,7 @@ class AD2ws {
   */
   wsSendSync() {
     this.debug.info("wsSendSync");
-    this.wsSendMessage("!SYNC:"+this.vpartID+","+this.codeID);
+    this.wsSendMessage("!SYNC:"+this.partID+","+this.codeID);
   }
 
   /* check the ws connection */
@@ -392,16 +392,16 @@ function getQueryStringParameterByName(name, url = window.location.href) {
 }
 
 /**
- * Use commands 'vpart' and 'code' to configure the virtual keypad and code slot.
+ * Use commands 'part' and 'code' to configure the virtual keypad and code slot.
  *  https://github.com/nutechsoftware/AlarmDecoder-IoT#base-commands
  */
-var vpartID = 0; var codeID = 0;
+var partID = 0; var codeID = 0;
 var szvalue = null;
-if( (szvalue = getQueryStringParameterByName("vpartID")) === null ) {
-  console.info("No 'vpartID' value provided in URI using default value.");
+if( (szvalue = getQueryStringParameterByName("partID")) === null ) {
+  console.info("No 'partID' value provided in URI using default value.");
 } else {
-  console.info("Loading 'vpartID' value from URI.");
-  vpartID = parseInt(szvalue);
+  console.info("Loading 'partID' value from URI.");
+  partID = parseInt(szvalue);
 };
 if( (szvalue = getQueryStringParameterByName("codeID")) === null ) {
   console.info("No 'codeID' id value provided in URI using default value.");
@@ -421,9 +421,9 @@ if( (szvalue = getQueryStringParameterByName("wsHost")) === null ) {
   wsHost = szvalue;
 };
 
-console.info("Starting the AD2IoT Virtual Keypad using vpart id: "+ vpartID + " and code id: " + codeID);
+console.info("Starting the AD2IoT Virtual Keypad using part id: "+ partID + " and code id: " + codeID);
 /* Initialize the AD2ws class for the address */
-let ad2ws = new AD2ws(vpartID, codeID, wsHost);
+let ad2ws = new AD2ws(partID, codeID, wsHost);
 
 /* Initialize the UI */
 ad2ws.initUI();

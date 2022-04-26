@@ -8,13 +8,13 @@ Copy the contents of flash-drive folder into the root directory of a uSD flash d
 To access the web interface connect to the IP address or host name of the ESP32-POE-ISO board that is configured with the 'webui' build of the AD2IoT firmware.
 ## Arguments
 - codeID : The codeid slot to use on the AD2IoT for arming etc.
-- vpartID : The vpart slot to use for this virutal keypad. If vpart is configured for address 18 then this virtual keypad will show that keypads partition state.
-- wsHost : To allow for easy development you can access the app.html using the browser file:///~/AlarmDecoder-IoT/contrib/webUI/flash-drive/app.html?vpartID=0&codeID=0&wsHost=192.168.0.20 so the websocket connection will be to the ESP32-POE-ISO board but html content from a local filesystem.
+- partID : The part slot to use for this virtual keypad. If part is configured for address 18 then this virtual keypad will show that keypads partition state.
+- wsHost : To allow for easy development you can access the app.html using the browser file:///~/AlarmDecoder-IoT/contrib/webUI/flash-drive/app.html?partID=0&codeID=0&wsHost=192.168.0.20 so the websocket connection will be to the ESP32-POE-ISO board but html content from a local filesystem.
 
 ## Examples
--   http://192.168.0.1/app.html?vpartID=1&codeID=1
+-   http://192.168.0.1/app.html?partID=1&codeID=1
 -   http://192.168.0.1/app.html
-    - Defaults to vPartID 0 and codeID 0
+    - Defaults to PartID 0 and codeID 0
 
 ## Templates
 Creating a file ex "index.html" with the same name but add .tpl extension ex "index.html.tpl" will cause

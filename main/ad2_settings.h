@@ -28,21 +28,29 @@
 
 #if defined(CONFIG_STDK_IOT_CORE)
 #define FIRMWARE_BUILDFLAGS "stsdk"
+// Default netmode N disabled
+#define AD2_DEFAULT_NETMODE_STRING "N"
 #else
 #define FIRMWARE_BUILDFLAGS "webui"
+// Default netmode Ethernet dhcp
+#define AD2_DEFAULT_NETMODE_STRING "E mode=d"
 #endif
 
 // @brief MAX address slots
 #define AD2_MAX_ADDRESS       99
 
-// @brief MAX virtual partition slots
-#define AD2_MAX_VPARTITION    9
+// @brief MAX partition slots
+#define AD2_MAX_PARTITION    2
 
 // @brief MAX zones
-#define AD2_MAX_ZONES         255
+#define AD2_MAX_ZONES         5
 
 // @brief MAX code slots
-#define AD2_MAX_CODE          99
+#define AD2_MAX_CODE          2
+
+// @brief MAX virtual switches
+#define AD2_MAX_SWITCHES      255
+#define AD2_MAX_SWITCH_SEARCH_KEYS 9
 
 // @brief Default code to use if none specified
 #define AD2_DEFAULT_CODE_SLOT 0
@@ -53,25 +61,40 @@
 // @brief Max connection mode string argument size(host:port|UART#)
 #define AD2_MAX_MODE_ARG_SIZE 80
 
-// @brief Parent Key to store virtual partition slots
-#define VPART_CONFIG_KEY     "vpa"
-#define VPART_ZL_CONFIG_KEY  "vpz"
+// @brief Main config section
+#define AD2MAIN_CONFIG_SECTION ""
 
-// @brief Parent Key to store zone slots
-#define ZONES_ALPHA_CONFIG_KEY      "zna"
+// @brief partition config section
+#define AD2PART_CONFIG_SECTION "part "
+#define PART_CONFIG_ADDRESS "address"
+#define PART_CONFIG_ZONES "zones"
 
-// @brief Parent Key to store code slots
-#define CODES_CONFIG_KEY      "codes"
+// @brief [zone N] config section
+#define AD2ZONE_CONFIG_SECTION  "zone "
+#define ZONE_CONFIG_DESCRIPTION  "description"
 
-// @brief Parent Key to store network settings
-#define NETMODE_CONFIG_KEY    "nmode"
+// @brief code config section
+#define AD2CODES_CONFIG_SECTION "code"
 
-// @brief Parent Key to store ad2 source configuration values
+// @brief [switch N] confoig section
+#define AD2SWITCH_CONFIG_SECTION "switch "
+#define AD2SWITCH_SK_DELETE1 "-"
+#define AD2SWITCH_SK_DELETE2 "delete"
+#define AD2SWITCH_SK_DEFAULT "default"
+#define AD2SWITCH_SK_RESET "reset"
+#define AD2SWITCH_SK_TYPES "types"
+#define AD2SWITCH_SK_FILTER "filter"
+#define AD2SWITCH_SK_OPEN "open"
+#define AD2SWITCH_SK_CLOSE "close"
+#define AD2SWITCH_SK_TROUBLE "trouble"
+
+// @brief netmode settings key under main section
+#define NETMODE_CONFIG_KEY    "netmode"
+
+// @brief ad2source settings key under main section
 #define AD2MODE_CONFIG_KEY    "ad2source"
-#define AD2MODE_CONFIG_MODE_SLOT 0 // FIXED Slot #0 for the mode
-#define AD2MODE_CONFIG_ARG_SLOT  1 // FIXED SLot #1 for the argument
 
-// @brief Parent Key to store ogging mode
+// @brief logmode setting key under main section
 #define LOGMODE_CONFIG_KEY    "logmode"
 
 // UART RX buffer size

@@ -54,7 +54,6 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
 void _lost_ip_event_handler(void *arg, esp_event_base_t event_base,
                             int32_t event_id, void *event_data);
 
-static int HAL_NET_INITIALIZED = false;
 
 // track count of AP client connection attempts.
 static int ap_retry_num = 0;
@@ -65,13 +64,14 @@ static esp_netif_t* _netif = NULL;
 #endif
 
 
-// WiFi event state bits
-const int NET_STA_START_BIT 		= BIT0;
-const int NET_STA_CONNECT_BIT		= BIT1;
-const int NET_STA_DISCONNECT_BIT	= BIT2;
-const int NET_AP_START_BIT 		= BIT3;
-const int NET_AP_STOP_BIT 		= BIT4;
-const int NET_EVENT_BIT_ALL = BIT0|BIT1|BIT2|BIT3|BIT4;
+// networking event state bits
+const int NET_NETIF_STARTED_BIT 	= BIT0;
+const int NET_STA_START_BIT 		= BIT1;
+const int NET_STA_CONNECT_BIT		= BIT2;
+const int NET_STA_DISCONNECT_BIT	= BIT3;
+const int NET_AP_START_BIT 		= BIT4;
+const int NET_AP_STOP_BIT 		= BIT5;
+const int NET_CONNECT_STATE_BITS = BIT1|BIT2|BIT3|BIT4|BIT5;
 
 static bool switchAState = SWITCH_OFF;
 static bool switchBState = SWITCH_OFF;
@@ -360,7 +360,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
     case WIFI_EVENT_STA_STOP:
         ESP_LOGI(TAG, "SYSTEM_EVENT_STA_STOP");
-        xEventGroupClearBits(g_ad2_net_event_group, NET_EVENT_BIT_ALL);
+        xEventGroupClearBits(g_ad2_net_event_group, NET_CONNECT_STATE_BITS);
         break;
     case WIFI_EVENT_STA_CONNECTED:
         ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED");
@@ -379,7 +379,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
     case WIFI_EVENT_AP_START:
         ESP_LOGI(TAG, "SYSTEM_EVENT_AP_START");
         hal_set_wifi_hostname(CONFIG_LWIP_LOCAL_HOSTNAME);
-        xEventGroupClearBits(g_ad2_net_event_group, NET_EVENT_BIT_ALL);
+        xEventGroupClearBits(g_ad2_net_event_group, NET_CONNECT_STATE_BITS);
         xEventGroupSetBits(g_ad2_net_event_group, NET_AP_START_BIT);
         break;
     case WIFI_EVENT_AP_STOP:
@@ -412,8 +412,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
  */
 void hal_init_network_stack()
 {
-
-    if(HAL_NET_INITIALIZED) {
+    if(hal_get_netif_started()) {
         ESP_LOGE(TAG, "network TCP/IP stack already initialized");
         return;
     }
@@ -429,7 +428,7 @@ void hal_init_network_stack()
 #endif
 
 
-    HAL_NET_INITIALIZED = true;
+    xEventGroupSetBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
 
     ESP_LOGI(TAG, "network TCP/IP stack init finish");
     return;
@@ -926,7 +925,7 @@ void _eth_event_handler(void *arg, esp_event_base_t event_base,
         break;
     case ETHERNET_EVENT_STOP:
         ESP_LOGI(TAG, "Ethernet stopping");
-        xEventGroupClearBits(g_ad2_net_event_group, NET_EVENT_BIT_ALL);
+        xEventGroupClearBits(g_ad2_net_event_group, NET_CONNECT_STATE_BITS);
         break;
     case ETHERNET_EVENT_CONNECTED:
         esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, mac_addr);
@@ -964,7 +963,15 @@ void hal_ad2_reset()
 }
 
 /**
- * @brief Set CONNECTED state.
+ * @brief Get network interface stack init state.
+ */
+bool hal_get_netif_started()
+{
+    return xEventGroupGetBits(g_ad2_net_event_group) & NET_NETIF_STARTED_BIT;
+}
+
+/**
+ * @brief Get ip network connection state.
  */
 bool hal_get_network_connected()
 {
@@ -997,7 +1004,7 @@ void hal_set_network_connected(bool set)
 /**
  * @brief Initialize the uSD reader if one is connected.
  */
-void hal_init_sd_card()
+bool hal_init_sd_card()
 {
     esp_err_t err;
 
@@ -1022,9 +1029,10 @@ void hal_init_sd_card()
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
         ad2_printf_host(false, "FAIL.");
-        return;
+        return false;
     }
     ad2_printf_host(false, "PASS.");
+    return true;
 }
 
 /* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */
@@ -1104,6 +1112,25 @@ void hal_get_socket_local_ip(int sockfd, std::string& IP)
         IP = inet_ntop(AF_INET, &addr.sin_addr, ipstr, sizeof(ipstr));
     }
 #endif
+}
+
+
+/**
+ * @brief set the current log mode value
+ *
+ * @param [in]m char mode
+ */
+void hal_set_log_mode(char lm)
+{
+    if (lm == 'I') {
+        esp_log_level_set("*", ESP_LOG_INFO);        // set all components to INFO level
+    } else if (lm == 'D')  {
+        esp_log_level_set("*", ESP_LOG_DEBUG);       // set all components to DEBUG level
+    } else if (lm == 'V') {
+        esp_log_level_set("*", ESP_LOG_VERBOSE);     // set all components to VERBOSE level
+    } else {
+        esp_log_level_set("*", ESP_LOG_WARN);        // set all components to WARN level
+    }
 }
 
 
