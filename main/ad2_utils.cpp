@@ -40,30 +40,89 @@ static const char *TAG = "AD2UTIL";
 #include "nvs_flash.h"
 #include "mbedtls/base64.h"
 
-#if CONFIG_AD2IOT_USD_CONFIG
 #include <SimpleIni.h>
 // ini config class
 static CSimpleIniA _ad2ini;
-// flag that config file was successfully loaded from uSD and ad2ini is valid.
-static bool _uSD_config_loaded = false;
+
+// auto save and cache states.
+static bool _config_autosave = false;
+static bool _config_dirty = false;
+static bool _uSD_config = false;
 
 /**
- * @brief  ad2_load_usd_config
+ * @brief  ini file error string helper
  *
  */
-void ad2_load_usd_config()
+const char * _ini_file_error(SI_Error e)
 {
-    // See if a config exists on the uSD card and use if found.
-    _ad2ini.SetUnicode();
-    SI_Error rc = _ad2ini.LoadFile(AD2_MOUNT_POINT "/ad2iot.ini");
-    if (rc < 0) {
-        ad2_printf_host(true, "Error loading config file from " AD2_MOUNT_POINT "/ad2iot.ini");
-    } else {
-        ad2_printf_host(true, "Success loading config file from " AD2_MOUNT_POINT "/ad2iot.ini");
-        _uSD_config_loaded = true;
+    if (e == SI_NOMEM) {
+        return "out of memory.";
+    }
+    return (const char *)strerror(errno);
+}
+
+/**
+ * @brief  ad2_save_persistent_config
+ *
+ */
+void ad2_save_persistent_config()
+{
+    if (!_config_autosave && _config_dirty) {
+        SI_Error rc;
+        if (_uSD_config) {
+            rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        } else {
+            rc = _ad2ini.SaveFile(AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
+        }
+        if (rc < 0) {
+            ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
+        } else {
+            _config_dirty = false;
+        }
     }
 }
-#endif /* CONFIG_AD2IOT_USD_CONFIG */
+
+/**
+ * @brief  ad2_load_persistent_config
+ *
+ */
+void ad2_load_persistent_config()
+{
+    // Set config storage format to UTF-8.
+    _ad2ini.SetUnicode();
+
+    // Enable multi line values.
+    _ad2ini.SetMultiLine();
+
+    // See if a config exists on the uSD card and use if found.
+    ad2_printf_host(true, "%s: Attempting to load config file: " AD2_USD_MOUNT_POINT AD2_CONFIG_FILE, TAG);
+    SI_Error rc = _ad2ini.LoadFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+
+    if (rc < 0) {
+        // USD config load failed show why.
+        ad2_printf_host( false, " failed(");
+        ad2_printf_host( false, _ini_file_error(rc));
+        ad2_printf_host( false, ")");
+
+        // See if a config exists on the SPIFFS and use if found.
+        ad2_printf_host(true, "%s: Attempting to load config file: " AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE, TAG);
+        // load from internal SPIFFS storage
+        rc = _ad2ini.LoadFile(AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
+        if (rc < 0) {
+            // USD config load failed show why.
+            ad2_printf_host( false, " failed(");
+            ad2_printf_host( false, _ini_file_error(rc));
+            ad2_printf_host( false, ")");
+            // last option create a new one.
+
+        } else {
+            ad2_printf_host(false, " success.");
+        }
+    } else {
+        ad2_printf_host(false, " success.");
+        _uSD_config = true;
+    }
+}
 
 /**
  * @brief Parse an acl string and add to our list of networks.
@@ -609,26 +668,11 @@ void ad2_get_config_key_bool(
         }
     }
 
-#if CONFIG_AD2IOT_USD_CONFIG
     // If config from uSD is loaded then use it else use NVM
-    if (_uSD_config_loaded) {
-        *vout = _ad2ini.GetBoolValue(section, tkey.c_str(), *vout);
+    *vout = _ad2ini.GetBoolValue(section, tkey.c_str(), *vout);
 #ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
+    ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
 #endif
-        return;
-    }
-#endif
-    // Open NVS
-    esp_err_t err;
-    nvs_handle my_handle;
-    err = nvs_open(section, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        err = nvs_get_i8(my_handle, tkey.c_str(), (int8_t *)vout);
-        nvs_close(my_handle);
-    }
 }
 
 /**
@@ -658,57 +702,26 @@ void ad2_set_config_key_bool(
             tkey += suffix;
         }
     }
-
-#if CONFIG_AD2IOT_USD_CONFIG
-    // If config from uSD is loaded then use it else use NVM
-    if (_uSD_config_loaded) {
+    // If config from persistent storage
 #ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
+    ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
 #endif
-        bool done;
-        if (remove) {
-            done = _ad2ini.Delete(section, tkey.c_str(), false);
-        } else {
-            done = _ad2ini.SetBoolValue(section, tkey.c_str(), vin);
-        }
-        if (!done) {
-            ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
-        }
-        SI_Error rc = _ad2ini.SaveFile(AD2_MOUNT_POINT "/ad2iot.ini");
+    bool done;
+    if (remove) {
+        done = _ad2ini.Delete(section, tkey.c_str(), false);
+    } else {
+        done = _ad2ini.SetBoolValue(section, tkey.c_str(), vin);
+    }
+    if (!done) {
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+    } else {
+        _config_dirty = true;
+    }
+    if (_config_autosave && _config_dirty) {
+        SI_Error rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
-        return;
-    }
-#endif
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(section, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-#ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: saving sub key(%s)", __func__, tkey.c_str());
-#endif
-        // remove before write. Seems to fix some issues. Needs review and testing to see if
-        // old problem still exists in newer build tools.
-        err = nvs_erase_key(my_handle, tkey.c_str());
-        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
-        }
-        if (!remove) {
-            err = nvs_set_i8(my_handle, tkey.c_str(), vin);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
-            }
-            err = nvs_commit(my_handle);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
-            }
-        }
-        nvs_close(my_handle);
     }
 }
 
@@ -738,26 +751,10 @@ void ad2_get_config_key_int(
         }
     }
 
-#if CONFIG_AD2IOT_USD_CONFIG
-    // If config from uSD is loaded then use it else use NVM
-    if (_uSD_config_loaded) {
-        *vout = (int)_ad2ini.GetLongValue(section, tkey.c_str(), *vout);
+    *vout = (int)_ad2ini.GetLongValue(section, tkey.c_str(), *vout);
 #ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
+    ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
 #endif
-        return;
-    }
-#endif
-    // Open NVS
-    esp_err_t err;
-    nvs_handle my_handle;
-    err = nvs_open(section, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        err = nvs_get_i32(my_handle, tkey.c_str(), vout);
-        nvs_close(my_handle);
-    }
 }
 
 /**
@@ -788,56 +785,25 @@ void ad2_set_config_key_int(
         }
     }
 
-#if CONFIG_AD2IOT_USD_CONFIG
-    // If config from uSD is loaded then use it else use NVM
-    if (_uSD_config_loaded) {
 #ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
+    ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
 #endif
-        bool done;
-        if (remove) {
-            done = _ad2ini.Delete(section, tkey.c_str(), false);
-        } else {
-            done = _ad2ini.SetLongValue(section, tkey.c_str(), vin);
-        }
-        if (!done) {
-            ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
-        }
-        SI_Error rc = _ad2ini.SaveFile(AD2_MOUNT_POINT "/ad2iot.ini");
+    bool done;
+    if (remove) {
+        done = _ad2ini.Delete(section, tkey.c_str(), false);
+    } else {
+        done = _ad2ini.SetLongValue(section, tkey.c_str(), vin);
+    }
+    if (!done) {
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+    } else {
+        _config_dirty = true;
+    }
+    if (_config_autosave && _config_dirty) {
+        SI_Error rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
-        return;
-    }
-#endif
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(section, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-#ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: saving sub key(%s)", __func__, tkey.c_str());
-#endif
-        // remove before write. Seems to fix some issues. Needs review and testing to see if
-        // old problem still exists in newer build tools.
-        err = nvs_erase_key(my_handle, tkey.c_str());
-        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
-        }
-        if (!remove) {
-            err = nvs_set_i32(my_handle, tkey.c_str(), vin);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
-            }
-            err = nvs_commit(my_handle);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
-            }
-        }
-        nvs_close(my_handle);
     }
 }
 
@@ -867,43 +833,11 @@ void ad2_get_config_key_string(
         }
     }
 
-#if CONFIG_AD2IOT_USD_CONFIG
-    // If config from uSD is loaded then use it else use NVM
-    if (_uSD_config_loaded) {
-        vout = _ad2ini.GetValue(section, tkey.c_str(), vout.c_str());
+    vout = _ad2ini.GetValue(section, tkey.c_str(), vout.c_str());
 #ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%s)", __func__, section, tkey.c_str(), vout.c_str());
+    ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%s)", __func__, section, tkey.c_str(), vout.c_str());
 #endif
 
-        return;
-    }
-#endif
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(section, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        size_t size;
-#ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: reading sub key(%s)", __func__, tkey.c_str());
-#endif
-        // get size including terminator.
-        err = nvs_get_str(my_handle, tkey.c_str(), NULL, &size);
-        if (err == ESP_OK && size) {
-            if (size > AD2_MAX_VALUE_SIZE) {
-                size = AD2_MAX_VALUE_SIZE;
-            }
-            // set size excluding terminator
-            vout.resize(size - 1);
-            // load the string to valueout.
-            err = nvs_get_str(my_handle, tkey.c_str(), (char *)vout.c_str(), &size);
-        }
-
-        nvs_close(my_handle);
-    }
 }
 
 /**
@@ -933,57 +867,28 @@ void ad2_set_config_key_string(
             tkey += suffix;
         }
     }
-#if CONFIG_AD2IOT_USD_CONFIG
-    // If config from uSD is loaded then use it else use NVM
-    if (_uSD_config_loaded) {
+
 #ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
+    ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
 #endif
-        bool done;
-        if (remove) {
-            done = _ad2ini.Delete(section, tkey.c_str(), false);
-        } else {
-            done = _ad2ini.SetValue(section, tkey.c_str(), vin);
-        }
-        if (!done) {
-            ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
-        }
-        SI_Error rc = _ad2ini.SaveFile(AD2_MOUNT_POINT "/ad2iot.ini");
+    bool done;
+    if (remove) {
+        done = _ad2ini.Delete(section, tkey.c_str(), false);
+    } else {
+        done = _ad2ini.SetValue(section, tkey.c_str(), vin);
+    }
+    if (!done) {
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+    } else {
+        _config_dirty = true;
+    }
+    if (_config_autosave && _config_dirty) {
+        SI_Error rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
-        return;
     }
-#endif
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(section, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-#ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: saving section[%s] sub key(%s)", __func__, section, tkey.c_str());
-#endif
-        // remove before write. Seems to fix some issues. Needs review and testing to see if
-        // old problem still exists in newer build tools.
-        err = nvs_erase_key(my_handle, tkey.c_str());
-        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
-        }
-        if (!remove) {
-            err = nvs_set_str(my_handle, tkey.c_str(), vin);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
-            }
-            err = nvs_commit(my_handle);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
-            }
-        }
-        nvs_close(my_handle);
-    }
+    return;
 }
 
 /**

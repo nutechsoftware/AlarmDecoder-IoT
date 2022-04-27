@@ -6,9 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [ ] core: Add new ```switch N``` command to move switches to a global area and allow components to add extra args for internal use but use the same switch template for all modules. Less typing just define switches and then in modules like MQTT or Pushover define the module specific settings for that switch such as the output format for ```open```.
-- [ ] ALL: Refactor configuration adding option for ini file on uSD card. I tried to make it backwards compatible and all critical configuration settings such as ```netmode``` are all compatible but partitions, codes, virtual switches all needed to be changed to be more user friendly in the ad2iot.ini config file.
-- [ ] ALL: Remove references to virtual for partitions. It was too confusing, just part or maybe I will allow both partition and part for short.
+- [X] *: Lots more cleanup.
+- [X] core: remove nvs config storage and change to spiffs and posix files and https://github.com/brofield/simpleini library for the config.
+- [X] core: Partition structure change. Bump major revision. Older units must be manually flashed or run a special migration release.
+- [X] core: Add new ```switch N``` command to move switches to a global area and allow components to add extra args for internal use but use the same switch template for all modules. Less typing just define switches and then in modules like MQTT or Pushover define the module specific settings for that switch such as the output format for ```open```.
+- [X] ALL: Refactor configuration adding option for ini file on uSD card. I tried to make it backwards compatible and all critical configuration settings such as ```netmode``` are all compatible but partitions, codes, virtual switches all needed to be changed to be more user friendly in the ad2iot.ini config file.
+- [x] ALL: Remove references to virtual for partitions. It was too confusing, just part or maybe I will allow both partition and part for short.
 - [X] CORE: Move mounting of uSD card early after NV init to allow for loading/saving config early.
 - [X] WEBUI: Moved content into ```www``` folder on uSD to protect sensitive data. Users that upgrade can use FTPD to create the folder and move the files. This will be necessary when adding config files into the uSD that they are outside of the document root for the webUI component.
 - [X] FTPD: Adding new FTP server to allow update of uSD web pages remotely. With ACL access can be limited to a specific subnet mask or single address.

@@ -24,7 +24,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
-static const char *TAG = "UARTCLI";
+static const char *TAG = "HAL";
 
 // AlarmDecoder std includes
 #include "alarmdecoder_main.h"
@@ -36,6 +36,7 @@ static const char *TAG = "UARTCLI";
 #include "driver/sdmmc_host.h"
 #include "esp_eth.h"
 #include "nvs_flash.h"
+#include "esp_spiffs.h"
 
 // specific includes
 #include "ota_util.h"
@@ -884,7 +885,7 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "IP: %s", IP.c_str());
 #endif
     // Notify CLI of the new hardware MAC and IP address for easy management.
-    ad2_printf_host(true, "NEW IP ADDRESS: if(%s) addr(%s) mask(%s) gw(%s)", IF.c_str(), IP.c_str(), MASK.c_str(), GW.c_str());
+    ad2_printf_host(true, "%s: Interface UP if(%s) addr(%s) mask(%s) gw(%s)", TAG, IF.c_str(), IP.c_str(), MASK.c_str(), GW.c_str());
 #if defined(DEBUG_IP_EVENT)
     if (MASK.length()) {
         ESP_LOGI(TAG, "NETMASK: %s", MASK.c_str());
@@ -1009,7 +1010,7 @@ bool hal_init_sd_card()
     esp_err_t err;
 
     // Setup for Mount of uSD over SPI on the OLIMEX ESP-POE-ISO that is wired for a 1 bit data bus.
-    const char mount_point[] = AD2_MOUNT_POINT;
+    const char mount_point[] = AD2_USD_MOUNT_POINT;
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.flags = SDMMC_HOST_FLAG_1BIT;
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
@@ -1022,17 +1023,28 @@ bool hal_init_sd_card()
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
     mount_config.format_if_mount_failed = false;
     mount_config.max_files = 5;
-    ad2_printf_host(true, "Mounting uSD card ");
+    ad2_printf_host(true, "%s: Mounting uSD on '%s': ", TAG, mount_point);
 
     sdmmc_card_t *card = NULL;
     err = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &card);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to Mounting uSD card err: 0x%x (%s).", err, esp_err_to_name(err));
-        ad2_printf_host(false, "FAIL.");
+        ESP_LOGE(TAG, "Failed to mount uSD err: 0x%x (%s).", err, esp_err_to_name(err));
+        ad2_printf_host(false, " fail.");
         return false;
+    } else {
+        ad2_printf_host(false, " pass.");
+        // show stats and return true
+        size_t total = 0, used = 0;
+        FATFS *fs;
+        DWORD fre_clust, fre_sect, tot_sect;
+        FRESULT res;
+        res = f_getfree("0:", &fre_clust, &fs);
+        tot_sect = (fs->n_fatent - 2) * fs->csize;
+        fre_sect = fre_clust * fs->csize;
+        ad2_printf_host(true, "%s: uSD usage total: %10lu KiB,  free: %10lu KiB.", TAG,
+                        tot_sect / 2, fre_sect / 2);
+        return true;
     }
-    ad2_printf_host(false, "PASS.");
-    return true;
 }
 
 /* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */
@@ -1133,6 +1145,57 @@ void hal_set_log_mode(char lm)
     }
 }
 
+/**
+ * @brief Dump the hardware info to the host.
+ *
+ */
+void hal_dump_hw_info()
+{
+    // Dump hardware info
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    ad2_printf_host(true, "%s: ESP32 with %d CPU cores, WiFi%s%s, ", TAG,
+                    chip_info.cores,
+                    (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+                    (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+
+    ad2_printf_host(false, "silicon revision %d, ", chip_info.revision);
+
+    ad2_printf_host(false, "%dMB %s flash", spi_flash_get_chip_size() / (1024 * 1024),
+                    (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+
+}
+
+/**
+ * @brief Initialize the persistent storage for config settings.
+ *
+ */
+bool hal_init_persistent_storage()
+{
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = "spiffs",
+        .max_files = 25,
+        .format_if_mount_failed = true
+    };
+    // Initialize spiffs storage.
+    ad2_printf_host(true, "%s: Mounting SPIFFS on '%s' :", TAG, conf.base_path);
+    esp_err_t err = esp_vfs_spiffs_register(&conf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to mount SPIFFS err: 0x%x (%s).", err, esp_err_to_name(err));
+        ad2_printf_host(false, " fail.");
+        return false;
+    } else {
+        ad2_printf_host(false, " pass.");
+        // show stats and return true
+        size_t total = 0, used = 0;
+        err = esp_spiffs_info(conf.partition_label, &total, &used);
+        if (err == ESP_OK) {
+            ad2_printf_host(true, "%s: SPIFFS usage total: %d B, free: %d B.", TAG, total, total-used);
+        }
+        return true;
+    }
+}
 
 #ifdef __cplusplus
 } // extern "C"

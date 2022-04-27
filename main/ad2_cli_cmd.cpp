@@ -358,6 +358,9 @@ static void _cli_cmd_ad2term_event(const char *string)
  */
 static void _cli_cmd_restart_event(const char *string)
 {
+    // Flush/save persistent configuration ini
+    ad2_save_persistent_config();
+
     hal_restart();
 }
 

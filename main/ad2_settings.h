@@ -24,7 +24,7 @@
 //#define AD2_STACK_REPORT
 
 // @brief Firmware version string.
-#define FIRMWARE_VERSION      "AD2IOT-1094"
+#define FIRMWARE_VERSION      "AD2IOT-1100"
 
 #if defined(CONFIG_STDK_IOT_CORE)
 #define FIRMWARE_BUILDFLAGS "stsdk"
@@ -108,10 +108,12 @@
 #define AD2PFX "!IOT: "
 
 // Signon message
-#define AD2_SIGNON AD2PFX "Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)"
+#define AD2_SIGNON "%s: Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)"
 
 // The virtual mount prefix for all file operations.
-#define AD2_MOUNT_POINT "/sdcard"
+#define AD2_USD_MOUNT_POINT "/sdcard"
+#define AD2_SPIFFS_MOUNT_POINT "/spiffs"
+#define AD2_CONFIG_FILE "/ad2iot.ini"
 
 // Console LOCK timeout
 #define AD2_CONSOLE_LOCK_TIME 500

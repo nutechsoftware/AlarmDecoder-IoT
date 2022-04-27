@@ -1098,7 +1098,7 @@ void mqtt_init()
 
     // generate our client's unique user id. UUID.
     ad2_genUUID(0x10, mqttclient_UUID);
-    ad2_printf_host(true, "%s init UUID: %s", TAG, mqttclient_UUID.c_str());
+    ad2_printf_host(true, "%s: Init UUID: %s", TAG, mqttclient_UUID.c_str());
 
     // configure and start MQTT client
     esp_err_t err;

@@ -38,10 +38,8 @@ static const char *TAG = "AD2_IoT";
 #endif
 // specific includes
 
-#if CONFIG_AD2IOT_USD_CONFIG
 // SimpleIni
 #include <SimpleIni.h>
-#endif /* CONFIG_AD2IOT_USD_CONFIG */
 
 // OTA updates
 #include "ota_util.h"
@@ -325,7 +323,7 @@ void ad2_on_state_change(std::string *msg, AD2PartitionState *s, void *arg)
         cJSON_Minify(state);
 
         // Notify CLI of the new state for easy console diagnostics of panel.
-        ad2_printf_host(true, "AD2 State change: %s", state);
+        ad2_printf_host(true, "%s: %s", TAG, state);
 
         cJSON_free(state);
         cJSON_Delete(root);
@@ -593,7 +591,7 @@ void init_ad2_uart_client(const char *args)
     g_ad2_client_handle = UART_NUM_2;
     std::vector<std::string> out;
     ad2_tokenize(port_pins, ":", out);
-    ad2_printf_host(true, "Initialize AD2 UART client using txpin(%s) rxpin(%s)", out[0].c_str(),out[1].c_str());
+    ad2_printf_host(true, "%s: Initialize AD2 UART client using txpin(%s) rxpin(%s)", TAG, out[0].c_str(),out[1].c_str());
     int tx_pin = atoi(out[0].c_str());
     int rx_pin = atoi(out[1].c_str());
 
@@ -667,57 +665,29 @@ void app_main()
 
     // init host(USB) uart port
     hal_host_uart_init();
-
-    ad2_printf_host(false, AD2_SIGNON, FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
+    ad2_printf_host(false, "\r\n");
+    ad2_printf_host(true, AD2_SIGNON, TAG, FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
     ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
 #endif
 
-    // Dump hardware info
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-    ad2_printf_host(true, "ESP32 with %d CPU cores, WiFi%s%s, ",
-                    chip_info.cores,
-                    (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-                    (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+    // dump the hardware info to the console
+    hal_dump_hw_info();
 
-    ad2_printf_host(false, "silicon revision %d, ", chip_info.revision);
-
-    ad2_printf_host(false, "%dMB %s flash", spi_flash_get_chip_size() / (1024 * 1024),
-                    (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
-
-    // Initialize nvs partition for key value storage.
-    ad2_printf_host(true, "Initialize NVS subsystem start.");
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // NVS partition was truncated and needs to be erased
-        // Retry nvs_flash_init
-        ad2_printf_host(false, " Not found or error clearing flash.");
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ad2_printf_host(false, " Done.");
-    ESP_ERROR_CHECK( err );
-
-    // Example of nvs_get_stats() to get the number of used entries and free entries:
-    nvs_stats_t nvs_stats;
-    nvs_get_stats(NULL, &nvs_stats);
-    ad2_printf_host(true, "NVS usage %.2f%%. Count: UsedEntries = (%d), FreeEntries = (%d), AllEntries = (%d)",
-                    nvs_stats.used_entries * 100.00 / nvs_stats.total_entries,
-                    nvs_stats.used_entries, nvs_stats.free_entries, nvs_stats.total_entries);
+    // initialize storage for config settings.
+    hal_init_persistent_storage();
 
     // Initialize attached uSD card.
     if (hal_init_sd_card()) {
         g_uSD_mounted = true;
-#if CONFIG_AD2IOT_USD_CONFIG
-        // Load uSD Configuration ini
-        size_t mem_a = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-        ad2_load_usd_config();
-        size_t mem_b = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-        ad2_printf_host(true, "Total ini configuration memory usage: %d", mem_a - mem_b);
-#endif
-    } /* hal_init_sd_card() */
+    }
+
+    // Load persistent configuration ini
+    size_t mem_a = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    ad2_load_persistent_config();
+    size_t mem_b = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    ad2_printf_host(true, "%s: Approximate Configuration memory usage: %d B", TAG, mem_a - mem_b);
 
     // load and set the logging level.
     hal_set_log_mode(ad2_get_log_mode());
@@ -750,7 +720,7 @@ void app_main()
                     s->zone_list.push_front((uint8_t)z & 0xff);
                 }
             }
-            ad2_printf_host(true, "init part slot %i address %i zones '%s'", n, x, zlist.c_str());
+            ad2_printf_host(true, "%s: init part slot %i address %i zones '%s'", TAG, n, x, zlist.c_str());
         }
     }
     // Load Zone config "description" json string parse and save to AD2Parse class.
@@ -853,7 +823,7 @@ void app_main()
     // get the network mode set default mode to 'N'
     std::string netmode_args;
     char net_mode = ad2_get_network_mode(netmode_args);
-    ad2_printf_host(true, "'netmode' set to '%c'.", net_mode);
+    ad2_printf_host(true, "%s: 'netmode' set to '%c'.", TAG, net_mode);
 
     /**
      * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.

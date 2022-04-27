@@ -1,11 +1,5 @@
 menu "AlarmDecoder IoT Configuration (AD2iot)"
 
-config AD2IOT_USD_CONFIG
-    bool "Enable uSD config file ad2iot.ini"
-    default y
-    help
-        Enable loading config settings from uSD file ad2iot.ini on the root of the uSD disk.
-
 config AD2IOT_USE_WIFI
     bool "Enable WiFi driver"
     default y

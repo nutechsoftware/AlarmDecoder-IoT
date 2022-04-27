@@ -28,7 +28,7 @@
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
 
 // Debugging NVS
-#define DEBUG_NVS
+//#define DEBUG_NVS
 
 // Communication with AD2* device / host
 void ad2_arm_away(std::string &code, int partId);
@@ -173,10 +173,9 @@ void ad2_set_config_key_string(
 
 #define CFG_SECTION_MAIN ""
 
-// Load uSD Configuration ini
-#if CONFIG_AD2IOT_USD_CONFIG
-void ad2_load_usd_config();
-#endif
+// persistent configuration load/save
+void ad2_load_persistent_config();
+void ad2_save_persistent_config();
 
 // ASYNC serialized http request api for components.
 

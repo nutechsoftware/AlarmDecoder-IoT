@@ -39,7 +39,7 @@ static const char *TAG = "AD2OTA";
 //#define DEBUG_OTA
 
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
-#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
+#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv11_version_info.json"
 #define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
 #define OTA_SIGNATURE_SIZE 256

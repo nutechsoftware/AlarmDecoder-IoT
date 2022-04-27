@@ -286,7 +286,7 @@ void relative_path_fix(std::string cwd, std::string &path, std::string &tp)
 void FTPDFileCallbacks::onStoreStart(std::string fileName)
 {
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     std::string _tmp = fileName;
     relative_path_fix(ad2ftpd_cwd, _tmp, tp);
 
@@ -337,7 +337,7 @@ void FTPDFileCallbacks::onStoreEnd()
 void FTPDFileCallbacks::onRetrieveStart(std::string fileName)
 {
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     std::string _tmp = fileName;
     relative_path_fix(ad2ftpd_cwd, _tmp, tp);
 
@@ -396,7 +396,7 @@ std::string FTPDFileCallbacks::onDir(std::string path)
 #endif
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
 #if defined(FTPD_DEBUG)
@@ -412,7 +412,7 @@ std::string FTPDFileCallbacks::onDir(std::string path)
 
     // Test it file or directory exist.
     // note: No case compare for FAT fs.
-    if (strcasecmp(tp.c_str(), AD2_MOUNT_POINT) == 0 || stat(tp.c_str(), &file_stats) == 0) {
+    if (strcasecmp(tp.c_str(), AD2_USD_MOUNT_POINT) == 0 || stat(tp.c_str(), &file_stats) == 0) {
         // is it a folder? return directory list. skip root.
         if (S_ISDIR(file_stats.st_mode)) {
 #if defined(FTPD_DEBUG)
@@ -668,7 +668,7 @@ void FTPD::onCwd(std::istringstream& ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
 #if defined(FTPD_DEBUG)
@@ -731,7 +731,7 @@ void FTPD::onCdup(std::istringstream& ss)
     }
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     std::string tmp;
     relative_path_fix(path, tmp, tp);
 
@@ -817,7 +817,7 @@ void FTPD::onDele(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
 #if defined(FTPD_DEBUG)
@@ -841,7 +841,7 @@ void FTPD::onRnfr(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
     // Test if file is valid respond with OK/FAIL
@@ -872,7 +872,7 @@ void FTPD::onRnto(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
 #if defined(FTPD_DEBUG)
@@ -901,7 +901,7 @@ void FTPD::onRmd(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
 #if defined(FTPD_DEBUG)
@@ -926,7 +926,7 @@ void FTPD::onMkd(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_MOUNT_POINT;
+    std::string tp = AD2_USD_MOUNT_POINT;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
 #if defined(FTPD_DEBUG)
@@ -1775,7 +1775,7 @@ void ftpd_init()
         return;
     }
 
-    ad2_printf_host(true, "%s daemon init starting", TAG);
+    ad2_printf_host(true, "%s: Init starting", TAG);
 
     // init the ftpd class.
     ad2ftpd = new FTPD();
