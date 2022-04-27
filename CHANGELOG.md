@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] FTPD: Add ```REST``` verb to reboot. Warning: Will not save running config. FileZilla ```Server->Enter Custom Command``` type in ```REST``` and press OK to send.
 - [X] *: Lots more cleanup.
 - [X] core: remove nvs config storage and change to spiffs and posix files and https://github.com/brofield/simpleini library for the config.
 - [X] core: Partition structure change. Bump major revision. Older units must be manually flashed or run a special migration release.

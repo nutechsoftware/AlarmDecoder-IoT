@@ -141,7 +141,7 @@ private:
     void onUser(std::istringstream& ss);
     void onXmkd(std::istringstream& ss);
     void onXrmd(std::istringstream& ss);
-
+    void onRest(std::istringstream& ss);
     bool openData();
 
     void receiveFile(std::string fileName);
@@ -940,6 +940,22 @@ void FTPD::onMkd(std::istringstream &ss)
     sendResponse(FTPD::RESPONSE_200_COMMAND_OK);
 }
 
+
+/**
+ * @brief Process a REST operation.
+ * Restart the AD2IoT
+ */
+void FTPD::onRest(std::istringstream& ss)
+{
+    sendResponse(RESPONSE_200_COMMAND_OK); // Command okay.
+    // Warning: This will bypass check to save config if changed in memory.
+    // The intent is to upload a new ad2iot.ini and 'REST' the device to
+    // load this new config abandoning any running configuration that my exist.
+    ad2_printf_host(true, "%s: 'REST' command received. Restarting system now.", TAG);
+    closeConnection();
+    hal_restart();
+}
+
 /**
  * @brief Process a NOOP operation.
  */
@@ -1354,6 +1370,8 @@ void FTPD::processCommand()
             onRnfr(ss);
         } else if (command.compare("RNTO")==0) {
             onRnto(ss);
+        } else if (command.compare("REST")==0) { // Custom verb to restart AD2IoT
+            onRest(ss);
         } else {
 #if defined(FTPD_DEBUG)
             ESP_LOGI(TAG, "Unknown command verb: '%s'. Teach me more please!", command.c_str());
