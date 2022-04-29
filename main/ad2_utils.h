@@ -27,8 +27,8 @@
 // Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
 
-// Debugging NVS
-//#define DEBUG_NVS
+// Debugging config
+//#define DEBUG_CONFIG
 
 // Communication with AD2* device / host
 void ad2_arm_away(std::string &code, int partId);

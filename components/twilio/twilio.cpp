@@ -64,7 +64,7 @@ static const char *TAG = "TWILIO";
 #define SK_TYPE_LIST         "T"
 #define SK_PREFILTER_REGEX   "P"
 #define SK_OPEN_REGEX_LIST   "O"
-#define SK_CLOSED_REGEX_LIST "C"
+#define SK_CLOSE_REGEX_LIST "C"
 #define SK_TROUBLE_REGEX_LIST  "F"
 #define SK_OPEN_OUTPUT_FMT   "o"
 #define SK_CLOSED_OUTPUT_FMT "c"
@@ -611,7 +611,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *
                 ad2_set_config_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
                 ad2_set_config_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
                 ad2_set_config_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_CLOSED_REGEX_LIST, NULL);
+                ad2_set_config_key_string(key.c_str(), slot, SK_CLOSE_REGEX_LIST, NULL);
                 ad2_set_config_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
                 ad2_set_config_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
                 ad2_set_config_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
@@ -652,7 +652,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *
                 break;
 
             case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
-            case SK_CLOSED_REGEX_LIST[0]: // Closed state REGEX list editor
+            case SK_CLOSE_REGEX_LIST[0]: // Closed state REGEX list editor
             case SK_TROUBLE_REGEX_LIST[0]: // Trouble state REGEX list editor
                 // Add index to file name to track N number of elements.
                 ad2_copy_nth_arg(arg1, instring, 4);
@@ -665,7 +665,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *
                     if (buf[0] == SK_OPEN_REGEX_LIST[0]) {
                         tmpsz = "OPEN";
                     }
-                    if (buf[0] == SK_CLOSED_REGEX_LIST[0]) {
+                    if (buf[0] == SK_CLOSE_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
                     if (buf[0] == SK_TROUBLE_REGEX_LIST[0]) {
@@ -710,7 +710,7 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *
                                SK_TYPE_LIST
                                SK_PREFILTER_REGEX
                                SK_OPEN_REGEX_LIST
-                               SK_CLOSED_REGEX_LIST
+                               SK_CLOSE_REGEX_LIST
                                SK_TROUBLE_REGEX_LIST
                                SK_OPEN_OUTPUT_FMT
                                SK_CLOSED_OUTPUT_FMT
@@ -759,13 +759,13 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *
                     }
                     break;
                 case SK_OPEN_REGEX_LIST[0]:
-                case SK_CLOSED_REGEX_LIST[0]:
+                case SK_CLOSE_REGEX_LIST[0]:
                 case SK_TROUBLE_REGEX_LIST[0]:
                     // * Find all sub keys and show info.
                     if (c == SK_OPEN_REGEX_LIST[0]) {
                         tmpsz = "OPEN";
                     }
-                    if (c == SK_CLOSED_REGEX_LIST[0]) {
+                    if (c == SK_CLOSE_REGEX_LIST[0]) {
                         tmpsz = "CLOSED";
                     }
                     if (c == SK_TROUBLE_REGEX_LIST[0]) {
@@ -955,10 +955,10 @@ void twilio_init()
 
             // We at least need some output format or skip
             ad2_get_config_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
-            ad2_get_config_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSED_OUTPUT_FORMAT);
+            ad2_get_config_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSE_OUTPUT_FORMAT);
             ad2_get_config_key_string(key.c_str(), i, SK_TROUBLE_OUTPUT_FMT, es1->TROUBLE_OUTPUT_FORMAT);
             if ( es1->OPEN_OUTPUT_FORMAT.length()
-                    || es1->CLOSED_OUTPUT_FORMAT.length()
+                    || es1->CLOSE_OUTPUT_FORMAT.length()
                     || es1->TROUBLE_OUTPUT_FORMAT.length() ) {
 
                 std::string notify_types_sz = "";
@@ -976,7 +976,7 @@ void twilio_init()
                 ad2_get_config_key_string(key.c_str(), i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
 
                 // Load all regex search patterns for OPEN,CLOSE and TROUBLE sub keys.
-                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
+                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSE_REGEX_LIST SK_OPEN_REGEX_LIST;
                 for(char& c : regex_sk_list) {
                     std::string sk = ad2_string_printf("%c", c);
                     for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
@@ -987,8 +987,8 @@ void twilio_init()
                             if (c == SK_OPEN_REGEX_LIST[0]) {
                                 es1->OPEN_REGEX_LIST.push_back(out);
                             }
-                            if (c == SK_CLOSED_REGEX_LIST[0]) {
-                                es1->CLOSED_REGEX_LIST.push_back(out);
+                            if (c == SK_CLOSE_REGEX_LIST[0]) {
+                                es1->CLOSE_REGEX_LIST.push_back(out);
                             }
                             if (c == SK_TROUBLE_REGEX_LIST[0]) {
                                 es1->TROUBLE_REGEX_LIST.push_back(out);

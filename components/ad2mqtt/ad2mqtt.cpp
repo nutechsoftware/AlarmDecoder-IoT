@@ -57,12 +57,7 @@ static const char *TAG = "MQTT";
 
 #define MAX_SEARCH_KEYS 9
 
-// NV storage sub key values for virtual search switch
-#define SK_NOTIFY_TOPIC      "N"
-#define SK_OPEN_OUTPUT_FMT   "o"
-#define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_TROUBLE_OUTPUT_FMT  "t"
-
+// MQTT settings
 #define MQTT_TOPIC_PREFIX "ad2iot"
 #define MQTT_LWT_TOPIC_SUFFIX "will"
 #define MQTT_LWT_MESSAGE "offline"
@@ -417,18 +412,46 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     topic += mqttclient_UUID;
     for (auto &sw : mqtt_AD2EventSearches) {
         // Grab the topic using the virtusal switch ID pre saved into INT_ARG
-        std::string name = "NA";
+        std::string description = "NA";
         std::string key = std::string(MQTT_SWITCH_CFGKEY);
-        ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_SWITCH_CFGKEY, name, sw->INT_ARG, SK_NOTIFY_TOPIC);
-        ad2_trim(name);
+        ad2_get_config_key_string(MQTT_CONFIG_SECTION,
+                                  MQTT_SWITCH_CFGKEY,
+                                  description,
+                                  sw->INT_ARG,
+                                  MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION);
+
+        cJSON * root   = cJSON_Parse(description.c_str());
+
+        // default to type door and generic value_template
         std::string _type = "door";
+        std::string _name = "N/A";
+        std::string _value_template = "{{value_json.state}}";
+
+        if (root) {
+            cJSON *otype = cJSON_GetObjectItemCaseSensitive(root, "type");
+            if ( cJSON_IsString(otype) ) {
+                _type = otype->valuestring;
+            }
+
+            cJSON *oname = cJSON_GetObjectItemCaseSensitive(root, "name");
+            if ( cJSON_IsString(oname) ) {
+                _name = oname->valuestring;
+            }
+
+            cJSON *ovalue_template = cJSON_GetObjectItemCaseSensitive(root, "value_template");
+            if ( cJSON_IsString(ovalue_template) ) {
+                _value_template = ovalue_template->valuestring;
+            }
+
+            cJSON_Delete(root);
+        }
 
         mqtt_publish_device_config(
             "binary_sensor", _type.c_str(), "switch_",
             sw->INT_ARG, true,
-        name.c_str(), false, {{
+        _name.c_str(), false, {{
                 { "state_topic", topic+"/switches/"+std::to_string(sw->INT_ARG) },
-                { "value_template", "{{value_json.state}}" },
+                { "value_template", _value_template.c_str() },
                 { "availability_topic", topic+"/status" }
             }
         });
@@ -837,10 +860,10 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, const char *in
 
             // sub key test.
             if (scmd.compare(AD2SWITCH_SK_DELETE1) == 0 || scmd.compare(AD2SWITCH_SK_DELETE1) == 0) {
+                ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION);
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_OPEN);
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_CLOSE);
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE);
-                ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION);
                 ad2_printf_host(false, "Removing switch #%i settings from mqtt config.\r\n", swID);
             } else if (scmd.compare(MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION) == 0) {
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), arg.c_str(), false, swID, scmd.c_str());
@@ -857,14 +880,14 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, const char *in
         } else {
             // check all settings verbs against provided verb and proform setting logic
             std::stringstream ss(
+                MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION " "
                 MQTT_CONFIG_SWITCH_SUFFIX_OPEN " "
                 MQTT_CONFIG_SWITCH_SUFFIX_CLOSE " "
-                MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE " "
-                MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION);
+                MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
             std::string sk;
             bool command_found = false;
-            ad2_printf_host(false, "## mqtt switch %i configuration.\r\n", swID);
+            ad2_printf_host(false, "## [mqtt] switch %i configuration.\r\n", swID);
             while (ss >> sk) {
                 tbuf = "";
                 ad2_get_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), tbuf, swID, sk.c_str());
@@ -1174,27 +1197,43 @@ void mqtt_init()
     int subscribers = 0;
     for (int swID = 1; swID < AD2_MAX_SWITCHES; swID++) {
 
-        // key for [mqtt] switch N
-        std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
-
         // load switch settings for 'i' and test if found
         std::string open_output_format;
+        ad2_get_config_key_string(MQTT_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  open_output_format,
+                                  swID,
+                                  MQTT_CONFIG_SWITCH_SUFFIX_OPEN);
         std::string close_output_format;
+        ad2_get_config_key_string(MQTT_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  close_output_format,
+                                  swID,
+                                  MQTT_CONFIG_SWITCH_SUFFIX_CLOSE);
         std::string trouble_output_format;
-        ad2_get_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), open_output_format, swID, MQTT_CONFIG_SWITCH_SUFFIX_OPEN);
-        ad2_get_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), close_output_format, swID, MQTT_CONFIG_SWITCH_SUFFIX_CLOSE);
-        ad2_get_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), trouble_output_format, swID, MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE);
+        ad2_get_config_key_string(MQTT_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  trouble_output_format,
+                                  swID,
+                                  MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
         // Must provide all three states or it will be skipped.
         // Use N/A or some dummy text placeholder when a state is not needed.
         if ( open_output_format.length() && close_output_format.length()
                 && trouble_output_format.length() ) {
 
-            // First see if [switch N] exists
+            // key switch N
+            std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
+            key += " ";
             key += std::to_string(swID);
 
             // construct our search object.
             AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
+
+            // store validated output formats.
+            es1->OPEN_OUTPUT_FORMAT = open_output_format;
+            es1->CLOSE_OUTPUT_FORMAT = close_output_format;
+            es1->TROUBLE_OUTPUT_FORMAT = trouble_output_format;
 
             // Not used.
             es1->PTR_ARG = nullptr;
@@ -1224,7 +1263,9 @@ void mqtt_init()
             ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
 
             // Load all regex search patterns for open, close, and trouble sub keys.
-            std::string regex_sk_list = AD2SWITCH_SK_OPEN " " AD2SWITCH_SK_CLOSE " " AD2SWITCH_SK_TROUBLE;
+            std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
+                                        AD2SWITCH_SK_CLOSE " "
+                                        AD2SWITCH_SK_TROUBLE;
 
             std::stringstream ss(regex_sk_list);
             std::string sk;
@@ -1239,7 +1280,7 @@ void mqtt_init()
                             es1->OPEN_REGEX_LIST.push_back(out);
                         }
                         if (sk_index == 1) {
-                            es1->CLOSED_REGEX_LIST.push_back(out);
+                            es1->CLOSE_REGEX_LIST.push_back(out);
                         }
                         if (sk_index == 2) {
                             es1->TROUBLE_REGEX_LIST.push_back(out);
@@ -1252,7 +1293,7 @@ void mqtt_init()
             // Must provide all three states or it will be skipped.
             // Use N/A or some dummy text placeholder when a state is not needed.
             if (es1->OPEN_REGEX_LIST.size() &&
-                    es1->CLOSED_REGEX_LIST.size() &&
+                    es1->CLOSE_REGEX_LIST.size() &&
                     es1->TROUBLE_REGEX_LIST.size()) {
                 // Save the search to a list for management.
                 mqtt_AD2EventSearches.push_back(es1);

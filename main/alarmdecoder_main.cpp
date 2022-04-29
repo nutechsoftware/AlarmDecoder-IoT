@@ -700,7 +700,7 @@ void app_main()
     // partition 0 is the default partition for some notifications.
     for (int n = 0; n <= AD2_MAX_PARTITION; n++) {
         int x = -1;
-        std::string _section = AD2PART_CONFIG_SECTION + std::to_string(n);
+        std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(n);
         ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &x);
         // if we found a NV record then initialize the AD2PState for the mask.
         if (x != -1) {
@@ -727,7 +727,7 @@ void app_main()
     std::string config;
     for (int n = 1; n <= AD2_MAX_ZONES; n++) {
         config = "";
-        std::string _section = AD2ZONE_CONFIG_SECTION + std::to_string(n);
+        std::string _section = std::string(AD2ZONE_CONFIG_SECTION " ") + std::to_string(n);
         ad2_get_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, config);
         if (config.length()) {
             // Parse JSON string

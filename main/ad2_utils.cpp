@@ -670,7 +670,7 @@ void ad2_get_config_key_bool(
 
     // If config from uSD is loaded then use it else use NVM
     *vout = _ad2ini.GetBoolValue(section, tkey.c_str(), *vout);
-#ifdef DEBUG_NVS
+#ifdef DEBUG_CONFIG
     ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
 #endif
 }
@@ -703,7 +703,7 @@ void ad2_set_config_key_bool(
         }
     }
     // If config from persistent storage
-#ifdef DEBUG_NVS
+#ifdef DEBUG_CONFIG
     ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
 #endif
     bool done;
@@ -752,7 +752,7 @@ void ad2_get_config_key_int(
     }
 
     *vout = (int)_ad2ini.GetLongValue(section, tkey.c_str(), *vout);
-#ifdef DEBUG_NVS
+#ifdef DEBUG_CONFIG
     ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
 #endif
 }
@@ -785,7 +785,7 @@ void ad2_set_config_key_int(
         }
     }
 
-#ifdef DEBUG_NVS
+#ifdef DEBUG_CONFIG
     ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
 #endif
     bool done;
@@ -834,7 +834,7 @@ void ad2_get_config_key_string(
     }
 
     vout = _ad2ini.GetValue(section, tkey.c_str(), vout.c_str());
-#ifdef DEBUG_NVS
+#ifdef DEBUG_CONFIG
     ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%s)", __func__, section, tkey.c_str(), vout.c_str());
 #endif
 
@@ -868,7 +868,7 @@ void ad2_set_config_key_string(
         }
     }
 
-#ifdef DEBUG_NVS
+#ifdef DEBUG_CONFIG
     ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
 #endif
     bool done;
@@ -955,7 +955,7 @@ void ad2_arm_away(std::string &code, int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1014,7 +1014,7 @@ void ad2_arm_stay(std::string &code, int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1071,7 +1071,7 @@ void ad2_disarm(std::string &code, int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1133,7 +1133,7 @@ void ad2_chime_toggle(std::string &code, int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1191,7 +1191,7 @@ void ad2_fire_alarm(int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1223,7 +1223,7 @@ void ad2_panic_alarm(int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1255,7 +1255,7 @@ void ad2_aux_alarm(int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1287,7 +1287,7 @@ void ad2_exit_now(int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1327,7 +1327,7 @@ void ad2_bypass_zone(std::string &code, int partId, uint8_t zone)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     // @brief get the part state
@@ -1555,7 +1555,7 @@ AD2PartitionState *ad2_get_partition_state(int partId)
 {
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    std::string _section = AD2PART_CONFIG_SECTION + std::to_string(partId);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
     AD2PartitionState *s = nullptr;

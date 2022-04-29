@@ -457,8 +457,8 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
 
             // Test CLOSED REGEX list stop on first matching statement.
             /// only test if a list is supplied.
-            if (!done && eSearch->CLOSED_REGEX_LIST.size()) {
-                for(auto &regexstr : eSearch->CLOSED_REGEX_LIST) {
+            if (!done && eSearch->CLOSE_REGEX_LIST.size()) {
+                for(auto &regexstr : eSearch->CLOSE_REGEX_LIST) {
                     std::smatch m;
                     std::regex e(regexstr);
                     const auto& tmsg = msg;
@@ -467,7 +467,7 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     if (res) {
                         // no match next subscriber.
                         eSearch->setState(AD2_STATE_CLOSED);
-                        outformat = eSearch->CLOSED_OUTPUT_FORMAT;
+                        outformat = eSearch->CLOSE_OUTPUT_FORMAT;
                         // Clear last output results before we collect new.
                         eSearch->RESULT_GROUPS.clear();
                         // save the regex group results if any.

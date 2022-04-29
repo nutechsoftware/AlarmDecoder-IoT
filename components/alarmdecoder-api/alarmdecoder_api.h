@@ -368,10 +368,10 @@ public:
  *  es->PRE_FILTER_MESAGE_TYPE.push_back(RFX_MESSAGE_TYPE);
  *  es->PRE_FILTER_REGEX = "!RFX:0123456,.*";
  *  es->OPEN_REGEX_LIST.push_back("RFX:0123456,1.......");
- *  es->CLOSED_REGEX_LIST.push_back("RFX:0123456,0.......");
+ *  es->CLOSE_REGEX_LIST.push_back("RFX:0123456,0.......");
  *  es->TROUBLE_REGEX_LIST.push_back("RFX:0123456,......1.");
  *  es->OPEN_OUTPUT_FORMAT = "TEST SENSOR OPEN";
- *  es->CLOSED_OUTPUT_FORMAT = "TEST SENSOR CLOSE";
+ *  es->CLOSE_OUTPUT_FORMAT = "TEST SENSOR CLOSE";
  *  es->TROUBLE_OUTPUT_FORMAT = "TEST SENSOR TROUBLE";
  *  AD2Parse.subscribeTo(on_search_match_cb, es);
  *
@@ -438,7 +438,7 @@ public:
 
     ///< List of REGEX patterns when matched report a CLOSED state.
     std::vector<std::string>
-    CLOSED_REGEX_LIST;
+    CLOSE_REGEX_LIST;
 
     ///< List of REGEX patterns when matched report a TROUBLE state.
     std::vector<std::string>
@@ -451,11 +451,11 @@ public:
     ///< Output format string to pass group results with macros ${ON_OFF} ${OPEN_CLOSE} and more.
     ///< Must safely deal with mismatch of args to params.
     ///< ex. OPEN: "AUDIBLE ALARM ZONE ${GROUP0}"
-    ///< ex. CLOSED: "CANCEL ALARM USER ${GROUP0}"
+    ///< ex. CLOSE: "CANCEL ALARM USER ${GROUP0}"
     ///< ex. OPEN: "FRONT DOOR ${OPEN_CLOSE}"
-    ///< ex. CLOSED: "HVAC ${ON_OFF}"
+    ///< ex. CLOSE: "HVAC ${ON_OFF}"
     std::string OPEN_OUTPUT_FORMAT;
-    std::string CLOSED_OUTPUT_FORMAT;
+    std::string CLOSE_OUTPUT_FORMAT;
     std::string TROUBLE_OUTPUT_FORMAT;
 
     ///< Event message. Message that triggered a change.

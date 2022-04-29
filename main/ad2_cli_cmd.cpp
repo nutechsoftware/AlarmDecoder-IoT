@@ -61,7 +61,7 @@ static void _cli_cmd_zone_event(const char *string)
     }
 
     if (zone > 0 && zone <= AD2_MAX_ZONES) {
-        std::string _section = AD2ZONE_CONFIG_SECTION + std::to_string(zone);
+        std::string _section = std::string(AD2ZONE_CONFIG_SECTION " ") + std::to_string(zone);
         if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
             if (arg.length()) {
                 if (arg[0] == '-') {
@@ -152,7 +152,7 @@ static void _cli_cmd_part_event(const char *string)
     }
 
     if (part >= 0 && part <= AD2_MAX_PARTITION) {
-        std::string _section = AD2PART_CONFIG_SECTION + std::to_string(part);
+        std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(part);
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
@@ -480,6 +480,7 @@ static void _cli_cmd_switch_event(const char *command_string)
 
     // root config key for [switch N]
     std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
+    key += " ";
     key += std::to_string(sId);
 
     // get the switch setting from the command string

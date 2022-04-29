@@ -40,16 +40,16 @@
 #define AD2_MAX_ADDRESS       99
 
 // @brief MAX partition slots
-#define AD2_MAX_PARTITION    2
+#define AD2_MAX_PARTITION      8
 
 // @brief MAX zones
-#define AD2_MAX_ZONES         5
+#define AD2_MAX_ZONES        255
 
 // @brief MAX code slots
 #define AD2_MAX_CODE          2
 
 // @brief MAX virtual switches
-#define AD2_MAX_SWITCHES      255
+#define AD2_MAX_SWITCHES      5
 #define AD2_MAX_SWITCH_SEARCH_KEYS 9
 
 // @brief Default code to use if none specified
@@ -65,19 +65,19 @@
 #define AD2MAIN_CONFIG_SECTION ""
 
 // @brief partition config section
-#define AD2PART_CONFIG_SECTION "part "
+#define AD2PART_CONFIG_SECTION "part"
 #define PART_CONFIG_ADDRESS "address"
 #define PART_CONFIG_ZONES "zones"
 
 // @brief [zone N] config section
-#define AD2ZONE_CONFIG_SECTION  "zone "
+#define AD2ZONE_CONFIG_SECTION  "zone"
 #define ZONE_CONFIG_DESCRIPTION  "description"
 
 // @brief code config section
 #define AD2CODES_CONFIG_SECTION "code"
 
 // @brief [switch N] confoig section
-#define AD2SWITCH_CONFIG_SECTION "switch "
+#define AD2SWITCH_CONFIG_SECTION "switch"
 #define AD2SWITCH_SK_DELETE1 "-"
 #define AD2SWITCH_SK_DELETE2 "delete"
 #define AD2SWITCH_SK_DEFAULT "default"
