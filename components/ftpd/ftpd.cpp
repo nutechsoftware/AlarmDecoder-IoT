@@ -177,6 +177,7 @@ public:
     static const int RESPONSE_227_ENTERING_PASSIVE_MODE         = 227;
     static const int RESPONSE_331_PASSWORD_REQUIRED             = 331;
     static const int RESPONSE_332_NEED_ACCOUNT                  = 332;
+    static const int RESPONSE_350_RESPONSE_CODE                 = 350;
     static const int RESPONSE_500_COMMAND_UNRECOGNIZED          = 500;
     static const int RESPONSE_502_COMMAND_NOT_IMPLEMENTED       = 502;
     static const int RESPONSE_503_BAD_SEQUENCE                  = 503;
@@ -247,8 +248,11 @@ std::string _format_dir_line(const char *filename, struct stat *fs)
  * @param &path[in/out] relative or full virtual path
  * @param &tp[out] translated file system path
  */
-void relative_path_fix(std::string cwd, std::string &path, std::string &tp)
+void relative_path_fix(std::string cwd, std::string path, std::string &tp)
 {
+    std::string tpath = path;
+    std::string ttp = tp;
+
     // special case -aL arg.
     //Fix better later for now strip and clear path.
     if (path[0] == '-') {
@@ -257,25 +261,25 @@ void relative_path_fix(std::string cwd, std::string &path, std::string &tp)
 
     // relative or absolute path fix
     // TODO: Support for relative path syntax [..][~]
-    if (path[0] != '/') {
-        // resolve relative path from current path.
-        if (cwd.length()) {
-            std::string _t = path;
-            path = cwd;
-            if (_t.length()) {
-                path += "/" + _t;
-            }
+    if (path.length() && path[0] != '/') {
+        // realative path asdf
+        tp = cwd + "/" + path;
+    } else {
+        // absolute so use full path given
+        if (path.length()) {
+            tp = path;
+        } else {
+            tp = cwd;
         }
     }
 
-    // strip prefix / if any
-    while (path[0] == '/') {
-        path.erase(std::find(path.begin(), path.end(), '/'));
+    // fix empty path
+    if (!tp.length()) {
+        tp = "/";
     }
-    if (path.length()) {
-        tp += "/";
-        tp += path;
-    }
+#if defined(FTPD_DEBUG)
+    ESP_LOGI(TAG, "relative_path_fix ( cwd:'%s', path:'%s'->'%s', tp:'%s'->'%s')", cwd.c_str(), tpath.c_str(), path.c_str(), ttp.c_str(), tp.c_str());
+#endif
 }
 
 
@@ -286,14 +290,11 @@ void relative_path_fix(std::string cwd, std::string &path, std::string &tp)
 void FTPDFileCallbacks::onStoreStart(std::string fileName)
 {
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
-    std::string _tmp = fileName;
-    relative_path_fix(ad2ftpd_cwd, _tmp, tp);
-
+    std::string tp;
+    relative_path_fix(ad2ftpd_cwd, fileName, tp);
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onStoreStart(%s)", tp.c_str());
+    ESP_LOGI(TAG, "onStoreStart: %s)->'%s'", fileName.c_str(), tp.c_str());
 #endif
-
     // Open the file for writing.
     m_storeFile.open(tp, std::ios::binary);
     if (m_storeFile.fail()) {
@@ -337,10 +338,8 @@ void FTPDFileCallbacks::onStoreEnd()
 void FTPDFileCallbacks::onRetrieveStart(std::string fileName)
 {
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
-    std::string _tmp = fileName;
-    relative_path_fix(ad2ftpd_cwd, _tmp, tp);
-
+    std::string tp;
+    relative_path_fix(ad2ftpd_cwd, fileName, tp);
 #if defined(FTPD_DEBUG)
     ESP_LOGE(TAG, "onRetrieveStart(%s)", tp.c_str());
 #endif
@@ -387,69 +386,93 @@ void FTPDFileCallbacks::onRetrieveEnd()
 /**
  * @brief Return a list of files in a directory or a single file.
  * https://files.stairways.com/other/ftp-list-specs-info.txt
+ * handle virtual folders by not using stat() just assume it is ok.
  * @return std::string formatted list of file(s).
  */
 std::string FTPDFileCallbacks::onDir(std::string path)
 {
-#if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onDir: '%s'", path.c_str());
-#endif
-
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onDir: '%s' '%s'", tp.c_str(), path.c_str());
 #endif
-
-    // Default to DIR.
     // Can not stat(root) the mount point '/sdcard'!
     // so skip running state on root and the default
     // will be S_IFDIR
     struct stat file_stats;
     file_stats.st_mode = S_IFDIR;
+    bool skip_stat = false;
+    bool is_root = false;
+
+    // don't try and stat virtual spiffs folder or root folder.
+    // FIXME: is the size check needed? Not if relative_path_fix forced one in tp
+    if (!tp.size() || strcasecmp(tp.c_str(), "/") == 0) {
+        is_root = true;
+        skip_stat = true;
+    }
+    if (strcasecmp(tp.c_str(), "/" AD2_SPIFFS_MOUNT_POINT) == 0) {
+        skip_stat = true;
+    }
 
     // Test it file or directory exist.
     // note: No case compare for FAT fs.
-    if (strcasecmp(tp.c_str(), AD2_USD_MOUNT_POINT) == 0 || stat(tp.c_str(), &file_stats) == 0) {
+    if (skip_stat || stat(tp.c_str(), &file_stats) == 0) {
+#if defined(FTPD_DEBUG)
+        ESP_LOGI(TAG, "stat: %i", file_stats.st_mode);
+#endif
         // is it a folder? return directory list. skip root.
         if (S_ISDIR(file_stats.st_mode)) {
 #if defined(FTPD_DEBUG)
             ESP_LOGI(TAG, "onDir: ISDIR %s", tp.c_str());
 #endif
-
-            DIR* dir = opendir(tp.c_str());
-            // should not happen but just in case.
-            if (!dir) {
-                ESP_LOGE(TAG,"opendir fail error: %s", strerror(errno));
-                throw FTPD::FileException();
-            }
-            // read the directory and build return string.
             std::stringstream ss;
-            while(1) {
-                struct dirent* pDirentry = readdir(dir);
-                if (pDirentry == nullptr) {
-                    break;
-                }
 
-                // only files and folders nothing else
-                if (pDirentry->d_type == DT_DIR || pDirentry->d_type == DT_REG) {
-
-                    // get stat for actual file
-                    std::string _tf = tp;
-                    _tf += "/";
-                    _tf += pDirentry->d_name;
-                    stat(_tf.c_str(), &file_stats);
-
+            // Add virtual mount points AD2_SPIFFS_MOUNT_POINT and AD2_USD_MOUNT_POINT
+            if (is_root) {
 #if defined(FTPD_DEBUG)
-                    ESP_LOGI(TAG, "st_mode: %08x '%s'", file_stats.st_mode, _tf.c_str());
+                ESP_LOGI(TAG, "onDir: Insert special virtual entries.");
 #endif
-                    // format each file with the 'path' given as the base path.
-                    ss << _format_dir_line(pDirentry->d_name, &file_stats);
+                file_stats.st_size = 0;
+                file_stats.st_mode = S_IFDIR | S_IRWXU | S_IRWXO | S_IRWXG;
+                ss << _format_dir_line(AD2_SPIFFS_MOUNT_POINT, &file_stats);
+                ss << _format_dir_line(AD2_USD_MOUNT_POINT, &file_stats);
+            } else
+                // uSD or SPIFFS sub folders. SPIFFS is special does not
+                // allow sub folders and has limits on file name etc.
+                if (tp.find("/" AD2_USD_MOUNT_POINT) == 0 ||
+                        tp.find("/" AD2_SPIFFS_MOUNT_POINT) == 0) {
+                    DIR* dir = opendir(tp.c_str());
+                    // should not happen but just in case.
+                    if (!dir) {
+                        ESP_LOGE(TAG,"opendir fail error: %s path: %s", strerror(errno), tp.c_str());
+                        throw FTPD::FileException();
+                    }
+                    // read the directory and build return string.
+                    while(1) {
+                        struct dirent* pDirentry = readdir(dir);
+                        if (pDirentry == nullptr) {
+                            break;
+                        }
+
+                        // only files and folders nothing fancy.
+                        if (pDirentry->d_type == DT_DIR || pDirentry->d_type == DT_REG) {
+
+                            // get stat for actual file
+                            std::string _tf = tp;
+                            _tf += "/";
+                            _tf += pDirentry->d_name;
+                            stat(_tf.c_str(), &file_stats);
+#if defined(FTPD_DEBUG)
+                            ESP_LOGI(TAG, "st_mode: %08x '%s'", file_stats.st_mode, _tf.c_str());
+#endif
+                            // format each file with the 'path' given as the base path.
+                            ss << _format_dir_line(pDirentry->d_name, &file_stats);
+                        }
+                    }
+                    closedir(dir);
                 }
-            }
-            closedir(dir);
+
             return ss.str();
         } else if (S_ISREG(file_stats.st_mode)) {
 #if defined(FTPD_DEBUG)
@@ -461,14 +484,14 @@ std::string FTPDFileCallbacks::onDir(std::string path)
         } else {
             // unknown type. skip.
 #if defined(FTPD_DEBUG)
-            ESP_LOGE(TAG,"Unknown type %08x", file_stats.st_mode);
+            ESP_LOGI(TAG,"Unknown type %08x", file_stats.st_mode);
 #endif
             throw FTPD::FileException();
         }
 
     } else {
-#if defined(FTP_DEBUG)
-        ESP_LOGE(TAG,"stat failed?  error: %s", strerror(errno));
+#if defined(FTPD_DEBUG)
+        ESP_LOGI(TAG,"stat failed?  error: %s", strerror(errno));
 #endif
         throw FTPD::FileException();
     }
@@ -529,7 +552,6 @@ void FTPD::closeConnection()
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "closeConnection fd: %i", m_clientSocket);
 #endif
-
     // close passive connection if any also
     closePassive();
 
@@ -668,44 +690,44 @@ void FTPD::onCwd(std::istringstream& ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onCwd('%s') '%s'", path.c_str(), tp.c_str());
 #endif
+    // skip stat on virtual spiffs folder or root folder.
+    bool skip_stat = false;
+    if (tp.size() || strcasecmp(tp.c_str(), "/") == 0) {
+        skip_stat = true;
+    } else if (strcasecmp(tp.c_str(), "/" AD2_SPIFFS_MOUNT_POINT) == 0) {
+        skip_stat = true;
+    }
 
-    // test and accept if valid folder
-    struct stat s;
-    int err = stat(tp.c_str(), &s);
-
-    if(err == -1) {
-        if(ENOENT == errno) {
-            /* does not exist */
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "stat path does not exist '%s'", tp.c_str());
-#endif
-            sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
-        } else {
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "stat unexpected err %i", errno);
-#endif
-            sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
-        }
+    // Test it file or directory exist.
+    // note: No case compare for FAT fs.
+    if (skip_stat) {
+        ad2ftpd_cwd = tp;
+        sendResponse(FTPD::RESPONSE_200_COMMAND_OK);
     } else {
-        if(S_ISDIR(s.st_mode)) {
-            /* it's a dir save it */
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG,"cd '%s' '%s' ok", tp.c_str(), path.c_str());
-#endif
-            ad2ftpd_cwd = path;
-            sendResponse(FTPD::RESPONSE_200_COMMAND_OK);
+        // test and accept if valid folder
+        struct stat s;
+        int err = stat(tp.c_str(), &s);
+        if(err == -1) {
+            if(ENOENT == errno) {
+                /* does not exist */
+                sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
+            } else {
+                sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
+            }
         } else {
-            /* exists but is no dir */
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "path is not a directory '%s'", tp.c_str());
-#endif
-            sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
+            if(S_ISDIR(s.st_mode)) {
+                /* it's a dir save it */
+                ad2ftpd_cwd = tp;
+                sendResponse(FTPD::RESPONSE_200_COMMAND_OK);
+            } else {
+                /* exists but is no dir */
+                sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
+            }
         }
     }
 }
@@ -729,49 +751,22 @@ void FTPD::onCdup(std::istringstream& ss)
             path += it;
         }
     }
-
-    // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
-    std::string tmp;
-    relative_path_fix(path, tmp, tp);
-
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onCdup(%s)", tp.c_str());
+    ESP_LOGE(TAG, "onCdup: '%s'", path.c_str());
 #endif
-
-    // test and accept if valid folder
-    struct stat s;
-    int err = stat(tp.c_str(), &s);
-
-    if(err == -1) {
-        if(ENOENT == errno) {
-            /* does not exist */
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "stat path does not exist '%s'", tp.c_str());
-#endif
-            sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
-        } else {
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "stat unexpected err %i", errno);
-#endif
-            sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
-        }
-    } else {
-        if(S_ISDIR(s.st_mode)) {
-            /* it's a dir save it */
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG,"cd '%s' ok", tp.c_str());
-#endif
-            ad2ftpd_cwd = path;
-            sendResponse(FTPD::RESPONSE_200_COMMAND_OK);
-        } else {
-            /* exists but is no dir */
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "path is not a directory '%s'", tp.c_str());
-#endif
-            sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
-        }
+    std::string dirString;
+    try {
+        std::string dirString = m_callbacks->onDir(path);
+        // save path if ok
+        ad2ftpd_cwd = path;
+        std::string temp = "\"" + ad2ftpd_cwd + "\"";
+        sendResponse(257, temp);
+    } catch(FTPD::FileException& e) {
+        // Requested action not taken.
+        sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
+        return;
     }
+
 }
 
 /**
@@ -782,11 +777,9 @@ void FTPD::onList(std::istringstream& ss)
     // get all remaining stream as directory
     std::string directory;
     getline(ss, directory, '\r');
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onList('%s')", directory.c_str());
 #endif
-
     openData();
     if (m_callbacks != nullptr) {
         std::string dirString;
@@ -817,9 +810,8 @@ void FTPD::onDele(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onDele('%s') '%s'", path.c_str(), tp.c_str());
 #endif
@@ -841,17 +833,15 @@ void FTPD::onRnfr(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
 
     // Test if file is valid respond with OK/FAIL
     struct stat s;
     int err = stat(tp.c_str(), &s);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onRnfr('%s') '%s'", path.c_str(), tp.c_str());
 #endif
-
     if (!S_ISDIR(s.st_mode) && !S_ISREG(s.st_mode)) {
         sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
         return;
@@ -859,7 +849,7 @@ void FTPD::onRnfr(std::istringstream &ss)
     // FIXME: Best to clear this if next command is not RNTO.
     m_save = tp;
     m_save_clear = 1;
-    sendResponse(FTPD::RESPONSE_200_COMMAND_OK);
+    sendResponse(FTPD::RESPONSE_350_RESPONSE_CODE);
 }
 
 /**
@@ -872,9 +862,8 @@ void FTPD::onRnto(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onRnto('%s') '%s' m_save: '%s'", path.c_str(), tp.c_str(), m_save.c_str());
 #endif
@@ -901,9 +890,8 @@ void FTPD::onRmd(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onRmd('%s') '%s'", path.c_str(), tp.c_str());
 #endif
@@ -926,9 +914,8 @@ void FTPD::onMkd(std::istringstream &ss)
     getline(ss, path, '\r');
 
     // build relative and actual file path
-    std::string tp = AD2_USD_MOUNT_POINT;
+    std::string tp;
     relative_path_fix(ad2ftpd_cwd, path, tp);
-
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onMkd('%s') '%s'", path.c_str(), tp.c_str());
 #endif
@@ -947,7 +934,7 @@ void FTPD::onMkd(std::istringstream &ss)
  */
 void FTPD::onRest(std::istringstream& ss)
 {
-    sendResponse(RESPONSE_200_COMMAND_OK); // Command okay.
+    sendResponse(RESPONSE_200_COMMAND_OK, "Rebooting ad2iot now."); // Command okay.
     // Warning: This will bypass check to save config if changed in memory.
     // The intent is to upload a new ad2iot.ini and 'REST' the device to
     // load this new config abandoning any running configuration that my exist.
@@ -1039,6 +1026,9 @@ void FTPD::onPasv(std::istringstream& ss)
     std::string responseText;
     responseText = responseTextSS.str();
     sendResponse(RESPONSE_227_ENTERING_PASSIVE_MODE, responseText.c_str());
+#if defined(FTPD_DEBUG)
+    ESP_LOGI(TAG, "onPasv: => '%s'", responseText.c_str());
+#endif
     m_isPassive = true;
 }
 
@@ -1050,7 +1040,15 @@ void FTPD::onPasv(std::istringstream& ss)
  */
 void FTPD::onPWD(std::istringstream& ss)
 {
-    sendResponse(257, "\"/" + ad2ftpd_cwd + "\"");
+    // build relative and actual file path
+    std::string tp;
+    std::string path;
+    relative_path_fix(ad2ftpd_cwd, path, tp);
+    std::string temp = "\"" + tp + "\"";
+    sendResponse(257, temp);
+#if defined(FTPD_DEBUG)
+    ESP_LOGE(TAG, "onPWD: '%s'", temp.c_str());
+#endif
 }
 
 /**
@@ -1090,9 +1088,8 @@ void FTPD::onRetr(std::istringstream& ss)
 
     uint8_t data[m_chunkSize];
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onRetr('%s'))", fileName.c_str());
+    ESP_LOGI(TAG, "onRetr <= '%s'", fileName.c_str());
 #endif
-
     // close just in case? ok sure.
     if (m_callbacks != nullptr) {
         m_callbacks->onRetrieveEnd();
@@ -1137,9 +1134,8 @@ void FTPD::onStor(std::istringstream& ss)
     // get all remaining stream as fileName
     std::string fileName;
     getline(ss, fileName, '\r');
-
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onStor('%s'))", fileName.c_str());
+    ESP_LOGI(TAG, "onStor <= '%s'", fileName.c_str());
 #endif
     receiveFile(fileName);
 }
@@ -1153,9 +1149,8 @@ void FTPD::onSyst(std::istringstream& ss)
     // get all remaining stream as sys
     std::string sys;
     getline(ss, sys, '\r');
-
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onSyst('%s'))", sys.c_str());
+    ESP_LOGI(TAG, "onSyst <= '%s'", sys.c_str());
 #endif
     sendResponse(215, "UNIX Type: L8");
 }
@@ -1175,9 +1170,8 @@ void FTPD::onType(std::istringstream& ss)
     std::string type;
     ss >> type;
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onType('%s'))", type.c_str());
+    ESP_LOGI(TAG, "onType <= '%s'", type.c_str());
 #endif
-
     if (type.compare("I") == 0) {
         m_isImage = true;
     } else {
@@ -1204,11 +1198,9 @@ void FTPD::onUser(std::istringstream& ss)
     // get all remaining stream as userName
     std::string userName;
     getline(ss, userName, '\r');
-
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onUser('%s'))", userName.c_str());
+    ESP_LOGI(TAG, "onUser <= '%s'", userName.c_str());
 #endif
-
     if (m_loginRequired) {
         sendResponse(FTPD::RESPONSE_331_PASSWORD_REQUIRED);
     } else {
@@ -1226,9 +1218,8 @@ void FTPD::onXmkd(std::istringstream &ss)
     std::string tmp;
     ss >> tmp;
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onXmkd('%s'))", tmp.c_str());
+    ESP_LOGI(TAG, "onXmkd '%s'", tmp.c_str());
 #endif
-
     sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED);
 }
 
@@ -1241,9 +1232,8 @@ void FTPD::onXrmd(std::istringstream &ss)
     std::string tmp;
     ss >> tmp;
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "onXrmd('%s'))", tmp.c_str());
+    ESP_LOGI(TAG, "onXrmd <= '%s'", tmp.c_str());
 #endif
-
     sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED);
 }
 
@@ -1397,7 +1387,6 @@ void FTPD::receiveFile(std::string fileName)
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "receiveFile(%s)", fileName.c_str());
 #endif
-
     if (m_callbacks != nullptr) {
         try {
             m_callbacks->onStoreStart(fileName);
@@ -1611,7 +1600,6 @@ int FTPD::waitForFTPClient()
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "waitForFTPClient() start.");
 #endif
-
     struct sockaddr_in clientAddress;
     socklen_t clientAddressLength = sizeof(clientAddress);
     m_clientSocket = accept(m_serverSocket, (struct sockaddr *)&clientAddress, &clientAddressLength);
@@ -1633,7 +1621,6 @@ int FTPD::waitForFTPClient()
             closeConnection();
             return -1;
         }
-
 #if defined(FTPD_DEBUG)
         ESP_LOGI(TAG, "waitForFTPClient() finish.");
 #endif
@@ -1733,7 +1720,6 @@ void ftp_daemon_task(void *pvParameters)
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "ftp daemon task starting.");
 #endif
-
     if (ad2ftpd != nullptr) {
         ad2ftpd->start();
     }

@@ -1010,7 +1010,7 @@ bool hal_init_sd_card()
     esp_err_t err;
 
     // Setup for Mount of uSD over SPI on the OLIMEX ESP-POE-ISO that is wired for a 1 bit data bus.
-    const char mount_point[] = AD2_USD_MOUNT_POINT;
+    const char mount_point[] = "/" AD2_USD_MOUNT_POINT;
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.flags = SDMMC_HOST_FLAG_1BIT;
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
@@ -1041,11 +1041,12 @@ bool hal_init_sd_card()
         res = f_getfree("0:", &fre_clust, &fs);
         tot_sect = (fs->n_fatent - 2) * fs->csize;
         fre_sect = fre_clust * fs->csize;
-        ad2_printf_host(true, "%s: uSD usage total: %10lu KiB,  free: %10lu KiB.", TAG,
+        ad2_printf_host(true, "%s: uSD fat32 partition size: %10lu KiB,  free: %10lu KiB.", TAG,
                         tot_sect / 2, fre_sect / 2);
         return true;
     }
 }
+
 
 /* IPv6/IPv4 dual stack helper: Will have a prefix of 00000000:00000000:0000ffff:  ::FFFF: */
 #define WEBUI_IN6_IS_ADDR_V4MAPPED(a) \
@@ -1172,6 +1173,25 @@ void hal_dump_hw_info()
  */
 bool hal_init_persistent_storage()
 {
+
+    // Initialize nvs partition for key value storage.
+    ad2_printf_host(true, "Initialize NVS subsystem start.");
+    esp_err_t err = nvs_flash_init();
+    if (err != ESP_OK) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ad2_printf_host(false, " Error '%s'. Clearing nvs partition.", esp_err_to_name(err));
+        err = nvs_flash_erase();
+        if ( err != ESP_OK ) {
+            ad2_printf_host(false, " Failed to erase nvs partition error '%s'.", esp_err_to_name(err));
+        }
+        err = nvs_flash_init();
+        if ( err != ESP_OK ) {
+            ad2_printf_host(false, " Failed to init nvs partition error '%s'.", esp_err_to_name(err));
+        }
+    }
+    ad2_printf_host(false, " Done.");
+
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
         .partition_label = "spiffs",
@@ -1180,7 +1200,7 @@ bool hal_init_persistent_storage()
     };
     // Initialize spiffs storage.
     ad2_printf_host(true, "%s: Mounting SPIFFS on '%s' :", TAG, conf.base_path);
-    esp_err_t err = esp_vfs_spiffs_register(&conf);
+    err = esp_vfs_spiffs_register(&conf);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to mount SPIFFS err: 0x%x (%s).", err, esp_err_to_name(err));
         ad2_printf_host(false, " fail.");
@@ -1191,7 +1211,7 @@ bool hal_init_persistent_storage()
         size_t total = 0, used = 0;
         err = esp_spiffs_info(conf.partition_label, &total, &used);
         if (err == ESP_OK) {
-            ad2_printf_host(true, "%s: SPIFFS usage total: %d B, free: %d B.", TAG, total, total-used);
+            ad2_printf_host(true, "%s: SPIFFS partition size: %d B, free: %d B.", TAG, total, total-used);
         }
         return true;
     }

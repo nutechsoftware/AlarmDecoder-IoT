@@ -6,12 +6,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] FTPD: Fixed rename added response code 350 for RNFR.
+- [X] MQTT: misc cleanup from testing.
+- [X] MQTT: Unique id. Tested with multiple and only showed one. This fixed it.
+- [X] FTPD: Refactor to allow virtual paths to /spiffs and /sdcard folders so both uSD and spiff flash files can be modified. Other virtual folders can be added with little difficulty. Virtual path /spiffs will error with mkdir since spiffs does not allow for folders and has limits on filename sizes.
+- [X] CORE: Refactor partition table max config storage and app size. This fixed my boot issue and pio_fix_app_address.py so it was removed. The stnv partition was removed and hopefully I can make STSDK work with me on the name. I changed the nvs partition to 16KB . I added a 280KB spiffs partition and set the app partition size down to 1.856MB so it would all work. At boot the system will report both the sdcard and spiffs size and usage.
 - [X] API: Change CLOSED to CLOSE.
 - [X] FTPD: Add ```REST``` verb to reboot. Warning: Will not save running config. FileZilla ```Server->Enter Custom Command``` type in ```REST``` and press OK to send.
 - [X] *: Lots more cleanup.
-- [X] core: remove nvs config storage and change to spiffs and posix files and https://github.com/brofield/simpleini library for the config.
-- [X] core: Partition structure change. Bump major revision. Older units must be manually flashed or run a special migration release.
-- [X] core: Add new ```switch N``` command to move switches to a global area and allow components to add extra args for internal use but use the same switch template for all modules. Less typing just define switches and then in modules like MQTT or Pushover define the module specific settings for that switch such as the output format for ```open```.
+- [X] CORE: remove nvs config storage and change to spiffs and posix files and https://github.com/brofield/simpleini library for the config. Config will load from /sdcard/ad2iot.ini first and if that fails it will load from /spiffs/ad2iot.ini and if that fails it will continue with default settings.
+- [X] CORE: Partition structure change. Bump major revision. Older units must be manually flashed or run a special migration release.
+- [X] CORE: Add new ```switch N``` command to move switches to a global area and allow components to add extra args for internal use but use the same switch template for all modules. Less typing just define switches and then in modules like MQTT or Pushover define the module specific settings for that switch such as the output format for ```open```.
 - [X] ALL: Refactor configuration adding option for ini file on uSD card. I tried to make it backwards compatible and all critical configuration settings such as ```netmode``` are all compatible but partitions, codes, virtual switches all needed to be changed to be more user friendly in the ad2iot.ini config file.
 - [X] ALL: Remove references to virtual for partitions. It was too confusing, just part or maybe I will allow both partition and part for short.
 - [X] CORE: Move mounting of uSD card early after NV init to allow for loading/saving config early.

@@ -585,7 +585,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - {setting}
       - [-] Delete switch
       - [description] Device discovery json string
-        -  Example: {"description": ""}
+        -  Example: {"name": "Front Door", "type": "door", "value_template": "{{value_json.state}}"}
       - [open] Open output format string.
       - [close] Close output format string.
       - [trouble] Trouble output format string.

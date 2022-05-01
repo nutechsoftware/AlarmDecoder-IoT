@@ -142,7 +142,11 @@ void mqtt_publish_device_config(const char *device_type, const char *device_clas
     if (id) {
         value += szid;
     }
-    cJSON_AddStringToObject(root, "unique_id", value.c_str());
+    // unique_id must be ...
+    // mqttclient_UUID last block 6 hex bytes.
+    std::string uuid = mqttclient_UUID.substr(mqttclient_UUID.size() - 12);
+    uuid += "-" + value;
+    cJSON_AddStringToObject(root, "unique_id", uuid.c_str());
     cJSON_AddStringToObject(root, "object_id", value.c_str());
 
     // set the device class
@@ -201,9 +205,14 @@ void mqtt_send_partition_config(AD2PartitionState *s)
     topic += mqttclient_UUID;
 
     // alarm_control_panel
+    std::string uuid_prefix = NAME_PREFIX;
+    uuid_prefix += "(";
+    uuid_prefix += mqttclient_UUID.substr(mqttclient_UUID.size() - 4);
+    uuid_prefix += ")";
+    std::string tmpstr = uuid_prefix + " Partition #";
     mqtt_publish_device_config("alarm_control_panel", "alarm_control_panel", "p",
                                s->partition, true,
-    NAME_PREFIX " Partition #", true, {{
+    tmpstr.c_str(), true, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}triggered{% elif value_json.armed_stay == true %}{% if value_json.entry_delay_off == true %}armed_night{% else %}armed_home{% endif %}{% elif value_json.armed_away == true %}{% if value_json.entry_delay_off == true %}armed_vacation{% elif value_json.entry_delay_off == false %}armed_away{% endif %}{% else %}disarmed{% endif %}" },
             { "command_topic", topic+"/commands"},
@@ -219,9 +228,10 @@ void mqtt_send_partition_config(AD2PartitionState *s)
 
 
     // ac_power
+    tmpstr = uuid_prefix + " AC Power";
     mqtt_publish_device_config("binary_sensor", "power", "ac_power",
                                0, false,
-    NAME_PREFIX " AC Power", false, {{
+    tmpstr.c_str(), false, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.ac_power == true %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
@@ -229,9 +239,10 @@ void mqtt_send_partition_config(AD2PartitionState *s)
     });
 
     // partition fire
+    tmpstr = uuid_prefix + " Fire Partition #";
     mqtt_publish_device_config("binary_sensor", "smoke", "fire_p",
                                s->partition, true,
-    NAME_PREFIX " Fire Partition #", true, {{
+    tmpstr.c_str(), true, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.fire_alarm == true %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
@@ -239,9 +250,10 @@ void mqtt_send_partition_config(AD2PartitionState *s)
     });
 
     // partition chime
+    tmpstr = uuid_prefix + " Chime Mode Partition #";
     mqtt_publish_device_config("binary_sensor", "running", "chime_p",
                                s->partition, true,
-    NAME_PREFIX " Chime Mode Partition #", true, {{
+    tmpstr.c_str(), true, {{
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.chime_on == true %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
@@ -329,7 +341,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
 
     // Subscribe to command inputs for remote control if enabled.
     if (commands_enabled) {
-        ESP_LOGI(TAG, "Warning! MQTT commands subscription enabled. Not sure on public servers.");
+        ESP_LOGI(TAG, "Warning! MQTT commands subscription enabled. Not secure on public servers.");
         topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
         topic += mqttclient_UUID;
         topic += "/" MQTT_COMMANDS_TOPIC;
@@ -377,19 +389,26 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     // Send firmware_update config
     topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
     topic += mqttclient_UUID;
+
+    std::string uuid_prefix = NAME_PREFIX;
+    uuid_prefix += "(";
+    uuid_prefix += mqttclient_UUID.substr(mqttclient_UUID.size() - 4);
+    uuid_prefix += ")";
+    std::string tmpstr = uuid_prefix + " Firmware";
+
     mqtt_publish_device_config("binary_sensor", "update", "fw_version",
                                0, false,
-    NAME_PREFIX " Firmware", false, {{
+    tmpstr.c_str(), false, {{
             { "state_topic", topic+"/fw_version" },
             { "value_template", "{% if value_json.installed != value_json.available %}ON{% else %}OFF{% endif %}" },
             { "availability_topic", topic+"/status"}
         }
     });
 
-
+    tmpstr = uuid_prefix + " Start firmware update";
     mqtt_publish_device_config("button", "update", "fw_update",
                                0, false,
-    NAME_PREFIX " Start firmware update", false, {{
+    tmpstr.c_str(), false, {{
             { "availability_topic", topic+"/fw_version" },
             { "availability_template", "{% if value_json.installed != value_json.available %}online{% else %}offline{% endif %}" },
             { "command_topic", topic+"/commands" },

@@ -361,7 +361,7 @@ esp_err_t file_get_handler(httpd_req_t *req)
 
     // extract the full file path using AD2_USD_MOUNT_POINT as the root.
     char temppath[FILE_PATH_MAX];
-    const char *filename = get_path_from_uri(temppath,  AD2_USD_MOUNT_POINT WEBUI_DOC_ROOT,
+    const char *filename = get_path_from_uri(temppath,  "/" AD2_USD_MOUNT_POINT WEBUI_DOC_ROOT,
                            req->uri, sizeof(temppath));
     if (!filename) {
         ESP_LOGE(TAG, "Filename is too long");
@@ -390,7 +390,7 @@ esp_err_t file_get_handler(httpd_req_t *req)
         // Check if _NOT_ exists swap for 404.html
         if (stat(filepath.c_str(), &file_stat) != 0) {
             // not found check if we have a custom 404.html file in our document root.
-            filepath = AD2_USD_MOUNT_POINT WEBUI_DOC_ROOT "/404.html";
+            filepath = "/" AD2_USD_MOUNT_POINT WEBUI_DOC_ROOT "/404.html";
             if (stat(filepath.c_str(), &file_stat) != 0) {
                 httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "file not found.<br>Connect a uSD card with a FAT32 partition and the html content in the root directory before the device starts.");
                 return ESP_FAIL; // close socket

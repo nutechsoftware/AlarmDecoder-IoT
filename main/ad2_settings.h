@@ -111,8 +111,8 @@
 #define AD2_SIGNON "%s: Starting AlarmDecoder AD2IoT network appliance version (%s) build flag (%s)"
 
 // The virtual mount prefix for all file operations.
-#define AD2_USD_MOUNT_POINT "/sdcard"
-#define AD2_SPIFFS_MOUNT_POINT "/spiffs"
+#define AD2_USD_MOUNT_POINT "sdcard"
+#define AD2_SPIFFS_MOUNT_POINT "spiffs"
 #define AD2_CONFIG_FILE "/ad2iot.ini"
 
 // Console LOCK timeout

@@ -70,9 +70,9 @@ void ad2_save_persistent_config()
     if (!_config_autosave && _config_dirty) {
         SI_Error rc;
         if (_uSD_config) {
-            rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+            rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         } else {
-            rc = _ad2ini.SaveFile(AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
+            rc = _ad2ini.SaveFile("/" AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
         }
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
@@ -96,7 +96,7 @@ void ad2_load_persistent_config()
 
     // See if a config exists on the uSD card and use if found.
     ad2_printf_host(true, "%s: Attempting to load config file: " AD2_USD_MOUNT_POINT AD2_CONFIG_FILE, TAG);
-    SI_Error rc = _ad2ini.LoadFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+    SI_Error rc = _ad2ini.LoadFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
 
     if (rc < 0) {
         // USD config load failed show why.
@@ -107,7 +107,7 @@ void ad2_load_persistent_config()
         // See if a config exists on the SPIFFS and use if found.
         ad2_printf_host(true, "%s: Attempting to load config file: " AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE, TAG);
         // load from internal SPIFFS storage
-        rc = _ad2ini.LoadFile(AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
+        rc = _ad2ini.LoadFile("/" AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             // USD config load failed show why.
             ad2_printf_host( false, " failed(");
@@ -718,7 +718,7 @@ void ad2_set_config_key_bool(
         _config_dirty = true;
     }
     if (_config_autosave && _config_dirty) {
-        SI_Error rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        SI_Error rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
@@ -800,7 +800,7 @@ void ad2_set_config_key_int(
         _config_dirty = true;
     }
     if (_config_autosave && _config_dirty) {
-        SI_Error rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        SI_Error rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
@@ -883,7 +883,7 @@ void ad2_set_config_key_string(
         _config_dirty = true;
     }
     if (_config_autosave && _config_dirty) {
-        SI_Error rc = _ad2ini.SaveFile(AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        SI_Error rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
         if (rc < 0) {
             ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
