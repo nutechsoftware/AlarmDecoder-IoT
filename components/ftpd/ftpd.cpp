@@ -405,7 +405,7 @@ std::string FTPDFileCallbacks::onDir(std::string path)
     bool skip_stat = false;
     bool is_root = false;
 
-    // don't try and stat virtual spiffs folder or root folder.
+    // Don't try and stat virtual spiffs folder or root folder.
     // FIXME: is the size check needed? Not if relative_path_fix forced one in tp
     if (!tp.size() || strcasecmp(tp.c_str(), "/") == 0) {
         is_root = true;
