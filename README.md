@@ -88,12 +88,16 @@ This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThing
 Copy the contents of contrib/webUI/flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single FAT32 partition. Optionally place the sample configuration file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini) on the root directory for remote config management. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
 
 ##  4. <a name='configuring-the-ad2iot-device'></a>Configuring the AD2IoT device
-Configuration is available directly over the USB serial port using a command line interface or over the network by uploading the config file using an ftp client from a trusted ip address.
+Configuration is available directly over the USB serial port using a command line interface, or by directly changing the configuration file ```ad2iot.ini``` on the root of the internal spiffs partition or external uSD disk fat32 partition.
 
-- Connect the AD2IoT ESP32 USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
+- Over serial using the command line interface configuration.
+  - Connect the AD2IoT ESP32 USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
   - If needed the drivers for different operating systems can be downloaded [here](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware).
-- Using a uSD card place the sample config file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini) on a FAT32 partition the uSD card and reboot the device. Then connect to the AD2IoT using FileZilla or other ftp client to manage the config file. The AD2IoT will reboot after the file is changed to load the settings.
-  - Be sure to set "Limit number of simultaneous connections" "Maximum number of connections" to 1. The ftp server on the AD2IoT only supports 1 connection at a time.
+  - To save settings to the ```ad2iot.ini``` use the ```restart``` command. This will save any settings change in memory.
+- Manual editing config file ad2iot.ini.
+  - The ad2iot will first attempt to load the ```ad2iot.ini``` config file from the first partition on the uSD disk if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition.
+  - Access to /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). A custom FTP command ```REST``` can be used to restart the ad2iot and force it to load the new configuration.
+  - Sample config file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini)
   - Be sure to set the ftpd acl to only allow trusted systems to manage the files on the uSD card.
 
 ##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
@@ -158,7 +162,7 @@ Configuration is available directly over the USB serial port using a command lin
   - Examples:
     - Set logging mode to INFO.
       - ```logmode I```
-- Restart the device.
+- Save config changes and restart the device.
   - ```restart```
 - Erase all NVS storage clearing all settings and reboot.
   - ```factory-reset```
@@ -620,6 +624,14 @@ The File Transfer Protocol (FTP) is a standard communication protocol used for t
 If enabled the daemon will allow update of files on the attached uSD card. This allows for update of HTML or configuration settings from a secure host on the local network. To secure the FTP daemon the ACL needs to be configured to allow limited access to this service.
 
 This daemon only supports one command and control connection at a time. Be sure to disable or limit the client used to a single connection or the client may appear to stall or timeout.
+
+- Implementation notes:
+  - root folder contains two virtual paths.
+    * /spiffs
+      - The spiffs partition. spiffs does not allow sub folders and has limits on file names.
+    * /sdcard
+      - The first fat32 partition on a uSD card if available and connected
+  - Basic commands to rename, remove, upload, and dowloand files on the spiffs partition and attached uSD.
 
 ####  5.8.1. <a name='configuration-for-ftp-server'></a>Configuration for ftp server
 - ```ftpd {sub command} {arg}```

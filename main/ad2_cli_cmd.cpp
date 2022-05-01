@@ -622,7 +622,7 @@ static void _cli_cmd_switch_event(const char *command_string)
 static struct cli_command cmd_list[] = {
     {
         (char*)AD2_CMD_REBOOT,(char*)
-        "- Restart the device.\r\n"
+        "- Save config changes and restart the device.\r\n"
         "  - ```" AD2_CMD_REBOOT "```\r\n", _cli_cmd_restart_event
     },
     {
