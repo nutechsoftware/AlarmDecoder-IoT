@@ -308,8 +308,7 @@ void FTPDFileCallbacks::onStoreStart(std::string fileName)
             path += "/";
             path += it;
             if (path.compare("/" AD2_SPIFFS_MOUNT_POINT) != 0 &&
-                path.compare("/" AD2_USD_MOUNT_POINT) != 0)
-            {
+                    path.compare("/" AD2_USD_MOUNT_POINT) != 0) {
                 // if it does not exist create it.
                 if (stat(path.c_str(), &file_stats) != 0) {
                     ::mkdir(path.c_str(), 0755);
@@ -1416,9 +1415,9 @@ void FTPD::processCommand()
                 } else if (command.compare("REST")==0) { // Custom verb to restart AD2IoT
                     onRest(ss);
                 } else {
-        #if defined(FTPD_DEBUG)
+#if defined(FTPD_DEBUG)
                     ESP_LOGI(TAG, "Unknown command verb: '%s'. Teach me more please!", command.c_str());
-        #endif
+#endif
                     sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED); // Syntax error, command unrecognized.
                 }
                 m_lastCommand = command;
