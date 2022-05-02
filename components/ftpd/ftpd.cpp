@@ -1311,88 +1311,121 @@ void FTPD::processCommand()
     sendResponse(FTPD::RESPONSE_220_SERVICE_READY); // Service ready.
     m_lastCommand = "";
     while(1) {
-        std::string line = "";
-        char currentChar;
-        char lastChar = '\0';
-        int rc = recv(m_clientSocket, &currentChar, 1, 0);
-        while(rc != -1 && rc!=0) {
-            line += currentChar;
-            if (lastChar == '\r' && currentChar == '\n') {
+
+        // tests fd's for state changes
+        fd_set rfds;
+        fd_set wfds;
+        fd_set xfds;
+
+        FD_ZERO(&rfds);
+        FD_ZERO(&wfds);
+        FD_ZERO(&xfds);
+
+        // check server and client socket for specific events.
+        FD_SET( m_serverSocket, &rfds );
+        FD_SET( m_clientSocket, &rfds );
+        FD_SET( m_clientSocket, &xfds );
+
+        // set timeout for select
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 20;
+
+        int sel = select( FD_SETSIZE, &rfds, NULL, &xfds, &tv);
+        if (sel) {
+            // stop processing commands if the server socket
+            // receives another connection or the client socket
+            // has an exception.
+            if ( FD_ISSET(m_serverSocket, &rfds) || FD_ISSET(m_clientSocket, &xfds)) {
                 break;
             }
-            lastChar = currentChar;
-            rc = recv(m_clientSocket, &currentChar, 1, 0);
-        } // End while we are waiting for a line.
+            if ( FD_ISSET(m_clientSocket, &rfds) ) {
+                std::string line = "";
+                char currentChar;
+                char lastChar = '\0';
+                int rc = recv(m_clientSocket, &currentChar, 1, 0);
+                while(rc != -1 && rc!=0) {
+                    line += currentChar;
+                    if (lastChar == '\r' && currentChar == '\n') {
+                        break;
+                    }
+                    lastChar = currentChar;
+                    rc = recv(m_clientSocket, &currentChar, 1, 0);
+                } // End while we are waiting for a line.
 
-        if (rc == 0 || rc == -1) {          // If we didn't get a line or an error, then we have finished processing commands.
-            break;
+                if (rc == 0 || rc == -1) {          // If we didn't get a line or an error, then we have finished processing commands.
+                    break;
+                }
+
+                std::string command;
+                std::istringstream ss(line);
+                getline(ss, command, ' ');
+                ad2_trim(command);
+
+                // clear saved data if expired.
+                if (!m_save_clear--) {
+                    m_save = "";
+                }
+
+                // We now have a command to process.
+
+                if (command.compare("USER")==0) {
+                    onUser(ss);
+                } else if (command.compare("PASS")==0) {
+                    onPass(ss);
+                } else if (m_loginRequired && !m_isAuthenticated) {
+                    sendResponse(RESPONSE_530_NOT_LOGGED_IN);
+                } else if (command.compare("PASV")==0) {
+                    onPasv(ss);
+                } else if (command.compare("SYST")==0) {
+                    onSyst(ss);
+                } else if (command.compare("PORT")==0) {
+                    onPort(ss);
+                } else if (command.compare("LIST")==0) {
+                    onList(ss);
+                } else if (command.compare("TYPE")==0) {
+                    onType(ss);
+                } else if (command.compare("RETR")==0) {
+                    onRetr(ss);
+                } else if (command.compare("QUIT")==0) {
+                    onQuit(ss);
+                } else if (command.compare("AUTH")==0) {
+                    onAuth(ss);
+                } else if (command.compare("STOR")==0) {
+                    onStor(ss);
+                } else if (command.compare("DELE")==0) {
+                    onDele(ss);
+                } else if (command.compare("PWD")==0) {
+                    onPWD(ss);
+                } else if (command.compare("MKD")==0) {
+                    onMkd(ss);
+                } else if (command.compare("XMKD")==0) {
+                    onXmkd(ss);
+                } else if (command.compare("RMD")==0) {
+                    onRmd(ss);
+                } else if (command.compare("XRMD")==0) {
+                    onXrmd(ss);
+                } else if (command.compare("CWD")==0) {
+                    onCwd(ss);
+                } else if (command.compare("CDUP")==0) {
+                    onCdup(ss);
+                } else if (command.compare("RNFR")==0) {
+                    onRnfr(ss);
+                } else if (command.compare("RNTO")==0) {
+                    onRnto(ss);
+                } else if (command.compare("REST")==0) { // Custom verb to restart AD2IoT
+                    onRest(ss);
+                } else {
+        #if defined(FTPD_DEBUG)
+                    ESP_LOGI(TAG, "Unknown command verb: '%s'. Teach me more please!", command.c_str());
+        #endif
+                    sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED); // Syntax error, command unrecognized.
+                }
+                m_lastCommand = command;
+
+            }
         }
-
-        std::string command;
-        std::istringstream ss(line);
-        getline(ss, command, ' ');
-        ad2_trim(command);
-
-        // clear saved data if expired.
-        if (!m_save_clear--) {
-            m_save = "";
-        }
-
-        // We now have a command to process.
-
-        if (command.compare("USER")==0) {
-            onUser(ss);
-        } else if (command.compare("PASS")==0) {
-            onPass(ss);
-        } else if (m_loginRequired && !m_isAuthenticated) {
-            sendResponse(RESPONSE_530_NOT_LOGGED_IN);
-        } else if (command.compare("PASV")==0) {
-            onPasv(ss);
-        } else if (command.compare("SYST")==0) {
-            onSyst(ss);
-        } else if (command.compare("PORT")==0) {
-            onPort(ss);
-        } else if (command.compare("LIST")==0) {
-            onList(ss);
-        } else if (command.compare("TYPE")==0) {
-            onType(ss);
-        } else if (command.compare("RETR")==0) {
-            onRetr(ss);
-        } else if (command.compare("QUIT")==0) {
-            onQuit(ss);
-        } else if (command.compare("AUTH")==0) {
-            onAuth(ss);
-        } else if (command.compare("STOR")==0) {
-            onStor(ss);
-        } else if (command.compare("DELE")==0) {
-            onDele(ss);
-        } else if (command.compare("PWD")==0) {
-            onPWD(ss);
-        } else if (command.compare("MKD")==0) {
-            onMkd(ss);
-        } else if (command.compare("XMKD")==0) {
-            onXmkd(ss);
-        } else if (command.compare("RMD")==0) {
-            onRmd(ss);
-        } else if (command.compare("XRMD")==0) {
-            onXrmd(ss);
-        } else if (command.compare("CWD")==0) {
-            onCwd(ss);
-        } else if (command.compare("CDUP")==0) {
-            onCdup(ss);
-        } else if (command.compare("RNFR")==0) {
-            onRnfr(ss);
-        } else if (command.compare("RNTO")==0) {
-            onRnto(ss);
-        } else if (command.compare("REST")==0) { // Custom verb to restart AD2IoT
-            onRest(ss);
-        } else {
-#if defined(FTPD_DEBUG)
-            ESP_LOGI(TAG, "Unknown command verb: '%s'. Teach me more please!", command.c_str());
-#endif
-            sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED); // Syntax error, command unrecognized.
-        }
-        m_lastCommand = command;
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     } // End loop processing commands.
 
 #if defined(FTPD_DEBUG)

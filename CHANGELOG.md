@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] FTPD: Fixed stalling when client is bad and does not close a socket. Now if a new client connets it will close the current connection.
 - [X] FTPD: Fixed rename added response code 350 for RNFR.
 - [X] MQTT: misc cleanup from testing.
 - [X] MQTT: Unique id. Tested with multiple and only showed one. This fixed it.
