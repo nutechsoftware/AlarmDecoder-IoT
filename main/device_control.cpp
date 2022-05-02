@@ -1171,27 +1171,28 @@ void hal_dump_hw_info()
  * @brief Initialize the persistent storage for config settings.
  *
  */
-bool hal_init_persistent_storage()
+void hal_init_persistent_storage()
 {
-
     // Initialize nvs partition for key value storage.
     ad2_printf_host(true, "Initialize NVS subsystem start.");
     esp_err_t err = nvs_flash_init();
     if (err != ESP_OK) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
-        ad2_printf_host(false, " Error '%s'. Clearing nvs partition.", esp_err_to_name(err));
+        ad2_printf_host(false, " Error '%s'. Clearing partition.", esp_err_to_name(err));
         err = nvs_flash_erase();
         if ( err != ESP_OK ) {
             ad2_printf_host(false, " Failed to erase nvs partition error '%s'.", esp_err_to_name(err));
-        }
-        err = nvs_flash_init();
-        if ( err != ESP_OK ) {
-            ad2_printf_host(false, " Failed to init nvs partition error '%s'.", esp_err_to_name(err));
+        } else {
+            err = nvs_flash_init();
+            if ( err != ESP_OK ) {
+                ad2_printf_host(false, " Failed to init nvs partition error '%s'.", esp_err_to_name(err));
+            }
         }
     }
     ad2_printf_host(false, " Done.");
 
+    // Initialize spiffs partition for file storage.
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
         .partition_label = "spiffs",
@@ -1202,18 +1203,15 @@ bool hal_init_persistent_storage()
     ad2_printf_host(true, "%s: Mounting SPIFFS on '%s' :", TAG, conf.base_path);
     err = esp_vfs_spiffs_register(&conf);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to mount SPIFFS err: 0x%x (%s).", err, esp_err_to_name(err));
-        ad2_printf_host(false, " fail.");
-        return false;
-    } else {
-        ad2_printf_host(false, " pass.");
-        // show stats and return true
-        size_t total = 0, used = 0;
-        err = esp_spiffs_info(conf.partition_label, &total, &used);
-        if (err == ESP_OK) {
-            ad2_printf_host(true, "%s: SPIFFS partition size: %d B, free: %d B.", TAG, total, total-used);
-        }
-        return true;
+        ad2_printf_host(false, " Error '%s'. Mounting spiffs partition.", esp_err_to_name(err));
+    }
+    ad2_printf_host(false, " Done.");
+
+    // show stats and return true
+    size_t total = 0, used = 0;
+    err = esp_spiffs_info(conf.partition_label, &total, &used);
+    if (err == ESP_OK) {
+        ad2_printf_host(true, "%s: SPIFFS partition size: %d B, free: %d B.", TAG, total, total-used);
     }
 }
 

@@ -295,6 +295,8 @@ void FTPDFileCallbacks::onStoreStart(std::string fileName)
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onStoreStart: %s)->'%s'", fileName.c_str(), tp.c_str());
 #endif
+    // FIXME: create any missing folders if needed or it will fail to copy folders.
+
     // Open the file for writing.
     m_storeFile.open(tp, std::ios::binary);
     if (m_storeFile.fail()) {

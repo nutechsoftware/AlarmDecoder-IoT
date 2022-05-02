@@ -146,7 +146,7 @@ void hal_get_socket_client_ip(int sockfd, std::string& IP);
 void hal_get_socket_local_ip(int sockfd, std::string& IP);
 void hal_set_log_mode(char m);
 void hal_dump_hw_info();
-bool hal_init_persistent_storage();
+void hal_init_persistent_storage();
 #ifdef __cplusplus
 }
 #endif
