@@ -295,7 +295,29 @@ void FTPDFileCallbacks::onStoreStart(std::string fileName)
 #if defined(FTPD_DEBUG)
     ESP_LOGI(TAG, "onStoreStart: %s)->'%s'", fileName.c_str(), tp.c_str());
 #endif
-    // FIXME: create any missing folders if needed or it will fail to copy folders.
+
+    // create any missing folders if needed or it will fail to create the file if needed.
+    struct stat file_stats;
+    std::string path;
+    std::vector<std::string> parts;
+    ad2_tokenize(tp, "/", parts);
+    if (parts.size()) {
+        // remove top _should_ be filename.
+        parts.pop_back();
+        for (auto& it : parts) {
+            path += "/";
+            path += it;
+            if (path.compare("/" AD2_SPIFFS_MOUNT_POINT) != 0 &&
+                path.compare("/" AD2_USD_MOUNT_POINT) != 0)
+            {
+                // if it does not exist create it.
+                if (stat(path.c_str(), &file_stats) != 0) {
+                    ::mkdir(path.c_str(), 0755);
+                }
+            }
+        }
+    }
+
 
     // Open the file for writing.
     m_storeFile.open(tp, std::ios::binary);
@@ -922,7 +944,7 @@ void FTPD::onMkd(std::istringstream &ss)
     ESP_LOGI(TAG, "onMkd('%s') '%s'", path.c_str(), tp.c_str());
 #endif
     // make the folder return results
-    if (::mkdir(tp.c_str(), 0) != 0) {
+    if (::mkdir(tp.c_str(), 0755) != 0) {
         sendResponse(FTPD::RESPONSE_550_ACTION_NOT_TAKEN);
         return;
     }
