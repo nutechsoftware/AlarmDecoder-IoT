@@ -1,0 +1,1 @@
+# SPIFFS partition files

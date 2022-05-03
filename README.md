@@ -85,19 +85,19 @@ https://smartthings.developer.samsung.com/partner/enroll
 
 This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThings driver is disabled and the webui component is enabled.
 
-Copy the contents of contrib/webUI/flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single FAT32 partition. Optionally place the sample configuration file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini) on the root directory for remote config management. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
+Copy the contents of contrib/webUI/flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single FAT32 partition. Optionally place the sample configuration file [data/ad2iot.ini](data/ad2iot.ini) on the root directory for remote config management. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
 
 ##  4. <a name='configuring-the-ad2iot-device'></a>Configuring the AD2IoT device
-Configuration is available directly over the USB serial port using a command line interface, or by directly changing the configuration file ```ad2iot.ini``` on the root of the internal spiffs partition or external uSD disk fat32 partition.
+Configuration of the AD2IoT is done directly over the USB serial port using a command line interface, or by editing the configuration file ```ad2iot.ini``` on the internal spiffs partition using ftp over a local network or by placing a config file on an attached uSD disk with a fat32 partition.
 
-- Over serial using the command line interface configuration.
+- Configuration using the command line interface.
   - Connect the AD2IoT ESP32 USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
   - If needed the drivers for different operating systems can be downloaded [here](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware).
-  - To save settings to the ```ad2iot.ini``` use the ```restart``` command. This will save any settings change in memory.
-- Manual editing config file ad2iot.ini.
-  - The ad2iot will first attempt to load the ```ad2iot.ini``` config file from the first partition on the uSD disk if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition.
-  - Access to /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). A custom FTP command ```REST``` can be used to restart the ad2iot and force it to load the new configuration.
-  - Sample config file [contrib/configs/ad2iot.ini](contrib/configs/ad2iot.ini)
+  - To save settings to the ```ad2iot.ini``` use the ```restart``` command. This will save any settings change in memory to the active configuration file before restarting to load the new settings.
+- Configuration using the configuration file.
+  - The ad2iot will first attempt to load the ```ad2iot.ini``` config file from the first fat32 partition on a uSD disk if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition in the file ```ad2iot.ini```.
+  - To access /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). Use the custom FTP command ```REST``` to restart the ad2iot and force it to load the new configuration.
+  - Sample config file with internal documentation can be found here [data/ad2iot.ini](data/ad2iot.ini)
   - Be sure to set the ftpd acl to only allow trusted systems to manage the files on the uSD card.
 
 ##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
@@ -118,17 +118,17 @@ Configuration is available directly over the USB serial port using a command lin
     - Enable and configure the WiFi or Ethernet networking driver.
       - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password.
       - ```netmode E mode=d```
-    - Configure the default partition in slot 0 for the partition to connect to SmartThings.
-      - ```part 0 18```
-    - Define each partition. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
-      - ```part 1 22```
+    - Configure the default partition address and zones in slot 0. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
+      - ```part 0 18 2,3,4,5```
+    - Define any additional partitions.
+      - ```part 1 22 6,7,9```
     - Set a default code in slot ```0``` to ARM/DISARM etc a partition.
       - ```code 0 4112```
     - Enable webui daemon and configure the ACL.
       - ```webui enable Y```
       - ```webui acl 192.168.1.0/24```
-    - Insert a uSD card formatted fat32 with the files in the ```/contrib/webUI/flash-drive/``` folder of this project in the root directory.
-    - Restart for these changes to take effect.
+      - Insert a uSD card formatted fat32 with the files in the ```/contrib/webUI/flash-drive/``` folder of this project in the root directory.
+    - Restart for these changes to be saved and take effect.
       - ```restart```
     - Configure notifications
 

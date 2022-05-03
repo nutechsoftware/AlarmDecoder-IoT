@@ -773,12 +773,12 @@ static void ota_polling_task_func(void *arg)
             if (available_version) {
                 ota_available_version = available_version;
                 AD2Parse.updateVersion(available_version);
-                ESP_LOGI(TAG, "Get avail version found '%s' on the server.", available_version);
+                ESP_LOGI(TAG, "Get available version found '%s' on the server.", available_version);
                 free(available_version);
             } else {
                 // if nothing available then it must be the same we have installed.
                 ota_available_version = FIRMWARE_VERSION;
-                ESP_LOGI(TAG, "Get avail version found NO available version on the server.");
+                ESP_LOGI(TAG, "Get available version found NO available version on the server.");
             }
         }
 

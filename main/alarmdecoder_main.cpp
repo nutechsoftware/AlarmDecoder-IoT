@@ -730,11 +730,17 @@ void app_main()
         std::string _section = std::string(AD2ZONE_CONFIG_SECTION " ") + std::to_string(n);
         ad2_get_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, config);
         if (config.length()) {
-            // Parse JSON string
+            // Parse JSON string extract "alpha" and "type" strings.
             cJSON *json = cJSON_Parse(config.c_str());
             if (json) {
-                AD2Parse.setZoneString(n, cJSON_GetObjectItem(json, "alpha")->valuestring);
-                AD2Parse.setZoneType(n, cJSON_GetObjectItem(json, "type")->valuestring);
+                cJSON *jsonDesc = cJSON_GetObjectItem(json, "alpha");
+                if (cJSON_IsString(jsonDesc)) {
+                    AD2Parse.setZoneString(n, jsonDesc->valuestring);
+                }
+                cJSON *jsonType = cJSON_GetObjectItem(json, "type");
+                if (cJSON_IsString(jsonType)) {
+                    AD2Parse.setZoneType(n, jsonType->valuestring);
+                }
             }
         }
     }

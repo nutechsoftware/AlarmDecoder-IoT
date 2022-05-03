@@ -327,7 +327,6 @@ void hal_gpio_init(void)
  */
 void hal_restart()
 {
-    ESP_LOGE(TAG, "%s: rebooting now.", __func__);
     ad2_printf_host(true, "Restarting now");
     esp_restart();
 }
@@ -337,9 +336,23 @@ void hal_restart()
  */
 void hal_factory_reset()
 {
-    ESP_LOGE(TAG, "%s: Restting to factory settings.", __func__);
+    ad2_printf_host(true, "Reseting to factor defaults. ");
     nvs_flash_erase();
-    ad2_printf_host(true, "Restarting now");
+
+    // delete the config file
+    ::unlink("/" AD2_SPIFFS_MOUNT_POINT "/ad2iot.ini");
+
+    // create simple ini.
+    FILE* f = fopen("/" AD2_SPIFFS_MOUNT_POINT "/ad2iot.ini", "w");
+    fprintf(f, "#AD2IoT config file\r\n");
+    fprintf(f, "ad2source = C 4:36\r\n");
+    fprintf(f, "netmode = E mode=d\r\n");
+    fprintf(f, "logmode = I\r\n");
+    fprintf(f, "[ftpd]\r\n");
+    fprintf(f, "enable = true\r\n");
+    fclose(f);
+
+    ad2_printf_host(false, "Restarting now.");
     esp_restart();
 }
 
