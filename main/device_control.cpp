@@ -348,8 +348,10 @@ void hal_factory_reset()
     fprintf(f, "ad2source = C 4:36\r\n");
     fprintf(f, "netmode = E mode=d\r\n");
     fprintf(f, "logmode = I\r\n");
+#if CONFIG_AD2IOT_FTP_DAEMON
     fprintf(f, "[ftpd]\r\n");
     fprintf(f, "enable = true\r\n");
+#endif
     fclose(f);
 
     ad2_printf_host(false, "Restarting now.");
