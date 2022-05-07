@@ -153,12 +153,10 @@ static void cli_cmd_help(const char *cmd)
     cli_cmd_list_t* now = cli_cmd_list;
     std::string buf; // buffer to hold help argument
 
-    ad2_printf_host(false, "\n");
     if (ad2_copy_nth_arg(buf, cmd, 1) >= 0) {
         cli_cmd_t *command;
         command = cli_find_command(buf.c_str());
         if (command != NULL) {
-            ad2_printf_host(false, "Help for command '%s'\r\n\r\n", command->command);
             // spool bytes until we reach the null term.
             char *help_string = command->help_string;
             while (*help_string) {
@@ -166,7 +164,6 @@ static void cli_cmd_help(const char *cmd)
                 uart_wait_tx_done(UART_NUM_0, 100);
                 help_string++;
             }
-            ad2_printf_host(false, "\r\n");
             showhelp = false;
         } else {
             ad2_printf_host(false, ", Command not found '%s'\r\n", cmd);

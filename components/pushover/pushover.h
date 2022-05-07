@@ -24,15 +24,8 @@
 #define _PUSHOVER_H
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void pushover_register_cmds();
 void pushover_init();
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* CONFIG_AD2IOT_PUSHOVER_CLIENT */
 #endif /* _PUSHOVER_H */

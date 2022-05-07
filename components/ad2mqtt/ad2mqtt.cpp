@@ -878,7 +878,7 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, const char *in
             ad2_copy_nth_arg(arg, instring, 4, true);
 
             // sub key test.
-            if (scmd.compare(AD2SWITCH_SK_DELETE1) == 0 || scmd.compare(AD2SWITCH_SK_DELETE1) == 0) {
+            if (scmd.compare(AD2SWITCH_SK_DELETE1) == 0 || scmd.compare(AD2SWITCH_SK_DELETE2) == 0) {
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION);
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_OPEN);
                 ad2_set_config_key_string(MQTT_CONFIG_SECTION, key.c_str(), NULL, true, swID, MQTT_CONFIG_SWITCH_SUFFIX_CLOSE);

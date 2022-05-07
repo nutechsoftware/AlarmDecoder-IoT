@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Help refactoring to make more realistic shell interface.
+- [X] PUSHOVER: Help syntax refactor.
+- [X] PUSHOVER: Update to latest changes. Remove hard coded ssl key needed for older espressif. Update to latest config and ad2iot virtual switch templates.
 - [X] FTPD: Fixed stalling when client is bad and does not close a socket. Now if a new client connets it will close the current connection.
 - [X] FTPD: Fixed rename added response code 350 for RNFR.
 - [X] MQTT: misc cleanup from testing.

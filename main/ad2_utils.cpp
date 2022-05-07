@@ -795,7 +795,7 @@ void ad2_set_config_key_int(
         done = _ad2ini.SetLongValue(section, tkey.c_str(), vin);
     }
     if (!done) {
-        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete(%s).", __func__, tkey.c_str());
     } else {
         _config_dirty = true;
     }

@@ -46,10 +46,10 @@
 #define AD2_MAX_ZONES        255
 
 // @brief MAX code slots
-#define AD2_MAX_CODE          2
+#define AD2_MAX_CODE         128
 
 // @brief MAX virtual switches
-#define AD2_MAX_SWITCHES      5
+#define AD2_MAX_SWITCHES      255
 #define AD2_MAX_SWITCH_SEARCH_KEYS 9
 
 // @brief Default code to use if none specified
