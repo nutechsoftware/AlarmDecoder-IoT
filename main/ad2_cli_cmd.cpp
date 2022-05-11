@@ -66,7 +66,7 @@ static void _cli_cmd_zone_event(const char *string)
             if (arg.length()) {
                 if (arg[0] == '-') {
                     ad2_printf_host(false, "Removing settings string for zone %i...\r\n", zone);
-                    ad2_set_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, arg.c_str(), true);
+                    ad2_set_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, arg.c_str(), -1, NULL, true);
                 } else {
                     ad2_printf_host(false, "Saving settings string for zone %i to '%s'\r\n", zone, arg.c_str());
                     ad2_set_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, arg.c_str());
@@ -79,7 +79,7 @@ static void _cli_cmd_zone_event(const char *string)
             ad2_printf_host(false, "The settings for zone %i is '%s'\r\n", zone, buf.c_str());
         }
     } else {
-        ad2_printf_host(false, "Error invalid zone zone %i\r\n", zone);
+        ad2_printf_host(false, "Missing or invalid <zoneId> [1-%i].\r\n", AD2_MAX_ZONES);
     }
 }
 
@@ -105,15 +105,15 @@ static void _cli_cmd_code_event(const char *string)
         slot = strtol(arg.c_str(), NULL, 10);
     }
 
-    if (slot >= 0 && slot <= AD2_MAX_CODE) {
+    if (slot >= 1 && slot <= AD2_MAX_CODE) {
         if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
             if (arg.length()) {
                 if (arg[0] == '-') {
                     ad2_printf_host(false, "Removing code in slot %i...\r\n", slot);
-                    ad2_set_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, nullptr, true, slot);
+                    ad2_set_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, nullptr, slot, NULL, true);
                 } else {
                     ad2_printf_host(false, "Setting code in slot %i to '%s'...\r\n", slot, arg.c_str());
-                    ad2_set_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, arg.c_str(), false, slot);
+                    ad2_set_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, arg.c_str(), slot);
                 }
             }
         } else {
@@ -123,7 +123,7 @@ static void _cli_cmd_code_event(const char *string)
             ad2_printf_host(false, "The code in slot %i is '%s'\r\n", slot, buf.c_str());
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
+        ad2_printf_host(false, "Missing or invalid <codeId> [1-%i].\r\n", AD2_MAX_CODE);
     }
 }
 
@@ -151,7 +151,7 @@ static void _cli_cmd_part_event(const char *string)
         part = strtol(buf.c_str(), NULL, 10);
     }
 
-    if (part >= 0 && part <= AD2_MAX_PARTITION) {
+    if (part >= 1 && part <= AD2_MAX_PARTITION) {
         std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(part);
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
@@ -163,8 +163,8 @@ static void _cli_cmd_part_event(const char *string)
             } else {
                 // delete entry
                 ad2_printf_host(false, "Deleting partition %i...\r\n", part);
-                ad2_set_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, -1, true);
-                ad2_set_config_key_string(_section.c_str(), PART_CONFIG_ZONES, nullptr, true);
+                ad2_set_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, 0, -1, NULL, true);
+                ad2_set_config_key_string(_section.c_str(), PART_CONFIG_ZONES, nullptr, -1, NULL, true);
             }
         } else {
             // show contents of this partition
@@ -173,7 +173,7 @@ static void _cli_cmd_part_event(const char *string)
             ad2_printf_host(false, "The partition %i uses address %i with a zone list of '%s'\r\n", part, address, buf.c_str());
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid partition # (0-%i).", __func__, AD2_MAX_PARTITION);
+        ad2_printf_host(false, "Missing or invalid <partId> [1-%i].\r\n", AD2_MAX_PARTITION);
     }
 }
 
@@ -222,8 +222,7 @@ static void _cli_cmd_ad2source_event(const char *string)
     }
     // get and show current mode string and arg.
     ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, modestring);
-    ad2_copy_nth_arg(arg, modestring.c_str(), 2, true);
-    ad2_printf_host(false, "Current mode '%s %s'\r\n", (modestring[0]=='C'?"COM":"SOCKET"), arg.c_str());
+    ad2_printf_host(false, "Current " AD2MODE_CONFIG_KEY " config string '%s'\r\n", modestring.c_str());
 
 }
 
@@ -474,7 +473,7 @@ static void _cli_cmd_switch_event(const char *command_string)
     // safe convert to int
     sId = std::atoi(sztmp.c_str());
     if (sId <= 0 || sId > AD2_MAX_SWITCHES) {
-        ad2_printf_host(false, "Invalid switch id(%i) error.\r\n", sId);
+        ad2_printf_host(false, "Missing or invalid <switchId> [1-%i].\r\n", AD2_MAX_SWITCHES);
         return;
     }
 
@@ -576,13 +575,13 @@ static void _cli_cmd_switch_event(const char *command_string)
             case 1: // -
             case 2: // delete
                 // TODO: Delete topic [switch N]
-                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_DEFAULT, 0, true);
-                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_RESET, 0, true);
-                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, NULL, true);
-                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, NULL, true);
-                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_OPEN, NULL, true);
-                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_CLOSE, NULL, true);
-                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TROUBLE, NULL, true);
+                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_DEFAULT, 0, -1, NULL, true);
+                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_RESET, 0, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_OPEN, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_CLOSE, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TROUBLE, NULL, -1, NULL, true);
                 break;
             case 3: // default
                 // TODO: validate

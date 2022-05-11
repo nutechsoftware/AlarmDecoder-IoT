@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Remove more references to 0 index. Humans...
 - [X] CORE: Help refactoring to make more realistic shell interface.
 - [X] PUSHOVER: Help syntax refactor.
 - [X] PUSHOVER: Update to latest changes. Remove hard coded ssl key needed for older espressif. Update to latest config and ad2iot virtual switch templates.

@@ -210,7 +210,7 @@ esp_err_t _pushover_http_event_handler(esp_http_client_event_t *evt)
  *
  * @note No full queue handler
  */
-void on_search_match_cb_po(std::string *msg, AD2PartitionState *s, void *arg)
+void on_search_match_cb_pushover(std::string *msg, AD2PartitionState *s, void *arg)
 {
     std::string nvkey;
 
@@ -294,7 +294,7 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *str
     if (accountId > 0 && accountId < 9) {
         if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
             ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
-            ad2_printf_host(false, "Setting <acid> #%02i '%s' value finished.\r\n", accountId, subcmd.c_str());
+            ad2_printf_host(false, "Setting <acid> #%02i '%s' value '%s' finished.\r\n", accountId, subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
             ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf, accountId);
@@ -336,18 +336,18 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, const char
 
             // sub key test.
             if (scmd.compare(AD2SWITCH_SK_DELETE1) == 0 || scmd.compare(AD2SWITCH_SK_DELETE2) == 0) {
-                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, true, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY);
-                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, true, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN);
-                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, true, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE);
-                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, true, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY, true);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN, true);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE, true);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE, true);
                 ad2_printf_host(false, "Removing switch #%i settings from pushover config.\r\n", swID);
             } else if (scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY) == 0) {
-                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), arg.c_str(), false, swID, scmd.c_str());
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), arg.c_str(), swID, scmd.c_str());
                 ad2_printf_host(false, "Setting switch #%i %s string to '%s'.\r\n", swID, scmd.c_str(), arg.c_str());
             } else if (scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN) == 0 ||
                        scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE) == 0 ||
                        scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE) == 0) {
-                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), arg.c_str(), false, swID, scmd.c_str());
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), arg.c_str(), swID, scmd.c_str());
                 ad2_printf_host(false, "Setting switch #%i output string for state '%s' to '%s'.\r\n", swID, scmd.c_str(), arg.c_str());
             } else if (scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN) == 0) {
                 ESP_LOGW(TAG, "Unknown sub command setting '%s' ignored.", scmd.c_str());
@@ -463,88 +463,145 @@ void pushover_register_cmds()
  */
 void pushover_init()
 {
-    // Register search based virtual switches with the AlarmDecoderParser.
-    //std::string key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_SAS_SUBCMD);
+
+    // Register search based virtual switches if enabled.
+    // [switch N]
     int subscribers = 0;
-#if 0 // FIXME
-    for (int i = 1; i < AD2_MAX_SWITCHES; i++) {
-        std::string slots;
-        ad2_get_config_key_string(key.c_str(), i, SK_NOTIFY_SLOT, slots);
-        if (slots.length()) {
+    for (int swID = 1; swID < AD2_MAX_SWITCHES; swID++) {
+        // load switch settings for 'swID' and test if found
+        std::string open_output_format;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  open_output_format,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN);
+        std::string close_output_format;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  close_output_format,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE);
+        std::string trouble_output_format;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  trouble_output_format,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE);
+        std::string notify_slots_string;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  notify_slots_string,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY);
+
+        // Only process entries with notify list and at least one output string.
+        if ( notify_slots_string.length() &&
+                ( open_output_format.length() ||
+                  close_output_format.length() ||
+                  trouble_output_format.length() )
+           ) {
+            // key switch N
+            std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
+            key += " ";
+            key += std::to_string(swID);
+
+            // construct our search object.
             AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
 
-            // read notification slot list into std::list
+            // store validated output formats.
+            es1->OPEN_OUTPUT_FORMAT = open_output_format;
+            es1->CLOSE_OUTPUT_FORMAT = close_output_format;
+            es1->TROUBLE_OUTPUT_FORMAT = trouble_output_format;
+
+            // save notify list to PTR_ARG.
             std::list<uint8_t> *pslots = new std::list<uint8_t>;
             std::vector<std::string> vres;
-            ad2_tokenize(slots, ",", vres);
+            ad2_tokenize(notify_slots_string, ",", vres);
             for (auto &slotstring : vres) {
                 uint8_t s = std::atoi(slotstring.c_str());
                 pslots->push_front((uint8_t)s & 0xff);
             }
-
-            // Save the notification slot. That is all we need to complete the task.
-            es1->INT_ARG = 0;
             es1->PTR_ARG = pslots;
 
-            // We at least need some output format or skip
-            ad2_get_config_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
-            ad2_get_config_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSE_OUTPUT_FORMAT);
-            ad2_get_config_key_string(key.c_str(), i, SK_TROUBLE_OUTPUT_FMT, es1->TROUBLE_OUTPUT_FORMAT);
-            if ( es1->OPEN_OUTPUT_FORMAT.length()
-                    || es1->CLOSE_OUTPUT_FORMAT.length()
-                    || es1->TROUBLE_OUTPUT_FORMAT.length() ) {
+            // save the NVS Virtual SWITCH ID so we can read the data back later.
+            es1->INT_ARG = swID;
 
-                std::string notify_types_sz = "";
-                std::vector<std::string> notify_types_v;
-                ad2_get_config_key_string(key.c_str(), i, SK_TYPE_LIST, notify_types_sz);
-                ad2_tokenize(notify_types_sz, ", ", notify_types_v);
-                for (auto &sztype : notify_types_v) {
-                    ad2_trim(sztype);
-                    auto x = AD2Parse.message_type_id.find(sztype);
-                    if(x != std::end(AD2Parse.message_type_id)) {
-                        ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
-                        es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
-                    }
+            // switch filter settings
+            std::string filter;
+
+            // Get the optional switch types to listen for.
+            std::string types = "";
+            std::vector<std::string> notify_types_v;
+            ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, types);
+            ad2_tokenize(types, ", ", notify_types_v);
+            for (auto &sztype : notify_types_v) {
+                ad2_trim(sztype);
+                auto x = AD2Parse.message_type_id.find(sztype);
+                if(x != std::end(AD2Parse.message_type_id)) {
+                    ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
+                    es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
                 }
-                ad2_get_config_key_string(key.c_str(), i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
+            }
 
-                // Load all regex search patterns for OPEN,CLOSE and TROUBLE sub keys.
-                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSE_REGEX_LIST SK_OPEN_REGEX_LIST;
-                for(char& c : regex_sk_list) {
-                    std::string sk = ad2_string_printf("%c", c);
-                    for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
-                        std::string out = "";
-                        std::string tsk = sk + ad2_string_printf("%02i", a);
-                        ad2_get_config_key_string(key.c_str(), i, tsk.c_str(), out);
-                        if ( out.length()) {
-                            if (c == SK_OPEN_REGEX_LIST[0]) {
-                                es1->OPEN_REGEX_LIST.push_back(out);
-                            }
-                            if (c == SK_CLOSE_REGEX_LIST[0]) {
-                                es1->CLOSE_REGEX_LIST.push_back(out);
-                            }
-                            if (c == SK_TROUBLE_REGEX_LIST[0]) {
-                                es1->TROUBLE_REGEX_LIST.push_back(out);
-                            }
+            // load [switch N] required regex match settings
+            std::string prefilter_regex;
+            ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+
+            // Load all regex search patterns for open, close, and trouble sub keys.
+            std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
+                                        AD2SWITCH_SK_CLOSE " "
+                                        AD2SWITCH_SK_TROUBLE;
+
+            std::stringstream ss(regex_sk_list);
+            std::string sk;
+            int sk_index = 0;
+            while (ss >> sk) {
+                for ( int a = 1; a < AD2_MAX_SWITCH_SEARCH_KEYS; a++) {
+                    std::string out = "";
+                    ad2_get_config_key_string(key.c_str(), sk.c_str(), out, a);
+
+                    if ( out.length()) {
+                        if (sk_index == 0) {
+                            es1->OPEN_REGEX_LIST.push_back(out);
+                        }
+                        if (sk_index == 1) {
+                            es1->CLOSE_REGEX_LIST.push_back(out);
+                        }
+                        if (sk_index == 2) {
+                            es1->TROUBLE_REGEX_LIST.push_back(out);
                         }
                     }
                 }
+                sk_index++;
+            }
 
+            // Must provide at least one states or it will be skipped.
+            if (es1->OPEN_REGEX_LIST.size() ||
+                    es1->CLOSE_REGEX_LIST.size() ||
+                    es1->TROUBLE_REGEX_LIST.size()) {
                 // Save the search to a list for management.
                 pushover_AD2EventSearches.push_back(es1);
 
-                // subscribe the AD2EventSearch virtual switch callback.
-                AD2Parse.subscribeTo(on_search_match_cb_po, es1);
+                // subscribe to the callback for events.
+                AD2Parse.subscribeTo(on_search_match_cb_pushover, es1);
 
                 // keep track of how many for user feedback.
                 subscribers++;
+
             } else {
-                // incomplete switch call distructor.
-                es1->~AD2EventSearch();
+                // incomplete switch so delete it and supporting pointers.
+                delete pslots;
+                delete es1;
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+            }
+        } else {
+            if (open_output_format.length() || close_output_format.length()
+                    || trouble_output_format.length()) {
+                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
             }
         }
     }
-#endif // FIXME
+
     ad2_printf_host(true, "%s: Init done. Found and configured %i virtual switches.", TAG, subscribers);
 
 }

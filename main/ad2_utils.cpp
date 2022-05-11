@@ -660,7 +660,9 @@ void ad2_get_config_key_bool(
 {
     std::string tkey = (key == nullptr ? "" : key);
     if (index > -1) {
-        tkey += " ";
+        if (tkey.length()) {
+            tkey += " ";
+        }
         tkey += std::to_string(index);
         if (suffix != nullptr) {
             tkey += " ";
@@ -682,20 +684,21 @@ void ad2_get_config_key_bool(
  * @param[in] section config section.
  * @param[in] key config key in section.
  * @param[in] vin bool value to store.
- * @param[in] remove=false remove entry.
  * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
  * @param[in] suffix=NULL char * string to add to the key if not NULL.
+ * @param[in] remove=false remove entry.
  *
  */
 void ad2_set_config_key_bool(
     const char *section, const char *key,
     bool vin,
-    bool remove,
-    int index, const char *suffix)
+    int index, const char *suffix, bool remove)
 {
     std::string tkey = (key == nullptr ? "" : key);
     if (index > -1) {
-        tkey += " ";
+        if (tkey.length()) {
+            tkey += " ";
+        }
         tkey += std::to_string(index);
         if (suffix != nullptr) {
             tkey += " ";
@@ -743,7 +746,9 @@ void ad2_get_config_key_int(
 {
     std::string tkey = (key == nullptr ? "" : key);
     if (index > -1) {
-        tkey += " ";
+        if (tkey.length()) {
+            tkey += " ";
+        }
         tkey += std::to_string(index);
         if (suffix != nullptr) {
             tkey += " ";
@@ -764,20 +769,21 @@ void ad2_get_config_key_int(
  * @param[in] section config section.
  * @param[in] key config key in section.
  * @param[in] vin int value to store.
- * @param[in] remove=false remove entry.
  * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
  * @param[in] suffix=NULL char * string to add to the key if not NULL.
+ * @param[in] remove=false remove entry.
  *
  */
 void ad2_set_config_key_int(
     const char *section, const char *key,
     int vin,
-    bool remove,
-    int index, const char *suffix)
+    int index, const char *suffix, bool remove)
 {
     std::string tkey = (key == nullptr ? "" : key);
     if (index > -1) {
-        tkey += " ";
+        if (tkey.length()) {
+            tkey += " ";
+        }
         tkey += std::to_string(index);
         if (suffix != nullptr) {
             tkey += " ";
@@ -825,7 +831,9 @@ void ad2_get_config_key_string(
 {
     std::string tkey = (key == nullptr ? "" : key);
     if (index > -1) {
-        tkey += " ";
+        if (tkey.length()) {
+            tkey += " ";
+        }
         tkey += std::to_string(index);
         if (suffix != nullptr) {
             tkey += " ";
@@ -847,20 +855,21 @@ void ad2_get_config_key_string(
  * @param[in] section config section.
  * @param[in] key config key in section.
  * @param[in] vin const char * value to store.
- * @param[in] remove=false remove entry.
  * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
  * @param[in] suffix=NULL char * string to add to the key if not NULL.
+ * @param[in] remove=false remove entry.
  *
  */
 void ad2_set_config_key_string(
     const char *section, const char *key,
     const char *vin,
-    bool remove,
-    int index, const char *suffix)
+    int index, const char *suffix, bool remove)
 {
     std::string tkey = (key == nullptr ? "" : key);
     if (index > -1) {
-        tkey += " ";
+        if (tkey.length()) {
+            tkey += " ";
+        }
         tkey += std::to_string(index);
         if (suffix != nullptr) {
             tkey += " ";
@@ -878,7 +887,7 @@ void ad2_set_config_key_string(
         done = _ad2ini.SetValue(section, tkey.c_str(), vin);
     }
     if (!done) {
-        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete. '%s'", __func__, tkey.c_str());
     } else {
         _config_dirty = true;
     }

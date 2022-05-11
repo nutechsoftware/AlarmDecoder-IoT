@@ -145,8 +145,8 @@ void ad2_get_config_key_bool(
 void ad2_set_config_key_bool(
     const char * section, const char *key,
     bool vin,
-    bool remove = false,
-    int index = -1, const char *suffix = NULL
+    int index = -1, const char *suffix = NULL,
+    bool remove = false
 );
 void ad2_get_config_key_int(
     const char * section, const char *key,
@@ -156,8 +156,8 @@ void ad2_get_config_key_int(
 void ad2_set_config_key_int(
     const char * section, const char *key,
     int vin,
-    bool remove = false,
-    int index = -1, const char *suffix = NULL
+    int index = -1, const char *suffix = NULL,
+    bool remove = false
 );
 void ad2_get_config_key_string(
     const char * section, const char *key,
@@ -167,8 +167,8 @@ void ad2_get_config_key_string(
 void ad2_set_config_key_string(
     const char * section, const char *key,
     const char *vin,
-    bool remove = false,
-    int index = -1, const char *suffix = NULL
+    int index = -1, const char *suffix = NULL,
+    bool remove = false
 );
 
 #define CFG_SECTION_MAIN ""
