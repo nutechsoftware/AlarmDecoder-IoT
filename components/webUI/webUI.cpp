@@ -732,18 +732,17 @@ static void _cli_cmd_webui_event(const char *string)
 static struct cli_command webui_cmd_list[] = {
     {
         (char*)WEBUI_COMMAND,(char*)
-        "####  Configuration for web UI server\r\n"
-        "- ```" WEBUI_COMMAND " {sub command} {arg}```\r\n"
-        "  - {sub command}\r\n"
-        "    - [" WEBUI_SUBCMD_ENABLE "] Enable / Disable WebUI daemon\r\n"
-        "      -  {arg1}: [Y]es [N]o\r\n"
-        "        - [N] Default state\r\n"
-        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ENABLE " Y\r\n"
-        "    - [" WEBUI_SUBCMD_ACL "] Set / Get ACL list\r\n"
-        "      - {arg1}: ACL LIST\r\n"
-        "      -  String of CIDR values separated by commas.\r\n"
-        "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4\r\n\r\n", _cli_cmd_webui_event
+        "Usage: webui <command> [arg]\r\n"
+        "\r\n"
+        "    Configuration tool for FTP server\r\n"
+        "Commands:\r\n"
+        "    enable [Y|N]            Set or get enable flag\r\n"
+        "    acl [aclString|-]       Set or get ACL CIDR CSV list\r\n"
+        "                            use - to delete\r\n"
+        "Examples:\r\n"
+        "    ```webui enable Y```\r\n"
+        "    ```webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n"
+        , _cli_cmd_webui_event
     }
 };
 

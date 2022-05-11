@@ -50,8 +50,14 @@ static void cli_cmd_help(const char *string);
  * @brief command list for module
  */
 static struct cli_command help_cmd = {
-    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n"
-    "  ```" AD2_HELP_CMD " [command]```\r\n\r\n", cli_cmd_help
+    (char*)AD2_HELP_CMD, (char*)
+    "Usage: help [command]\r\n"
+    "    You are here -> .\r\n"
+    "    Display information about builtin commands or list available commands\r\n"
+    "Options:\r\n"
+    "    command                 Specify the command for details on command usage\r\n"
+    "                            or leave blank for list of available commands\r\n"
+    , cli_cmd_help
 };
 
 /**
@@ -199,7 +205,7 @@ static void cli_cmd_help(const char *cmd)
                 x = 0;
             }
         }
-        ad2_printf_host(false, "]\r\n\r\nType help <command> for details on each command.\r\n\r\n");
+        ad2_printf_host(false, "]\r\nType help <command> for details on each command.\r\n");
     }
 }
 

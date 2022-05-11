@@ -327,10 +327,12 @@ char * STSDK_SETTINGS [] = {
 static struct cli_command stsdk_cmd_list[] = {
     {
         (char*)STSDK_ENABLE,(char*)
-        "####  Configuration for SmartThings IoT client\r\n"
-        "- Enable SmartThings component\r\n"
-        "  - ```" STSDK_ENABLE " {bool}```\r\n"
-        "    - {bool}: [Y]es/[N]o\r\n\r\n", _cli_cmd_enable_event
+        "Usage: stenable [arg]\r\n"
+        "\r\n"
+        "    Configuration tool for STSDK client\r\n"
+        "Options:\r\n"
+        "    arg [Y | N]             Enable or Disable STSDK client\r\n"
+        , _cli_cmd_enable_event
     },
     {
         (char*)STSDK_CLEANUP,(char*)

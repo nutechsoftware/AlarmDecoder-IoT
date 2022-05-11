@@ -150,133 +150,201 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
     - Additional notification components will only work after the device is adopted and connected to the local Wi-Fi network.
 
 ###  5.1. <a name='main-commands'></a>Main commands
-- Show the list of commands or give more detail on a specific command.
-  - ```help [command]```
-- Set logging mode.
-  - ```logmode {level}```
-    - {level}
-      - [I]nformational
-      - [V]Verbose
-      - [D]ebugging
-      - [N]one: (default) Warnings and errors only.
-  - Examples:
-    - Set logging mode to INFO.
-      - ```logmode I```
-- Save config changes and restart the device.
-  - ```restart```
-- Erase all NVS storage clearing all settings and reboot.
-  - ```factory-reset```
-- Preform an OTA upgrade now download and install new flash.
-  - ```upgrade [buildflag]```
-    - [buildflag]: Specify build for the release. default to current if omitted.
-      - See release page for details on available builds.
-- Report the current and available version.
-  - ```version```
-- Manage network connection type.
-  - ```netmode {mode} [args]```
-    - {mode}
-      - [N]one: (default) Do not enable any network let component(s) manage the networking.
-      - [W]iFi: Enable WiFi network driver.
-      - [E]thernet: Enable ethernet network driver.
-    - [arg]
-      - Argument string name value pairs sepearted by &.
-        - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD
-  - Examples
-    - WiFi DHCP with SID and password.
-      - ```netmode W mode=d&sid=example&password=somethingsecret```
-    - Ethernet DHCP DNS2 override.
-      - ```netmode E mode=d&dns2=4.2.2.2```
-    - Ethernet Static IPv4 address.
-      - ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```
-- Configuration tool for ad2iot virtual switches.
+- help
 ```console
-
+Usage: help [command]
+    You are here -> .
+    Display information about builtin commands or list available commands
+Options:
+    command               Specify the command for details on command usage
+                          or leave blank for list of available commands
 ```
-- Manage user codes.
-  - ```code {id} [value]```
-    - {id}
-      - Index of code to evaluate. 0 is default.
-    - [value]
-      - A valid alarm code or -1 to remove.
-  - Examples
-    - Set default code to 1234.
-      - ```code 0 1234```
-    - Set alarm code for slot 1.
-      - ```code 1 1234```
-    - Show code in slot #3.
-      - ```code 3```
-    - Remove code for slot 2.
-      - ```code 2 -```
-        - Note: value -1 will remove an entry.
-- Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.
-  - ```ad2term [reset]```
-    - Note: To exit press ... three times fast.
-- Manage partitions.
-  - ```part {id} {value} [zone list]```
-    - {id}
-      - The partition ID. 0 is the default.
-    - {value}
-      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.
-    - [zone list]
-      - Comma separated list of zone numbers associated with this partition for tracking.
-  - Examples
-    - Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.
-      - ```part 0 18 2,3,4```
-    - Set default send partition to 1 for a DSC system.
-      - ```part 0 1```
-    - Show address for partition 2.
-      - ```part 2```
-    - Remove partition in slot 2.
-      - ```part 2 -1```
-       - Note: address -1 will remove an entry.
-- Manage zone settings string.
-  - ```zone {id} [value]```
-    - {id}
-      - Zone number 1-255.
-    - [value]
-      - json zone settings string for this zone.
-  - Examples
-    - Set zone 1 configuration string.
-      - ```zone 1 {"type": "smoke", "alpha": "TESTING LAB SMOKE"}```
-    - Remove zone 1 settings string.
-      - ```zone 1 ''```
-- Manage AlarmDecoder protocol source.
-  - ```ad2source [{mode} {arg}]```
-    - {mode}
-      - [S]ocket: Use ser2sock server over tcp for AD2* messages.
-      - [C]om port: Use local UART for AD2* messages.
-    - {arg}
-      - [S]ocket arg: {HOST:PORT}
-      - [C]om arg: {TXPIN:RXPIN}.
-  - Examples:
-    - Show current mode.
-      - ```ad2source```
-    - Set source to ser2sock client at address and port.
-      - ```ad2source SOCK 192.168.1.2:10000```
-    - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.
-      - ```ad2source COM 17:16```
+- logmode
+```console
+Usage: logmode [<mode>]
+    Configuration tool for the ad2iot firmware log settings
 
+Modes:
+    I                       Informational
+    V                       Verbose
+    D                       Debugging
+    N                       Warnings and errors only(default)
+```
+- restart
+```console
+Usage: restart
+    Save config changes and restart the device
+```
+- factory-reset
+```console
+Usage: factory-reset
+    Erase config storage and reboot to factory defaults
+```
+- upgrade
+```console
+```
+- version
+```console
+Usage: version
+
+    Report the current and available version
+```
+- netmode
+```console
+Usage: netmode [(N | W | E)] [<arg>]
+
+    Configuration tool for ad2iot network settings
+
+Options:
+    N                       Disable(default) networking and allow
+                              a component to take over networking
+    W                       Enable WiFi core driver
+    E                       Enable Ethernet core driver
+    arg                     Config string to pass to network driver
+                              Argument string name value pairs sepearted by &.
+                              Keys: mode,ip,mask,gw,dns1,dns2,sid,password
+Examples:
+    WiFi DHCP with SID and password.
+      ```netmode W mode=d&sid=example&password=somethingsecret```
+    Ethernet DHCP DNS2 override.
+      ```netmode E mode=d&dns2=4.2.2.2```
+    Ethernet Static IPv4 address.
+      ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```
+```
+- switch
+```console
+Usage: switch <swid> [command] [<arg>]
+
+    Configuration tool for ad2iot virtual switches
+
+    This tool allows configuring ad2iot virtual switch that will change
+     state based upon one more more filters and REGEX pattern matches.
+    Up to 8 REGEX patterns for OPEN, CLOSE, and TROUBLE can be defined
+    for complex state matching capabilities.
+
+Commands:
+      delete | -              Clear switch  settings
+      default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON)
+      reset TIME              Auto rest TIME in ms 0 to disable
+      type TYPE, TYPE,...     Message type filter list or blank to disable
+      filter REGEX            Pre filter REGEX or blank to disable
+      open IDX REGEX           OPEN event REGEX filter for IDX 1-8
+      close IDX REGEX          CLOSE event REGEX filter for IDX 1-8
+      trouble IDX REGEX        TROUBLE event REGEX filter for IDX 1-8
+Options:
+      switchId                ad2iot virtual switch ID 1-255
+      IDX                     REGEX index 1-8 for multiple tests
+      REGEX                   Regular expression or exact match string.
+      TYPE                    Message types [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,
+                              CRC,VER,ERR,EVENT]
+```
+- code
+```console
+Usage: code <codeId> [- | <value>]
+    Configuration tool for alarm system codes
+
+Options:
+      codeId                Code ID 1 - 128
+      -                     Delete entry
+      value                 Code string
+```
+- ad2term
+```console
+Usage: ad2term [reset]
+    Connect terminal to AD2* device
+
+    Connect directly to the AD2IoT or remote network connected AD2* device
+    for management and diagnostics of the alarm system and AD2* settings.
+    Note: This will halt processing events from the AD2* device.
+    Note: To exit this mode and resume processing press '.' three times fast. ...
+
+Options:
+      reset                Send hardware reboot to AD2pHat
+```
+- part
+```console
+Usage: part [(<partId> <address>) [zoneList]]
+    Configuration tool for alarm panel partitions
+
+    The AD2IoT and the attached AD2pHAT need information about the alarm system to
+    function properly. This currently requires some redundent configuration.
+
+    Use the ad2term command to connect to the AD2pHat and configure the firmware
+    using the '!' or 'C' command.
+
+    Set the MODE to DSC or Ademco and configure the devices primary address.
+
+    For Ademco Vista panels:
+     * This address must be programmed into the panel as an alpha keypad for each
+     partition being managed.
+     * It must not be used by any other devices.
+    For DSC Power Series:
+     * Use partition #1-8 and set the partition. no panel programming is needed.
+
+Options:
+    partId                  Partition ID 0-8
+    address                 For DSC 1-8 for Ademco use available keypad address.
+                             Use - to remove partition
+    zoneList                Optional Comma separated zone list for this partition
+Examples:
+    Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.
+      ```part 0 18 2,3,4```
+    Set default send partition Id to 1 for a DSC system.
+      ```part 0 1```
+    Show address for partition Id 2.
+      ```part 2```
+    Remove partition Id 2.
+      ```part 2 -```
+        Note: address - will remove an entry.
+```
+- zone
+```console
+Usage: zone <zoneId> [- | <value>]
+    Configuration tool for zone json description strings
+
+Options:
+      zoneId                Zone ID 1 - 255
+      -                     Delete entry
+      value                 json string with type and alpha attributes
+                            {"type": "smoke", "alpha": "TESTING LAB SMOKE"}
+```
+- ad2source
+```console
+Usage: ad2source <mode> [arg]
+    Manage AlarmDecoder protocol source
+
+Options:
+      mode                  Mode [S]ocket or [C]om port
+      arg                   arg string
+                            for [C]OM use [TXPIN:RXPIN]
+                            for [S]OCKET use [HOST:PORT]
+Examples:
+      Set source to ser2sock client at address and port.
+        ```ad2source SOCK 192.168.1.2:10000```
+      Set source to local attached uart with TX on GPIO 4 and RX on GPIO 36.
+        ```ad2source COM 4:36```
+```
 ###  5.2. <a name='ser2sock-server-component'></a>Ser2sock server component
 Ser2sock allows sharing of a serial device over a TCP/IP network. It also supports encryption and authentication via OpenSSL. Typically configured for port 10000 several home automation systems are able to use this protocol to talk to the AlarmDecoder device for a raw stream of messages. Please be advised that network scanning of this port can lead to alarm faults. It is best to use the Access Control List feature to only allow specific hosts to communicate directly with the AD2* and the alarm panel.
 
-####  5.2.1. <a name='configuration-for-ser2sock-server'></a>Configuration for Ser2sock server
-- ```ser2sockd {sub command} {arg}```
-  - {sub command}
-    - [enable] Enable / Disable ser2sock daemon
-      -  {arg1}: [Y]es [N]o
-        - [N] Default state
-        - Example: ser2sockd enable Y
-    - [acl] Set / Get ACL list
-      - {arg1}: ACL LIST
-      -  String of CIDR values separated by commas.
-        - Default: Empty string disables ACL list
-        - Example: ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4
+####  5.2.1. <a name='configuration-for-ser2sock-server'></a>Configuration tool for Ser2sock server
+```console
+Usage: ser2sockd <command> [arg]
+
+    Configuration tool for ser2sock server
+Commands:
+    enable [Y | N]          Set or get enable flag
+    acl [aclString | -]     Set or get ACL CIDR CSV list use - to delete
+Examples:
+    ```ser2sockd enable Y```
+    ```ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+```
 
 ###  5.3. <a name='web-user-interface-webui-component'></a>Web User Interface webUI component
 This component provides a simple HTML5+WebSocket user interface with realtime alarm status using push messages over WebSocket. Buttons for Arming, Disarming, Exiting, and sending panic events. Panic buttons require pressing the button three times in 5 seconds to help prevent false alarms.<br>
 <img src="contrib/webUI/EXAMPLE-PANEL-READY.jpg" width="200">
 
-####  5.3.1. <a name='configuration-for-webui-server'></a>Configuration for webUI server
+####  5.3.1. <a name='configuration-for-webui-server'></a>Configuration tool for webUI server
 - ```webui {sub command} {arg}```
   - {sub command}
     - [enable] Enable / Disable WebUI daemon
@@ -292,7 +360,7 @@ This component provides a simple HTML5+WebSocket user interface with realtime al
 ###  5.4. <a name='smartthings-direct-connected-device.'></a>SmartThings Direct Connected device.
 Direct-connected devices connect directly to the SmartThings cloud. The SDK for Direct Connected Devices is equipped to manage all MQTT topics and onboarding requirements, freeing you to focus on the actions and attributes of your device. To facilitate the development of device application in an original chipset SDK, the core device library and the examples were separated into two git repositories. That is, if you want to use the core device library in your original chipset SDK that installed before, you may simply link it to develop a device application in your existing development environment. For more info see https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.
 
-####  5.4.1. <a name='-configuration-for-smartthings-iot-client'></a> Configuration for SmartThings IoT client
+####  5.4.1. <a name='-configuration-for-smartthings-iot-client'></a> Configuration tool for SmartThings IoT client
 - Enable SmartThings component
   - ```stenable {bool}```
     - {bool}: [Y]es/[N]o
@@ -313,24 +381,24 @@ Pushover is a platform for sending and receiving push notifications. On the serv
 
 ####  5.5.1. <a name='configuration-tool-for-pushover.net-notification'></a>Configuration tool for Pushover.net notification
 ```console
-Usage: pushover (apptoken|userkey) <accountId> [<arg>]
-Usage: pushover switch <switchId> [delete|-|notify|open|close|trouble] [<arg>]
+Usage: pushover (apptoken|userkey) <acid> [<arg>]
+Usage: pushover switch <swid> [delete|-|notify|open|close|trouble] [<arg>]
 
     Configuration tool for Pushover.net notification
 Commands:
-    apptoken ID [HASH]        Application token/key HASH
-    userkey ID [HASH]         User Auth Token HASH
-    switch ID SUBCMD [ARG]    Configure virtual switches
+    apptoken ID [hash]      Application token/key HASH
+    userkey ID [hash]       User Auth Token HASH
+    switch ID SUBCMD [ARG]  Configure virtual switches
 Sub-Commands:
-      delete | -              Clear switch notification settings
-      notify <accountId>      Account[1-8] to use for notifications
-      open <message>          Send <message> for OPEN events
-      close <message>         Send <message> for CLOSE events
-      trouble <message>       Send <message> for TROUBLE events
+    delete | -              Clear switch notification settings
+    notify <acid>      Account[1-8] to use for notifications
+    open <message>          Send <message> for OPEN events
+    close <message>         Send <message> for CLOSE events
+    trouble <message>       Send <message> for TROUBLE events
 Options:
-    <accountId> Account 1-8
-    <switchId>  ad2iot virtual switch ID 1-255. See ```switch``` command
-    <message>   Message to send for this notification
+    <acid>             Account 1-8
+    <swid>              ad2iot virtual switch ID 1-255. See ```switch``` command
+    <message>               Message to send for this notification
 ```
 - Example cli commands to setup a complete virtual contact.
   - Send pushover notification from profiles in slot #1 and #2 when ad2iot virtual switch profile #1 on OPEN(ON), CLOSE(OFF) or TROUBLE REGEX patterns match.
@@ -378,46 +446,32 @@ Options:
 ###  5.6. <a name='twilio-notification-component'></a>Twilio notification component
 Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service (CPaaS) company based in San Francisco, California. Twilio allows software developers to programmatically make and receive phone calls, send and receive text messages, reliably send email, and perform other communication functions using its web service APIs. See: https://www.twilio.com/
 
-####  5.6.1. <a name='configuration-for-twilio-notifications'></a>Configuration for Twilio notifications
-- Sets the 'SID' for a given notification slot. Multiple slots allow for multiple twilio accounts.
-  - ```twilio sid {slot} {hash}```
-    - {slot}: [N]
-      - For default use 0.
-    - {hash}: Twilio ```Account SID```.
-  - Example: ```twilio sid 0 aabbccdd112233..```
-- Sets the ```Auth Token``` for a given notification slot.
-  - ```twilio token {slot} {hash}```
-    - {slot}: [N]
-      - For default use 0.
-    - {hash}: Twilio ```Auth Token```.
-    -  Example: ```twilio token 0 aabbccdd112233..```
-- Sets the 'From' info for a given notification slot.
-  - ```twilio from {slot} {phone|email}```
-    - {phone|email}: [NXXXYYYZZZZ|user@example.com]
-- Sets the 'To' info for a given notification slot.
-  - ```twilio to {slot} {phone|email}```
-    - {phone|email}: [NXXXYYYZZZZ|user@example.com, user2@example.com]
-- Sets the 'Type' for a given notification slot.
-  - ```twilio type {slot} {type}```
-    - {type}: [text|call|email]
-  - Example: ```twilio type 0 M```
-- Sets the output format for a given notification slot.
-  - ```twilio format {slot} {string}```
-    - {string}: Format string used to generate final output from switch output args string.
-      -  Placeholder-based formatting syntax.
-  - Example: ```twilio format 2 <Response><Say>{0}</Say><Say>{0}</Say></Response>```
-- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.
-  - ```twilio switch {id} {setting} {arg1} [arg2]```
-    - {id}
-      - 1-99 : Supports multiple virtual smart alert switches.
-    - {setting}
-      - [-] Delete switch
-      - [notify] Notification slots
-        -  Comma separated list of notification slots to use for sending this events.
-      - [open] Open output string.
-      - [close] Close output string.
-      - [trouble] Trouble output string.
+####  5.6.1. <a name='configuration-for-twilio-notifications'></a>Configuration tool for Twilio notifications
+```console
+Usage: twilio (sid | token | from | to | type | format) <acid> [<arg>]
+Usage: twilio switch <swid> [delete|-|notify|open|close|trouble] [<arg>]
 
+    Configuration tool for Twilio + SendGrid notifications
+Commands:
+    sid ID [hash]        Twilio String Identifider(SID)
+    token ID [hash]       Twilio Auth Token
+    from ID [address]         Validated Email or Phone #
+    to ID [address]         Email or Phone #
+    type ID [M|C|E]         Notification type Mail, Call, EMail
+    format ID [hash]        Output format string
+    switch ID SUBCMD [ARG]  Configure switches
+Sub-Commands:
+    delete | -              Clear switch notification settings
+    notify <acid>      Account[1-8] to use for notifications
+    open <message>          Send <message> for OPEN events
+    close <message>         Send <message> for CLOSE events
+    trouble <message>       Send <message> for TROUBLE events
+Options:
+    accountId               Account 1-8
+    switchId                ad2iot virtual switch ID 1-255. See ```switch``` command
+    message                 Message to send for this notification
+    ADDRESS                 EMail or Phone # depending on type
+```
   - ad2iot virtual switch settings for this example
     ```console
     [switch 1]
@@ -541,7 +595,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - Configure ```dprefix``` to ```homeassistant``` or the location you have configured HA to look for MQTT discovery topics.
     - Optional configure ```tprefix``` to ```homeassistant``` to force the ```ad2iot``` topic to be under the default HA mqtt topic.
     - MQTT Auto Discovery setup See https://www.home-assistant.io/docs/mqtt/discovery/
-####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration for MQTT message notifications
+####  5.7.1. <a name='configuration-for-mqtt-message-notifications'></a>Configuration tool for MQTT message notifications
 - Publishes the partition state using the following topic pattern.
   - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y
   - X: The unique id using the ESP32 WiFi mac address.
@@ -618,30 +672,18 @@ This daemon only supports one command and control connection at a time. Be sure 
       - The first fat32 partition on a uSD card if available and connected
   - Basic commands to rename, remove, upload, and dowloand files on the spiffs partition and attached uSD.
 
-####  5.8.1. <a name='configuration-for-ftp-server'></a>Configuration for ftp server
-- ```ftpd {sub command} {arg}```
-  - {sub command}
-    - [enable] Enable / Disable ftp daemon
-      -  {arg1}: [Y]es [N]o
-        - [N] Default state
-        - Example: ```ftpd enable Y```
-    - [acl] Set / Get ACL list
-      - {arg1}: ACL LIST
-      -  String of CIDR values separated by commas.
-        - Default: Empty string disables ACL list
-        - Example: ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+####  5.8.1. <a name='configuration-for-ftp-server'></a>Configuration tool for ftp server
+```console
+Usage: ftpd <command> [arg]
 
-- ```ftpd {sub command} {arg}```
-  - {sub command}
-    - [enable] Enable / Disable ftp daemon
-      -  {arg1}: [Y]es [N]o
-        - [N] Default state
-        - Example: ```ftpd enable Y```
-    - [acl] Set / Get ACL list
-      - {arg1}: ACL LIST
-      -  String of CIDR values separated by commas.
-        - Default: Empty string disables ACL list
-        - Example: ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+    Configuration tool for FTP server
+Commands:
+    enable [Y | N]          Set or get enable flag
+    acl [aclString | -]     Set or get ACL CIDR CSV list use - to delete
+Examples:
+    ```ftpd enable Y```
+    ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+```
 
 ##  6. <a name='building-firmware'></a>Building firmware
 ###  6.1. <a name='platformio'></a>PlatformIO

@@ -204,18 +204,16 @@ static void _cli_cmd_ser2sockd_event(const char *string)
 static struct cli_command ser2sockd_cmd_list[] = {
     {
         (char*)SD2D_COMMAND,(char*)
-        "####  Configuration for Ser2sock server\r\n"
-        "- ```" SD2D_COMMAND " {sub command} {arg}```\r\n"
-        "  - {sub command}\r\n"
-        "    - [" S2SD_SUBCMD_ENABLE "] Enable / Disable ser2sock daemon\r\n"
-        "      -  {arg1}: [Y]es [N]o\r\n"
-        "        - [N] Default state\r\n"
-        "        - Example: ```" SD2D_COMMAND " " S2SD_SUBCMD_ENABLE " Y```\r\n"
-        "    - [" S2SD_SUBCMD_ACL "] Set / Get ACL list\r\n"
-        "      - {arg1}: ACL LIST\r\n"
-        "      -  String of CIDR values separated by commas.\r\n"
-        "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: ```" SD2D_COMMAND " " S2SD_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n\r\n", _cli_cmd_ser2sockd_event
+        "Usage: ser2sockd <command> [arg]\r\n"
+        "\r\n"
+        "    Configuration tool for ser2sock server\r\n"
+        "Commands:\r\n"
+        "    enable [Y|N]            Set or get enable flag\r\n"
+        "    acl [aclString|-]       Set or get ACL CIDR CSV list use - to delete\r\n"
+        "Examples:\r\n"
+        "    ```ser2sockd enable Y```\r\n"
+        "    ```ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n"
+        , _cli_cmd_ser2sockd_event
     }
 };
 

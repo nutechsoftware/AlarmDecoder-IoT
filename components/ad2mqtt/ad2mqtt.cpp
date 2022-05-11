@@ -38,12 +38,12 @@ static const char *TAG = "MQTT";
 
 /* Constants that aren't configurable in menuconfig */
 #define MQTT_COMMAND        "mqtt"
-#define MQTT_ENABLE_CFGKEY  "enable"
-#define MQTT_URL_CFGKEY     "url"
-#define MQTT_CMDEN_CFGKEY   "commands"
-#define MQTT_TPREFIX_CFGKEY "tprefix"
-#define MQTT_DPREFIX_CFGKEY "dprefix"
-#define MQTT_SWITCH_CFGKEY  "switch"
+#define MQTT_ENABLE_SUBCMD  "enable"
+#define MQTT_URL_SUBCMD     "url"
+#define MQTT_CMDEN_SUBCMD   "commands"
+#define MQTT_TPREFIX_SUBCMD "tprefix"
+#define MQTT_DPREFIX_SUBCMD "dprefix"
+#define MQTT_SWITCH_SUBCMD  "switch"
 
 #define MQTT_CONFIG_SECTION "mqtt"
 #define MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION "description"
@@ -432,9 +432,9 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     for (auto &sw : mqtt_AD2EventSearches) {
         // Grab the topic using the virtusal switch ID pre saved into INT_ARG
         std::string description = "NA";
-        std::string key = std::string(MQTT_SWITCH_CFGKEY);
+        std::string key = std::string(MQTT_SWITCH_SUBCMD);
         ad2_get_config_key_string(MQTT_CONFIG_SECTION,
-                                  MQTT_SWITCH_CFGKEY,
+                                  MQTT_SWITCH_SUBCMD,
                                   description,
                                   sw->INT_ARG,
                                   MQTT_CONFIG_SWITCH_SUFFIX_DESCRIPTION);
@@ -833,20 +833,20 @@ void on_search_match_cb_mqtt(std::string *msg, AD2PartitionState *s, void *arg)
  * Command support values.
  */
 enum {
-    MQTT_ENABLE_CFGKEY_ID = 0,
-    MQTT_URL_CFGKEY_ID,
-    MQTT_CMDEN_CFGKEY_ID,
-    MQTT_TPREFIX_CFGKEY_ID,
-    MQTT_DPREFIX_CFGKEY_ID,
-    MQTT_SWITCH_CFGKEY_ID
+    MQTT_ENABLE_SUBCMD_ID = 0,
+    MQTT_URL_SUBCMD_ID,
+    MQTT_CMDEN_SUBCMD_ID,
+    MQTT_TPREFIX_SUBCMD_ID,
+    MQTT_DPREFIX_SUBCMD_ID,
+    MQTT_SWITCH_SUBCMD_ID
 };
 char * MQTT_SUBCMD [] = {
-    (char*)MQTT_ENABLE_CFGKEY,
-    (char*)MQTT_URL_CFGKEY,
-    (char*)MQTT_CMDEN_CFGKEY,
-    (char*)MQTT_TPREFIX_CFGKEY,
-    (char*)MQTT_DPREFIX_CFGKEY,
-    (char*)MQTT_SWITCH_CFGKEY,
+    (char*)MQTT_ENABLE_SUBCMD,
+    (char*)MQTT_URL_SUBCMD,
+    (char*)MQTT_CMDEN_SUBCMD,
+    (char*)MQTT_TPREFIX_SUBCMD,
+    (char*)MQTT_DPREFIX_SUBCMD,
+    (char*)MQTT_SWITCH_SUBCMD,
     0 // EOF
 };
 
@@ -949,11 +949,11 @@ static void _cli_cmd_mqtt_command_router(const char *string)
             /**
              * MQTT Enable / Disable
              */
-            case MQTT_ENABLE_CFGKEY_ID:   // 'enable' sub command
+            case MQTT_ENABLE_SUBCMD_ID:   // 'enable' sub command
                 arg = "";
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
                     ad2_set_config_key_bool(
-                        MQTT_CONFIG_SECTION, MQTT_ENABLE_CFGKEY,
+                        MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD,
                         (arg[0] == 'Y' || arg[0] ==  'y')
                     );
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
@@ -961,21 +961,21 @@ static void _cli_cmd_mqtt_command_router(const char *string)
 
                 // show contents of this setting
                 en=false;
-                ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_CFGKEY, &en);
+                ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD, &en);
                 ad2_printf_host(false, "MQTT client is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
                 break;
 
             /**
              * MQTT Broker URL
              */
-            case MQTT_URL_CFGKEY_ID:   // 'url' sub command
+            case MQTT_URL_SUBCMD_ID:   // 'url' sub command
                 // If arg provided then save.
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
-                    ad2_set_config_key_string(MQTT_CONFIG_SECTION, MQTT_URL_CFGKEY, arg.c_str());
+                    ad2_set_config_key_string(MQTT_CONFIG_SECTION, MQTT_URL_SUBCMD, arg.c_str());
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 } else {
                     // show contents of this setting
-                    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_URL_CFGKEY, arg);
+                    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_URL_SUBCMD, arg);
                     ad2_printf_host(false, "MQTT Broker 'url' set to '%s'.\r\n", arg.c_str());
                 }
                 break;
@@ -983,12 +983,12 @@ static void _cli_cmd_mqtt_command_router(const char *string)
             /**
              * MQTT commands enable / disable
              */
-            case MQTT_CMDEN_CFGKEY_ID:   // 'commands' sub command
+            case MQTT_CMDEN_SUBCMD_ID:   // 'commands' sub command
                 arg = "";
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
                     ad2_set_config_key_bool(
                         MQTT_CONFIG_SECTION,
-                        MQTT_CMDEN_CFGKEY,
+                        MQTT_CMDEN_SUBCMD,
                         (arg[0] == 'Y' || arg[0] ==  'y')
                     );
                     if ((arg[0] == 'Y' || arg[0] ==  'y')) {
@@ -999,22 +999,22 @@ static void _cli_cmd_mqtt_command_router(const char *string)
 
                 // show contents of this setting
                 en = false;
-                ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_CFGKEY, &en);
+                ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_SUBCMD, &en);
                 ad2_printf_host(false, "MQTT command subscription is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
                 break;
 
             /**
              * MQTT topic tprefix
              */
-            case MQTT_TPREFIX_CFGKEY_ID:   // 'tprefix' sub command
+            case MQTT_TPREFIX_SUBCMD_ID:   // 'tprefix' sub command
                 // If arg provided then save.
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_remove_ws(arg);
-                    ad2_set_config_key_string(MQTT_CONFIG_SECTION, MQTT_TPREFIX_CFGKEY, arg.c_str());
+                    ad2_set_config_key_string(MQTT_CONFIG_SECTION, MQTT_TPREFIX_SUBCMD, arg.c_str());
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 } else {
                     // show contents of this setting
-                    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_TPREFIX_CFGKEY, arg);
+                    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_TPREFIX_SUBCMD, arg);
                     ad2_printf_host(false, "MQTT topic prefix set to '%s'.\r\n", arg.c_str());
                 }
                 break;
@@ -1022,15 +1022,15 @@ static void _cli_cmd_mqtt_command_router(const char *string)
             /**
              * MQTT auto discovery topic prefix
              */
-            case MQTT_DPREFIX_CFGKEY_ID:   // 'dprefix' sub command
+            case MQTT_DPREFIX_SUBCMD_ID:   // 'dprefix' sub command
                 // If arg provided then save.
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_remove_ws(arg);
-                    ad2_set_config_key_string(MQTT_CONFIG_SECTION, MQTT_DPREFIX_CFGKEY, arg.c_str());
+                    ad2_set_config_key_string(MQTT_CONFIG_SECTION, MQTT_DPREFIX_SUBCMD, arg.c_str());
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 } else {
                     // show contents of this setting
-                    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_DPREFIX_CFGKEY, arg);
+                    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_DPREFIX_SUBCMD, arg);
                     ad2_printf_host(false, "MQTT discovery topic prefix set to '%s'.\r\n", arg.c_str());
                 }
                 break;
@@ -1038,7 +1038,7 @@ static void _cli_cmd_mqtt_command_router(const char *string)
             /**
              * MQTT Virtual switch command
              */
-            case MQTT_SWITCH_CFGKEY_ID:
+            case MQTT_SWITCH_SUBCMD_ID:
                 _cli_cmd_mqtt_smart_alert_switch(subcmd, string);
                 break;
 
@@ -1054,44 +1054,30 @@ static void _cli_cmd_mqtt_command_router(const char *string)
  */
 static struct cli_command mqtt_cmd_list[] = {
     {
+        // ### MQTT notification component
         (char*)MQTT_COMMAND,(char*)
-        "#### Configuration for MQTT message notifications\r\n"
-        "- Publishes the partition state using the following topic pattern.\r\n"
-        "  - ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/Y\r\n"
-        "  - X: The unique id using the ESP32 WiFi mac address.\r\n"
-        "  - Y: The partition ID 1-9 or a Virtual switch sub topic.\r\n"
-        "- [" MQTT_ENABLE_CFGKEY "] Enable / Disable MQTT client\r\n"
-        "  -  {arg1}: [Y]es [N]o\r\n"
-        "    - [N] Default state\r\n"
-        "  - Example: ```" MQTT_COMMAND " " MQTT_ENABLE_CFGKEY " Y```\r\n"
-        "- [" MQTT_URL_CFGKEY "] Sets the URL to the MQTT broker.\r\n"
-        "  - ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " {url}```\r\n"
-        "    - {url}: MQTT broker URL.\r\n"
-        "  - Example: ```" MQTT_COMMAND " " MQTT_URL_CFGKEY " mqtt://user@pass:mqtt.example.com```\r\n"
-        "- [" MQTT_TPREFIX_CFGKEY "] Set prefix to be used on all topics.\r\n"
-        "  - ```" MQTT_COMMAND " " MQTT_TPREFIX_CFGKEY " {prefix}```\r\n"
-        "  -  {prefix}: Topic prefix.\r\n"
-        "  - Example: ```" MQTT_COMMAND " " MQTT_TPREFIX_CFGKEY " somepath```\r\n"
-        "- [" MQTT_CMDEN_CFGKEY "] Enable/Disable command subscription. Do not enable on public MQTT servers!\r\n"
-        "  - ```" MQTT_COMMAND " " MQTT_CMDEN_CFGKEY " [Y/N]```\r\n"
-        "  -  {arg1}: [Y]es [N]o\r\n"
-        "  - Example: ```" MQTT_COMMAND " " MQTT_CMDEN_CFGKEY " Y```\r\n"
-        "- [" MQTT_DPREFIX_CFGKEY "] Auto discovery prefix for topic to publish config documents.\r\n"
-        "  - ```" MQTT_COMMAND " " MQTT_DPREFIX_CFGKEY " {prefix}```\r\n"
-        "  -  {prefix}: MQTT auto discovery topic root.\r\n"
-        "  - Example: ```" MQTT_COMMAND " " MQTT_DPREFIX_CFGKEY " homeassistant```\r\n"
-        "- Enable notification and set configuration settings for an existing  ```switch```.\r\n"
-        "  - ```" MQTT_COMMAND " " MQTT_SWITCH_CFGKEY " {id} {setting} {arg1} [arg2]```\r\n"
-        "    - {id}\r\n"
-        "      - 1-255 : Existing switch ID defined using the ```switch``` command.\r\n"
-        "        - full topic will be ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/{id}\r\n"
-        "    - {setting}\r\n"
-        "      - [-] Delete switch\r\n"
-        "      - [description] Device discovery json string\r\n"
-        "        -  Example: {\"description\": \"\"}\r\n"
-        "      - [open] Open output format string.\r\n"
-        "      - [close] Close output format string.\r\n"
-        "      - [trouble] Trouble output format string.\r\n\r\n", _cli_cmd_mqtt_command_router
+        "Usage: mqtt (enable|url|commands|tprefix|dprefix) [<arg>]\r\n"
+        "Usage: mqtt switch <swid> [delete|-|open|close|trouble] [<arg>]\r\n"
+        "\r\n"
+        "    Configuration tool for Pushover.net notification\r\n"
+        "Commands:\r\n"
+        "    enable [Y|N]            Component enable flag\r\n"
+        "    url [url]               MQTT URL string\r\n"
+        "    commands [Y|N]          Remote command enable flag\r\n"
+        "    tprefix [path]          Topic prefix\r\n"
+        "    dprefix [path]          Discovery prefix\r\n"
+        "    switch swid SCMD [ARG]  Configure virtual switches\r\n"
+        "Sub-Commands:\r\n"
+        "    delete | -              Clear switch notification settings\r\n"
+        "    notify <acid>           Account storage [1-8] for notifications\r\n"
+        "    open <message>          Send <message> for OPEN events\r\n"
+        "    close <message>         Send <message> for CLOSE events\r\n"
+        "    trouble <message>       Send <message> for TROUBLE events\r\n"
+        "Options:\r\n"
+        "    swid                    ad2iot virtual switch ID 1-255.\r\n"
+        "                            See ```switch``` command\r\n"
+        "    message                 Message to send for this notification\r\n"
+        ,_cli_cmd_mqtt_command_router
     },
 };
 
@@ -1118,7 +1104,7 @@ void mqtt_init()
     }
 
     bool en = false;
-    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_CFGKEY, &en);
+    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD, &en);
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!en) {
@@ -1136,7 +1122,7 @@ void mqtt_init()
 #endif
 
     // load commands subscription enable/disable setting
-    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_CFGKEY, &commands_enabled);
+    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_SUBCMD, &commands_enabled);
 
     // generate our client's unique user id. UUID.
     ad2_genUUID(0x10, mqttclient_UUID);
@@ -1146,14 +1132,14 @@ void mqtt_init()
     esp_err_t err;
 
     // load topic prefix setting
-    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_TPREFIX_CFGKEY, mqttclient_TPREFIX);
+    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_TPREFIX_SUBCMD, mqttclient_TPREFIX);
     if (mqttclient_TPREFIX.length()) {
         // add a slash
         mqttclient_TPREFIX += "/";
     }
 
     // load discovery topic prefix setting
-    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_DPREFIX_CFGKEY, mqttclient_DPREFIX);
+    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_DPREFIX_SUBCMD, mqttclient_DPREFIX);
     if (mqttclient_DPREFIX.length()) {
         // add a slash
         mqttclient_DPREFIX += "/";
@@ -1161,7 +1147,7 @@ void mqtt_init()
 
     // load and parse the Broker URL if set.
     std::string brokerURL;
-    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_URL_CFGKEY, brokerURL);
+    ad2_get_config_key_string(MQTT_CONFIG_SECTION, MQTT_URL_SUBCMD, brokerURL);
     if (!brokerURL.length()) {
         // set default
         brokerURL = EXAMPLE_BROKER_URI;

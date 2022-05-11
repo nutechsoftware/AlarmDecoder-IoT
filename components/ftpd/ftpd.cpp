@@ -1648,7 +1648,7 @@ void FTPD::start()
 }
 
 /**
- * @brief Wait for a new client to connect.
+ * @brief BLOCKING Wait for a new client to connect.
  * @return socket
  */
 int FTPD::waitForFTPClient()
@@ -1789,18 +1789,17 @@ void ftp_daemon_task(void *pvParameters)
 static struct cli_command ftpd_cmd_list[] = {
     {
         (char*)FTPD_COMMAND,(char*)
-        "####  Configuration for ftp server\r\n"
-        "- ```" FTPD_COMMAND " {sub command} {arg}```\r\n"
-        "  - {sub command}\r\n"
-        "    - [" FTPD_SUBCMD_ENABLE "] Enable / Disable ftp daemon\r\n"
-        "      -  {arg1}: [Y]es [N]o\r\n"
-        "        - [N] Default state\r\n"
-        "        - Example: ```" FTPD_COMMAND " " FTPD_SUBCMD_ENABLE " Y```\r\n"
-        "    - [" FTPD_SUBCMD_ACL "] Set / Get ACL list\r\n"
-        "      - {arg1}: ACL LIST\r\n"
-        "      -  String of CIDR values separated by commas.\r\n"
-        "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: ```" FTPD_COMMAND " " FTPD_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n\r\n", _cli_cmd_ftpd_event
+        "Usage: ftpd <command> [arg]\r\n"
+        "\r\n"
+        "    Configuration tool for FTP server\r\n"
+        "Commands:\r\n"
+        "    enable [Y|N]            Set or get enable flag\r\n"
+        "    acl [aclString|-]       Set or get ACL CIDR CSV list\r\n"
+        "                            use - to delete\r\n"
+        "Examples:\r\n"
+        "    ```ftpd enable Y```\r\n"
+        "    ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n"
+        , _cli_cmd_ftpd_event
     }
 };
 

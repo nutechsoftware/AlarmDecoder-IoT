@@ -43,9 +43,9 @@ static const char *TAG = "PUSHOVER";
 const char PUSHOVER_URL[] = "https://api.pushover.net/" PUSHOVER_API_VERSION "/messages.json";
 
 #define PUSHOVER_COMMAND        "pushover"
-#define PUSHOVER_TOKEN_CFGKEY   "apptoken"
-#define PUSHOVER_USERKEY_CFGKEY "userkey"
-#define PUSHOVER_SWITCH_CFGKEY  "switch"
+#define PUSHOVER_TOKEN_SUBCMD   "apptoken"
+#define PUSHOVER_USERKEY_SUBCMD "userkey"
+#define PUSHOVER_SWITCH_SUBCMD  "switch"
 
 #define PUSHOVER_CONFIG_SECTION "pushover"
 
@@ -225,10 +225,10 @@ void on_search_match_cb_po(std::string *msg, AD2PartitionState *s, void *arg)
 
         // load our settings for this event type.
         // get the user key
-        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_USERKEY_CFGKEY, r->userkey, notify_slot);
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_USERKEY_SUBCMD, r->userkey, notify_slot);
 
         // get the token
-        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_TOKEN_CFGKEY, r->token, notify_slot);
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_TOKEN_SUBCMD, r->token, notify_slot);
 
         // save the message
         r->message = es->out_message;
@@ -261,14 +261,14 @@ void on_search_match_cb_po(std::string *msg, AD2PartitionState *s, void *arg)
  * Command support values.
  */
 enum {
-    PUSHOVER_TOKEN_CFGKEY_ID = 0,
-    PUSHOVER_USERKEY_CFGKEY_ID,
-    PUSHOVER_SWITCH_CFGKEY_ID
+    PUSHOVER_TOKEN_SUBCMD_ID = 0,
+    PUSHOVER_USERKEY_SUBCMD_ID,
+    PUSHOVER_SWITCH_SUBCMD_ID
 };
 char * PUSHOVER_SUBCMD [] = {
-    (char*)PUSHOVER_TOKEN_CFGKEY,
-    (char*)PUSHOVER_USERKEY_CFGKEY,
-    (char*)PUSHOVER_SWITCH_CFGKEY,
+    (char*)PUSHOVER_TOKEN_SUBCMD,
+    (char*)PUSHOVER_USERKEY_SUBCMD,
+    (char*)PUSHOVER_SWITCH_SUBCMD,
     0 // EOF
 };
 
@@ -294,14 +294,14 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *str
     if (accountId > 0 && accountId < 9) {
         if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
             ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
-            ad2_printf_host(false, "Setting <accountId> #%02i '%s' value finished.\r\n", accountId, subcmd.c_str());
+            ad2_printf_host(false, "Setting <acid> #%02i '%s' value finished.\r\n", accountId, subcmd.c_str());
         } else {
             buf = "";
             ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf, accountId);
-            ad2_printf_host(false, "Current <accountId> #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
+            ad2_printf_host(false, "Current <acid> #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
-        ad2_printf_host(false, "Missing or invalid <accountId> [1-8].\r\n");
+        ad2_printf_host(false, "Missing or invalid <acid> [1-8].\r\n");
     }
 }
 
@@ -402,11 +402,11 @@ static void _cli_cmd_pushover_command_router(const char *string)
         }
         if(subcmd.compare(PUSHOVER_SUBCMD[i]) == 0) {
             switch(i) {
-            case PUSHOVER_TOKEN_CFGKEY_ID:   // 'apptoken' sub command
-            case PUSHOVER_USERKEY_CFGKEY_ID: // 'userkey' sub command
+            case PUSHOVER_TOKEN_SUBCMD_ID:   // 'apptoken' sub command
+            case PUSHOVER_USERKEY_SUBCMD_ID: // 'userkey' sub command
                 _cli_cmd_pushover_event_generic(subcmd, string);
                 break;
-            case PUSHOVER_SWITCH_CFGKEY_ID:
+            case PUSHOVER_SWITCH_SUBCMD_ID:
                 _cli_cmd_pushover_smart_alert_switch(subcmd, string);
                 break;
             }
@@ -424,24 +424,25 @@ static struct cli_command pushover_cmd_list[] = {
     {
         // ### Pushover.net notification component
         (char*)PUSHOVER_COMMAND,(char*)
-        "Usage: " PUSHOVER_COMMAND " (" PUSHOVER_TOKEN_CFGKEY "|" PUSHOVER_USERKEY_CFGKEY ") <accountId> [<arg>]\r\n"
-        "Usage: " PUSHOVER_COMMAND " " PUSHOVER_SWITCH_CFGKEY " <switchId> [delete|-|notify|open|close|trouble] [<arg>]\r\n"
+        "Usage: pushover (apptoken|userkey) <acid> [<arg>]\r\n"
+        "Usage: pushover switch <swid> [delete|-|notify|open|close|trouble] [<arg>]\r\n"
         "\r\n"
         "    Configuration tool for Pushover.net notification\r\n"
         "Commands:\r\n"
-        "    " PUSHOVER_TOKEN_CFGKEY " ID [HASH]        Application token/key HASH\r\n"
-        "    " PUSHOVER_USERKEY_CFGKEY " ID [HASH]         User Auth Token HASH\r\n"
-        "    " PUSHOVER_SWITCH_CFGKEY " ID SUBCMD [ARG]    Configure virtual switches\r\n"
+        "    apptoken acid [hash]    Application token/key HASH\r\n"
+        "    userkey acid [hash]     User Auth Token HASH\r\n"
+        "    switch swid SCMD [ARG]  Configure virtual switches\r\n"
         "Sub-Commands:\r\n"
-        "      delete | -              Clear switch notification settings\r\n"
-        "      notify <accountId>      Account[1-8] to use for notifications\r\n"
-        "      open <message>          Send <message> for OPEN events\r\n"
-        "      close <message>         Send <message> for CLOSE events\r\n"
-        "      trouble <message>       Send <message> for TROUBLE events\r\n"
+        "    delete | -              Clear switch notification settings\r\n"
+        "    notify <acid>           Account storage [1-8] for notifications\r\n"
+        "    open <message>          Send <message> for OPEN events\r\n"
+        "    close <message>         Send <message> for CLOSE events\r\n"
+        "    trouble <message>       Send <message> for TROUBLE events\r\n"
         "Options:\r\n"
-        "    <accountId> Account 1-8\r\n"
-        "    <switchId>  ad2iot virtual switch ID 1-255. See ```switch``` command\r\n"
-        "    <message>   Message to send for this notification\r\n"
+        "    acid                    Account storage location 1-8\r\n"
+        "    swid                    ad2iot virtual switch ID 1-255.\r\n"
+        "                            See ```switch``` command\r\n"
+        "    message                 Message to send for this notification\r\n"
         , _cli_cmd_pushover_command_router
     },
 };
@@ -463,7 +464,7 @@ void pushover_register_cmds()
 void pushover_init()
 {
     // Register search based virtual switches with the AlarmDecoderParser.
-    //std::string key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_SAS_CFGKEY);
+    //std::string key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_SAS_SUBCMD);
     int subscribers = 0;
 #if 0 // FIXME
     for (int i = 1; i < AD2_MAX_SWITCHES; i++) {
