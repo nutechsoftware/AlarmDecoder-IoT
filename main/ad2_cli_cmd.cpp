@@ -132,37 +132,38 @@ static void _cli_cmd_code_event(const char *string)
  *
  * @param [in]string command buffer pointer.
  *
- * @note command: part <slot> <address> <zone list>
- *   Valid slots are from 0 to AD2_MAX_PARTITION
- *   where slot 0 is the default.
+ * @note command: partition <slot> <address> <zone list>
+ *   Valid slots are from 1 to AD2_MAX_PARTITION
+ *   where slot 1 is the default.
  *
  *   example.
- *     AD2IOT # part 0 18 2,3,4,5
- *     AD2IOT # part 1 19 6,7
+ *     AD2IOT # partition 1 18 2,3,4,5
+ *     AD2IOT # partition 2 19 6,7
  *
  */
 static void _cli_cmd_part_event(const char *string)
 {
     std::string buf;
-    int part = 0;
+    int partId = 0;
     int address = 0;
 
     if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
-        part = strtol(buf.c_str(), NULL, 10);
+        partId = strtol(buf.c_str(), NULL, 10);
     }
 
-    if (part >= 1 && part <= AD2_MAX_PARTITION) {
-        std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(part);
+    if (partId >= 1 && partId <= AD2_MAX_PARTITION) {
+        std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
                 ad2_set_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, address);
+                buf = ""; // clear temp buf first
                 ad2_copy_nth_arg(buf, string, 3, true);
                 ad2_set_config_key_string(_section.c_str(), PART_CONFIG_ZONES, buf.c_str());
-                ad2_printf_host(false, "Setting partition %i to address '%i' with zone list '%s'.\r\n", part, address, buf.c_str());
+                ad2_printf_host(false, "Setting partition %i to address '%i' with zone list '%s'.\r\n", partId, address, buf.c_str());
             } else {
                 // delete entry
-                ad2_printf_host(false, "Deleting partition %i...\r\n", part);
+                ad2_printf_host(false, "Deleting partition %i...\r\n", partId);
                 ad2_set_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, 0, -1, NULL, true);
                 ad2_set_config_key_string(_section.c_str(), PART_CONFIG_ZONES, nullptr, -1, NULL, true);
             }
@@ -170,7 +171,7 @@ static void _cli_cmd_part_event(const char *string)
             // show contents of this partition
             ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
             ad2_get_config_key_string(_section.c_str(), PART_CONFIG_ZONES, buf);
-            ad2_printf_host(false, "The partition %i uses address %i with a zone list of '%s'\r\n", part, address, buf.c_str());
+            ad2_printf_host(false, "The partition %i uses address %i with a zone list of '%s'\r\n", partId, address, buf.c_str());
         }
     } else {
         ad2_printf_host(false, "Missing or invalid <partId> [1-%i].\r\n", AD2_MAX_PARTITION);
@@ -704,7 +705,7 @@ static struct cli_command cmd_list[] = {
     },
     {
         (char*)AD2_CMD_PART,(char*)
-        "Usage: part [(<partId> <address>) [zoneList]]"
+        "Usage: partition [(<partId> <address>) [zoneList]]"
         "\r\n"
         "    Configuration tool for alarm panel partitions\r\n"
         "\r\n"
@@ -730,13 +731,13 @@ static struct cli_command cmd_list[] = {
         "    zoneList                Optional Comma separated zone list for this partition\r\n"
         "Examples:\r\n"
         "    Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.\r\n"
-        "      ```part 0 18 2,3,4```\r\n"
+        "      ```partition 0 18 2,3,4```\r\n"
         "    Set default send partition Id to 1 for a DSC system.\r\n"
-        "      ```part 0 1```\r\n"
+        "      ```partition 0 1```\r\n"
         "    Show address for partition Id 2.\r\n"
-        "      ```part 2```\r\n"
+        "      ```partition 2```\r\n"
         "    Remove partition Id 2.\r\n"
-        "      ```part 2 -```\r\n"
+        "      ```partition 2 -```\r\n"
         "        Note: address - will remove an entry.\r\n"
         , _cli_cmd_part_event
     },

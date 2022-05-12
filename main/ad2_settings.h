@@ -53,10 +53,10 @@
 #define AD2_MAX_SWITCH_SEARCH_KEYS 9
 
 // @brief Default code to use if none specified
-#define AD2_DEFAULT_CODE_SLOT 0
+#define AD2_DEFAULT_CODE_SLOT 1
 
 // @brief Default Address to use if none specified
-#define AD2_DEFAULT_VPA_SLOT  0
+#define AD2_DEFAULT_VPA_SLOT  1
 
 // @brief Max connection mode string argument size(host:port|UART#)
 #define AD2_MAX_MODE_ARG_SIZE 80
@@ -65,7 +65,7 @@
 #define AD2MAIN_CONFIG_SECTION ""
 
 // @brief partition config section
-#define AD2PART_CONFIG_SECTION "part"
+#define AD2PART_CONFIG_SECTION "partition"
 #define PART_CONFIG_ADDRESS "address"
 #define PART_CONFIG_ZONES "zones"
 

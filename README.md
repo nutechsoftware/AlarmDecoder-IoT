@@ -119,9 +119,9 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password.
       - ```netmode E mode=d```
     - Configure the default partition address and zones in slot 0. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
-      - ```part 0 18 2,3,4,5```
+      - ```partition 0 18 2,3,4,5```
     - Define any additional partitions.
-      - ```part 1 22 6,7,9```
+      - ```partition 1 22 6,7,9```
     - Set a default code in slot ```0``` to ARM/DISARM etc a partition.
       - ```code 0 4112```
     - Enable webui daemon and configure the ACL.
@@ -136,7 +136,7 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
     - Disable networking to allow the SmartThings driver to manage the network hardware and allow adopting over 802.11 b/g/n 2.4ghz Wi-Fi.
       - ```netmode N```
     - Configure the default partition in slot 0 for the partition to connect to the SmartThings app.
-      - ```part 0 18```
+      - ```partition 0 18```
     - Enable the SmartThings driver.
       - ```stenable Y```
     - Restart for these changes to take effect.
@@ -261,9 +261,9 @@ Usage: ad2term [reset]
 Options:
       reset                Send hardware reboot to AD2pHat
 ```
-- part
+- partition
 ```console
-Usage: part [(<partId> <address>) [zoneList]]
+Usage: partition [(<partId> <address>) [zoneList]]
     Configuration tool for alarm panel partitions
 
     The AD2IoT and the attached AD2pHAT need information about the alarm system to
@@ -288,13 +288,13 @@ Options:
     zoneList                Optional Comma separated zone list for this partition
 Examples:
     Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.
-      ```part 0 18 2,3,4```
+      ```partition 0 18 2,3,4```
     Set default send partition Id to 1 for a DSC system.
-      ```part 0 1```
+      ```partition 0 1```
     Show address for partition Id 2.
-      ```part 2```
+      ```partition 2```
     Remove partition Id 2.
-      ```part 2 -```
+      ```partition 2 -```
         Note: address - will remove an entry.
 ```
 - zone
@@ -584,10 +584,10 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
   - Zone states by Zone ID(NNN) are under the ```zones``` below the device root topic.
     - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
   - Remote ```commands``` subscription. If enabled the device will subscribe to ```commands``` below the device root topic. Warning! Only enable if on a secure broker as codes will be visible to subscribers.
-    - Publish JSON template ```{ "part": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"part": 0, "action": "DISARM", "code": "1234"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"part": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"part": 0, "action": "FIRE_ALARM"}```
+    - Publish JSON template ```{ "partition": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 0, "action": "DISARM", "code": "1234"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 0, "action": "FIRE_ALARM"}```
   - Contact ID reporting if found will be published to ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/cid```
     - Example: ```{ "event_message": "!LRR:002,1,CID_3441,ff"}```
 
@@ -753,8 +753,8 @@ I (504) !IOT: Starting AlarmDecoder AD2IoT network appliance version (AD2IOT-109
 !IOT: N (517) ESP32 with 2 CPU cores, WiFi/BT/BLE, silicon revision 1, 4MB external flash
 !IOT: N (527) Initialize NVS subsystem start. Done.
 !IOT: N (547) NVS usage 17.51%. Count: UsedEntries = (331), FreeEntries = (1559), AllEntries = (1890)
-!IOT: N (547) init part slot 0 address 18 zones '2,5'
-!IOT: N (557) init part slot 1 address 23 zones '3,6'
+!IOT: N (547) init partition slot 0 address 18 zones '2,5'
+!IOT: N (557) init partition slot 1 address 23 zones '3,6'
 !IOT: N (607) Mounting uSD card PASS.
 !IOT: N (667) Initialize AD2 UART client using txpin(4) rxpin(36)
 !IOT: N (667) Send '.' three times in the next 5 seconds to stop the init.
@@ -794,7 +794,7 @@ AD2IOT # help
 
 Available AD2IoT terminal commands
   [ser2sockd, twilio, pushover, webui, mqtt, ftpd,
-   restart, netmode, switch, zone, code, part,
+   restart, netmode, switch, zone, code, partition,
    ad2source, ad2term, logmode, factory-reset, help, upgrade,
    version]
 

@@ -697,8 +697,8 @@ void app_main()
 
     // init the partition database from config storage
     // see ad2_cli_cmd::part
-    // partition 0 is the default partition for some notifications.
-    for (int n = 0; n <= AD2_MAX_PARTITION; n++) {
+    // partition 1 is the default partition for some notifications.
+    for (int n = 1; n <= AD2_MAX_PARTITION; n++) {
         int x = -1;
         std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(n);
         ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &x);
@@ -720,7 +720,7 @@ void app_main()
                     s->zone_list.push_front((uint8_t)z & 0xff);
                 }
             }
-            ad2_printf_host(true, "%s: init part slot %i address %i zones '%s'", TAG, n, x, zlist.c_str());
+            ad2_printf_host(true, "%s: init partition slot %i address %i zones '%s'", TAG, n, x, zlist.c_str());
         }
     }
     // Load Zone config "description" json string parse and save to AD2Parse class.

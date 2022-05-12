@@ -1460,7 +1460,7 @@ void refresh_cmd_cb(IOT_CAP_HANDLE *handle,
         on_exit_now_change_cb(&statestr, s, nullptr);
 
     } else {
-        ESP_LOGE(TAG, "part[%u] not found or not received first message.", AD2_DEFAULT_VPA_SLOT);
+        ESP_LOGE(TAG, "partition[%u] not found or not received first message.", AD2_DEFAULT_VPA_SLOT);
     }
 }
 

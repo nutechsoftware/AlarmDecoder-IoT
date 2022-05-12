@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Change short verb 'part' to full word 'partition'. I will look at adding short verbs or partial matching later but I need it to default to full words to keep it simple and clear.
 - [X] CORE: Remove more references to 0 index. Humans...
 - [X] CORE: Help refactoring to make more realistic shell interface.
 - [X] PUSHOVER: Help syntax refactor.

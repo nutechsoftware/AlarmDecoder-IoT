@@ -8,7 +8,7 @@ Copy the contents of flash-drive folder into the root directory of a uSD flash d
 To access the web interface connect to the IP address or host name of the ESP32-POE-ISO board that is configured with the 'webui' build of the AD2IoT firmware.
 ## Arguments
 - codeID : The codeid slot to use on the AD2IoT for arming etc.
-- partID : The part slot to use for this virtual keypad. If part is configured for address 18 then this virtual keypad will show that keypads partition state.
+- partID : The partition slot to use for this virtual keypad. If partition is configured for address 18 then this virtual keypad will show that keypads partition state.
 - wsHost : To allow for easy development you can access the app.html using the browser file:///~/AlarmDecoder-IoT/contrib/webUI/flash-drive/app.html?partID=0&codeID=0&wsHost=192.168.0.20 so the websocket connection will be to the ESP32-POE-ISO board but html content from a local filesystem.
 
 ## Examples

@@ -203,6 +203,7 @@ void mqtt_send_partition_config(AD2PartitionState *s)
     topic += mqttclient_UUID;
 
     // alarm_control_panel
+    std::string command_template = ad2_string_printf("{ \"partition\": %i, \"action\": \"{{ action }}\", \"code\": \"{{ code }}\"}", s->partition);
     std::string uuid_prefix = NAME_PREFIX;
     uuid_prefix += "(";
     uuid_prefix += mqttclient_UUID.substr(mqttclient_UUID.size() - 4);
@@ -214,7 +215,7 @@ void mqtt_send_partition_config(AD2PartitionState *s)
             { "state_topic", topic+"/partitions/"+szpid },
             { "value_template", "{% if value_json.alarm_sounding == true or value_json.alarm_event_occurred == true %}triggered{% elif value_json.armed_stay == true %}{% if value_json.entry_delay_off == true %}armed_night{% else %}armed_home{% endif %}{% elif value_json.armed_away == true %}{% if value_json.entry_delay_off == true %}armed_vacation{% elif value_json.entry_delay_off == false %}armed_away{% endif %}{% else %}disarmed{% endif %}" },
             { "command_topic", topic+"/commands"},
-            { "command_template", "{ \"part\": 0, \"action\": \"{{ action }}\", \"code\": \"{{ code }}\"}"},
+            { "command_template", command_template.c_str()},
             { "availability_topic", topic+"/status"},
             { "code", "REMOTE_CODE"},
             { "payload_arm_home", "ARM_STAY"},
@@ -415,8 +416,8 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
     });
 
     // Publish panel config info for home assistant or others for discovery
-    // for each partition that is configured with 'part' command.
-    for (int n = 0; n <= AD2_MAX_PARTITION; n++) {
+    // for each partition that is configured with 'partition' command.
+    for (int n = 1; n <= AD2_MAX_PARTITION; n++) {
         AD2PartitionState *s = ad2_get_partition_state(n);
         if (s) {
             mqtt_send_partition_config(s);
@@ -547,7 +548,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                         std::string command( event_data->data, event_data->data_len );
                         // grab the json buffer
                         // {
-                        //   part: {{ number partition ID see ```part``` command. }},
+                        //   partition: {{ number partition ID see ```partition``` command. }},
                         //   code: '{{ string code }}',
                         //   action: '{{ string action }}',
                         //   arg: '{{ string argument }}'
@@ -558,18 +559,18 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                             cJSON *ocode = NULL;
                             cJSON *oaction = NULL;
                             cJSON *oarg = NULL;
-                            opart = cJSON_GetObjectItemCaseSensitive(root, "part");
+                            opart = cJSON_GetObjectItemCaseSensitive(root, "partition");
                             ocode = cJSON_GetObjectItemCaseSensitive(root, "code");
                             oaction = cJSON_GetObjectItemCaseSensitive(root, "action");
                             oarg = cJSON_GetObjectItemCaseSensitive(root, "arg");
 
-                            int part = 0; // default partition
+                            int partId = 1; // default partition
                             std::string code = "";
                             std::string action = "";
                             std::string arg = "";
 
                             if ( cJSON_IsNumber(opart) ) {
-                                part = opart->valuedouble;
+                                partId = opart->valuedouble;
                             }
                             if ( cJSON_IsString(ocode) ) {
                                 code = ocode->valuestring;
@@ -581,26 +582,26 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                                 arg = oarg->valuestring;
                             }
 
-                            ESP_LOGI(TAG, "part: %i, code: '%s', action: %s, arg: %s", part, code.c_str(), action.c_str(), arg.c_str());
+                            ESP_LOGI(TAG, "partition: %i, code: '%s', action: %s, arg: %s", partId, code.c_str(), action.c_str(), arg.c_str());
 
                             if ( action.compare("DISARM") == 0 ) {
-                                ad2_disarm(code, part);
+                                ad2_disarm(code, partId);
                             } else if ( action.compare("ARM_STAY") == 0 ) {
-                                ad2_arm_stay(code, part);
+                                ad2_arm_stay(code, partId);
                             } else if ( action.compare("ARM_AWAY") == 0 ) {
-                                ad2_arm_away(code, part);
+                                ad2_arm_away(code, partId);
                             } else if ( action.compare("EXIT") == 0 ) {
-                                ad2_exit_now(part);
+                                ad2_exit_now(partId);
                             } else if ( action.compare("CHIME_TOGGLE") == 0 ) {
-                                ad2_chime_toggle(code, part);
+                                ad2_chime_toggle(code, partId);
                             } else if ( action.compare("AUX_ALARM") == 0 ) {
-                                ad2_aux_alarm(part);
+                                ad2_aux_alarm(partId);
                             } else if ( action.compare("PANIC_ALARM") == 0 ) {
-                                ad2_panic_alarm(part);
+                                ad2_panic_alarm(partId);
                             } else if ( action.compare("FIRE_ALARM") == 0 ) {
-                                ad2_fire_alarm(part);
+                                ad2_fire_alarm(partId);
                             } else if ( action.compare("BYPASS") == 0 ) {
-                                ad2_bypass_zone(code, part, std::atoi(arg.c_str()));
+                                ad2_bypass_zone(code, partId, std::atoi(arg.c_str()));
                             } else if ( action.compare("SEND_RAW") == 0 ) {
                                 ad2_send(arg);
                             } else if ( action.compare("FW_UPDATE") == 0 ) {

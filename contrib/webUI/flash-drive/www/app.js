@@ -2,7 +2,7 @@ var panel_states =  {
   "unknown":{
     "status_class": "not_ready",
     "icon_class": "icon house with_key",
-    "label":"No partition state found. partID not found on AD2IoT check part config settings.",
+    "label":"No partition state found. partID not found on AD2IoT check partition config settings.",
     "b1_label": "Unknown",
     "b2_label": "Unknown"
   },
@@ -392,7 +392,7 @@ function getQueryStringParameterByName(name, url = window.location.href) {
 }
 
 /**
- * Use commands 'part' and 'code' to configure the virtual keypad and code slot.
+ * Use commands 'partition' and 'code' to configure the virtual keypad and code slot.
  *  https://github.com/nutechsoftware/AlarmDecoder-IoT#base-commands
  */
 var partID = 0; var codeID = 0;
@@ -421,7 +421,7 @@ if( (szvalue = getQueryStringParameterByName("wsHost")) === null ) {
   wsHost = szvalue;
 };
 
-console.info("Starting the AD2IoT Virtual Keypad using part id: "+ partID + " and code id: " + codeID);
+console.info("Starting the AD2IoT Virtual Keypad using partition id: "+ partID + " and code id: " + codeID);
 /* Initialize the AD2ws class for the address */
 let ad2ws = new AD2ws(partID, codeID, wsHost);
 

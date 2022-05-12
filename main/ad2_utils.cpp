@@ -967,7 +967,7 @@ void ad2_arm_away(std::string &code, int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1026,7 +1026,7 @@ void ad2_arm_stay(std::string &code, int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1083,7 +1083,7 @@ void ad2_disarm(std::string &code, int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1145,7 +1145,7 @@ void ad2_chime_toggle(std::string &code, int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1203,7 +1203,7 @@ void ad2_fire_alarm(int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1235,7 +1235,7 @@ void ad2_panic_alarm(int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1267,7 +1267,7 @@ void ad2_aux_alarm(int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1299,7 +1299,7 @@ void ad2_exit_now(int partId)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
@@ -1339,7 +1339,7 @@ void ad2_bypass_zone(std::string &code, int partId, uint8_t zone)
     std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
     ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    // @brief get the part state
+    // @brief get the partition state
     AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {

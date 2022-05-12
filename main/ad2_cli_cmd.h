@@ -29,7 +29,7 @@
 #define AD2_CMD_SWITCH   "switch"
 #define AD2_CMD_ZONE     "zone"
 #define AD2_CMD_CODE     "code"
-#define AD2_CMD_PART     "part"
+#define AD2_CMD_PART     "partition"
 #define AD2_CMD_SOURCE   "ad2source"
 #define AD2_CMD_TERM     "ad2term"
 #define AD2_CMD_LOGMODE  "logmode"
