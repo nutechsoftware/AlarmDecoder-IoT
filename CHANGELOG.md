@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
+- [X] API: Modify getZoneType and getZoneString to return bool to detect if a zone has settings.
+- [X] MQTT: Send zone descriptions for all [ZONE N] entries instead of looking at partition zones list.
+- [X] CORE: MAX sockets error during testing. Increase LWIP MAX sockets from 10 to 16.
 - [X] CORE: Change short verb 'part' to full word 'partition'. I will look at adding short verbs or partial matching later but I need it to default to full words to keep it simple and clear.
 - [X] CORE: Remove more references to 0 index. Humans...
 - [X] CORE: Help refactoring to make more realistic shell interface.
