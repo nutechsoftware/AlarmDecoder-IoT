@@ -295,7 +295,7 @@ void mqtt_send_fw_version(const char *available_version)
 }
 
 /**
- * @brief helper to send config json for every partition zones.
+ * @brief helper to send config json for every configured [zone N].
  *
  * TODO: This and other mqtt_client_enqueue calls will stack up
  * a lot of memory for larger systems. This should instead be
@@ -303,28 +303,27 @@ void mqtt_send_fw_version(const char *available_version)
  * as resources are available. In this design it saves all of the
  * JSON data and more for each enqueue.
  */
-void mqtt_send_partition_zone_configs(AD2PartitionState *s)
+void mqtt_send_configured_zone_configs()
 {
-    // Send panel_power_0 config
+    // set base topic for zones sub topic
     std::string topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
     topic += mqttclient_UUID;
 
-    for (uint8_t zn : s->zone_list) {
-
+    for (int zn = 1; zn <= AD2_MAX_ZONES; zn++) {
         std::string _type;
-        AD2Parse.getZoneType(zn, _type);
-
-        std::string _alpha;
-        AD2Parse.getZoneString(zn, _alpha);
-
-        mqtt_publish_device_config("binary_sensor", _type.c_str(), "zone_",
-                                   zn, true,
-        _alpha.c_str(), false, {{
-                { "state_topic", topic+"/zones/"+std::to_string(zn) },
-                { "value_template", "{% if value_json.state == 'CLOSE' %}OFF{% else %}ON{% endif %}" },
-                { "availability_topic", topic+"/status"}
+        if ( AD2Parse.getZoneType(zn, _type) ) {
+            std::string _alpha;
+            if ( AD2Parse.getZoneString(zn, _alpha) ) {
+                mqtt_publish_device_config("binary_sensor", _type.c_str(), "zone_",
+                                        zn, true,
+                _alpha.c_str(), false, {{
+                        { "state_topic", topic+"/zones/"+std::to_string(zn) },
+                        { "value_template", "{% if value_json.state == 'CLOSE' %}OFF{% else %}ON{% endif %}" },
+                        { "availability_topic", topic+"/status"}
+                    }
+                });
             }
-        });
+        }
     }
 }
 
@@ -421,9 +420,11 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
         AD2PartitionState *s = ad2_get_partition_state(n);
         if (s) {
             mqtt_send_partition_config(s);
-            mqtt_send_partition_zone_configs(s);
         }
     }
+
+    // Send all [zone N] descriptions
+    mqtt_send_configured_zone_configs();
 
     // Send virtual switches in mqtt_AD2EventSearches
     topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";

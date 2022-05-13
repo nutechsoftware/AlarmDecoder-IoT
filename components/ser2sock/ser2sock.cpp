@@ -459,7 +459,7 @@ static bool _poll_exception_fdset(fd_set *except_fdset)
             if (FD_ISSET(my_fds[n].fd,except_fdset)) {
                 if (my_fds[n].fd_type == CLIENT_SOCKET) {
                     did_work = true;
-                    ESP_LOGE(TAG, "Exception occurred on socket fd slot %i closing the socket.",n);
+                    ESP_LOGE(TAG, "Exception occurred on socket fd slot %i closing the socket. %s",n, strerror(errno));
                     _cleanup_fd(n);
                 }
             }

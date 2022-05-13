@@ -604,7 +604,7 @@ AD2PartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, bool updat
             ad2ps->partition = AD2PStates.size();
             ad2ps->primary_address = 0;
 #if defined(IDF_VER)
-            ESP_LOGD(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
+            ESP_LOGI(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
 #endif
         }
 
@@ -624,16 +624,18 @@ AD2PartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, bool updat
  * @param [out]alpha std::string * alpha for the zone.
  *
  */
-void AlarmDecoderParser::getZoneString(uint8_t zone, std::string &alpha)
+bool AlarmDecoderParser::getZoneString(uint8_t zone, std::string &alpha)
 {
     if (AD2ZoneAlpha.count(zone)) {
         alpha = AD2ZoneAlpha[zone];
+        return true;
     } else {
         alpha = "ZONE ";
         // zero pad 3 digit zone number string
         char zstr[4];
         snprintf(zstr, sizeof(zstr), "%03d", (int)zone);
         alpha += zstr;
+        return false;
     }
 }
 
@@ -658,13 +660,13 @@ void AlarmDecoderParser::setZoneString(uint8_t zone, const char* alpha)
  * @param [out]type std::string * type for the zone.
  *
  */
-void AlarmDecoderParser::getZoneType(uint8_t zone, std::string &type)
+bool AlarmDecoderParser::getZoneType(uint8_t zone, std::string &type)
 {
     if (AD2ZoneType.count(zone)) {
         type = AD2ZoneType[zone];
-    } else {
-        type = "motion";
+        return true;
     }
+    return false;
 }
 
 /**

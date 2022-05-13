@@ -532,14 +532,14 @@ public:
     AD2PartitionState * getAD2PState(int address, bool update=false);
     AD2PartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
-    // get zone string using Alpha descriptor if found in AD2ZoneAlpha or use standard format 'ZONE XXX' if not found.
-    void getZoneString(uint8_t zone, std::string &alpha);
+    // get zone string using Alpha descriptor if found in AD2ZoneAlpha return true if found.
+    bool getZoneString(uint8_t zone, std::string &alpha);
 
     // set zone alpha string in AD2ZoneAlpha
     void setZoneString(uint8_t zone, const char *alpha);
 
-    // get zone string using zone type if found in AD2ZoneType or use standard format 'motion' if not found.
-    void getZoneType(uint8_t zone, std::string &type);
+    // get zone string using zone type if found in AD2ZoneType return true if found.
+    bool getZoneType(uint8_t zone, std::string &type);
 
     // set zone type string in AD2ZoneType
     void setZoneType(uint8_t zone, const char *alpha);
