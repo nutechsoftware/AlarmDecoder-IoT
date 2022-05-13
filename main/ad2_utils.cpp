@@ -949,6 +949,19 @@ int ad2_copy_nth_arg(std::string &dest, const char *src, int n, bool remaining)
 }
 
 /**
+ * @brief Update the firmware for the attached AD2* device
+ *
+ * @details Preform an update using /sdcard/ad2firmware.hex
+ * or OTA using firmware URL
+ *
+ * @param [in]arg const char * args
+ *
+ */
+void ad2_fw_update(const char *arg) {
+
+}
+
+/**
  * @brief Send the ARM AWAY command to the alarm panel.
  *
  * @details using the given code and address in

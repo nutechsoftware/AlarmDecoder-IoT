@@ -403,14 +403,14 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
         }
     });
 
-    tmpstr = uuid_prefix + " Start firmware update";
+    tmpstr = uuid_prefix + " Start ad2iot firmware update";
     mqtt_publish_device_config("button", "update", "fw_update",
                                0, false,
     tmpstr.c_str(), false, {{
             { "availability_topic", topic+"/fw_version" },
             { "availability_template", "{% if value_json.installed != value_json.available %}online{% else %}offline{% endif %}" },
             { "command_topic", topic+"/commands" },
-            { "payload_press", "{\"action\": \"FW_UPDATE\"}" }
+            { "payload_press", "{\"action\": \"FW_UPDATE_IOT\"}" }
         }
     });
 
@@ -605,9 +605,11 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                                 ad2_bypass_zone(code, partId, std::atoi(arg.c_str()));
                             } else if ( action.compare("SEND_RAW") == 0 ) {
                                 ad2_send(arg);
-                            } else if ( action.compare("FW_UPDATE") == 0 ) {
+                            } else if ( action.compare("FW_UPDATE_IOT") == 0 ) {
                                 hal_ota_do_update("");
-                            } else {
+                            } else if ( action.compare("FW_UPDATE_AD2") == 0 ) {
+                                ad2_fw_update("");
+                            } else {                            } else {
                                 // unknown command
                             }
                             cJSON_Delete(root);
