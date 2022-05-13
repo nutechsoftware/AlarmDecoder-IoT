@@ -609,7 +609,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                                 hal_ota_do_update("");
                             } else if ( action.compare("FW_UPDATE_AD2") == 0 ) {
                                 ad2_fw_update("");
-                            } else {                            } else {
+                            } else {
                                 // unknown command
                             }
                             cJSON_Delete(root);
