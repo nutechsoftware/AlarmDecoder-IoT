@@ -914,26 +914,34 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                         MESSAGE_TYPE = CRC_MESSAGE_TYPE;
                         notifySubscribers(ON_CRC, msg, nostate);
                     } else if (msg.find("!VER:") == 0) {
-                        // save the AlarmDecoder firmware version string.
-                        ad2_version_string = msg.substr(5);
-                        // call ON_VER callback if enabled.
-                        MESSAGE_TYPE = VER_MESSAGE_TYPE;
-                        notifySubscribers(ON_VER, msg, nostate);
+                        // save the AlarmDecoder firmware version string if change.
+                        std::string _new = msg.substr(5);
+                        if ( _new.compare(ad2_version_string) != 0 ) {
+                            // save new value
+                            ad2_version_string = _new;
+                            // call ON_VER callback if enabled.
+                            MESSAGE_TYPE = VER_MESSAGE_TYPE;
+                            notifySubscribers(ON_VER, msg, nostate);
+                        }
                     } else if (msg.find("!ERR:") == 0) {
                         // call ON_ERR callback if enabled.
                         MESSAGE_TYPE = ERR_MESSAGE_TYPE;
                         notifySubscribers(ON_ERR, msg, nostate);
                     } else if (msg.find("!CONFIG>") == 0) {
-                        // save the AlarmDecoder firmware configuration string.
-                        ad2_config_string = msg.substr(8);
-                        // Early update AlarmDecoder panel mode.
-                        std::string mode;
-                        if (query_key_value_string(ad2_config_string, "MODE", mode) >= 0 ) {
-                            panel_type = mode[0];
+                        // save the AlarmDecoder firmware configuration string if change.
+                        std::string _new = msg.substr(8);
+                        if ( _new.compare(ad2_config_string) != 0 ) {
+                            // save new value
+                            ad2_config_string = _new;
+                            // Early update AlarmDecoder panel mode.
+                            std::string mode;
+                            if (query_key_value_string(ad2_config_string, "MODE", mode) >= 0 ) {
+                                panel_type = mode[0];
+                            }
+                            // call ON_CFG callback if enabled.
+                            MESSAGE_TYPE = CFG_MESSAGE_TYPE;
+                            notifySubscribers(ON_CFG, msg, nostate);
                         }
-                        // call ON_CFG callback if enabled.
-                        MESSAGE_TYPE = CFG_MESSAGE_TYPE;
-                        notifySubscribers(ON_CFG, msg, nostate);
                     }
                 } else {
                     // http://www.alarmdecoder.com/wiki/index.php/Protocol#Keypad

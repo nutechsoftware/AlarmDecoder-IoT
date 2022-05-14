@@ -228,6 +228,36 @@ static void _cli_cmd_ad2source_event(const char *string)
 }
 
 /**
+ * @brief Configure the AlarmDecoder device firmware settings
+ *
+ * @param [in]string command buffer pointer.
+ *
+ * @note command: ad2config <configString>
+ *   examples.
+ *     AD2IOT # ad2config mode=A&address=18
+ */
+static void _cli_cmd_ad2config_event(const char *string)
+{
+    std::string config;
+
+    if (ad2_copy_nth_arg(config, string, 1, true) >= 0) {
+
+        // cleanup string
+        ad2_trim(config);
+        // save it
+        ad2_set_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config.c_str());
+    } else {
+        // Get current string
+        ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config);
+    }
+    // get and show current mode string and arg.
+    config = "";
+    ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config);
+    ad2_printf_host(false, "Current " AD2CONFIG_CONFIG_KEY " config string '%s'\r\n", config.c_str());
+
+}
+
+/**
  * @brief Configure the AD2IoT connection to the AlarmDecoder device
  *
  * @param [in]string command buffer pointer.
@@ -758,6 +788,19 @@ static struct cli_command cmd_list[] = {
         "    Set source to local attached uart with TX on GPIO 4 and RX on GPIO 36.\r\n"
         "      ```ad2source COM 4:36```\r\n"
         , _cli_cmd_ad2source_event
+    },
+    {
+        (char*)AD2_CMD_CONFIG,(char*)
+        "Usage: ad2config [<configString>]"
+        "\r\n"
+        "    Configuration tool for AlarmDecoder hardware settings.\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    configString            Name Value config string for the AlarmDecoder\r\n"
+        "                            device. Can be partial config.\r\n"
+        "                            Example set mode Ademco with default address 18.\r\n"
+        "                            ```ad2config mode=A&address=18```\r\n"
+        , _cli_cmd_ad2config_event
     },
     {
         (char*)AD2_CMD_TERM,(char*)

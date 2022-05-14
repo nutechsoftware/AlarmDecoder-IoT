@@ -949,6 +949,20 @@ int ad2_copy_nth_arg(std::string &dest, const char *src, int n, bool remaining)
 }
 
 /**
+ * @brief Update the AD2IoT AD2* config string.
+ *
+ * @details FIXME TODO Update the AD2IoT config string that is kept
+ * in sync with the AD2* attached to the AD2IoT device.
+ *
+ * @param [in]arg const char * args
+ *
+ */
+void ad2_config_update(const char *arg)
+{
+
+}
+
+/**
  * @brief Update the firmware for the attached AD2* device
  *
  * @details Preform an update using /sdcard/ad2firmware.hex
@@ -957,7 +971,8 @@ int ad2_copy_nth_arg(std::string &dest, const char *src, int n, bool remaining)
  * @param [in]arg const char * args
  *
  */
-void ad2_fw_update(const char *arg) {
+void ad2_fw_update(const char *arg)
+{
 
 }
 

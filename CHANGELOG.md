@@ -6,8 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Add new command ad2config to set AlarmDecoder configuration settings to be enforced on attached AD2* device.
 - [X] CORE: Adding shim for doing OTA or /sdcard/fw.hex update of AD2* attached to AD2IoT device.
-- [ ] CORE: Add ability to configure AD2* board (command 'C')  from AD2IoT so it can be configured just one time during setup. Optional or in addition add MQTT command to update config. It needs to be smart. If the only attribute in the local config is "foo=bar" then it should only attempt to change the AD2* config value "foo" if the value "bar" is different. All other AD2* config settings not specified will be left as is on the AD2* device.
+- [X] CORE: Add ability to configure AD2* board (command 'C')  from AD2IoT so it can be configured just one time during setup. Optional or in addition add MQTT command to update config. It needs to be smart. If the only attribute in the local config is "foo=bar" then it should only attempt to change the AD2* config value "foo" if the value "bar" is different. All other AD2* config settings not specified will be left as is on the AD2* device.
 - [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
 - [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
 - [X] API: Modify getZoneType and getZoneString to return bool to detect if a zone has settings.

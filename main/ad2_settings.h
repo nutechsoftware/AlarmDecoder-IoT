@@ -94,6 +94,9 @@
 // @brief ad2source settings key under main section
 #define AD2MODE_CONFIG_KEY    "ad2source"
 
+// @brief ad2config settings key under main section
+#define AD2CONFIG_CONFIG_KEY    "ad2config"
+
 // @brief logmode setting key under main section
 #define LOGMODE_CONFIG_KEY    "logmode"
 

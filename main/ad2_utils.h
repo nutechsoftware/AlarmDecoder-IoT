@@ -32,6 +32,7 @@
 
 // Communication with AD2* device / host
 void ad2_fw_update(const char *arg);
+void ad2_config_update(const char *arg);
 void ad2_arm_away(std::string &code, int partId);
 void ad2_arm_away(int codeId, int partId);
 void ad2_arm_stay(std::string &code, int partId);

@@ -315,7 +315,7 @@ void mqtt_send_configured_zone_configs()
             std::string _alpha;
             if ( AD2Parse.getZoneString(zn, _alpha) ) {
                 mqtt_publish_device_config("binary_sensor", _type.c_str(), "zone_",
-                                        zn, true,
+                                           zn, true,
                 _alpha.c_str(), false, {{
                         { "state_topic", topic+"/zones/"+std::to_string(zn) },
                         { "value_template", "{% if value_json.state == 'CLOSE' %}OFF{% else %}ON{% endif %}" },
@@ -324,6 +324,39 @@ void mqtt_send_configured_zone_configs()
                 });
             }
         }
+    }
+}
+
+/**
+ * @brief ON_CFG callback will detect CFG dumps from AD2* and publish
+ * the update.
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2PartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
+ */
+void mqtt_on_ad2cfg(std::string *msg, AD2PartitionState *s, void *arg)
+{
+    if (mqtt_client != nullptr) {
+        // Publish our device HW/FW info.
+        cJSON *root = ad2_get_ad2iot_device_info_json();
+        std::string topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
+        topic += mqttclient_UUID;
+        topic += "/info";
+        char *state = cJSON_Print(root);
+        cJSON_Minify(state);
+
+        // non blocking.
+        esp_mqtt_client_enqueue(mqtt_client,
+                                topic.c_str(),
+                                state,
+                                0,
+                                MQTT_DEF_QOS,
+                                MQTT_DEF_RETAIN,
+                                MQTT_DEF_STORE);
+        cJSON_free(state);
+        cJSON_Delete(root);
     }
 }
 
@@ -339,7 +372,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
 
     // Subscribe to command inputs for remote control if enabled.
     if (commands_enabled) {
-        ESP_LOGI(TAG, "Warning! MQTT commands subscription enabled. Not secure on public servers.");
+        ESP_LOGI(TAG, "Warning! MQTT commands subscription enabled. This is NOT secure on public servers!");
         topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
         topic += mqttclient_UUID;
         topic += "/" MQTT_COMMANDS_TOPIC;
@@ -363,23 +396,7 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
                             MQTT_DEF_STORE);
 
     // Publish our device HW/FW info.
-    cJSON *root = ad2_get_ad2iot_device_info_json();
-    topic = mqttclient_TPREFIX + MQTT_TOPIC_PREFIX "/";
-    topic += mqttclient_UUID;
-    topic += "/info";
-    char *state = cJSON_Print(root);
-    cJSON_Minify(state);
-
-    // non blocking.
-    esp_mqtt_client_enqueue(client,
-                            topic.c_str(),
-                            state,
-                            0,
-                            MQTT_DEF_QOS,
-                            MQTT_DEF_RETAIN,
-                            MQTT_DEF_STORE);
-    cJSON_free(state);
-    cJSON_Delete(root);
+    mqtt_on_ad2cfg(nullptr, nullptr, nullptr);
 
     // set available version to current for now. Will be updated if new version available.
     mqtt_send_fw_version(FIRMWARE_VERSION);
@@ -608,7 +625,9 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                             } else if ( action.compare("FW_UPDATE_IOT") == 0 ) {
                                 hal_ota_do_update("");
                             } else if ( action.compare("FW_UPDATE_AD2") == 0 ) {
-                                ad2_fw_update("");
+                                ad2_fw_update(arg.c_str());
+                            } else if ( action.compare("FW_CONFIG_IOT") == 0 ) {
+                                ad2_config_update(arg.c_str());
                             } else {
                                 // unknown command
                             }
@@ -1194,6 +1213,8 @@ void mqtt_init()
     AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, mqtt_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
     AD2Parse.subscribeTo(ON_EXIT_CHANGE, mqtt_on_state_change, (void *)ON_EXIT_CHANGE);
     AD2Parse.subscribeTo(ON_LRR, mqtt_on_lrr, (void *)ON_LRR);
+    AD2Parse.subscribeTo(ON_CFG, mqtt_on_ad2cfg, (void *)ON_CFG);
+    AD2Parse.subscribeTo(ON_VER, mqtt_on_ad2cfg, (void *)ON_VER);
     // SUbscribe to ON_ZONE_CHANGE events
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, mqtt_on_zone_change, (void *)ON_ZONE_CHANGE);
 

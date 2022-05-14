@@ -261,6 +261,17 @@ Usage: ad2term [reset]
 Options:
       reset                Send hardware reboot to AD2pHat
 ```
+- ad2config
+```console
+Usage: ad2config [<configString>]
+    Configuration tool for AlarmDecoder hardware settings.
+
+Options:
+    configString            Name Value config string for the AlarmDecoder
+                            device. Can be partial config.
+                            Example set mode Ademco with default address 18.
+                            ```ad2config mode=A&address=18```
+```
 - partition
 ```console
 Usage: partition [(<partId> <address>) [zoneList]]
@@ -791,14 +802,11 @@ AD2IOT #
 !IOT: N (12667) NEW IP ADDRESS: if(eth) addr(2001:0db8:85a3:0000:0000:8a2e:0370:7334) mask() gw()
 AD2IOT #
 AD2IOT # help
-
 Available AD2IoT terminal commands
   [ser2sockd, twilio, pushover, webui, mqtt, ftpd,
    restart, netmode, switch, zone, code, partition,
-   ad2source, ad2term, logmode, factory-reset, help, upgrade,
-   version]
-
-
+   ad2source, ad2config, ad2term, logmode, factory-reset, help,
+   upgrade, version]
 Type help <command> for details on each command.
 
 ```

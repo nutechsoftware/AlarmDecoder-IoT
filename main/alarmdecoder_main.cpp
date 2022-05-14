@@ -331,10 +331,85 @@ void ad2_on_state_change(std::string *msg, AD2PartitionState *s, void *arg)
 }
 
 /**
- * @brief Main task to monitor physical button(s) and update state led(s).
+ * @brief Callback for config report from AD2*
+ * Test all ad2config settings are correct on AD2* and if not
+ * attempt to update. Potential loop of failure so force limits
+ * on how many attempts to avoid the update failure loop.
  *
- * @param [in]pvParameters currently not used NULL.
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2PartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
  */
+void ad2_on_cfg(std::string *msg, AD2PartitionState *s, void *arg)
+{
+    // For now allow only once per boot. Better would be to track pass/fail in NV
+    // just in case we reboot loop config loop...
+    static bool protectMode = false;
+
+    std::string config;
+    ESP_LOGI(TAG, "AD2* config string received. '%s'", AD2Parse.ad2_config_string.c_str());
+    ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config);
+    if (config.length() && AD2Parse.ad2_config_string.length()) {
+        // find each NV pair in local config and test with AD2* config string.
+        // Update reply string with updates for AD2* using 'C' command.
+        // Test for known keys
+        // MODE, ADDRESS, CONFIGBITS, LRR, COM, EXP, REL, MASK, DEDUPLICATE
+        std::string updateConfig = "C";
+
+        std::stringstream ss("MODE ADDRESS CONFIGBITS LRR COM EXP REL MASK DEDUPLICATE");
+        std::string sk;
+        bool sendUpdate = false;
+        while (ss >> sk) {
+            std::string _iotcfgval;
+            if (AD2Parse.query_key_value_string(config, sk.c_str(), _iotcfgval) >= 0) {
+                // force upper case for no case compare
+                ad2_ucase(_iotcfgval);
+                std::string _ad2cfgval;
+                if (AD2Parse.query_key_value_string(AD2Parse.ad2_config_string, sk.c_str(), _ad2cfgval)) {
+                    // force upper case for no case compare
+                    ad2_ucase(_ad2cfgval);
+                    if (_iotcfgval.compare(_ad2cfgval) != 0) {
+                        sendUpdate=true;
+                        updateConfig += sk + "=";
+                        updateConfig += _iotcfgval;
+                        updateConfig += "&";
+                    }
+                }
+            }
+        }
+        if (sendUpdate) {
+            if (!protectMode) {
+                ESP_LOGI(TAG, "Sending '%s' to AlarmDecoder sync settings.", updateConfig.c_str());
+                // finish command with line terminator and send
+                updateConfig+="\r\n";
+                ad2_send(updateConfig);
+                // only allow this once. No fighting with others
+                // over config settings if we can avoid it.
+                protectMode = true;
+            } else {
+                ESP_LOGW(TAG, "Protect mode triggered. Unable to send '%s' to AlarmDecoder sync settings.", updateConfig.c_str());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Callback for version report from AD2*
+ *
+ * @param [in]msg std::string panel message.
+ * @param [in]s AD2PartitionState *.
+ * @param [in]arg cast as int for event type (ON_ARM,,,).
+ *
+ */
+void ad2_on_ver(std::string *msg, AD2PartitionState *s, void *arg)
+{
+}
+
+* @brief Main task to monitor physical button(s) and update state led(s).
+*
+* @param [in]pvParameters currently not used NULL.
+*/
 static void ad2_app_main_task(void *pvParameters)
 {
     int button_event_type;
@@ -501,7 +576,7 @@ bool _ser2sock_client_connect(const char *args)
     send((uart_port_t)g_ad2_client_handle, buf.c_str(), buf.length(), 0);
 
     // send a 'V" and a 'C' command to get version and configuration from the AD2*.
-    buf = "V\r\nC\r\n";
+    buf = "V\r\n\r\nC\r\n\r\n\r\n";
     send((uart_port_t)g_ad2_client_handle, buf.c_str(), buf.length(), 0);
 
     return true;
@@ -881,6 +956,8 @@ void app_main()
     AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_on_state_change, (void *)ON_ALARM_CHANGE);
     AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, ad2_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
     AD2Parse.subscribeTo(ON_EXIT_CHANGE, ad2_on_state_change, (void *)ON_EXIT_CHANGE);
+    AD2Parse.subscribeTo(ON_CFG, ad2_on_cfg, (void *)ON_CFG);
+    AD2Parse.subscribeTo(ON_VER, ad2_on_ver, (void *)ON_VER);
 #endif
 
     // Start components
