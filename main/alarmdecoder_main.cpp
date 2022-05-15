@@ -406,10 +406,11 @@ void ad2_on_ver(std::string *msg, AD2PartitionState *s, void *arg)
 {
 }
 
-* @brief Main task to monitor physical button(s) and update state led(s).
-*
-* @param [in]pvParameters currently not used NULL.
-*/
+/**
+ * @brief Main task to monitor physical button(s) and update state led(s).
+ *
+ * @param [in]pvParameters currently not used NULL.
+ */
 static void ad2_app_main_task(void *pvParameters)
 {
     int button_event_type;
@@ -421,11 +422,13 @@ static void ad2_app_main_task(void *pvParameters)
             if (hal_get_button_event(&button_event_type, &button_event_count)) {
                 // FIXME: update stsdk virtual button state
             }
+#if (GPIO_MAINLED != GPIO_NOT_USED)
             if (noti_led_mode != LED_ANIMATION_MODE_IDLE) {
                 hal_change_led_mode(noti_led_mode);
             }
+#endif
         }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 
     vTaskDelete(NULL);
