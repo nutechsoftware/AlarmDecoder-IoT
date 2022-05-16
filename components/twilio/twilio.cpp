@@ -35,7 +35,7 @@ static const char *TAG = "TWILIO";
 // specific includes
 #include <fmt/core.h>
 
-//#define DEBUG_TWILIO
+#define DEBUG_TWILIO
 #define AD2_DEFAULT_TWILIO_SLOT 0
 
 /* Constants that aren't configurable in menuconfig */
@@ -55,20 +55,14 @@ static const char *TAG = "TWILIO";
 
 #define TWILIO_CONFIG_SECTION "twilio"
 
-#define MAX_SEARCH_KEYS 9
-
-// NV storage sub key values for virtual search switch
-#define SK_NOTIFY_SLOT       "N"
-#define SK_DEFAULT_STATE     "D"
-#define SK_AUTO_RESET        "R"
-#define SK_TYPE_LIST         "T"
-#define SK_PREFILTER_REGEX   "P"
-#define SK_OPEN_REGEX_LIST   "O"
-#define SK_CLOSE_REGEX_LIST "C"
-#define SK_TROUBLE_REGEX_LIST  "F"
-#define SK_OPEN_OUTPUT_FMT   "o"
-#define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_TROUBLE_OUTPUT_FMT  "f"
+#define TWILIO_CONFIG_SWITCH_SUFFIX_NOTIFY "notify"
+#define TWILIO_CONFIG_SWITCH_SUFFIX_OPEN "open"
+#define TWILIO_CONFIG_SWITCH_SUFFIX_CLOSE "close"
+#define TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE "trouble"
+#define TWILIO_CONFIG_SWITCH_VERBS ( \
+    TWILIO_CONFIG_SWITCH_SUFFIX_OPEN " " \
+    TWILIO_CONFIG_SWITCH_SUFFIX_CLOSE " " \
+    TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE)
 
 // Notification types
 #define TWILIO_NOTIFY_MESSAGE "M"
@@ -78,11 +72,7 @@ static const char *TAG = "TWILIO";
 std::vector<AD2EventSearch *> twilio_AD2EventSearches;
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* forward decl */
+// forward decl
 
 enum {
     TWILIO_NEXT_STATE_DONE=0,
@@ -325,7 +315,8 @@ static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, 
 
     // free message_data class will also delete the client_config in the distructor.
     delete r;
-    // connection is finished return done.
+
+    // Report back this client request is all done and is ready to close.
     return true;
 }
 
@@ -389,18 +380,17 @@ esp_err_t _twilio_http_event_handler(esp_http_client_event_t *evt)
 }
 
 /**
- * @brief Search match callback.
+ * @brief SmartSwitch match callback.
  * Called when the current message matches a AD2EventSearch test.
  *
  * @param [in]msg std::string new version string.
  * @param [in]s nullptr
  * @param [in]arg nullptr.
  *
+ * @note No full queue handler
  */
 void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
 {
-#if 0 //FIXME
-    std::string nvkey;
 
     AD2EventSearch *es = (AD2EventSearch *)arg;
 #if defined(DEBUG_TWILIO)
@@ -415,30 +405,24 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
 
         // load our settings for this event type.
 
-        // save the {sid} : twilio api sid
-        nvkey = std::string(TWILIO_SID_SUBCMD);
-        ad2_get_config_key_string(nvkey.c_str(), notify_slot, nullptr, r->sid);
+        // get twilio api sid
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_SID_SUBCMD, r->sid, notify_slot);
 
-        // save the {token} : twilio api token
-        nvkey = std::string(TWILIO_TOKEN_SUBCMD);
-        ad2_get_config_key_string(nvkey.c_str(), notify_slot, nullptr, r->token);
+        // get twilio api token
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TOKEN_SUBCMD, r->token, notify_slot);
 
-        // save the {from} : twilio api from
-        nvkey = std::string(TWILIO_FROM_SUBCMD);
-        ad2_get_config_key_string(nvkey.c_str(), notify_slot, nullptr, r->from);
+        // get twilio api from
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FROM_SUBCMD, r->from, notify_slot);
 
-        // save the {to} : twilio api to
-        nvkey = std::string(TWILIO_TO_SUBCMD);
-        ad2_get_config_key_string(nvkey.c_str(), notify_slot, nullptr, r->to);
+        // get twilio api to
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TO_SUBCMD, r->to, notify_slot);
 
-        // save the [type] : Used to determin delivery using sendgrid or twilio servers.
-        nvkey = std::string(TWILIO_TYPE_SUBCMD);
-        ad2_get_config_key_string(nvkey.c_str(), notify_slot, nullptr, r->type);
+        // get twilio [type] : Used to determin delivery using sendgrid or twilio servers.
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TYPE_SUBCMD, r->type, notify_slot);
         r->type.resize(1);
 
-        // save the {format} : output format string
-        nvkey = std::string(TWILIO_FORMAT_SUBCMD);
-        ad2_get_config_key_string(nvkey.c_str(), notify_slot, nullptr, r->format);
+        // get format template string
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FORMAT_SUBCMD, r->format, notify_slot);
 
         // save the message
         r->message = es->out_message;
@@ -506,7 +490,6 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
             delete r;
         }
     }
-#endif
 }
 
 /**
@@ -533,26 +516,26 @@ char * TWILIO_SUBCMDS [] = {
 };
 
 /**
- * Twilio generic command event processing
- *  command: [COMMAND] [SUB] <id> <arg>
- * ex.
- *   [COMMAND] [SUB] 0 arg...
+ * Component generic command event processing
+ *
+ * Usage: twilio (sid|token|from|to|type|format) <acid> [<arg>]
  */
 static void _cli_cmd_twilio_event_generic(std::string &subcmd, const char *string)
 {
-    int slot = -1;
+    int accountId = -1;
     std::string buf;
 
     // get the sub command value validation
     ad2_copy_nth_arg(subcmd, string, 1);
     ad2_lcase(subcmd);
 
-    // build the NV storage key concat prefix to sub command. Take human readable and make it less so.
-    std::string key = subcmd;
+    // get the accountID 1-8
     if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
-        slot = strtol(buf.c_str(), NULL, 10);
+        accountId = strtol(buf.c_str(), NULL, 10);
     }
-    if (slot >= 0) {
+    // Allowed accountId 1-8
+    if (accountId > 0 && accountId < 9) {
+        // <arg>
         if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
 
             // don't remove ws from format string.
@@ -560,258 +543,96 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, const char *strin
                 ad2_remove_ws(buf);
             }
 
-            ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), buf.c_str(), slot);
+            ad2_set_config_key_string(TWILIO_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
             ad2_printf_host(false, "Setting '%s' value '%s' finished.\r\n", subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
-            ad2_get_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), buf, slot);
-            ad2_printf_host(false, "Current slot #%02i '%s' value '%s'\r\n", slot, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
+            ad2_get_config_key_string(TWILIO_CONFIG_SECTION, subcmd.c_str(), buf, accountId);
+            ad2_printf_host(false, "Current acid #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
-        ad2_printf_host(false, "Missing <slot>\r\n");
+        ad2_printf_host(false, "Missing or invalid <acid> [1-8].\r\n");
     }
 }
 
 /**
- * Twilio smart alert switch command event processing
- *  command: [COMMAND] <id> <setting> <arg1> <arg2>
- * ex. Switch #0 [N]otification slot 0
- *   [COMMAND] 0 N 0
+ * Component SmartSwitch command event processing
+ *
+ * Usage: twilio switch <swid> [delete|-|notify|open|close|trouble] [<arg>]
  */
 static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *instring)
 {
-#if 0 //FIXME
-    int i;
-    int slot = -1;
-    std::string buf;
-    std::string arg1;
-    std::string arg2;
-    std::string tmpsz;
+    int swID = 0;
+    std::string scmd;
+    std::string tbuf;
+    std::string arg;
+
+    // sub key "switch N AAAAA"
+    std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
 
     // get the sub command value validation
-    std::string key = subcmd;
-
-    if (ad2_copy_nth_arg(buf, instring, 2) >= 0) {
-        slot = std::atoi (buf.c_str());
+    if (ad2_copy_nth_arg(tbuf, instring, 2) >= 0) {
+        swID = std::atoi (tbuf.c_str());
     }
-    // add the slot# to the key max 99 slots.
-    if (slot > 0 && slot < 100) {
+    // Switch ID to the key.
+    if (swID > 0 && swID <= AD2_MAX_SWITCHES) {
 
-        if (ad2_copy_nth_arg(buf, instring, 3) >= 0) {
+        // sub command
+        if (ad2_copy_nth_arg(scmd, instring, 3) >= 0) {
 
-            // sub key suffix.
-            std::string sk = ad2_string_printf("%c", buf[0]);
+            // load remaining arg data
+            ad2_copy_nth_arg(arg, instring, 4, true);
 
-            /* setting */
-            switch(buf[0]) {
-            case '-': // Remove entry
-                ad2_set_config_key_string(key.c_str(), slot, SK_NOTIFY_SLOT, NULL);
-                ad2_set_config_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
-                ad2_set_config_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
-                ad2_set_config_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_CLOSE_REGEX_LIST, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
-                ad2_set_config_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
-                ad2_printf_host(false, "Deleteing smartswitch #%i.\r\n", slot);
-                break;
-            case SK_NOTIFY_SLOT[0]: // Notification slot
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg2, instring, 4, true);
-                ad2_trim(arg2);
-                tmpsz = arg2.length() == 0 ? "Clearing" : "Setting";
-                ad2_set_config_key_string(key.c_str(), slot, sk.c_str(), arg2.length() ? arg2.c_str() : nullptr);
-                ad2_printf_host(false, "%s smartswitch #%i to use notification settings from slots #%s.\r\n", tmpsz.c_str(), slot, arg2.c_str());
-                break;
-            case SK_DEFAULT_STATE[0]: // Default state
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                ad2_set_config_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host(false, "Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
-                break;
-            case SK_AUTO_RESET[0]: // Auto Reset
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                ad2_set_config_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host(false, "Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
-                break;
-            case SK_TYPE_LIST[0]: // Message type filter list
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg1, instring, 4, true);
-                ad2_set_config_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host(false, "Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
-                break;
-            case SK_PREFILTER_REGEX[0]: // Pre filter REGEX
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg1, instring, 4, true);
-                ad2_set_config_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host(false, "Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
-                break;
-
-            case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
-            case SK_CLOSE_REGEX_LIST[0]: // Closed state REGEX list editor
-            case SK_TROUBLE_REGEX_LIST[0]: // Trouble state REGEX list editor
-                // Add index to file name to track N number of elements.
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                if ( i > 0 && i < MAX_SEARCH_KEYS) {
-                    // consume the arge and to EOL
-                    ad2_copy_nth_arg(arg2, instring, 5, true);
-                    std::string op = arg2.length() > 0 ? "Setting" : "Clearing";
-                    sk+=ad2_string_printf("%02i", i);
-                    if (buf[0] == SK_OPEN_REGEX_LIST[0]) {
-                        tmpsz = "OPEN";
-                    }
-                    if (buf[0] == SK_CLOSE_REGEX_LIST[0]) {
-                        tmpsz = "CLOSED";
-                    }
-                    if (buf[0] == SK_TROUBLE_REGEX_LIST[0]) {
-                        tmpsz = "TROUBLE";
-                    }
-                    ad2_set_config_key_string(key.c_str(), slot, sk.c_str(), arg2.c_str());
-                    ad2_printf_host(false, "%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
-                } else {
-                    ad2_printf_host(false, "Error invalid index %i. Valid values are 1-8.\r\n", slot, i);
-                }
-                break;
-
-            case SK_OPEN_OUTPUT_FMT[0]: // Open state output format string
-            case SK_CLOSED_OUTPUT_FMT[0]: // Closed state output format string
-            case SK_TROUBLE_OUTPUT_FMT[0]: // Trouble state output format string
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg1, instring, 4, true);
-                if (buf[0] == SK_OPEN_OUTPUT_FMT[0]) {
-                    tmpsz = "OPEN";
-                }
-                if (buf[0] == SK_CLOSED_OUTPUT_FMT[0]) {
-                    tmpsz = "CLOSED";
-                }
-                if (buf[0] == SK_TROUBLE_OUTPUT_FMT[0]) {
-                    tmpsz = "TROUBLE";
-                }
-                ad2_set_config_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host(false, "Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
-                break;
-
-            default:
-                ESP_LOGW(TAG, "Unknown setting '%c' ignored.", buf[0]);
+            // sub key test.
+            if (scmd.compare(AD2SWITCH_SK_DELETE1) == 0 || scmd.compare(AD2SWITCH_SK_DELETE2) == 0) {
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), NULL, swID, TWILIO_CONFIG_SWITCH_SUFFIX_NOTIFY, true);
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), NULL, swID, TWILIO_CONFIG_SWITCH_SUFFIX_OPEN, true);
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), NULL, swID, TWILIO_CONFIG_SWITCH_SUFFIX_CLOSE, true);
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), NULL, swID, TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE, true);
+                ad2_printf_host(false, "Removing switch #%i settings from twilio config.\r\n", swID);
+            } else if (scmd.compare(TWILIO_CONFIG_SWITCH_SUFFIX_NOTIFY) == 0) {
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), arg.c_str(), swID, scmd.c_str());
+                ad2_printf_host(false, "Setting switch #%i %s string to '%s'.\r\n", swID, scmd.c_str(), arg.c_str());
+            } else if (scmd.compare(TWILIO_CONFIG_SWITCH_SUFFIX_OPEN) == 0 ||
+                       scmd.compare(TWILIO_CONFIG_SWITCH_SUFFIX_CLOSE) == 0 ||
+                       scmd.compare(TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE) == 0) {
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), arg.c_str(), swID, scmd.c_str());
+                ad2_printf_host(false, "Setting switch #%i output string for state '%s' to '%s'.\r\n", swID, scmd.c_str(), arg.c_str());
+            } else if (scmd.compare(TWILIO_CONFIG_SWITCH_SUFFIX_OPEN) == 0) {
+                ESP_LOGW(TAG, "Unknown sub command setting '%s' ignored.", scmd.c_str());
                 return;
             }
         } else {
-            // query show contents.
-            int i;
-            std::string out;
-            std::string args = SK_NOTIFY_SLOT
-                               SK_DEFAULT_STATE
-                               SK_AUTO_RESET
-                               SK_TYPE_LIST
-                               SK_PREFILTER_REGEX
-                               SK_OPEN_REGEX_LIST
-                               SK_CLOSE_REGEX_LIST
-                               SK_TROUBLE_REGEX_LIST
-                               SK_OPEN_OUTPUT_FMT
-                               SK_CLOSED_OUTPUT_FMT
-                               SK_TROUBLE_OUTPUT_FMT;
+            // check all settings verbs against provided verb and proform setting logic
+            std::stringstream ss(
+                TWILIO_CONFIG_SWITCH_SUFFIX_NOTIFY " "
+                TWILIO_CONFIG_SWITCH_SUFFIX_OPEN " "
+                TWILIO_CONFIG_SWITCH_SUFFIX_CLOSE " "
+                TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
-            ad2_printf_host(false, "Twilio SmartSwitch #%i report\r\n", slot);
-            // sub key suffix.
             std::string sk;
-            for(char& c : args) {
-                std::string sk = ad2_string_printf("%c", c);
-                switch(c) {
-                case SK_NOTIFY_SLOT[0]:
-                    i = 0; // Default 0
-                    ad2_get_config_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host(false, "# Set notification slots [%c] to #%s.\r\n", c, out.c_str());
-                    ad2_printf_host(false, "%s %s %i %c %s\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, out.c_str());
-                    break;
-                case SK_DEFAULT_STATE[0]:
-                    i = 0; // Default CLOSED
-                    ad2_get_config_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host(false, "# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
-                    ad2_printf_host(false, "%s %s %i %c %i\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, i);
-                    break;
-                case SK_AUTO_RESET[0]:
-                    i = 0; // Defaut 0 or disabled
-                    ad2_get_config_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host(false, "# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? std::to_string(i).c_str() : "DISABLED");
-                    ad2_printf_host(false, "%s %s %i %c %i\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, i);
-                    break;
-                case SK_TYPE_LIST[0]:
-                    out = "";
-                    ad2_get_config_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host(false, "# Set message type list [%c]\r\n", c);
-                    if (out.length()) {
-                        ad2_printf_host(false, "%s %s %i %c %s\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, out.c_str());
-                    } else {
-                        ad2_printf_host(false, "# disabled\r\n");
-                    }
-                    break;
-                case SK_PREFILTER_REGEX[0]:
-                    out = "";
-                    ad2_get_config_key_string(key.c_str(), slot, sk.c_str(), out);
-                    if (out.length()) {
-                        ad2_printf_host(false, "# Set pre filter REGEX [%c]\r\n", c);
-                        ad2_printf_host(false, "%s %s %i %c %s\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, out.c_str());
-                    }
-                    break;
-                case SK_OPEN_REGEX_LIST[0]:
-                case SK_CLOSE_REGEX_LIST[0]:
-                case SK_TROUBLE_REGEX_LIST[0]:
-                    // * Find all sub keys and show info.
-                    if (c == SK_OPEN_REGEX_LIST[0]) {
-                        tmpsz = "OPEN";
-                    }
-                    if (c == SK_CLOSE_REGEX_LIST[0]) {
-                        tmpsz = "CLOSED";
-                    }
-                    if (c == SK_TROUBLE_REGEX_LIST[0]) {
-                        tmpsz = "TROUBLE";
-                    }
-                    for ( i = 1; i < MAX_SEARCH_KEYS; i++ ) {
-                        out = "";
-                        std::string tsk = sk + ad2_string_printf("%02i", i);
-                        ad2_get_config_key_string(key.c_str(), slot, tsk.c_str(), out);
-                        if (out.length()) {
-                            ad2_printf_host(false, "# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
-                            ad2_printf_host(false, "%s %s %i %c %i %s\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, i, out.c_str());
-                        }
-                    }
-                    break;
-                case SK_OPEN_OUTPUT_FMT[0]:
-                case SK_CLOSED_OUTPUT_FMT[0]:
-                case SK_TROUBLE_OUTPUT_FMT[0]:
-                    if (c == SK_OPEN_OUTPUT_FMT[0]) {
-                        tmpsz = "OPEN";
-                    }
-                    if (c == SK_CLOSED_OUTPUT_FMT[0]) {
-                        tmpsz = "CLOSED";
-                    }
-                    if (c == SK_TROUBLE_OUTPUT_FMT[0]) {
-                        tmpsz = "TROUBLE";
-                    }
-                    out = "";
-                    ad2_get_config_key_string(key.c_str(), slot, sk.c_str(), out);
-                    if (out.length()) {
-                        ad2_printf_host(false, "# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
-                        ad2_printf_host(false, "%s %s %i %c %s\r\n", TWILIO_COMMAND, TWILIO_SWITCH_SUBCMD, slot, c, out.c_str());
-                    }
-                    break;
+            bool command_found = false;
+            ad2_printf_host(false, "## [twilio] switch %i configuration.\r\n", swID);
+            while (ss >> sk) {
+                tbuf = "";
+                ad2_get_config_key_string(TWILIO_CONFIG_SECTION, key.c_str(), tbuf, swID, sk.c_str());
+                if (tbuf.length()) {
+                    ad2_printf_host(false, "%s = %s\r\n", sk.c_str(), tbuf.c_str());
+                } else {
+                    ad2_printf_host(false, "# %s = \r\n", sk.c_str());
                 }
             }
+            // dump finished, all done.
+            return;
         }
     } else {
-        ad2_printf_host(false, "Missing or invalid <slot> 1-99\r\n");
-        // TODO: DUMP when slot is 0 or 100
+        ad2_printf_host(false, "Missing or invalid switch <id> 1-255\r\n");
+        // TODO: DUMP all when swID is 0 or > AD2_MAX_SWITCHES
     }
-#endif // FIXME
 }
 
 /**
- * Twilio command router.
+ * Component command router
  */
 static void _cli_cmd_twilio_command_router(const char *string)
 {
@@ -848,11 +669,12 @@ static void _cli_cmd_twilio_command_router(const char *string)
 }
 
 /**
- * @brief command list for module
+ * @brief command list for component
+ *
  */
 static struct cli_command twilio_cmd_list[] = {
     {
-        // ### Pushover.net notification component
+        // ### Twilio notification component
         (char*)TWILIO_COMMAND,(char*)
         "Usage: twilio (sid|token|from|to|type|format) <acid> [<arg>]\r\n"
         "Usage: twilio switch <swid> [delete|-|notify|open|close|trouble] [<arg>]\r\n"
@@ -868,7 +690,7 @@ static struct cli_command twilio_cmd_list[] = {
         "    switch swid SCMD [ARG]  Configure switches\r\n"
         "Sub-Commands:\r\n"
         "    delete | -              Clear switch notification settings\r\n"
-        "    notify <acid>           Account storage [1-8] for notifications\r\n"
+        "    notify <acid>,...       List of accounts [1-8] to use for notification\r\n"
         "    open <message>          Send <message> for OPEN events\r\n"
         "    close <message>         Send <message> for CLOSE events\r\n"
         "    trouble <message>       Send <message> for TROUBLE events\r\n"
@@ -895,105 +717,159 @@ void twilio_register_cmds()
 }
 
 /**
- * Initialize queue and SSL
+ * Initialize component
  */
 void twilio_init()
 {
-    // Register search based virtual switches with the AlarmDecoderParser.
-    std::string key = TWILIO_SWITCH_SUBCMD;
+
+    // Register search based virtual switches if enabled.
+    // [switch N]
     int subscribers = 0;
-#if 0 // FIXME
-    for (int i = 1; i < AD2_MAX_SWITCHES; i++) {
-        std::string slots;
-        ad2_get_config_key_string(key.c_str(), i, SK_NOTIFY_SLOT, slots);
-        if (slots.length()) {
+    for (int swID = 1; swID < AD2_MAX_SWITCHES; swID++) {
+        // load switch settings for 'swID' and test if found
+        std::string open_output_format;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  open_output_format,
+                                  swID,
+                                  TWILIO_CONFIG_SWITCH_SUFFIX_OPEN);
+        std::string close_output_format;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  close_output_format,
+                                  swID,
+                                  TWILIO_CONFIG_SWITCH_SUFFIX_CLOSE);
+        std::string trouble_output_format;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  trouble_output_format,
+                                  swID,
+                                  TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE);
+        std::string notify_slots_string;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  notify_slots_string,
+                                  swID,
+                                  TWILIO_CONFIG_SWITCH_SUFFIX_NOTIFY);
+
+        // Only process entries with notify list and at least one output string.
+        if ( notify_slots_string.length() &&
+                ( open_output_format.length() ||
+                  close_output_format.length() ||
+                  trouble_output_format.length() )
+           ) {
+            // key switch N
+            std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
+            key += " ";
+            key += std::to_string(swID);
+
+            // construct our search object.
             AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
 
-            // read notification slot list into std::list
+            // store validated output formats.
+            es1->OPEN_OUTPUT_FORMAT = open_output_format;
+            es1->CLOSE_OUTPUT_FORMAT = close_output_format;
+            es1->TROUBLE_OUTPUT_FORMAT = trouble_output_format;
+
+            // save notify list to PTR_ARG.
             std::list<uint8_t> *pslots = new std::list<uint8_t>;
             std::vector<std::string> vres;
-            ad2_tokenize(slots, ",", vres);
+            ad2_tokenize(notify_slots_string, ",", vres);
             for (auto &slotstring : vres) {
                 uint8_t s = std::atoi(slotstring.c_str());
                 pslots->push_front((uint8_t)s & 0xff);
             }
-
-            // Save the notification slot. That is all we need to complete the task.
-            es1->INT_ARG = 0;
             es1->PTR_ARG = pslots;
 
-            // We at least need some output format or skip
-            ad2_get_config_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
-            ad2_get_config_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSE_OUTPUT_FORMAT);
-            ad2_get_config_key_string(key.c_str(), i, SK_TROUBLE_OUTPUT_FMT, es1->TROUBLE_OUTPUT_FORMAT);
-            if ( es1->OPEN_OUTPUT_FORMAT.length()
-                    || es1->CLOSE_OUTPUT_FORMAT.length()
-                    || es1->TROUBLE_OUTPUT_FORMAT.length() ) {
+            // save the NVS Virtual SWITCH ID so we can read the data back later.
+            es1->INT_ARG = swID;
 
-                std::string notify_types_sz = "";
-                std::vector<std::string> notify_types_v;
-                ad2_get_config_key_string(key.c_str(), i, SK_TYPE_LIST, notify_types_sz);
-                ad2_tokenize(notify_types_sz, ", ", notify_types_v);
-                for (auto &sztype : notify_types_v) {
-                    ad2_trim(sztype);
-                    auto x = AD2Parse.message_type_id.find(sztype);
-                    if(x != std::end(AD2Parse.message_type_id)) {
-                        ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
-                        es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
-                    }
+            // switch filter settings
+            std::string filter;
+
+            // Get the optional switch types to listen for.
+            std::string types = "";
+            std::vector<std::string> notify_types_v;
+            ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, types);
+            ad2_tokenize(types, ", ", notify_types_v);
+            for (auto &sztype : notify_types_v) {
+                ad2_trim(sztype);
+                auto x = AD2Parse.message_type_id.find(sztype);
+                if(x != std::end(AD2Parse.message_type_id)) {
+                    ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
+                    es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
                 }
-                ad2_get_config_key_string(key.c_str(), i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
+            }
 
-                // Load all regex search patterns for OPEN,CLOSE and TROUBLE sub keys.
-                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSE_REGEX_LIST SK_OPEN_REGEX_LIST;
-                for(char& c : regex_sk_list) {
-                    std::string sk = ad2_string_printf("%c", c);
-                    for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
-                        std::string out = "";
-                        std::string tsk = sk + ad2_string_printf("%02i", a);
-                        ad2_get_config_key_string(key.c_str(), i, tsk.c_str(), out);
-                        if ( out.length()) {
-                            if (c == SK_OPEN_REGEX_LIST[0]) {
-                                es1->OPEN_REGEX_LIST.push_back(out);
-                            }
-                            if (c == SK_CLOSE_REGEX_LIST[0]) {
-                                es1->CLOSE_REGEX_LIST.push_back(out);
-                            }
-                            if (c == SK_TROUBLE_REGEX_LIST[0]) {
-                                es1->TROUBLE_REGEX_LIST.push_back(out);
-                            }
+            // load [switch N] required regex match settings
+            std::string prefilter_regex;
+            ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+
+            // Load all regex search patterns for open, close, and trouble sub keys.
+            std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
+                                        AD2SWITCH_SK_CLOSE " "
+                                        AD2SWITCH_SK_TROUBLE;
+
+            std::stringstream ss(regex_sk_list);
+            std::string sk;
+            int sk_index = 0;
+            while (ss >> sk) {
+                for ( int a = 1; a < AD2_MAX_SWITCH_SEARCH_KEYS; a++) {
+                    std::string out = "";
+                    ad2_get_config_key_string(key.c_str(), sk.c_str(), out, a);
+
+                    if ( out.length()) {
+                        if (sk_index == 0) {
+                            es1->OPEN_REGEX_LIST.push_back(out);
+                        }
+                        if (sk_index == 1) {
+                            es1->CLOSE_REGEX_LIST.push_back(out);
+                        }
+                        if (sk_index == 2) {
+                            es1->TROUBLE_REGEX_LIST.push_back(out);
                         }
                     }
                 }
+                sk_index++;
+            }
 
+            // Must provide at least one states or it will be skipped.
+            if (es1->OPEN_REGEX_LIST.size() ||
+                    es1->CLOSE_REGEX_LIST.size() ||
+                    es1->TROUBLE_REGEX_LIST.size()) {
                 // Save the search to a list for management.
                 twilio_AD2EventSearches.push_back(es1);
 
-                // subscribe the AD2EventSearch virtual switch callback.
+                // subscribe to the callback for events.
                 AD2Parse.subscribeTo(on_search_match_cb_tw, es1);
 
                 // keep track of how many for user feedback.
                 subscribers++;
+
             } else {
-                // incomplete switch call distructor.
-                es1->~AD2EventSearch();
+                // incomplete switch so delete it and supporting pointers.
+                delete pslots;
+                delete es1;
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+            }
+        } else {
+            if (open_output_format.length() || close_output_format.length()
+                    || trouble_output_format.length()) {
+                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
             }
         }
     }
-#endif // FIXME
+
     ad2_printf_host(true, "%s: Init done. Found and configured %i virtual switches.", TAG, subscribers);
 
 }
 
 /**
- * cleanup memory
+ * component memory cleanup
  */
 void twilio_free()
 {
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_TWILIO_CLIENT */
 

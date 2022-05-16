@@ -2,7 +2,7 @@
 *  @file    pushover.cpp
 *  @author  Sean Mathews <coder@f34r.com>
 *  @date    01/06/2021
-*  @version 1.0.0
+*  @version 1.0.1
 *
 *  @brief Simple commands to post to api.pushover.net
 *
@@ -33,7 +33,6 @@ static const char *TAG = "PUSHOVER";
 #include "alarmdecoder_main.h"
 
 // specific includes
-#include "pushover.h"
 
 //#define DEBUG_PUSHOVER
 #define AD2_DEFAULT_PUSHOVER_SLOT 0
@@ -212,7 +211,6 @@ esp_err_t _pushover_http_event_handler(esp_http_client_event_t *evt)
  */
 void on_search_match_cb_pushover(std::string *msg, AD2PartitionState *s, void *arg)
 {
-    std::string nvkey;
 
     AD2EventSearch *es = (AD2EventSearch *)arg;
 
@@ -224,10 +222,10 @@ void on_search_match_cb_pushover(std::string *msg, AD2PartitionState *s, void *a
         request_message *r = new request_message();
 
         // load our settings for this event type.
-        // get the user key
+        // get the pushover user key
         ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_USERKEY_SUBCMD, r->userkey, notify_slot);
 
-        // get the token
+        // get the pushover api token
         ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_TOKEN_SUBCMD, r->token, notify_slot);
 
         // save the message
@@ -274,9 +272,8 @@ char * PUSHOVER_SUBCMD [] = {
 
 /**
  * Component generic command event processing
- *  command: [COMMAND] [SUB] <id> <arg>
- * ex.
- *   [COMMAND] [SUB] 0 arg...
+ *
+ * Usage: pushover (apptoken|userkey) <acid> [<arg>]
  */
 static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *string)
 {
@@ -287,11 +284,13 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *str
     ad2_copy_nth_arg(subcmd, string, 1);
     ad2_lcase(subcmd);
 
+    // get the accountID 1-8
     if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
         accountId = strtol(buf.c_str(), NULL, 10);
     }
     // Allowed accountId 1-8
     if (accountId > 0 && accountId < 9) {
+        // <arg>
         if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
             ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
             ad2_printf_host(false, "Setting <acid> #%02i '%s' value '%s' finished.\r\n", accountId, subcmd.c_str(), buf.c_str());
@@ -306,10 +305,9 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *str
 }
 
 /**
- * component SmartSwitch command event processing
- *  command: [COMMAND] [SUB] <id> <setting> <arg1> <arg2>
- * ex. Switch #0 [N]otification slot 0
- *   [COMMAND] [SUB] 0 N 0
+ * Component SmartSwitch command event processing
+ *
+ *  Usage: pushover switch <swid> [delete|-|notify|open|close|trouble] [<arg>]
  */
 static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, const char *instring)
 {
@@ -380,7 +378,6 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, const char
         ad2_printf_host(false, "Missing or invalid switch <id> 1-255\r\n");
         // TODO: DUMP all when swID is 0 or > AD2_MAX_SWITCHES
     }
-
 }
 
 /**
@@ -434,7 +431,7 @@ static struct cli_command pushover_cmd_list[] = {
         "    switch swid SCMD [ARG]  Configure virtual switches\r\n"
         "Sub-Commands:\r\n"
         "    delete | -              Clear switch notification settings\r\n"
-        "    notify <acid>           Account storage [1-8] for notifications\r\n"
+        "    notify <acid>,...       List of accounts [1-8] to use for notification\r\n"
         "    open <message>          Send <message> for OPEN events\r\n"
         "    close <message>         Send <message> for CLOSE events\r\n"
         "    trouble <message>       Send <message> for TROUBLE events\r\n"
@@ -448,7 +445,7 @@ static struct cli_command pushover_cmd_list[] = {
 };
 
 /**
- * Register component cli commands
+ * Register cli commands
  */
 void pushover_register_cmds()
 {

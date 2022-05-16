@@ -734,7 +734,7 @@ static struct cli_command webui_cmd_list[] = {
         (char*)WEBUI_COMMAND,(char*)
         "Usage: webui <command> [arg]\r\n"
         "\r\n"
-        "    Configuration tool for FTP server\r\n"
+        "    Configuration tool for WebUI server\r\n"
         "Commands:\r\n"
         "    enable [Y|N]            Set or get enable flag\r\n"
         "    acl [aclString|-]       Set or get ACL CIDR CSV list\r\n"
