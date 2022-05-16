@@ -128,11 +128,11 @@ static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_clien
 static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
     request_message *r = (request_message*) config->user_data;
-
+#if defined(DEBUG_PUSHOVER)
     ESP_LOGI(TAG, "perform results = %d HTTP Status = %d, response length = %d response = '%s'", res,
              esp_http_client_get_status_code(client),
              esp_http_client_get_content_length(client), r->results.c_str());
-
+#endif
     // free message_data class will also delete the client_config in the distructor.
     delete r;
 

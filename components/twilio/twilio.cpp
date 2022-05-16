@@ -35,8 +35,7 @@ static const char *TAG = "TWILIO";
 // specific includes
 #include <fmt/core.h>
 
-#define DEBUG_TWILIO
-#define AD2_DEFAULT_TWILIO_SLOT 0
+//#define DEBUG_TWILIO
 
 /* Constants that aren't configurable in menuconfig */
 #define TWILIO_API_VERSION "2010-04-01"

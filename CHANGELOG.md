@@ -6,13 +6,59 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
+- [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
+- [ ] CORE: Push includes down to lower level. main include has too many component specific includes.
+- [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
+- [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
+- [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
+- [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
+- [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
+- [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
+- [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
+- [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
+- [ ] API: Add countdown tracking for DSC/Ademco exit mode
+- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
+- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
+- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
+- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
+- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
+- [ ] STSDK: TODO: Add SmartThings Zone devices.
+- [ ] webUI: Add REST api compatible with the current webapp including a secret key. This is low priority as this method of connection is not very efficient.
+
+### AJ
+- [ ] Add a GitHub Action to run a `pio` build on every PR
+- [ ] Migrate `astyle` to GitHub Action
+- [ ] Update README.md to reflect `pio` build changes
+
+---
+## Releases
+## [1.1.0 P0] - 2022-04-16 Sean Mathews - coder @f34rdotcom
+Big changes:
+  - Help file and docs refactor to make more user friendly.
+  - Replace NVS config storage with spiffs partition and human readable ini file.
+  - FTP server to allow for remote editing of the configuration file on /spiffs or /sdcard partition.
+  - Migrate the redundant use of ```switch``` in each component to a global ```switch``` command and refactor existing components to use global ```switch``` settings.
+  - Update OTA config settings so older firmware will not see this new branch. Updates to older firmware will require manual re-flashing until I get an update firmware done.
+### Added
+  - Commands
+    - ad2config
+      * Allow AD2IoT to enforce AD2pHat or attached AD2* device firmware settings.
+    - switch
+      * Global switches for use by all components.
+    - ftpd
+      * Remote HTTP content or ad2iot.ini config file management.
+  - Config using https://github.com/brofield/simpleini
+### Changed
+  - Yes :)
+
+### Change log
+- [X] *: Cleanup help and docs.
 - [X] CORE: Continued cleanup and docs.
 - [X] TWILIO: Finish refactor for core config change etc.
 - [X] CORE: Add new command ad2config to set AlarmDecoder configuration settings to be enforced on attached AD2* device.
 - [X] CORE: Adding shim for doing OTA or /sdcard/fw.hex update of AD2* attached to AD2IoT device.
 - [X] CORE: Add ability to configure AD2* board (command 'C')  from AD2IoT so it can be configured just one time during setup. Optional or in addition add MQTT command to update config. It needs to be smart. If the only attribute in the local config is "foo=bar" then it should only attempt to change the AD2* config value "foo" if the value "bar" is different. All other AD2* config settings not specified will be left as is on the AD2* device.
-- [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
-- [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
 - [X] API: Modify getZoneType and getZoneString to return bool to detect if a zone has settings.
 - [X] MQTT: Send zone descriptions for all [ZONE N] entries instead of looking at partition zones list.
 - [X] CORE: MAX sockets error during testing. Increase LWIP MAX sockets from 10 to 16.
@@ -41,32 +87,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [X] STSDK: Build error with stsdk and latest stsdk build environment.
 - [X] MQTT: Add system flag for zone notification publish.
 - [X] API: Add support for system flags in zones. On Ademco special zones for system events exist such as 0xFC for "Failed Call" state.
-- [ ] CORE: Push includes down to lower level. main include has too many component specific includes.
-- [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
-- [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
-- [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
-- [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
-- [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
-- [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
-- [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
-- [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
-- [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
-- [ ] API: Add countdown tracking for DSC/Ademco exit mode
-- [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
-- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
-- [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
-- [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
-- [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
-- [ ] STSDK: TODO: Add SmartThings Zone devices.
-- [ ] webUI: Add REST api compatible with the current webapp including a secret key. This is low priority as this method of connection is not very efficient.
 
-### AJ
-- [ ] Add a GitHub Action to run a `pio` build on every PR
-- [ ] Migrate `astyle` to GitHub Action
-- [ ] Update README.md to reflect `pio` build changes
-
----
-## Releases
 ## [1.0.9 P4] - 2022-02-22 Sean Mathews - coder @f34rdotcom
 Add missing logic for MQTT ```commands``` subscription with new ```commands``` enable/disable command. Misc minor cleanup of warnings. Refactor ad2_ helpers for arming to support code or codeID. Added initial support for Auto Discovery with Home Assistant and MQTT.
 ### Added

@@ -2,8 +2,8 @@
 * 1. [Overview](#overview)
 * 2. [Tested and recommended hardware](#tested-and-recommended-hardware)
 * 3. [Firmware](#firmware)
-  * 3.1. [SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin](#smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin)
-  * 3.2. [webUI build (webui) - alarmdecoder_webui_esp32.bin](#webui-build-(webui)---alarmdecoder_webui_esp32.bin)
+  * 3.1. [webUI build (webui) - alarmdecoder_webui_esp32.bin](#webui-build-(webui)---alarmdecoder_webui_esp32.bin)
+  * 3.2. [SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin](#smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin)
 * 4. [Configuring the AD2IoT device](#configuring-the-ad2iot-device)
 * 5. [AD2Iot CLI - command line interface](#ad2iot-cli---command-line-interface)
   * 5.1. [Main commands](#main-commands)
@@ -47,7 +47,7 @@ This project provides an example framework for building an IoT network appliance
 
 The [AD2IoT network appliance](https://www.alarmdecoder.com/catalog/product_info.php/products_id/50) integrates the AD2pHAT from AlarmDecoder.com and a ESP32-POE-ISO. The result is a device that easily connects to a compatible alarm system and publishes the alarm state to a public or private MQTT server for monitoring. The device can also be configured to initiate SIP voice calls, text messages, or e-mail when a user defined alarm state is triggered. The typical time from the device firmware start to delivery of the first state event is less than 10 seconds. Typical latency between an alarm event and message delivery is 20ms on a local network.
 
-The device firmware is stored in the onboard non-volatile flash making the device resistant to corruption. With OTA update support the flash can be securely loaded with the latest version in just a few seconds over HTTPS.
+The device firmware is stored in the onboard non-volatile flash making the device resistant to corruption. With OTA update support the flash can be securely loaded with the latest version over HTTPS.
 
 ##  2. <a name='tested-and-recommended-hardware'></a>Tested and recommended hardware
 * ESP-POE-ISO. Ethernet+WiFi applications.
@@ -63,10 +63,20 @@ If the upgrade fails it may be the result of low memory on the device. Try disab
 
 See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
 
-###  3.1. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
+###  3.1. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
+- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
+
+This build uses the latest ESP-IDF v4.3 with the SmartThings driver is disabled.
+
+- Optional uSD card with a FAT32 root partition is required for webUI.
+  - Copy the contents of contrib/webUI/flash-drive folder into the root directory of the card.
+  - Optionally place the sample configuration file [data/ad2iot.ini](data/ad2iot.ini) on the root directory to override the default config storage on the internal /spiffs partition.
+  - Reboot the device after inserting the card for changes to take effect.
+
+###  3.2. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
 - Enabled components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings.
 
-This is the default buildflag. This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
+This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 
 A few options are available as the AD2IoT device moves toward being certified and directly available in the SmartThings app. In order to Discover and adopt the AD2IoT device it needs to be visible in the "My Testing Devices" under the "Adding device" panel.
 
@@ -80,50 +90,42 @@ https://smartthings.developer.samsung.com/partner/enroll
 
 - Use the SmartThings/Samsung developer workspace to create custom profiles and onboarding as described in this howto guide [How to build Direct Connected devices with the SmartThings Platform](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055). Generate a serial number and keys and register them in the management portal and configure the device with the validated keys.
 
-###  3.2. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
-- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
-
-This build uses the latest ESP-IDF v4.3 that supports WebSockets. The SmartThings driver is disabled and the webui component is enabled.
-
-Copy the contents of contrib/webUI/flash-drive folder into the root directory of a uSD flash drive formatted with a fat32 filesystem on a single FAT32 partition. Optionally place the sample configuration file [data/ad2iot.ini](data/ad2iot.ini) on the root directory for remote config management. Place this uSD flash drive into the ESP32-POE-ISO board and reboot.
-
 ##  4. <a name='configuring-the-ad2iot-device'></a>Configuring the AD2IoT device
-Configuration of the AD2IoT is done directly over the USB serial port using a command line interface, or by editing the configuration file ```ad2iot.ini``` on the internal spiffs partition using ftp over a local network or by placing a config file on an attached uSD disk with a fat32 partition.
+Configuration of the AD2IoT is done directly over the USB serial port using a command line interface, or by editing the configuration file [ad2iot.ini](data/ad2iot.ini) on the internal spiffs partition using ftp over a local network or by placing a config file named [ad2iot.ini](data/ad2iot.ini) on an attached uSD card with a fat32 partition.
 
 - Configuration using the command line interface.
   - Connect the AD2IoT ESP32 USB to a host computer use a USB A to USB Micro B cable and run a terminal program such as [Putty](https://www.putty.org/) or [Tiny Serial](http://brokestream.com/tinyserial.html) to connect to the USB com port using 115200 baud. Most Linux distributions already have the CH340 USB serial port driver installed.
   - If needed the drivers for different operating systems can be downloaded [here](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware).
-  - To save settings to the ```ad2iot.ini``` use the ```restart``` command. This will save any settings change in memory to the active configuration file before restarting to load the new settings.
+  - To save settings to the [ad2iot.ini](data/ad2iot.ini) use the ```restart``` command. This will save any settings changed in memory to the active configuration file before restarting to load the new settings.
 - Configuration using the configuration file.
-  - The ad2iot will first attempt to load the ```ad2iot.ini``` config file from the first fat32 partition on a uSD disk if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition in the file ```ad2iot.ini```.
+  - The ad2iot will first attempt to load the [ad2iot.ini](data/ad2iot.ini) config file from the first fat32 partition on a uSD card if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition in the file [ad2iot.ini](data/ad2iot.ini).
   - To access /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). Use the custom FTP command ```REST``` to restart the ad2iot and force it to load the new configuration.
   - Sample config file with internal documentation can be found here [data/ad2iot.ini](data/ad2iot.ini)
   - Be sure to set the ftpd acl to only allow trusted systems to manage the files on the uSD card.
 
 ##  5. <a name='ad2iot-cli---command-line-interface'></a>AD2Iot CLI - command line interface
-- Configure the initial AD2IoT device settings
-  - Select TTL GPIO pins or socket address and port for the AlarmDecoder protocol stream using one of the following commands.
-    - ```ad2source COM 4:36```
-    - ```ad2source SOCK 192.168.0.121:10000```
-  - Enable ser2sock daemon and optionally configure the ACL for security.
-    - ```ser2sockd enable Y```
-    - ```ser2sockd acl 192.168.0.123/32```
-  - Set the log mode to see INFO messages
-    - ```logmode I```
-  - Restart for these changes to take effect.
-    - ```restart```
-
-- Choose the primary operating mode of the AD2IoT device.
+- Configure the initial AD2IoT device settings.
+  - Select TTL GPIO pins or socket address and port for the AlarmDecoder protocol stream using ```one``` of the following commands.
+    - TTL serial connection to AD2pHat board
+      - ```ad2source COM 4:36```
+    - Network shared AD2* device over ser2sock
+      - ```ad2source SOCK 192.168.0.121:10000```
+  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the partition # from 1-8.
+    - ```ad2config mode=A&address=18```
+  - Configure the default partition address and optional zones in partition 1.
+    - ```partition 1 18 2,3,4,5```
+  - Define any additional partitions and optional zones.
+    - ```partition 2 22 6,7,9```
+  - Set a default code in slot ```1``` to ARM/DISARM etc a partition.
+    - ```code 1 4112```
+- Choose the primary network operating mode of the AD2IoT device.
   - Managed network mode.
     - Enable and configure the WiFi or Ethernet networking driver.
       - Set ```'netmode'``` to ```W``` or ```E``` to enable the Wifi or Ethernet drivers and the ```<args>``` to configure the networking options such as IP address GW or DHCP and for Wifi the AP and password.
       - ```netmode E mode=d```
-    - Configure the default partition address and zones in slot 0. For Ademco a free keypad address needs to be assigned to each partition to control. DSC is ZeroConf and only requires the partition # from 1-8.
-      - ```partition 0 18 2,3,4,5```
-    - Define any additional partitions.
-      - ```partition 1 22 6,7,9```
-    - Set a default code in slot ```0``` to ARM/DISARM etc a partition.
-      - ```code 0 4112```
+    - Enable ftp daemon and configure the ACL.
+      - ```ftpd enable Y```
+      - ```ftpd acl 192.168.1.0/24```
     - Enable webui daemon and configure the ACL.
       - ```webui enable Y```
       - ```webui acl 192.168.1.0/24```
@@ -135,8 +137,8 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
   - SmartThings Direct-connected device mode.
     - Disable networking to allow the SmartThings driver to manage the network hardware and allow adopting over 802.11 b/g/n 2.4ghz Wi-Fi.
       - ```netmode N```
-    - Configure the default partition in slot 0 for the partition to connect to the SmartThings app.
-      - ```partition 0 18```
+    - Configure the default partition in slot 1 for the partition to connect to the SmartThings app.
+      - ```partition 1 18```
     - Enable the SmartThings driver.
       - ```stenable Y```
     - Restart for these changes to take effect.
@@ -182,6 +184,12 @@ Usage: factory-reset
 ```
 - upgrade
 ```console
+Usage: upgrade [buildflag]
+
+    Preform an OTA upgrade now download and install new flash
+Options:
+    buildflag               Specify a different build or use current if omitted
+                            See release page for details on available builds
 ```
 - version
 ```console
@@ -305,15 +313,15 @@ Usage: partition [(<partId> <address>) [zoneList]]
      * Use partition #1-8 and set the partition. no panel programming is needed.
 
 Options:
-    partId                  Partition ID 0-8
+    partId                  Partition ID 1-8
     address                 For DSC 1-8 for Ademco use available keypad address.
                              Use - to remove partition
     zoneList                Optional Comma separated zone list for this partition
 Examples:
     Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.
-      ```partition 0 18 2,3,4```
+      ```partition 1 18 2,3,4```
     Set default send partition Id to 1 for a DSC system.
-      ```partition 0 1```
+      ```partition 2 1```
     Show address for partition Id 2.
       ```partition 2```
     Remove partition Id 2.
@@ -593,14 +601,14 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
     - Example: ```ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/partitions/1 =
 {"ready":false,"armed_away":false,"armed_stay":false,"backlight_on":false,"programming_mode":false,"zone_bypassed":false,"ac_power":true,"chime_on":false,"alarm_event_occurred":false,"alarm_sounding":false,"battery_low":true,"entry_delay_off":false,"fire_alarm":false,"system_issue":false,"perimeter_only":false,"exit_now":false,"system_specific":3,"beeps":0,"panel_type":"A","last_alpha_messages":"SYSTEM LO BAT                   ","last_numeric_messages":"008","event":"LOW BATTERY"}```
   - Custom virtual switches with user defined topics are under the ```switches``` below the device root topic.
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/RF0123456 = {"state":"ON"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/switches/1 = {"state":"ON"}```
   - Zone states by Zone ID(NNN) are under the ```zones``` below the device root topic.
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/zones/003 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/zones/3 = {"state":"CLOSE","partition":2,"name":"THIS IS ZONE 3"}```
   - Remote ```commands``` subscription. If enabled the device will subscribe to ```commands``` below the device root topic. Warning! Only enable if on a secure broker as codes will be visible to subscribers.
     - Publish JSON template ```{ "partition": {number}, "action": "{string}", "code": "{string}", "arg": "{string}"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 0, "action": "DISARM", "code": "1234"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 0, "action": "BYPASS", "code": "1234", "arg": "03"}```
-    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 0, "action": "FIRE_ALARM"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 1, "action": "DISARM", "code": "1234"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 1, "action": "BYPASS", "code": "1234", "arg": "03"}```
+    - Example: ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/commands = {"partition": 1, "action": "FIRE_ALARM"}```
   - Contact ID reporting if found will be published to ```[{tprefix}/]ad2iot/41443245-4d42-4544-4410-XXXXXXXXXXXX/cid```
     - Example: ```{ "event_message": "!LRR:002,1,CID_3441,ff"}```
 
@@ -756,8 +764,8 @@ I (504) !IOT: Starting AlarmDecoder AD2IoT network appliance version (AD2IOT-109
 !IOT: N (517) ESP32 with 2 CPU cores, WiFi/BT/BLE, silicon revision 1, 4MB external flash
 !IOT: N (527) Initialize NVS subsystem start. Done.
 !IOT: N (547) NVS usage 17.51%. Count: UsedEntries = (331), FreeEntries = (1559), AllEntries = (1890)
-!IOT: N (547) init partition slot 0 address 18 zones '2,5'
-!IOT: N (557) init partition slot 1 address 23 zones '3,6'
+!IOT: N (547) init partition slot 1 address 18 zones '2,5'
+!IOT: N (557) init partition slot 2 address 23 zones '3,6'
 !IOT: N (607) Mounting uSD card PASS.
 !IOT: N (667) Initialize AD2 UART client using txpin(4) rxpin(36)
 !IOT: N (667) Send '.' three times in the next 5 seconds to stop the init.
@@ -809,4 +817,4 @@ Type help <command> for details on each command.
 
   Note) If the connection is a Socket it is currently necessary to have the ESP32 running and not halted at boot and connected with SmartThings for Wifi and networking to be active.
 
-- Flashing the ESP32 board fails with timeout. It seems many of the ESP32 boards need a 4-10uF cap as a buffer on the EN pin and ground. This seems to fix it very well. Repeated attempts to upload with timeouts usually works by pressing the EN button on the board a few times during upload.
+- Flashing the ESP32-DEV board fails with timeout. It seems many of the ESP32 boards need a 4-10uF cap as a buffer on the EN pin and ground. This seems to fix it very well. Repeated attempts to upload with timeouts usually works by pressing the EN button on the board a few times during upload.
