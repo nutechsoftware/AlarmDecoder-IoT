@@ -137,12 +137,16 @@ void hal_set_wifi_hostname(const char *);
 void hal_set_eth_hostname(const char *);
 void hal_host_uart_init();
 void hal_ad2_reset();
+bool hal_get_netif_started();
 bool hal_get_network_connected();
 void hal_ota_do_update(const char *);
 void hal_set_network_connected(bool);
-void hal_init_sd_card();
+bool hal_init_sd_card();
 void hal_get_socket_client_ip(int sockfd, std::string& IP);
 void hal_get_socket_local_ip(int sockfd, std::string& IP);
+void hal_set_log_mode(char m);
+void hal_dump_hw_info();
+void hal_init_persistent_storage();
 #ifdef __cplusplus
 }
 #endif

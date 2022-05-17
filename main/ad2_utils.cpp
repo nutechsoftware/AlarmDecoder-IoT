@@ -40,6 +40,89 @@ static const char *TAG = "AD2UTIL";
 #include "nvs_flash.h"
 #include "mbedtls/base64.h"
 
+#include <SimpleIni.h>
+// ini config class
+static CSimpleIniA _ad2ini;
+
+// auto save and cache states.
+static bool _config_autosave = false;
+static bool _config_dirty = false;
+static bool _uSD_config = false;
+
+/**
+ * @brief  ini file error string helper
+ *
+ */
+const char * _ini_file_error(SI_Error e)
+{
+    if (e == SI_NOMEM) {
+        return "out of memory.";
+    }
+    return (const char *)strerror(errno);
+}
+
+/**
+ * @brief  ad2_save_persistent_config
+ *
+ */
+void ad2_save_persistent_config()
+{
+    if (!_config_autosave && _config_dirty) {
+        SI_Error rc;
+        if (_uSD_config) {
+            rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        } else {
+            rc = _ad2ini.SaveFile("/" AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
+        }
+        if (rc < 0) {
+            ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
+        } else {
+            _config_dirty = false;
+        }
+    }
+}
+
+/**
+ * @brief  ad2_load_persistent_config
+ *
+ */
+void ad2_load_persistent_config()
+{
+    // Set config storage format to UTF-8.
+    _ad2ini.SetUnicode();
+
+    // Enable multi line values.
+    _ad2ini.SetMultiLine();
+
+    // See if a config exists on the uSD card and use if found.
+    ad2_printf_host(true, "%s: Attempting to load config file: " AD2_USD_MOUNT_POINT AD2_CONFIG_FILE, TAG);
+    SI_Error rc = _ad2ini.LoadFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+
+    if (rc < 0) {
+        // USD config load failed show why.
+        ad2_printf_host( false, " failed(");
+        ad2_printf_host( false, _ini_file_error(rc));
+        ad2_printf_host( false, ")");
+
+        // See if a config exists on the SPIFFS and use if found.
+        ad2_printf_host(true, "%s: Attempting to load config file: " AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE, TAG);
+        // load from internal SPIFFS storage
+        rc = _ad2ini.LoadFile("/" AD2_SPIFFS_MOUNT_POINT AD2_CONFIG_FILE);
+        if (rc < 0) {
+            // USD config load failed show why.
+            ad2_printf_host( false, " failed(");
+            ad2_printf_host( false, _ini_file_error(rc));
+            ad2_printf_host( false, ")");
+            // last option create a new one.
+
+        } else {
+            ad2_printf_host(false, " success.");
+        }
+    } else {
+        ad2_printf_host(false, " success.");
+        _uSD_config = true;
+    }
+}
 
 /**
  * @brief Parse an acl string and add to our list of networks.
@@ -57,7 +140,7 @@ static const char *TAG = "AD2UTIL";
  *                       -1 ad2_acl_check.ACL_ERR_BADFORMAT_CIDR
  *                       -2 ad2_acl_check.ACL_ERR_BADFORMAT_IP
  */
-int ad2_acl_check::add(std::string& acl)
+int ad2_acl_check::add(std::string &acl)
 {
     bool is_ipv4;
 
@@ -74,7 +157,7 @@ int ad2_acl_check::add(std::string& acl)
         if (token.find('/') != std::string::npos) {
             // convert string after '/' to a small int 0-255 sufficient to hold a CIDR value 1-128
             // Allow for /0 match all special case 0.0.0.0/0
-            uint8_t iCIDR = std::stoi(token.substr(token.find("/") + 1));
+            uint8_t iCIDR = std::atoi(token.substr(token.find("/") + 1).c_str());
             if (iCIDR > 128) {
                 return this->ACL_ERR_BADFORMAT_CIDR;
             }
@@ -88,17 +171,17 @@ int ad2_acl_check::add(std::string& acl)
 
             // CIDR to 128bit mask.
             // The address and mask is in Network Byte Order(Big-endian)
-            ad2_addr mask  = {};
-            memset((uint8_t*)&mask.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
-            this->_addr_SHIFT_LEFT(mask, (is_ipv4 ? 32 : 128)-iCIDR);
+            ad2_addr mask = {};
+            memset((uint8_t *)&mask.u8_addr[0], 0xff, sizeof(((struct ad2_addr *)0)->u8_addr));
+            this->_addr_SHIFT_LEFT(mask, (is_ipv4 ? 32 : 128) - iCIDR);
 
             // 128bit Start address prefill with 1's
             ad2_addr addr_start = {};
-            memset((uint8_t*)&addr_start.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+            memset((uint8_t *)&addr_start.u8_addr[0], 0xff, sizeof(((struct ad2_addr *)0)->u8_addr));
 
             // 128 bit End address prefill with 0's
             ad2_addr addr_end = {};
-            memset((uint8_t*)&addr_end.u8_addr[0], 0x0, sizeof(((struct ad2_addr*)0)->u8_addr));
+            memset((uint8_t *)&addr_end.u8_addr[0], 0x0, sizeof(((struct ad2_addr *)0)->u8_addr));
 
             // 32 bit version (start = addr & mask; end = addr | (~mask))
             this->_addr_AND(addr_start, addr, mask);
@@ -160,13 +243,13 @@ bool ad2_acl_check::find(std::string szaddr)
 
 // @brief test if an IP value is inside of any of the know network ranges.
 // Addresses are 16 byte or 4 32bit words. For IPv4 then only one word is used.
-bool ad2_acl_check::find(ad2_addr& addr)
+bool ad2_acl_check::find(ad2_addr &addr)
 {
     // If no ACLs exist then skip ACL testing and everything passes.
     if (!allowed_networks.size()) {
         return true;
     }
-    for(auto acl: allowed_networks) {
+    for (auto acl : allowed_networks) {
         if (_in_addr_BETWEEN(addr, acl.first, acl.second)) {
             return true;
         }
@@ -176,15 +259,15 @@ bool ad2_acl_check::find(ad2_addr& addr)
 
 // @brief parse IPv4/IPv6 address string to ip6_addr value.
 // @return bool ok = true;
-bool ad2_acl_check::_szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is_ipv4)
+bool ad2_acl_check::_szIPaddrParse(std::string &szaddr, ad2_addr &addr, bool &is_ipv4)
 {
-    is_ipv4=false;
+    is_ipv4 = false;
 
     // IPv4 has '.'
     if (szaddr.find('.') != std::string::npos) {
-        is_ipv4=true;
+        is_ipv4 = true;
         // prefix all bits with 1's ::FFFF: to keep a 32 bit IPv4 in a 128bit IPv6 capable container.
-        memset((uint8_t*)&addr.u8_addr[0], 0xff, sizeof(((struct ad2_addr*)0)->u8_addr));
+        memset((uint8_t *)&addr.u8_addr[0], 0xff, sizeof(((struct ad2_addr *)0)->u8_addr));
         // 32bit IPv4 stored in the last 4 bytes.
         if (!inet_pton(AF_INET, szaddr.c_str(), &addr.u8_addr[12])) {
             // Allow all IPv4 pattern 0.0.0.0/0
@@ -210,9 +293,9 @@ bool ad2_acl_check::_szIPaddrParse(std::string& szaddr, ad2_addr& addr, bool& is
 };
 
 // @brief IPv6 or IPv4 math.
-bool ad2_acl_check::_in_addr_BETWEEN(ad2_addr& test, ad2_addr& start, ad2_addr& end)
+bool ad2_acl_check::_in_addr_BETWEEN(ad2_addr &test, ad2_addr &start, ad2_addr &end)
 {
-    for (int n = 0; n < sizeof(((struct ad2_addr*)0)->u8_addr); n++) {
+    for (int n = 0; n < sizeof(((struct ad2_addr *)0)->u8_addr); n++) {
         if (test.u8_addr[n] < start.u8_addr[n] || test.u8_addr[n] > end.u8_addr[n]) {
             return false;
         }
@@ -221,16 +304,16 @@ bool ad2_acl_check::_in_addr_BETWEEN(ad2_addr& test, ad2_addr& start, ad2_addr& 
 }
 
 // @brief shift 128bit big endian value to the left cnt times.
-void ad2_acl_check::_addr_SHIFT_LEFT(ad2_addr& addr, int cnt)
+void ad2_acl_check::_addr_SHIFT_LEFT(ad2_addr &addr, int cnt)
 {
     int carry_bit = 0, last_carry_bit = 0;
 
-    while(cnt>0) {
-        for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+    while (cnt > 0) {
+        for (int i = sizeof(((struct ad2_addr *)0)->u8_addr) - 1; i >= 0; i--) {
             // save top bit for carry
             carry_bit = addr.u8_addr[i] & 0x80 ? 0x01 : 0x00;
-            addr.u8_addr[i]<<=1;
-            if (i < sizeof(((struct ad2_addr*)0)->u8_addr)-1) {
+            addr.u8_addr[i] <<= 1;
+            if (i < sizeof(((struct ad2_addr *)0)->u8_addr) - 1) {
                 // carry top bit to next int.
                 addr.u8_addr[i] |= last_carry_bit;
             }
@@ -241,25 +324,25 @@ void ad2_acl_check::_addr_SHIFT_LEFT(ad2_addr& addr, int cnt)
 }
 
 // @brief NOT 128bit big endian value.
-void ad2_acl_check::_addr_NOT(ad2_addr& addr)
+void ad2_acl_check::_addr_NOT(ad2_addr &addr)
 {
-    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+    for (int i = sizeof(((struct ad2_addr *)0)->u8_addr) - 1; i >= 0; i--) {
         addr.u8_addr[i] = ~addr.u8_addr[i];
     }
 }
 
 // @brief AND 128bit big endian values.
-void ad2_acl_check::_addr_AND(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
+void ad2_acl_check::_addr_AND(ad2_addr &out, ad2_addr &inA, ad2_addr &inB)
 {
-    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+    for (int i = sizeof(((struct ad2_addr *)0)->u8_addr) - 1; i >= 0; i--) {
         out.u8_addr[i] = inA.u8_addr[i] & inB.u8_addr[i];
     }
 }
 
 // @brief OR 128bit big endian values.
-void ad2_acl_check::_addr_OR(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
+void ad2_acl_check::_addr_OR(ad2_addr &out, ad2_addr &inA, ad2_addr &inB)
 {
-    for (int i=sizeof(((struct ad2_addr*)0)->u8_addr)-1; i >= 0; i--) {
+    for (int i = sizeof(((struct ad2_addr *)0)->u8_addr) - 1; i >= 0; i--) {
         out.u8_addr[i] = inA.u8_addr[i] | inB.u8_addr[i];
     }
 }
@@ -273,7 +356,7 @@ void ad2_acl_check::_addr_OR(ad2_addr& out, ad2_addr& inA, ad2_addr& inB)
  * @return std::string basic auth string
  *
  */
-std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password)
+std::string ad2_make_basic_auth_string(const std::string &user, const std::string &password)
 {
 
     size_t toencodeLen = user.length() + password.length() + 2;
@@ -288,10 +371,9 @@ std::string ad2_make_basic_auth_string(const std::string& user, const std::strin
         toencodeLen,
         "%s:%s",
         user.c_str(),
-        password.c_str()
-    );
+        password.c_str());
 
-    mbedtls_base64_encode(outbuffer,sizeof(outbuffer),&out_len,(unsigned char*)toencode, toencodeLen-1);
+    mbedtls_base64_encode(outbuffer, sizeof(outbuffer), &out_len, (unsigned char *)toencode, toencodeLen - 1);
     outbuffer[out_len] = '\0';
 
     std::string encoded_string = std::string((char *)outbuffer);
@@ -336,7 +418,6 @@ std::string ad2_urlencode(const std::string str)
     return encoded;
 }
 
-
 /**
  * @brief Generate a UUID based upon the ESP32 wifi hardware mac address.
  *
@@ -351,11 +432,11 @@ std::string ad2_urlencode(const std::string str)
  *   Y: unique 32 bit value from WIFI MAC address.
  *
  */
-#define AD2IOT_UUID_FORMAT   "41443245-4d42-4544-44%02x-%02x%02x%02x%02x%02x%02x"
+#define AD2IOT_UUID_FORMAT "41443245-4d42-4544-44%02x-%02x%02x%02x%02x%02x%02x"
 
-void ad2_genUUID(uint8_t n, std::string& ret)
+void ad2_genUUID(uint8_t n, std::string &ret)
 {
-    static uint8_t chipid[6] = {0,0,0,0,0,0};
+    static uint8_t chipid[6] = {0, 0, 0, 0, 0, 0};
     // assuming first byte wont never be 0x00
     if (chipid[0] == 0x00) {
         esp_read_mac(chipid, ESP_MAC_WIFI_STA);
@@ -363,13 +444,13 @@ void ad2_genUUID(uint8_t n, std::string& ret)
 
     char _uuid[37];
     snprintf(_uuid, sizeof(_uuid), AD2IOT_UUID_FORMAT,
-             (uint16_t) ((n) & 0xff),
-             (uint16_t) ((chipid[0]) & 0xff),
-             (uint16_t) ((chipid[1]) & 0xff),
-             (uint16_t) ((chipid[2]) & 0xff),
-             (uint16_t) ((chipid[3]) & 0xff),
-             (uint16_t) ((chipid[4]) & 0xff),
-             (uint16_t) ((chipid[5]) & 0xff));
+             (uint16_t)((n)&0xff),
+             (uint16_t)((chipid[0]) & 0xff),
+             (uint16_t)((chipid[1]) & 0xff),
+             (uint16_t)((chipid[2]) & 0xff),
+             (uint16_t)((chipid[3]) & 0xff),
+             (uint16_t)((chipid[4]) & 0xff),
+             (uint16_t)((chipid[5]) & 0xff));
     ret = _uuid;
 }
 
@@ -380,7 +461,7 @@ void ad2_genUUID(uint8_t n, std::string& ret)
  */
 void ad2_ucase(std::string &str)
 {
-    for (std::string::size_type i=0; i<str.length(); ++i) {
+    for (std::string::size_type i = 0; i < str.length(); ++i) {
         str[i] = std::toupper(str[i]);
     }
 }
@@ -392,24 +473,9 @@ void ad2_ucase(std::string &str)
  */
 void ad2_lcase(std::string &str)
 {
-    for (std::string::size_type i=0; i<str.length(); ++i) {
+    for (std::string::size_type i = 0; i < str.length(); ++i) {
         str[i] = std::tolower(str[i]);
     }
-}
-
-/**
- * @brief fix missing std::to_string()
- *
- * @param [in]n int value to convert to string.
- *
- * @return std::string
- *
- */
-std::string ad2_to_string(int n)
-{
-    std::ostringstream stm;
-    stm << n;
-    return stm.str();
 }
 
 /**
@@ -420,7 +486,7 @@ std::string ad2_to_string(int n)
  * @param [in]out pointer to output std::vector of std:strings
  *
  */
-void ad2_tokenize(std::string const &str, const char* delimiters,
+void ad2_tokenize(std::string const &str, const char *delimiters,
                   std::vector<std::string> &out)
 {
     char *_str = strdup(str.c_str());
@@ -504,7 +570,7 @@ std::string ad2_string_printf(const char *fmt, ...)
  * @return bool true|false
  *
  */
-bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replaceStr)
+bool ad2_replace_all(std::string &inStr, const char *findStr, const char *replaceStr)
 {
     int findLen = strlen(findStr);
     if (!findLen) {
@@ -526,7 +592,6 @@ bool ad2_replace_all(std::string& inStr, const char *findStr, const char *replac
     return true;
 }
 
-
 /**
  * @brief left trim.
  *
@@ -546,7 +611,9 @@ void ad2_ltrim(std::string &s)
 void ad2_rtrim(std::string &s)
 {
     s.erase(std::find_if(s.rbegin(), s.rend(),
-                         std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+                         std::not1(std::ptr_fun<int, int>(std::isspace)))
+            .base(),
+            s.end());
 }
 
 /**
@@ -565,236 +632,273 @@ void ad2_trim(std::string &s)
  *
  * @param [in]s std::string &.
  */
-void ad2_remove_ws(std::string& s )
+void ad2_remove_ws(std::string &s)
 {
-    std::string str_no_ws ;
-    for( char c : s ) if( !std::isspace(c) ) {
-            str_no_ws += c ;
+    std::string str_no_ws;
+    for (char c : s)
+        if (!std::isspace(c)) {
+            str_no_ws += c;
         }
     s = str_no_ws;
 }
 
 /**
- * @brief Generic get NV string value by key and slot(0-99).
+ * @brief Get bool configuration value by section and key.
+ *  Optional default value, index(0-999), and suffix helpers.
  *
- * @param [in]key to search for.
- * @param [in]slot inter slot from 0 - 99.
- * @param [in]s char * suffix.
- * @param [out]valueout int * to store search results.
+ * @param[in] section config section.
+ * @param[in] key config key in section.
+ * @param[out] vout bool* to store result.
+ * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
+ * @param[in] suffix=NULL char * string to add to the key if not NULL.
  *
  */
-void ad2_get_nv_slot_key_int(const char *key, int slot, const char *s, int *valueout)
+void ad2_get_config_key_bool(
+    const char *section, const char *key,
+    bool *vout,
+    int index, const char *suffix)
 {
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(key, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-        err = nvs_get_i32(my_handle, tkey.c_str(), valueout);
-        nvs_close(my_handle);
-    }
-}
-
-/**
- * @brief Generic set NV string value by key and slot(0-99).
- *
- * @param [in]key to search for.
- * @param [in]slot inter slot from 0 - 99.
- * @param [in]s char * suffix.
- * @param [in]value int value to store for search results.
- *
- * @note  value < 0 will remove entry
- */
-void ad2_set_nv_slot_key_int(const char *key, int slot, const char *s, int value)
-{
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(key, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-        err = nvs_erase_key(my_handle, tkey.c_str());
-        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+    std::string tkey = (key == nullptr ? "" : key);
+    if (index > -1) {
+        if (tkey.length()) {
+            tkey += " ";
         }
-        if (value != -1) {
-            err = nvs_set_i32(my_handle, tkey.c_str(), value);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
-            }
-            err = nvs_commit(my_handle);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
-            }
+        tkey += std::to_string(index);
+        if (suffix != nullptr) {
+            tkey += " ";
+            tkey += suffix;
         }
-        nvs_close(my_handle);
     }
-}
 
-/**
- * @brief Generic get NV string value by key and slot(0-99).
- *
- * @param [in]key to search for.
- * @param [in]slot inter slot from 0 - 99.
- * @param [in]s char * suffix.
- * @param [out]valueout std::string * to store search results.
- *
- */
-void ad2_get_nv_slot_key_string(const char *key, int slot, const char *s, std::string &valueout)
-{
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-#ifdef DEBUG_NVS
-    ESP_LOGI(TAG, "%s: opening key(%s)", __func__, key);
+    // If config from uSD is loaded then use it else use NVM
+    *vout = _ad2ini.GetBoolValue(section, tkey.c_str(), *vout);
+#ifdef DEBUG_CONFIG
+    ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
 #endif
-    err = nvs_open(key, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        size_t size;
-        std::string tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-#ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: reading sub key(%s)", __func__, tkey.c_str());
-#endif
-        // get size including terminator.
-        err = nvs_get_str(my_handle, tkey.c_str(), NULL, &size);
-        if (err == ESP_OK && size) {
-            if (size > AD2_MAX_VALUE_SIZE) {
-                size = AD2_MAX_VALUE_SIZE;
-            }
-            // set size excluding terminator
-            valueout.resize(size-1);
-            // load the string to valueout.
-            err = nvs_get_str(my_handle, tkey.c_str(), (char*)valueout.c_str(), &size);
-        }
+}
 
-        nvs_close(my_handle);
+/**
+ * @brief Set bool configuration value by section and key.
+ *  Optional remove, default value, index(0-999), and suffix helpers.
+ *
+ * @param[in] section config section.
+ * @param[in] key config key in section.
+ * @param[in] vin bool value to store.
+ * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
+ * @param[in] suffix=NULL char * string to add to the key if not NULL.
+ * @param[in] remove=false remove entry.
+ *
+ */
+void ad2_set_config_key_bool(
+    const char *section, const char *key,
+    bool vin,
+    int index, const char *suffix, bool remove)
+{
+    std::string tkey = (key == nullptr ? "" : key);
+    if (index > -1) {
+        if (tkey.length()) {
+            tkey += " ";
+        }
+        tkey += std::to_string(index);
+        if (suffix != nullptr) {
+            tkey += " ";
+            tkey += suffix;
+        }
+    }
+    // If config from persistent storage
+#ifdef DEBUG_CONFIG
+    ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
+#endif
+    bool done;
+    if (remove) {
+        done = _ad2ini.Delete(section, tkey.c_str(), false);
+    } else {
+        done = _ad2ini.SetBoolValue(section, tkey.c_str(), vin);
+    }
+    if (!done) {
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+    } else {
+        _config_dirty = true;
+    }
+    if (_config_autosave && _config_dirty) {
+        SI_Error rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        if (rc < 0) {
+            ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
+        }
     }
 }
 
 /**
- * @brief Generic set NV string value by key and slot(0-99).
- * A value pointer of 0 or NULL will remove the entry if found.
+ * @brief Get int configuration value by section and key.
+ *  Optional default value, index(0-999), and suffix helpers.
  *
- * @param [in]key pointer to key to save value under
- * @param [in]slot int slot# from 0 - 99
- * @param [in]s char * suffix.
- * @param [in]value pointer to string to store for search results.
+ * @param[in] section config section.
+ * @param[in] key config key in section.
+ * @param[out] vout int* to store result.
+ * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
+ * @param[in] suffix=NULL char * string to add to the key if not NULL.
  *
  */
-void ad2_set_nv_slot_key_string(const char *key, int slot, const char *s, const char *value)
+void ad2_get_config_key_int(
+    const char *section, const char *key,
+    int *vout,
+    int index, const char *suffix)
 {
-    esp_err_t err;
+    std::string tkey = (key == nullptr ? "" : key);
+    if (index > -1) {
+        if (tkey.length()) {
+            tkey += " ";
+        }
+        tkey += std::to_string(index);
+        if (suffix != nullptr) {
+            tkey += " ";
+            tkey += suffix;
+        }
+    }
 
-    // Open NVS
-    nvs_handle my_handle;
-#ifdef DEBUG_NVS
-    ESP_LOGI(TAG, "%s: opening key(%s)", __func__, key);
+    *vout = (int)_ad2ini.GetLongValue(section, tkey.c_str(), *vout);
+#ifdef DEBUG_CONFIG
+    ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%i)", __func__, section, tkey.c_str(), *vout);
 #endif
-    err = nvs_open(key, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
+}
+
+/**
+ * @brief Set int configuration value by section and key.
+ *  Optional remove, default value, index(0-999), and suffix helpers.
+ *
+ * @param[in] section config section.
+ * @param[in] key config key in section.
+ * @param[in] vin int value to store.
+ * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
+ * @param[in] suffix=NULL char * string to add to the key if not NULL.
+ * @param[in] remove=false remove entry.
+ *
+ */
+void ad2_set_config_key_int(
+    const char *section, const char *key,
+    int vin,
+    int index, const char *suffix, bool remove)
+{
+    std::string tkey = (key == nullptr ? "" : key);
+    if (index > -1) {
+        if (tkey.length()) {
+            tkey += " ";
+        }
+        tkey += std::to_string(index);
+        if (suffix != nullptr) {
+            tkey += " ";
+            tkey += suffix;
+        }
+    }
+
+#ifdef DEBUG_CONFIG
+    ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
+#endif
+    bool done;
+    if (remove) {
+        done = _ad2ini.Delete(section, tkey.c_str(), false);
     } else {
-        std::string tkey;
-        tkey = ad2_string_printf("%02i%s", slot, s == nullptr ? "" : s);
-#ifdef DEBUG_NVS
-        ESP_LOGI(TAG, "%s: saving sub key(%s)", __func__, tkey.c_str());
-#endif
-        err = nvs_erase_key(my_handle, tkey.c_str());
-        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+        done = _ad2ini.SetLongValue(section, tkey.c_str(), vin);
+    }
+    if (!done) {
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete(%s).", __func__, tkey.c_str());
+    } else {
+        _config_dirty = true;
+    }
+    if (_config_autosave && _config_dirty) {
+        SI_Error rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        if (rc < 0) {
+            ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
         }
-        if (value != NULL) {
-            err = nvs_set_str(my_handle, tkey.c_str(), value);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
-            }
-            err = nvs_commit(my_handle);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
-            }
-        }
-        nvs_close(my_handle);
     }
 }
 
 /**
- * @brief Generic get NV value by key.
+ * @brief Get std::string configuration value by section and key.
+ *  Optional default value, index(0-999), and suffix helpers.
  *
- * @param [in]key pointer to key for the value to find
- * @param [out]valueout pointer std::string value string if found
+ * @param[in] section config section.
+ * @param[in] key config key in section.
+ * @param[out] vout std::string& to store result.
+ * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
+ * @param[in] suffix=NULL char * string to add to the key if not NULL.
  *
- * @note string will be truncated if larger than size including
- * the null terminator.
  */
-void ad2_get_nv_arg(const char *key, std::string &valueout)
+void ad2_get_config_key_string(
+    const char *section, const char *key,
+    std::string &vout,
+    int index, const char *suffix)
 {
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(key, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        size_t size;
-        // get size including terminator.
-        err = nvs_get_str(my_handle, key, NULL, &size);
-        if (err == ESP_OK && size) {
-            if (size > AD2_MAX_VALUE_SIZE) {
-                size = AD2_MAX_VALUE_SIZE;
-            }
-            // set size excluding terminator
-            valueout.resize(size-1);
-            // load the string to valueout.
-            err = nvs_get_str(my_handle, key, (char*)valueout.c_str(), &size);
+    std::string tkey = (key == nullptr ? "" : key);
+    if (index > -1) {
+        if (tkey.length()) {
+            tkey += " ";
         }
-        nvs_close(my_handle);
+        tkey += std::to_string(index);
+        if (suffix != nullptr) {
+            tkey += " ";
+            tkey += suffix;
+        }
     }
+
+    vout = _ad2ini.GetValue(section, tkey.c_str(), vout.c_str());
+#ifdef DEBUG_CONFIG
+    ESP_LOGI(TAG, "%s: s(%s) k(%s) v(%s)", __func__, section, tkey.c_str(), vout.c_str());
+#endif
+
 }
 
 /**
- * @brief Generic set NV value by key.
+ * @brief Set std::string configuration value by section and key.
+ *  Optional remove, default value, index(0-999), and suffix helpers.
  *
- * @param [in]key pointer to key for stored value
- * @param [in]value pointer to value string to store
+ * @param[in] section config section.
+ * @param[in] key config key in section.
+ * @param[in] vin const char * value to store.
+ * @param[in] index=-1 index of key when multiple exist. Use -1 to disable.
+ * @param[in] suffix=NULL char * string to add to the key if not NULL.
+ * @param[in] remove=false remove entry.
  *
  */
-void ad2_set_nv_arg(const char *key, const char *value)
+void ad2_set_config_key_string(
+    const char *section, const char *key,
+    const char *vin,
+    int index, const char *suffix, bool remove)
 {
-    esp_err_t err;
-
-    // Open NVS
-    nvs_handle my_handle;
-    err = nvs_open(key, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "%s: Error (%s) opening NVS handle!", __func__, esp_err_to_name(err));
-    } else {
-        err = nvs_erase_key(my_handle, key);
-        if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) {
-            ESP_LOGE(TAG, "%s: Error (%s) in erase.", __func__, esp_err_to_name(err));
+    std::string tkey = (key == nullptr ? "" : key);
+    if (index > -1) {
+        if (tkey.length()) {
+            tkey += " ";
         }
-        err = nvs_set_str(my_handle, key, value);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Error (%s) in set.", __func__, esp_err_to_name(err));
+        tkey += std::to_string(index);
+        if (suffix != nullptr) {
+            tkey += " ";
+            tkey += suffix;
         }
-        err = nvs_commit(my_handle);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Error (%s) commit.", __func__, esp_err_to_name(err));
-        }
-        nvs_close(my_handle);
     }
-}
 
+#ifdef DEBUG_CONFIG
+    ESP_LOGI(TAG, "%s: Set|Delete bool key(%s)", __func__, tkey.c_str());
+#endif
+    bool done;
+    if (remove) {
+        done = _ad2ini.Delete(section, tkey.c_str(), false);
+    } else {
+        done = _ad2ini.SetValue(section, tkey.c_str(), vin);
+    }
+    if (!done) {
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete. '%s'", __func__, tkey.c_str());
+    } else {
+        _config_dirty = true;
+    }
+    if (_config_autosave && _config_dirty) {
+        SI_Error rc = _ad2ini.SaveFile("/" AD2_USD_MOUNT_POINT AD2_CONFIG_FILE);
+        if (rc < 0) {
+            ESP_LOGE(TAG, "%s: Error (%i) ini saveFile.", __func__, rc);
+        }
+    }
+    return;
+}
 
 /**
  * @brief Copy the Nth space separated word from a string.
@@ -806,23 +910,25 @@ void ad2_set_nv_arg(const char *key, const char *value)
  *
  * @return 0 on success -1 on failure
  */
-int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining)
+int ad2_copy_nth_arg(std::string &dest, const char *src, int n, bool remaining)
 {
     int start = 0, end = -1;
     int i = 0, word_index = 0;
     int len;
 
     for (i = 0; src[i] != '\0'; i++) {
-        if ((src[i] == ' ') && (src[i+1]!=' ') && (src[i+1]!='\0')) { //start check
+        if ((src[i] == ' ') && (src[i + 1] != ' ') && (src[i + 1] != '\0')) {
+            // start check
             word_index++;
             if (word_index == n) {
-                start = i+1;
+                start = i + 1;
             }
-        } else if ((src[i] != ' ') && ((src[i+1]==' ')||(src[i+1]=='\0'))) { //end check
+        } else if ((src[i] != ' ') && ((src[i + 1] == ' ') || (src[i + 1] == '\0'))) {
+            // end check
             if (word_index == n) {
                 if (remaining) {
-                    // Fast Forward to \0
-                    end = strlen(src);
+                    // Fast forward to last char
+                    end = strlen(src) - 1;
                 } else {
                     end = i;
                 }
@@ -831,7 +937,7 @@ int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining)
         }
     }
 
-    if (end == -1) {
+    if (end <= -1) {
         ESP_LOGD(TAG, "%s: Fail to find %dth arg", __func__, n);
         return -1;
     }
@@ -840,6 +946,33 @@ int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining)
 
     dest = std::string(&src[start], len);
     return 0;
+}
+
+/**
+ * @brief Update the AD2IoT AD2* config string.
+ *
+ * @details FIXME TODO Update the AD2IoT config string that is kept
+ * in sync with the AD2* attached to the AD2IoT device.
+ *
+ * @param [in]arg const char * args
+ *
+ */
+void ad2_config_update(const char *arg)
+{
+
+}
+
+/**
+ * @brief Update the firmware for the attached AD2* device
+ *
+ * @details Preform an update using /sdcard/ad2firmware.hex
+ * or OTA using firmware URL
+ *
+ * @param [in]arg const char * args
+ *
+ */
+void ad2_fw_update(const char *arg)
+{
 
 }
 
@@ -847,33 +980,33 @@ int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining)
  * @brief Send the ARM AWAY command to the alarm panel.
  *
  * @details using the given code and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]code std::string &
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_arm_away(std::string &code, int vpartId)
+void ad2_arm_away(std::string &code, int partId)
 {
-
+    // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-
-    // @brief get the vpart state
-    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
+        std::string msg;
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "2");
         } else if (s->panel_type == DSC_PANEL) {
             msg = ad2_string_printf("K%01i1<S5>", address);
         }
 
-        ESP_LOGI(TAG,"Sending ARM AWAY command");
+        ESP_LOGI(TAG, "Sending ARM AWAY command");
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -884,54 +1017,54 @@ void ad2_arm_away(std::string &code, int vpartId)
  * @brief Send the ARM AWAY command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]codeId int [0 - AD2_MAX_CODE]
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_arm_away(int codeId, int vpartId)
+void ad2_arm_away(int codeId, int partId)
 {
 
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+    ad2_get_config_key_string(AD2CODES_CONFIG_SECTION, NULL, code, codeId);
 
-    ad2_arm_away(code, vpartId);
+    ad2_arm_away(code, partId);
 }
 
 /**
  * @brief Send the ARM STAY command to the alarm panel.
  *
  * @details using the given code and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]code std::string &
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_arm_stay(std::string &code, int vpartId)
+void ad2_arm_stay(std::string &code, int partId)
 {
-
+    // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-
-    // @brief get the vpart state
-    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
+        std::string msg;
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "3");
         } else if (s->panel_type == DSC_PANEL) {
             msg = ad2_string_printf("K%01i1<S4>", address);
         }
-        ESP_LOGI(TAG,"Sending ARM STAY command to address %i using code '%s'", address, code.c_str());
+        ESP_LOGI(TAG, "Sending ARM STAY command to address %i using code '%s'", address, code.c_str());
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -942,46 +1075,47 @@ void ad2_arm_stay(std::string &code, int vpartId)
  * @brief Send the ARM STAY command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]codeId int [0 - AD2_MAX_CODE]
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_arm_stay(int codeId, int vpartId)
+void ad2_arm_stay(int codeId, int partId)
 {
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+    ad2_get_config_key_string(AD2CODES_CONFIG_SECTION, NULL, code, codeId);
 
-    ad2_arm_stay(code, vpartId);
+    ad2_arm_stay(code, partId);
 }
 
 /**
  * @brief Send the DISARM command to the alarm panel.
  *
  * @details using a given code and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]code std::string &
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_disarm(std::string &code, int vpartId)
+void ad2_disarm(std::string &code, int partId)
 {
+    // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-
-    // @brief get the vpart state
-    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
+        std::string msg;
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "1");
         } else if (s->panel_type == DSC_PANEL) {
@@ -989,10 +1123,10 @@ void ad2_disarm(std::string &code, int vpartId)
             if (s->armed_away || s->armed_stay) {
                 msg = ad2_string_printf("K%01i1%s", address, code.c_str());
             } else {
-                ESP_LOGI(TAG,"DSC: Already DISARMED not sending DISARM command");
+                ESP_LOGI(TAG, "DSC: Already DISARMED not sending DISARM command");
             }
         }
-        ESP_LOGI(TAG,"Sending DISARM command");
+        ESP_LOGI(TAG, "Sending DISARM command");
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -1003,54 +1137,54 @@ void ad2_disarm(std::string &code, int vpartId)
  * @brief Send the DISARM command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]codeId int [0 - AD2_MAX_CODE]
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_disarm(int codeId, int vpartId)
+void ad2_disarm(int codeId, int partId)
 {
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+    ad2_get_config_key_string(AD2CODES_CONFIG_SECTION, NULL, code, codeId);
 
-    ad2_disarm(code, vpartId);
+    ad2_disarm(code, partId);
 }
 
 /**
  * @brief Toggle Chime mode.
  *
  * @details using a given code and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]code std:string &
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_chime_toggle(std::string &code, int vpartId)
+void ad2_chime_toggle(std::string &code, int partId)
 {
-
+    // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-
-    // @brief get the vpart state
-    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
+        std::string msg;
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s%s", address, code.c_str(), "9");
         } else if (s->panel_type == DSC_PANEL) {
             msg = ad2_string_printf("K%01i1<S6>", address);
         }
 
-        ESP_LOGI(TAG,"Sending CHIME toggle command");
+        ESP_LOGI(TAG, "Sending CHIME toggle command");
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -1061,131 +1195,150 @@ void ad2_chime_toggle(std::string &code, int vpartId)
  * @brief Toggle Chime mode.
  *
  * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]codeId int [0 - AD2_MAX_CODE]
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_chime_toggle(int codeId, int vpartId)
+void ad2_chime_toggle(int codeId, int partId)
 {
 
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+    ad2_get_config_key_string(AD2CODES_CONFIG_SECTION, NULL, code, codeId);
 
-    ad2_chime_toggle(code,vpartId);
+    ad2_chime_toggle(code, partId);
 }
 
 /**
  * @brief Send the FIRE PANIC command to the alarm panel.
  *
  * @details using the address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_fire_alarm(int vpartId)
+void ad2_fire_alarm(int partId)
 {
-
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-    msg = ad2_string_printf("K%02i<S1>", address);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
-    ESP_LOGI(TAG,"Sending FIRE PANIC button command");
-    ad2_send(msg);
+    if (s) {
+        std::string msg;
+        msg = ad2_string_printf("K%02i<S1>", address);
+
+        ESP_LOGI(TAG, "Sending FIRE PANIC button command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
+    }
 }
 
 /**
  * @brief Send the PANIC command to the alarm panel.
  *
  * @details using the address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_panic_alarm(int vpartId)
+void ad2_panic_alarm(int partId)
 {
-
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-    msg = ad2_string_printf("K%02i<S2>", address);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
-    ESP_LOGI(TAG,"Sending PANIC button command");
-    ad2_send(msg);
+    if (s) {
+        std::string msg;
+        msg = ad2_string_printf("K%02i<S2>", address);
+
+        ESP_LOGI(TAG, "Sending PANIC button command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
+    }
 }
-
 
 /**
  * @brief Send the AUX(medical) PANIC command to the alarm panel.
  *
  * @details using the address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_aux_alarm(int vpartId)
+void ad2_aux_alarm(int partId)
 {
-
     // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-    msg = ad2_string_printf("K%02i<S3>", address);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
-    ESP_LOGI(TAG,"Sending AUX PANIC button command");
-    ad2_send(msg);
+    if (s) {
+        std::string msg;
+        msg = ad2_string_printf("K%02i<S3>", address);
+
+        ESP_LOGI(TAG, "Sending AUX PANIC button command");
+        ad2_send(msg);
+    } else {
+        ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
+    }
 }
-
 
 /**
  * @brief Send the EXIT now command to the alarm panel.
  *
  * @details using the address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  *
  */
-void ad2_exit_now(int vpartId)
+void ad2_exit_now(int partId)
 {
-
+    // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-
-    // @brief get the vpart state
-    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
+        std::string msg;
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s", address, "*");
         } else if (s->panel_type == DSC_PANEL) {
             msg = ad2_string_printf("K%01i1<S8>", address);
         }
 
-        ESP_LOGI(TAG,"Sending EXIT NOW command");
+        ESP_LOGI(TAG, "Sending EXIT NOW command");
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -1196,36 +1349,36 @@ void ad2_exit_now(int vpartId)
  * @brief Send a zone bypass command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]code std::string &
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  * @param [in]zone uint8_t[1-255] zone number
  *
  * FIXME: larger panels have 3 digit zones. Detect?
  *
  */
-void ad2_bypass_zone(std::string &code, int vpartId, uint8_t zone)
+void ad2_bypass_zone(std::string &code, int partId, uint8_t zone)
 {
-
+    // Get the address/partition mask for multi partition support.
     int address = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &address);
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
 
-    std::string msg;
-
-    // @brief get the vpart state
-    AD2VirtualPartitionState *s = AD2Parse.getAD2PState(address, false);
+    // @brief get the partition state
+    AD2PartitionState *s = AD2Parse.getAD2PState(address, false);
 
     if (s) {
+        std::string msg;
         if (s->panel_type == ADEMCO_PANEL) {
             msg = ad2_string_printf("K%02i%s6%02i*", address, code.c_str(), zone);
         } else if (s->panel_type == DSC_PANEL) {
             msg = ad2_string_printf("K%01i1*1%02i#", address, zone);
         }
 
-        ESP_LOGI(TAG,"Sending BYPASS ZONE command");
+        ESP_LOGI(TAG, "Sending BYPASS ZONE command");
         ad2_send(msg);
     } else {
         ESP_LOGE(TAG, "No partition state found for address %i. Waiting for messages from the AD2?", address);
@@ -1236,24 +1389,24 @@ void ad2_bypass_zone(std::string &code, int vpartId, uint8_t zone)
  * @brief Send a zone bypass command to the alarm panel.
  *
  * @details using the code in slot codeId and address in
- * slot vpartId send the correct command to the AD2 device
+ * slot partId send the correct command to the AD2 device
  * based upon the alarm type. Slots 0 are used as defaults.
  * The message will be sent using the AlarmDecoder 'K' protocol.
  *
  * @param [in]codeId int [0 - AD2_MAX_CODE]
- * @param [in]vpartId int [0 - AD2_MAX_VPARTITION]
+ * @param [in]partId int [0 - AD2_MAX_PARTITION]
  * @param [in]zone uint8_t[1-255] zone number
  *
  * FIXME: larger panels have 3 digit zones. Detect?
  *
  */
-void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone)
+void ad2_bypass_zone(int codeId, int partId, uint8_t zone)
 {
     // Get user code
     std::string code;
-    ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, codeId, nullptr, code);
+    ad2_get_config_key_string(AD2CODES_CONFIG_SECTION, NULL, code, codeId);
 
-    ad2_bypass_zone(code, vpartId, zone);
+    ad2_bypass_zone(code, partId, zone);
 }
 
 /**
@@ -1268,14 +1421,14 @@ void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone)
  */
 void ad2_send(std::string &buf)
 {
-    if(g_ad2_client_handle>-1) {
+    if (g_ad2_client_handle > -1) {
 
         /* replace macros <S1>-<S8> with real values */
         for (int x = 1; x < 9; x++) {
             std::string key = ad2_string_printf("<S%01i>", x);
             std::string out;
             out.append(3, (char)x);
-            ad2_replace_all( buf, key.c_str(), out.c_str());
+            ad2_replace_all(buf, key.c_str(), out.c_str());
         }
 
         ESP_LOGD(TAG, "sending '%s' to AD2*", buf.c_str());
@@ -1315,8 +1468,8 @@ int ad2_log_vprintf_host(const char *fmt, va_list args)
     int len = vsnprintf(NULL, 0, fmt, args);
     if (len) {
         char *tbuf = nullptr;
-        tbuf = (char *)malloc(len+1);
-        len = vsnprintf(tbuf, len+1, fmt, args);
+        tbuf = (char *)malloc(len + 1);
+        len = vsnprintf(tbuf, len + 1, fmt, args);
         if (len) {
             // don't log blank lines or send out \r\n.
             tbuf[strcspn(tbuf, "\r\n")] = 0;
@@ -1329,14 +1482,14 @@ int ad2_log_vprintf_host(const char *fmt, va_list args)
             }
             if (!line_clear) {
                 // check if continuation of log. Must start with "[I,W,E,D] ("
-                if ( (len > 3) && (strchr("IWED", tbuf[0]) != NULL) && (tbuf[1] == ' ' && tbuf[2] == '(') ) {
+                if ((len > 3) && (strchr("IWED", tbuf[0]) != NULL) && (tbuf[1] == ' ' && tbuf[2] == '(')) {
                     uart_write_bytes(UART_NUM_0, "\r\n", 2);
-                    uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                    uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX) - 1);
                 }
             }
             int pos = 0;
             char ch;
-            while (pos<len) {
+            while (pos < len) {
                 ch = tbuf[pos];
                 if (ch == '\n') {
                     line_clear = true;
@@ -1346,7 +1499,7 @@ int ad2_log_vprintf_host(const char *fmt, va_list args)
                     if (ch > 31 && ch < 127) {
                         if (line_clear) {
                             line_clear = false;
-                            uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX)-1);
+                            uart_write_bytes(UART_NUM_0, AD2PFX, sizeof(AD2PFX) - 1);
                         }
                         uart_write_bytes(UART_NUM_0, &ch, 1);
                     }
@@ -1378,8 +1531,8 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
     if (!ad2_take_host_console((void *)xTaskGetCurrentTaskHandle(), AD2_CONSOLE_LOCK_TIME)) {
         return;
     }
-    if ( prefix ) {
-        if ( !line_clear ) {
+    if (prefix) {
+        if (!line_clear) {
             // move to the next line.
             uart_write_bytes(UART_NUM_0, "\r\n", 2);
         }
@@ -1387,7 +1540,7 @@ void ad2_printf_host(bool prefix, const char *fmt, ...)
         // write prefix
         std::string pfx = AD2PFX;
         pfx += "N (";
-        pfx += ad2_to_string(esp_log_timestamp());
+        pfx += std::to_string(esp_log_timestamp());
         pfx += ") ";
         uart_write_bytes(UART_NUM_0, pfx.c_str(), pfx.length());
     }
@@ -1425,24 +1578,28 @@ void ad2_snprintf_host(const char *fmt, size_t size, ...)
 }
 
 /**
- * @brief Get partition state by virtual partitition ID
+ * @brief Get partition state by partitition ID
  *
- * @param [in]vpartId Address slot for address to use for
+ * @param [in]partId Address slot for address to use for
  * returning partition info. The AlarmDecoderParser class tracks
- * every message and parses each into a status by virtual partition.
+ * every message and parses each into a status by partition.
  * Each state is stored by an address mask. To fetch the state of
  * a partition all that is needed is an address that is known to
  * be on that partition. For DSC panels the address is the partition.
  *
  */
-AD2VirtualPartitionState *ad2_get_partition_state(int vpartId)
+AD2PartitionState *ad2_get_partition_state(int partId)
 {
-    AD2VirtualPartitionState * s = nullptr;
-    int x = -1;
-    ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, vpartId, nullptr, &x);
-    // if we found a NV record then initialize the AD2PState for the mask.
-    if (x != -1) {
-        s = AD2Parse.getAD2PState(x, false);
+    // Get the address/partition mask for multi partition support.
+    int address = -1;
+    std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
+    ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
+
+    AD2PartitionState *s = nullptr;
+
+    // if we found a config record then initialize the AD2PState for the mask.
+    if (address != -1) {
+        s = AD2Parse.getAD2PState(address, false);
     }
     return s;
 }
@@ -1466,13 +1623,13 @@ cJSON *ad2_get_ad2iot_device_info_json()
     cJSON_AddNumberToObject(root, "cpu_cores", chip_info.cores);
     cJSON *cjson_cpu_features = cJSON_CreateArray();
     if (chip_info.features & CHIP_FEATURE_WIFI_BGN) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "WiFi" ));
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString("WiFi"));
     }
     if (chip_info.features & CHIP_FEATURE_BLE) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BLE" ));
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString("BLE"));
     }
     if (chip_info.features & CHIP_FEATURE_BT) {
-        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString( "BT" ));
+        cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString("BT"));
     }
     cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
     cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
@@ -1486,14 +1643,14 @@ cJSON *ad2_get_ad2iot_device_info_json()
 }
 
 /**
- * @brief Generate a standardized JSON string for the given AD2VirtualPartitionState pointer.
+ * @brief Generate a standardized JSON string for the given AD2PartitionState pointer.
  *
- * @param [in]AD2VirtualPartitionState * to use for json object.
+ * @param [in]AD2PartitionState * to use for json object.
  *
  * @return cJSON*
  *
  */
-cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
+cJSON *ad2_get_partition_state_json(AD2PartitionState *s)
 {
     cJSON *root = cJSON_CreateObject();
     if (s && !s->unknown_state) {
@@ -1528,12 +1685,12 @@ cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *s)
 /**
  * @brief Generate a standardized JSON string for s->zone_states.
  *
- * @param [in]AD2VirtualPartitionState * to use for json object.
+ * @param [in]AD2PartitionState * to use for json object.
  *
  * @return cJSON*
  *
  */
-cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *s)
+cJSON *ad2_get_partition_zone_alerts_json(AD2PartitionState *s)
 {
     // OPEN zones.
     cJSON *_zone_alerts = cJSON_CreateArray();
@@ -1559,8 +1716,7 @@ cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *s)
 
 #define HTTP_SEND_QUEUE_SIZE 20  // More? Less?
 #define HTTP_SEND_RATE_LIMIT 200 // 5/s seems like a reasonable value to start with.
-static QueueHandle_t  _http_sendQ = NULL;
-
+static QueueHandle_t _http_sendQ = NULL;
 
 typedef struct sendQ_event_data {
     esp_http_client_config_t *client_config;
@@ -1577,13 +1733,13 @@ static void _http_sendQ_consumer_task(void *pvParameters)
 {
     esp_err_t err;
 
-    while(1) {
-        if(_http_sendQ == NULL) {
+    while (1) {
+        if (_http_sendQ == NULL) {
             break;
         }
         if (!g_StopMainTask && hal_get_network_connected()) {
             sendQ_event_data_t event_data;
-            if ( xQueueReceive(_http_sendQ, &event_data, portMAX_DELAY) ) {
+            if (xQueueReceive(_http_sendQ, &event_data, portMAX_DELAY)) {
 #if defined(AD2_STACK_REPORT)
                 ESP_LOGI(TAG, "_http_sendQ_consumer_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
 #endif
@@ -1597,7 +1753,7 @@ static void _http_sendQ_consumer_task(void *pvParameters)
                 esp_chip_info(&chip_info);
 
                 // Set user agent no including version info.
-                std::string ua = "AD2IoT-HTTP-Client/NOPE (ESP32-r" + ad2_to_string(chip_info.revision) + ")";
+                std::string ua = "AD2IoT-HTTP-Client/NOPE (ESP32-r" + std::to_string(chip_info.revision) + ")";
                 esp_http_client_set_header(http_client, "User-Agent", ua.c_str());
 
                 // notify compoenet we are about to send and allow to
@@ -1622,15 +1778,14 @@ static void _http_sendQ_consumer_task(void *pvParameters)
 
                 // sleep our rate limit. Not exactly the rate not factoring in
                 // client connection time but close enough for now.
-                vTaskDelay(HTTP_SEND_RATE_LIMIT/portTICK_PERIOD_MS);
-
+                vTaskDelay(HTTP_SEND_RATE_LIMIT / portTICK_PERIOD_MS);
             } else {
                 // sleep for a bit then check the queue again.
-                vTaskDelay(100/portTICK_PERIOD_MS);
+                vTaskDelay(100 / portTICK_PERIOD_MS);
             }
         }
         // sleep for a bit then check the queue again.
-        vTaskDelay(100/portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
     ESP_LOGW(TAG, "http sendQ ending. HTTP request delivery halted.");
     vTaskDelete(NULL);
@@ -1650,13 +1805,13 @@ static void _http_sendQ_consumer_task(void *pvParameters)
 void ad2_init_http_sendQ()
 {
     // Init the queue.
-    if(_http_sendQ == NULL) {
-        _http_sendQ = xQueueCreate( HTTP_SEND_QUEUE_SIZE, sizeof(sendQ_event_data_t));
+    if (_http_sendQ == NULL) {
+        _http_sendQ = xQueueCreate(HTTP_SEND_QUEUE_SIZE, sizeof(sendQ_event_data_t));
     }
 
     // Start the queue consumer task. Keep the stack as small as possible.
     // 20210815SM: 1444 bytes stack free
-    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024 * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
 }
 
 /**
@@ -1667,7 +1822,7 @@ void ad2_init_http_sendQ()
  * @param [in]done_cb ad2_http_sendQ_done_cb_t: Called before esp_http_client_cleanup()
  *
  */
-bool ad2_add_http_sendQ(esp_http_client_config_t* client_config, ad2_http_sendQ_ready_cb_t ready_cb, ad2_http_sendQ_done_cb_t done_cb)
+bool ad2_add_http_sendQ(esp_http_client_config_t *client_config, ad2_http_sendQ_ready_cb_t ready_cb, ad2_http_sendQ_done_cb_t done_cb)
 {
     // Save queue data into a structure for storage in the sendQ
     sendQ_event_data_t event_data = {
@@ -1678,7 +1833,7 @@ bool ad2_add_http_sendQ(esp_http_client_config_t* client_config, ad2_http_sendQ_
 
     if (_http_sendQ) {
         // Copy the container into the sendQ
-        if ( xQueueSend( _http_sendQ, (void *)&event_data, (TickType_t )0) != pdPASS) {
+        if (xQueueSend(_http_sendQ, (void *)&event_data, (TickType_t)0) != pdPASS) {
             return false;
         }
         return true;
@@ -1689,39 +1844,46 @@ bool ad2_add_http_sendQ(esp_http_client_config_t* client_config, ad2_http_sendQ_
 }
 
 /**
- * @brief return the current network mode value
+ * @brief return the ad2 configured network mode value
  *
  * @return char mode
  */
-char ad2_network_mode(std::string &args)
+char ad2_get_network_mode(std::string &args)
 {
-    int mode = 0;
-    ad2_get_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, nullptr, &mode);
-    switch(mode) {
+    std::string mode;
+
+    // default to ethernet dhcp on first boot
+    std::string modestring = AD2_DEFAULT_NETMODE_STRING;
+
+    ad2_get_config_key_string(CFG_SECTION_MAIN, NETMODE_CONFIG_KEY, modestring);
+    ad2_copy_nth_arg(mode, modestring.c_str(), 0);
+
+    switch (mode[0]) {
     case 'W':
     case 'E':
-        ad2_get_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, nullptr, args);
+        ad2_copy_nth_arg(args, modestring.c_str(), 1, true);
         break;
     case 'N':
     default:
         args = "";
-        mode = 'N';
+        mode = 'N'; // default to N on parse error.
         break;
     }
-    return (char) mode & 0xff;
+    return (char)mode[0] & 0xff;
 }
 
-
 /**
- * @brief return the current log mode value
+ * @brief return the current ad2 log mode value
  *
  * @return char mode
  */
-char ad2_log_mode()
+char ad2_get_log_mode()
 {
-    int mode = 0;
-    ad2_get_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, nullptr, &mode);
-    switch(mode) {
+    std::string mode = "N";
+
+    ad2_get_config_key_string(CFG_SECTION_MAIN, LOGMODE_CONFIG_KEY, mode);
+
+    switch (mode[0]) {
     case 'I':
     case 'D':
     case 'N':
@@ -1731,28 +1893,8 @@ char ad2_log_mode()
         mode = 'N';
         break;
     }
-    return mode;
+    return mode[0];
 }
-
-/**
- * @brief set the current log mode value
- *
- * @param [in]m char mode
- */
-void ad2_set_log_mode(char m)
-{
-    char lm = ad2_log_mode();
-    if (lm == 'I') {
-        esp_log_level_set("*", ESP_LOG_INFO);        // set all components to INFO level
-    } else if (lm == 'D')  {
-        esp_log_level_set("*", ESP_LOG_DEBUG);       // set all components to DEBUG level
-    } else if (lm == 'V') {
-        esp_log_level_set("*", ESP_LOG_VERBOSE);     // set all components to VERBOSE level
-    } else {
-        esp_log_level_set("*", ESP_LOG_WARN);        // set all components to WARN level
-    }
-}
-
 
 /**
  * @brief Console access control globals
@@ -1832,4 +1974,3 @@ int ad2_give_host_console(void *owner)
     taskEXIT_CRITICAL(&spinlock);
     return res;
 }
-

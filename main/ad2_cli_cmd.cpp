@@ -51,7 +51,7 @@ extern "C" {
  *      AD2IOT # zone 1 TESTING ZONE ALPHA
  *
  */
-static void _cli_cmd_zone_event(char *string)
+static void _cli_cmd_zone_event(const char *string)
 {
     std::string arg;
     int zone = 0;
@@ -61,24 +61,25 @@ static void _cli_cmd_zone_event(char *string)
     }
 
     if (zone > 0 && zone <= AD2_MAX_ZONES) {
+        std::string _section = std::string(AD2ZONE_CONFIG_SECTION " ") + std::to_string(zone);
         if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
             if (arg.length()) {
-                if (arg.compare("''") == 0) {
+                if (arg[0] == '-') {
                     ad2_printf_host(false, "Removing settings string for zone %i...\r\n", zone);
-                    ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
+                    ad2_set_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, arg.c_str(), -1, NULL, true);
                 } else {
                     ad2_printf_host(false, "Saving settings string for zone %i to '%s'\r\n", zone, arg.c_str());
-                    ad2_set_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, arg.c_str());
+                    ad2_set_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, arg.c_str());
                 }
             }
         } else {
             // show contents of this slot
             std::string buf;
-            ad2_get_nv_slot_key_string(ZONES_ALPHA_CONFIG_KEY, zone, nullptr, buf);
+            ad2_get_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, buf);
             ad2_printf_host(false, "The settings for zone %i is '%s'\r\n", zone, buf.c_str());
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid zone # (1-%i).", __func__, AD2_MAX_ZONES);
+        ad2_printf_host(false, "Missing or invalid <zoneId> [1-%i].\r\n", AD2_MAX_ZONES);
     }
 }
 
@@ -95,7 +96,7 @@ static void _cli_cmd_zone_event(char *string)
  *      AD2IOT # code 1 1234
  *
  */
-static void _cli_cmd_code_event(char *string)
+static void _cli_cmd_code_event(const char *string)
 {
     std::string arg;
     int slot = 0;
@@ -104,78 +105,76 @@ static void _cli_cmd_code_event(char *string)
         slot = strtol(arg.c_str(), NULL, 10);
     }
 
-    if (slot >= 0 && slot <= AD2_MAX_CODE) {
+    if (slot >= 1 && slot <= AD2_MAX_CODE) {
         if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
             if (arg.length()) {
-                if (atoi(arg.c_str()) == -1) {
+                if (arg[0] == '-') {
                     ad2_printf_host(false, "Removing code in slot %i...\r\n", slot);
-                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, arg.c_str());
+                    ad2_set_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, nullptr, slot, NULL, true);
                 } else {
                     ad2_printf_host(false, "Setting code in slot %i to '%s'...\r\n", slot, arg.c_str());
-                    ad2_set_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, arg.c_str());
+                    ad2_set_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, arg.c_str(), slot);
                 }
             }
         } else {
             // show contents of this slot
             std::string buf;
-            ad2_get_nv_slot_key_string(CODES_CONFIG_KEY, slot, nullptr, buf);
+            ad2_get_config_key_string(AD2CODES_CONFIG_SECTION, nullptr, buf, slot);
             ad2_printf_host(false, "The code in slot %i is '%s'\r\n", slot, buf.c_str());
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_CODE);
+        ad2_printf_host(false, "Missing or invalid <codeId> [1-%i].\r\n", AD2_MAX_CODE);
     }
 }
 
 /**
- * @brief Set the Address for a given virtual partition slot/id.
+ * @brief Set the Address for a given partition slot/id.
  *
  * @param [in]string command buffer pointer.
  *
- * @note command: vpart <slot> <address>
- *   Valid slots are from 0 to AD2_MAX_VPARTITION
- *   where slot 0 is the default.
+ * @note command: partition <slot> <address> <zone list>
+ *   Valid slots are from 1 to AD2_MAX_PARTITION
+ *   where slot 1 is the default.
  *
  *   example.
- *     AD2IOT # vpart 0 18
- *     AD2IOT # vpart 1 19
+ *     AD2IOT # partition 1 18 2,3,4,5
+ *     AD2IOT # partition 2 19 6,7
  *
  */
-static void _cli_cmd_vpart_event(char *string)
+static void _cli_cmd_part_event(const char *string)
 {
     std::string buf;
-    int slot = 0;
+    int partId = 0;
     int address = 0;
 
     if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
-        slot = strtol(buf.c_str(), NULL, 10);
+        partId = strtol(buf.c_str(), NULL, 10);
     }
 
-    if (slot >= 0 && slot <= AD2_MAX_VPARTITION) {
+    if (partId >= 1 && partId <= AD2_MAX_PARTITION) {
+        std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(partId);
         if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
             int address = strtol(buf.c_str(), NULL, 10);
             if (address>=0 && address < AD2_MAX_ADDRESS) {
-                ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, address);
-                // Grab the zone list if it provided
-                buf = "";
-                if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
-                    ad2_set_nv_slot_key_string(VPART_CONFIG_KEY,
-                                               slot, VPART_ZL_CONFIG_KEY, buf.c_str());
-                }
-                ad2_printf_host(false, "Setting vpart in slot %i to '%i' with zone list '%s'.\r\n", slot, address, buf.c_str());
+                ad2_set_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, address);
+                buf = ""; // clear temp buf first
+                ad2_copy_nth_arg(buf, string, 3, true);
+                ad2_set_config_key_string(_section.c_str(), PART_CONFIG_ZONES, buf.c_str());
+                ad2_printf_host(false, "Setting partition %i to address '%i' with zone list '%s'.\r\n", partId, address, buf.c_str());
             } else {
                 // delete entry
-                ad2_printf_host(false, "Deleting vpart in slot %i...\r\n", slot);
-                ad2_set_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, -1);
+                ad2_printf_host(false, "Deleting partition %i...\r\n", partId);
+                ad2_set_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, 0, -1, NULL, true);
+                ad2_set_config_key_string(_section.c_str(), PART_CONFIG_ZONES, nullptr, -1, NULL, true);
             }
         } else {
-            // show contents of this slot
-            ad2_get_nv_slot_key_int(VPART_CONFIG_KEY, slot, nullptr, &address);
-            buf = "";
-            ad2_get_nv_slot_key_string(VPART_CONFIG_KEY, slot, VPART_ZL_CONFIG_KEY, buf);
-            ad2_printf_host(false, "The vpart in slot %i is %i with a zone list of '%s'\r\n", slot, address, buf.c_str());
+            // show contents of this partition
+            ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &address);
+            ad2_get_config_key_string(_section.c_str(), PART_CONFIG_ZONES, buf);
+            ad2_printf_host(false, "The partition %i uses address %i with a zone list of '%s'\r\n", partId, address, buf.c_str());
         }
     } else {
-        ESP_LOGE(TAG, "%s: Error (args) invalid slot # (0-%i).", __func__, AD2_MAX_VPARTITION);
+        ad2_printf_host(false, "Missing or invalid <partId> [1-%i].\r\n", AD2_MAX_PARTITION);
     }
 }
 
@@ -191,25 +190,25 @@ static void _cli_cmd_vpart_event(char *string)
  *     AD2IOT # ad2source s 192.168.1.2:10000
  *                          [HOST:PORT]
  */
-static void _cli_cmd_ad2source_event(char *string)
+static void _cli_cmd_ad2source_event(const char *string)
 {
-    std::string modesz;
+    std::string mode;
     std::string arg;
+    std::string modestring;
 
-    if (ad2_copy_nth_arg(modesz, string, 1) >= 0) {
+    if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
+
         // upper case it all
-        ad2_ucase(modesz);
+        ad2_ucase(mode);
+        ad2_trim(mode);
 
         if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
-            switch (modesz[0]) {
+            switch (mode[0]) {
             case 'S':
             case 'C':
-                // save mode in slot 0
-                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                           AD2MODE_CONFIG_MODE_SLOT, nullptr, modesz.c_str());
-                // save arg in slot 1
-                ad2_set_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                           AD2MODE_CONFIG_ARG_SLOT, nullptr, arg.c_str());
+                ad2_copy_nth_arg(arg, string, 2, true);
+                modestring = mode + " " + arg;
+                ad2_set_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, modestring.c_str());
                 ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 break;
             default:
@@ -219,15 +218,42 @@ static void _cli_cmd_ad2source_event(char *string)
             ad2_printf_host(false, "Missing <arg>\r\n");
         }
     } else {
-        // get mode in slot 0
-        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                   AD2MODE_CONFIG_MODE_SLOT, nullptr, modesz);
-
-        // get arg in slot 1
-        ad2_get_nv_slot_key_string(AD2MODE_CONFIG_KEY,
-                                   AD2MODE_CONFIG_ARG_SLOT, nullptr, arg);
+        // Get current string
+        ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, modestring);
     }
-    ad2_printf_host(false, "Current mode '%s %s'\r\n", (modesz[0]=='C'?"COM":"SOCKET"), arg.c_str());
+    // get and show current mode string and arg.
+    ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, modestring);
+    ad2_printf_host(false, "Current " AD2MODE_CONFIG_KEY " config string '%s'\r\n", modestring.c_str());
+
+}
+
+/**
+ * @brief Configure the AlarmDecoder device firmware settings
+ *
+ * @param [in]string command buffer pointer.
+ *
+ * @note command: ad2config <configString>
+ *   examples.
+ *     AD2IOT # ad2config mode=A&address=18
+ */
+static void _cli_cmd_ad2config_event(const char *string)
+{
+    std::string config;
+
+    if (ad2_copy_nth_arg(config, string, 1, true) >= 0) {
+
+        // cleanup string
+        ad2_trim(config);
+        // save it
+        ad2_set_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config.c_str());
+    } else {
+        // Get current string
+        ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config);
+    }
+    // get and show current mode string and arg.
+    config = "";
+    ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2CONFIG_CONFIG_KEY, config);
+    ad2_printf_host(false, "Current " AD2CONFIG_CONFIG_KEY " config string '%s'\r\n", config.c_str());
 
 }
 
@@ -240,7 +266,7 @@ static void _cli_cmd_ad2source_event(char *string)
  *   Note) To exit press '.' three times fast.
  *
  */
-static void _cli_cmd_ad2term_event(char *string)
+static void _cli_cmd_ad2term_event(const char *string)
 {
     ad2_printf_host(false, "Halting command line interface. Send '.' 3 times to break out and return.\r\n");
     taskENTER_CRITICAL(&spinlock);
@@ -360,8 +386,11 @@ static void _cli_cmd_ad2term_event(char *string)
  * @param [in]string command buffer pointer.
  *
  */
-static void _cli_cmd_restart_event(char *string)
+static void _cli_cmd_restart_event(const char *string)
 {
+    // Flush/save persistent configuration ini
+    ad2_save_persistent_config();
+
     hal_restart();
 }
 
@@ -371,7 +400,7 @@ static void _cli_cmd_restart_event(char *string)
  * @param [in]string command buffer pointer.
  *
  */
-static void _cli_cmd_factory_reset_event(char *string)
+static void _cli_cmd_factory_reset_event(const char *string)
 {
     hal_factory_reset();
     hal_restart();
@@ -384,21 +413,25 @@ static void _cli_cmd_factory_reset_event(char *string)
  * @param [in]string command buffer pointer.
  *
  */
-static void _cli_cmd_netmode_event(char *string)
+static void _cli_cmd_netmode_event(const char *string)
 {
     ESP_LOGD(TAG, "%s: Setting network mode (%s).", __func__, string);
     std::string mode;
     std::string arg;
+    std::string modestring;
+
     if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
+
+        // upper case it all
         ad2_ucase(mode);
+
         switch(mode[0]) {
         case 'N':
         case 'W':
         case 'E':
-            ad2_set_nv_slot_key_int(NETMODE_CONFIG_KEY, 0, nullptr, mode[0]);
-            // Grab config argument string till the end of the line.
             ad2_copy_nth_arg(arg, string, 2, true);
-            ad2_set_nv_slot_key_string(NETMODE_CONFIG_KEY, 1, nullptr, arg.c_str());
+            modestring = mode + " " + arg;
+            ad2_set_config_key_string(AD2MAIN_CONFIG_SECTION, NETMODE_CONFIG_KEY, modestring.c_str());
             ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
             break;
         default:
@@ -407,9 +440,8 @@ static void _cli_cmd_netmode_event(char *string)
         }
     }
     // show current mode.
-    std::string args;
-    char cmode = ad2_network_mode(args);
-    ad2_printf_host(false, "The current network mode is '%c' with args '%s'.\r\n", cmode, args.c_str());
+    char cmode = ad2_get_network_mode(arg);
+    ad2_printf_host(false, "The current network mode is '%c' with args '%s'.\r\n", cmode, arg.c_str());
 }
 
 /**
@@ -418,19 +450,24 @@ static void _cli_cmd_netmode_event(char *string)
  * @param [in]string command buffer pointer.
  *
  */
-static void _cli_cmd_ad2logmode_event(char *string)
+static void _cli_cmd_ad2logmode_event(const char *string)
 {
     ESP_LOGD(TAG, "%s: Setting logging mode (%s).", __func__, string);
     std::string mode;
     std::string arg;
+    std::string modestring;
+
     if (ad2_copy_nth_arg(mode, string, 1) >= 0) {
+
+        // upper case it all
         ad2_ucase(mode);
+
         switch(mode[0]) {
         case 'N':
         case 'D':
         case 'I':
         case 'V':
-            ad2_set_nv_slot_key_int(LOGMODE_CONFIG_KEY, 0, nullptr, mode[0]);
+            ad2_set_config_key_string(AD2MAIN_CONFIG_SECTION, LOGMODE_CONFIG_KEY, mode.c_str());
 
             break;
         default:
@@ -439,58 +476,174 @@ static void _cli_cmd_ad2logmode_event(char *string)
         }
     }
     // show current mode.
-    char cmode = ad2_log_mode();
+    char cmode = ad2_get_log_mode();
     ad2_printf_host(false, "The current logging mode mode is '%c'.\r\n", cmode);
 }
 
 
 /**
- * @brief virtual button press event.
- *
+ * @brief virtual switch command event.
+ *  ex)
+ *    switch 1 open 1 regex_string
  * @param [in]string command buffer pointer.
  *
  */
-static void _cli_cmd_butten_event(char *string)
+static void _cli_cmd_switch_event(const char *command_string)
 {
-    std::string buf;
-    char id = '?';
-    int count = 1;
-    int type = BUTTON_SHORT_PRESS;
+    int sId;
+    std::string setting;
+    std::string arg;
+    std::string sztmp;
+    int itmp;
+    int sk_index = 0;
+    std::string sk;
 
-    // ID {[A|B]}
-    if (ad2_copy_nth_arg(buf, string, 1) >= 0) {
-        id = buf.c_str()[0];
-    }
-    switch(id) {
-    case 'A': // Messages
-    case 'B': // Redirect
-        break;
-    default:
-        ad2_printf_host(false, "Unknown button ID expect A or B.\r\n");
+    // get the switch Id from the command string
+    sztmp = "-1"; // default if not found
+    ad2_copy_nth_arg(sztmp, command_string, 1);
+    // safe convert to int
+    sId = std::atoi(sztmp.c_str());
+    if (sId <= 0 || sId > AD2_MAX_SWITCHES) {
+        ad2_printf_host(false, "Missing or invalid <switchId> [1-%i].\r\n", AD2_MAX_SWITCHES);
         return;
     }
 
-    // count {int}
-    if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
-        count = strtol(buf.c_str(), NULL, 10);
+    // root config key for [switch N]
+    std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
+    key += " ";
+    key += std::to_string(sId);
+
+    // get the switch setting from the command string
+    ad2_copy_nth_arg(setting, command_string, 2);
+    ad2_lcase(setting);
+    ad2_trim(setting);
+
+
+    // Helper to dump switch settings to user if no setting argument is given
+    // ex. 'switch 1'
+    if (!setting.length()) {
+        // check all settings verbs against provided verb and proform setting logic
+        std::stringstream ss(
+            AD2SWITCH_SK_DEFAULT " " // 1
+            AD2SWITCH_SK_RESET " "   // 2
+            AD2SWITCH_SK_TYPES " "   // 3
+            AD2SWITCH_SK_FILTER " "  // 4
+            AD2SWITCH_SK_OPEN " "
+            AD2SWITCH_SK_CLOSE " "
+            AD2SWITCH_SK_TROUBLE);
+
+        bool command_found = false;
+        ad2_printf_host(false, "## switch %i global configuration.\r\n[%s]\r\n", sId, key.c_str());
+        sk_index = 0;
+        while (ss >> sk) {
+            sk_index++; // 1 - N
+            switch(sk_index) {
+            case 1: // default
+            case 2: // reset
+                itmp = -1;
+                ad2_get_config_key_int(key.c_str(), sk.c_str(), &itmp);
+                if (itmp > -1) {
+                    ad2_printf_host(false, "%s = %i\r\n", sk.c_str(), itmp);
+                } else {
+                    ad2_printf_host(false, "# %s = \r\n", sk.c_str());
+                }
+                break;
+            case 3: // type
+            case 4: // filter
+                sztmp = "";
+                ad2_get_config_key_string(key.c_str(), sk.c_str(), sztmp);
+                if (sztmp.length()) {
+                    ad2_printf_host(false, "%s = %s\r\n", sk.c_str(), sztmp.c_str());
+                } else {
+                    ad2_printf_host(false, "# %s = \r\n", sk.c_str());
+                }
+                break;
+            case 5: // open
+            case 6: // close
+            case 7: // trouble
+                // 1 - MAX_SEARCH_KEYS
+                itmp = 0; // test for no settings
+                for ( int i = 1; i < AD2_MAX_SWITCH_SEARCH_KEYS; i++ ) {
+                    sztmp = "";
+                    ad2_get_config_key_string(key.c_str(), sk.c_str(), sztmp, i);
+                    if (sztmp.length()) {
+                        itmp ++;
+                        ad2_printf_host(false, "%s %i = %s\r\n", sk.c_str(), i, sztmp.c_str());
+                    }
+                }
+                // no settings found for sub key
+                if (!itmp) {
+                    ad2_printf_host(false, "# %s [N] = \r\n", sk.c_str());
+                }
+                break;
+            }
+        }
+        // dump finished, all done.
+        return;
     }
 
-    // type {long|short}
-    if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
-        if (strncmp(buf.c_str(), "long", 4) == 0) {
-            type = BUTTON_LONG_PRESS;
+    // get the switch command arg to end of string.
+    ad2_copy_nth_arg(arg, command_string, 3, true);
+
+
+    // check all settings verbs against provided verb and proform setting logic
+    std::stringstream ss(AD2SWITCH_SK_DELETE1 " " AD2SWITCH_SK_DELETE2 " "
+                         AD2SWITCH_SK_DEFAULT " "
+                         AD2SWITCH_SK_RESET " "
+                         AD2SWITCH_SK_TYPES " "
+                         AD2SWITCH_SK_FILTER " "
+                         AD2SWITCH_SK_OPEN " "
+                         AD2SWITCH_SK_CLOSE " "
+                         AD2SWITCH_SK_TROUBLE);
+
+    sk_index = 0;
+    bool command_found = false;
+    while (ss >> sk) {
+        sk_index++; // 1 - N
+        if (sk.compare(setting) == 0) {
+            command_found = true;
+            switch(sk_index) {
+            case 1: // -
+            case 2: // delete
+                // TODO: Delete topic [switch N]
+                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_DEFAULT, 0, -1, NULL, true);
+                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_RESET, 0, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_OPEN, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_CLOSE, NULL, -1, NULL, true);
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TROUBLE, NULL, -1, NULL, true);
+                break;
+            case 3: // default
+                // TODO: validate
+                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_DEFAULT, std::atoi(arg.c_str()));
+                break;
+            case 4: // reset
+                // TODO: validate
+                ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_RESET, std::atoi(arg.c_str()));
+                break;
+            case 5: // type
+                // TODO: validate
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, arg.c_str());
+                break;
+            case 6: // filter
+                // TODO: validate
+                ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, arg.c_str());
+                break;
+            case 7: // open
+            case 8: // close
+            case 9: // trouble
+                // TODO: validate
+                ad2_set_config_key_string(key.c_str(), sk.c_str(), arg.c_str());
+                break;
+            }
+            // all done.
+            break;
         }
     }
-
-    if (id == 'A') {
-        hal_change_switch_a_state(!hal_get_switch_b_state());
+    if (!command_found) {
+        ad2_printf_host(false, "Unknown setting argument '%s'.\r\n", setting.c_str());
     }
-
-    if (id == 'B') {
-        hal_change_switch_b_state(!hal_get_switch_b_state());
-    }
-
-    ESP_LOGD(TAG, "%s: button_event : count %d, type %d", __func__, count, type);
 }
 
 /**
@@ -498,139 +651,191 @@ static void _cli_cmd_butten_event(char *string)
  */
 static struct cli_command cmd_list[] = {
     {
-        (char*)AD2_REBOOT,(char*)
-        "- Restart the device.\r\n"
-        "  - ```" AD2_REBOOT "```\r\n", _cli_cmd_restart_event
+        (char*)AD2_CMD_REBOOT,(char*)
+        "Usage: restart"
+        "\r\n"
+        "    Save config changes and restart the device\r\n"
+        , _cli_cmd_restart_event
     },
     {
-        (char*)AD2_NETMODE,(char*)
-        "- Manage network connection type.\r\n"
-        "  - ```" AD2_NETMODE " {mode} [args]```\r\n"
-        "    - {mode}\r\n"
-        "      - [N]one: (default) Do not enable any network let component(s) manage the networking.\r\n"
-        "      - [W]iFi: Enable WiFi network driver.\r\n"
-        "      - [E]thernet: Enable ethernet network driver.\r\n"
-        "    - [arg]\r\n"
-        "      - Argument string name value pairs sepearted by &.\r\n"
-        "        - Keys: MODE,IP,MASK,GW,DNS1,DNS2,SID,PASSWORD\r\n"
-        "  - Examples\r\n"
-        "    - WiFi DHCP with SID and password.\r\n"
-        "      - ```" AD2_NETMODE " W mode=d&sid=example&password=somethingsecret```\r\n"
-        "    - Ethernet DHCP DNS2 override.\r\n"
-        "      - ```" AD2_NETMODE " E mode=d&dns2=4.2.2.2```\r\n"
-        "    - Ethernet Static IPv4 address.\r\n"
-        "      - ```" AD2_NETMODE " E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```\r\n\r\n"
+        (char*)AD2_CMD_NETMODE,(char*)
+        "Usage: netmode [(N | W | E)] [<arg>]\r\n"
+        "\r\n"
+        "    Configuration tool for ad2iot network settings\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    N                       Disable(default) networking and allow\r\n"
+        "                            a component to take over networking\r\n"
+        "    W                       Enable WiFi core driver\r\n"
+        "    E                       Enable Ethernet core driver\r\n"
+        "    arg                     Config string to pass to network driver\r\n"
+        "                            Argument string name value pairs separated by &.\r\n"
+        "                            Keys: mode,ip,mask,gw,dns1,dns2,sid,password\r\n"
+        "Examples:\r\n"
+        "    WiFi DHCP with SID and password.\r\n"
+        "      ```netmode W mode=d&sid=example&password=somethingsecret```\r\n"
+        "    Ethernet DHCP DNS2 override.\r\n"
+        "      ```netmode E mode=d&dns2=4.2.2.2```\r\n"
+        "    Ethernet Static IPv4 address.\r\n"
+        "      ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```\r\n"
         , _cli_cmd_netmode_event
     },
     {
-        (char*)AD2_BUTTON,(char*)
-        "- Simulate a button press event.\r\n"
-        "  - ```" AD2_BUTTON " {id} {count} {type}```\r\n"
-        "    - {id}\r\n"
-        "      - ID of the button to push [A|B].\r\n"
-        "    - {count}\r\n"
-        "      - Number of times the button was pushed.\r\n"
-        "    - {type}\r\n"
-        "      - The type of event 'short' or 'long'.\r\n"
-        "  - Examples\r\n"
-        "    - Send a single LONG press to button A.\r\n"
-        "      - ```" AD2_BUTTON " A 1 long```\r\n\r\n", _cli_cmd_butten_event
+        (char*)AD2_CMD_SWITCH,(char*)
+        "Usage: switch <swid> [command] [<arg>]\r\n"
+        "\r\n"
+        "    Configuration tool for ad2iot virtual switches\r\n"
+        "\r\n"
+        "    This tool allows configuring ad2iot virtual switch that will change\r\n"
+        "     state based upon one more more filters and REGEX pattern matches.\r\n"
+        "    Up to 8 REGEX patterns for OPEN, CLOSE, and TROUBLE can be defined\r\n"
+        "    for complex state matching capabilities.\r\n"
+        "\r\n"
+        "Commands:\r\n"
+        "    delete | -              Clear switch  settings\r\n"
+        "    default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
+        "    reset TIME              Auto rest TIME in ms 0 to disable\r\n"
+        "    type TYPE, TYPE,...     Message type filter list or blank to disable\r\n"
+        "    filter REGEX            Pre filter REGEX or blank to disable\r\n"
+        "    open IDX REGEX          OPEN event REGEX filter for IDX 1-8\r\n"
+        "    close IDX REGEX         CLOSE event REGEX filter for IDX 1-8\r\n"
+        "    trouble IDX REGEX       TROUBLE event REGEX filter for IDX 1-8\r\n"
+        "Options:\r\n"
+        "    switchId                ad2iot virtual switch ID 1-255\r\n"
+        "    IDX                     REGEX index 1-8 for multiple tests\r\n"
+        "    REGEX                   Regular expression or exact match string.\r\n"
+        "    TYPE                    Message types [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,\r\n"
+        "                            CRC,VER,ERR,EVENT]\r\n"
+        , _cli_cmd_switch_event
     },
     {
-        (char*)AD2_ZONE,(char*)
-        "- Manage zone settings string.\r\n"
-        "  - ```" AD2_ZONE " {id} [value]```\r\n"
-        "    - {id}\r\n"
-        "      - Zone number 1-255.\r\n"
-        "    - [value]\r\n"
-        "      - json zone settings string for this zone.\r\n"
-        "  - Examples\r\n"
-        "    - Set zone 1 configuration string.\r\n"
-        "      - ```" AD2_ZONE " 1 {\"type\": \"smoke\", \"alpha\": \"TESTING LAB SMOKE\"}```\r\n"
-        "    - Remove zone 1 settings string.\r\n"
-        "      - ```" AD2_ZONE " 1 ''```\r\n\r\n", _cli_cmd_zone_event
+        (char*)AD2_CMD_ZONE,(char*)
+        "Usage: zone <zoneId> [- | <value>]"
+        "\r\n"
+        "    Configuration tool for zone json description strings\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    zoneId                  Zone ID 1 - 255\r\n"
+        "    -                       Delete entry\r\n"
+        "    value                   json string with type and alpha attributes\r\n"
+        "                            {\"type\": \"smoke\", \"alpha\": \"TESTING LAB SMOKE\"}\r\n"
+        , _cli_cmd_zone_event
     },
     {
-        (char*)AD2_CODE,(char*)
-        "- Manage user codes.\r\n"
-        "  - ```" AD2_CODE " {id} [value]```\r\n"
-        "    - {id}\r\n"
-        "      - Index of code to evaluate. 0 is default.\r\n"
-        "    - [value]\r\n"
-        "      - A valid alarm code or -1 to remove.\r\n"
-        "  - Examples\r\n"
-        "    - Set default code to 1234.\r\n"
-        "      - ```" AD2_CODE " 0 1234```\r\n"
-        "    - Set alarm code for slot 1.\r\n"
-        "      - ```" AD2_CODE " 1 1234```\r\n"
-        "    - Show code in slot #3.\r\n"
-        "      - ```" AD2_CODE " 3```\r\n"
-        "    - Remove code for slot 2.\r\n"
-        "      - ```" AD2_CODE " 2 -1```\r\n"
-        "        - Note: value -1 will remove an entry.\r\n\r\n", _cli_cmd_code_event
+        (char*)AD2_CMD_CODE,(char*)
+        "Usage: code <codeId> [- | <value>]"
+        "\r\n"
+        "    Configuration tool for alarm system codes\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    codeId                  Code ID 1 - 128\r\n"
+        "    -                       Delete entry\r\n"
+        "    value                   Code string\r\n"
+        , _cli_cmd_code_event
     },
     {
-        (char*)AD2_VPART,(char*)
-        "- Manage virtual partitions.\r\n"
-        "  - ```" AD2_VPART " {id} {value} [zone list]```\r\n"
-        "    - {id}\r\n"
-        "      - The virtual partition ID. 0 is the default.\r\n"
-        "    - {value}\r\n"
-        "      - (Ademco)Keypad address or (DSC)Partion #. -1 to delete.\r\n"
-        "    - [zone list]\r\n"
-        "      - Comma separated list of zone numbers associated with this partition for tracking.\r\n"
-        "  - Examples\r\n"
-        "    - Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.\r\n"
-        "      - ```" AD2_VPART " 0 18 2,3,4```\r\n"
-        "    - Set default send partition to 1 for a DSC system.\r\n"
-        "      - ```" AD2_VPART " 0 1```\r\n"
-        "    - Show address for partition 2.\r\n"
-        "      - ```" AD2_VPART " 2```\r\n"
-        "    - Remove virtual partition in slot 2.\r\n"
-        "      - ```" AD2_VPART " 2 -1```\r\n"
-        "       - Note: address -1 will remove an entry.\r\n\r\n", _cli_cmd_vpart_event
+        (char*)AD2_CMD_PART,(char*)
+        "Usage: partition [(<partId> <address>) [zoneList]]"
+        "\r\n"
+        "    Configuration tool for alarm panel partitions\r\n"
+        "\r\n"
+        "    The AD2IoT and the attached AD2pHAT need information about the alarm system\r\n"
+        "    to function properly. This currently requires some redundant configuration.\r\n"
+        "\r\n"
+        "    Use the ad2term command to connect to the AD2pHat and configure the firmware\r\n"
+        "    using the '!' or 'C' command.\r\n"
+        "\r\n"
+        "    Set the MODE to DSC or Ademco and configure the devices primary address.\r\n"
+        "\r\n"
+        "    For Ademco Vista panels:\r\n"
+        "     * This address must be programmed into the panel as an alpha keypad for\r\n"
+        "     each partition being managed.\r\n"
+        "     * It must not be used by any other devices.\r\n"
+        "    For DSC Power Series:\r\n"
+        "     * Use partition #1-8 and set the partition. no panel programming is needed.\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    partId                  Partition ID 1-8\r\n"
+        "    address                 For DSC 1-8 for Ademco use available keypad address.\r\n"
+        "                             Use - to remove partition\r\n"
+        "    zoneList                Optional Comma separated zone list for this partition\r\n"
+        "Examples:\r\n"
+        "    Set default address mask to 18 for an Ademco system with zones 2, 3, and 4.\r\n"
+        "      ```partition 1 18 2,3,4```\r\n"
+        "    Set default send partition Id to 1 for a DSC system.\r\n"
+        "      ```partition 1 1```\r\n"
+        "    Show address for partition Id 2.\r\n"
+        "      ```partition 2```\r\n"
+        "    Remove partition Id 2.\r\n"
+        "      ```partition 2 -```\r\n"
+        "        Note: address - will remove an entry.\r\n"
+        , _cli_cmd_part_event
     },
     {
-        (char*)AD2_SOURCE,(char*)
-        "- Manage AlarmDecoder protocol source.\r\n"
-        "  - ```" AD2_SOURCE " [{mode} {arg}]```\r\n"
-        "    - {mode}\r\n"
-        "      - [S]ocket: Use ser2sock server over tcp for AD2* messages.\r\n"
-        "      - [C]om port: Use local UART for AD2* messages.\r\n"
-        "    - {arg}\r\n"
-        "      - [S]ocket arg: {HOST:PORT}\r\n"
-        "      - [C]om arg: {TXPIN:RXPIN}.\r\n"
-        "  - Examples:\r\n"
-        "    - Show current mode.\r\n"
-        "      - ```" AD2_SOURCE "```\r\n"
-        "    - Set source to ser2sock client at address and port.\r\n"
-        "      - ```" AD2_SOURCE " SOCK 192.168.1.2:10000```\r\n"
-        "    - Set source to local attached uart with TX on GPIO 17 and RX on GPIO 16.\r\n"
-        "      - ```" AD2_SOURCE " COM 17:16```\r\n\r\n", _cli_cmd_ad2source_event
+        (char*)AD2_CMD_SOURCE,(char*)
+        "Usage: ad2source [(<mode> <arg>)]"
+        "\r\n"
+        "    Manage AlarmDecoder protocol source\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    mode                    Mode [S]ocket or [C]om port\r\n"
+        "    arg                     arg string\r\n"
+        "                              for COM use <TXPIN:RXPIN>\r\n"
+        "                              for SOCKET use <HOST:PORT>\r\n"
+        "Examples:\r\n"
+        "    Set source to ser2sock client at address and port.\r\n"
+        "      ```ad2source SOCK 192.168.1.2:10000```\r\n"
+        "    Set source to local attached uart with TX on GPIO 4 and RX on GPIO 36.\r\n"
+        "      ```ad2source COM 4:36```\r\n"
+        , _cli_cmd_ad2source_event
     },
     {
-        (char*)AD2_TERM,(char*)
-        "- Connect directly to the AD2* source and halt processing with option to hard reset AD2pHat.\r\n"
-        "  - ```" AD2_TERM " [reset]```\r\n"
-        "    - Note: To exit press ... three times fast.\r\n\r\n", _cli_cmd_ad2term_event
+        (char*)AD2_CMD_CONFIG,(char*)
+        "Usage: ad2config [<configString>]"
+        "\r\n"
+        "    Configuration tool for AlarmDecoder hardware settings.\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    configString            Name Value config string for the AlarmDecoder\r\n"
+        "                            device. Can be partial config.\r\n"
+        "                            Example set mode Ademco with default address 18.\r\n"
+        "                            ```ad2config mode=A&address=18```\r\n"
+        , _cli_cmd_ad2config_event
     },
     {
-        (char*)AD2_LOGMODE,(char*)
-        "- Set logging mode.\r\n"
-        "  - ```" AD2_LOGMODE " {level}```\r\n"
-        "    - {level}\r\n"
-        "      - [I]nformational\r\n"
-        "      - [V]Verbose\r\n"
-        "      - [D]ebugging\r\n"
-        "      - [N]one: (default) Warnings and errors only.\r\n"
-        "  - Examples:\r\n"
-        "    - Set logging mode to INFO.\r\n"
-        "      - ```" AD2_LOGMODE " I```\r\n\r\n", _cli_cmd_ad2logmode_event
+        (char*)AD2_CMD_TERM,(char*)
+        "Usage: ad2term [reset]"
+        "\r\n"
+        "    Connect terminal to AD2* device\r\n"
+        "\r\n"
+        "    Connect directly to the AD2IoT or remote network connected AD2* device\r\n"
+        "    for management and diagnostics of the alarm system and AD2* settings.\r\n"
+        "    Note: This will halt processing events from the AD2* device.\r\n"
+        "    Note: To exit this mode and resume processing press '.' three times fast. ...\r\n"
+        "\r\n"
+        "Options:\r\n"
+        "    reset                   Send hardware reboot to AD2pHat\r\n"
+        , _cli_cmd_ad2term_event
     },
     {
-        (char*)AD2_ERASE_NVS,(char*)
-        "- Erase all NVS storage clearing all settings and reboot.\r\n"
-        "  - ```" AD2_ERASE_NVS "```\r\n\r\n, ", _cli_cmd_factory_reset_event
+        (char*)AD2_CMD_LOGMODE,(char*)
+        "Usage: logmode [<mode>]"
+        "\r\n"
+        "    Configuration tool for the ad2iot firmware log settings\r\n"
+        "\r\n"
+        "Modes:\r\n"
+        "    I                       Informational\r\n"
+        "    V                       Verbose\r\n"
+        "    D                       Debugging\r\n"
+        "    N                       Warnings and errors only(default)\r\n"
+        , _cli_cmd_ad2logmode_event
+    },
+    {
+        (char*)AD2_CMD_FACTORY,(char*)
+        "Usage: factory-reset"
+        "\r\n"
+        "    Erase config storage and reboot to factory defaults\r\n"
+        , _cli_cmd_factory_reset_event
     }
 };
 

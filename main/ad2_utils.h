@@ -27,29 +27,31 @@
 // Helper to find array storage size.
 #define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof(x[0]))
 
-// Debugging NVS
-//#define DEBUG_NVS
+// Debugging config
+//#define DEBUG_CONFIG
 
 // Communication with AD2* device / host
-void ad2_arm_away(std::string &code, int vpartId);
-void ad2_arm_away(int codeId, int vpartId);
-void ad2_arm_stay(std::string &code, int vpartId);
-void ad2_arm_stay(int codeId, int vpartId);
-void ad2_disarm(std::string &code, int vpartId);
-void ad2_disarm(int codeId, int vpartId);
-void ad2_chime_toggle(std::string &code, int vpartId);
-void ad2_chime_toggle(int codeId, int vpartId);
-void ad2_fire_alarm(int vpartId);
-void ad2_panic_alarm(int vpartId);
-void ad2_aux_alarm(int vpartId);
-void ad2_exit_now(int vpartId);
-void ad2_bypass_zone(std::string &code, int vpartId, uint8_t zone);
-void ad2_bypass_zone(int codeId, int vpartId, uint8_t zone);
+void ad2_fw_update(const char *arg);
+void ad2_config_update(const char *arg);
+void ad2_arm_away(std::string &code, int partId);
+void ad2_arm_away(int codeId, int partId);
+void ad2_arm_stay(std::string &code, int partId);
+void ad2_arm_stay(int codeId, int partId);
+void ad2_disarm(std::string &code, int partId);
+void ad2_disarm(int codeId, int partId);
+void ad2_chime_toggle(std::string &code, int partId);
+void ad2_chime_toggle(int codeId, int partId);
+void ad2_fire_alarm(int partId);
+void ad2_panic_alarm(int partId);
+void ad2_aux_alarm(int partId);
+void ad2_exit_now(int partId);
+void ad2_bypass_zone(std::string &code, int partId, uint8_t zone);
+void ad2_bypass_zone(int codeId, int partId, uint8_t zone);
 void ad2_send(std::string &buf);
-AD2VirtualPartitionState *ad2_get_partition_state(int vpartId);
+AD2PartitionState *ad2_get_partition_state(int partId);
 cJSON *ad2_get_ad2iot_device_info_json();
-cJSON *ad2_get_partition_state_json(AD2VirtualPartitionState *);
-cJSON *ad2_get_partition_zone_alerts_json(AD2VirtualPartitionState *);
+cJSON *ad2_get_partition_state_json(AD2PartitionState *);
+cJSON *ad2_get_partition_zone_alerts_json(AD2PartitionState *);
 int ad2_log_vprintf_host(const char *fmt, va_list args);
 void ad2_printf_host(bool prefix, const char *format, ...);
 void ad2_snprintf_host(const char *fmt, size_t size, ...);
@@ -57,18 +59,15 @@ int ad2_take_host_console(void *owner, int timeout);
 int ad2_give_host_console(void *owner);
 int ad2_is_host_last(void *owner);
 unsigned long ad2_host_last_lock_time();
-char ad2_network_mode(std::string &args);
-char ad2_log_mode();
-void ad2_set_log_mode(char m);
+char ad2_get_network_mode(std::string &args);
+char ad2_get_log_mode();
 
 // string utils
-
 std::string ad2_string_printf(const char *fmt, ...);
 std::string ad2_string_vaprintf(const char *fmt, va_list args);
 std::string ad2_string_vasnprintf(const char *fmt, size_t size, va_list args);
-int ad2_copy_nth_arg(std::string &dest, char* src, int n, bool remaining = false);
+int ad2_copy_nth_arg(std::string &dest, const char* src, int n, bool remaining = false);
 void ad2_tokenize(std::string const &str, const char* delim, std::vector<std::string> &out);
-std::string ad2_to_string(int n);
 std::string ad2_make_basic_auth_string(const std::string& user, const std::string& password);
 std::string ad2_urlencode(const std::string str);
 void ad2_genUUID(uint8_t n, std::string& ret);
@@ -139,14 +138,46 @@ private:
     vector<pair<ad2_addr,ad2_addr>> allowed_networks;
 };
 
-// NV Storage utilities
+// Configuration Storage utilities
+void ad2_get_config_key_bool(
+    const char * section, const char *key,
+    bool *vout,
+    int index = -1, const char *suffix = NULL
+);
+void ad2_set_config_key_bool(
+    const char * section, const char *key,
+    bool vin,
+    int index = -1, const char *suffix = NULL,
+    bool remove = false
+);
+void ad2_get_config_key_int(
+    const char * section, const char *key,
+    int *vout,
+    int index = -1, const char *suffix = NULL
+);
+void ad2_set_config_key_int(
+    const char * section, const char *key,
+    int vin,
+    int index = -1, const char *suffix = NULL,
+    bool remove = false
+);
+void ad2_get_config_key_string(
+    const char * section, const char *key,
+    std::string &vout,
+    int index = -1, const char *suffix = NULL
+);
+void ad2_set_config_key_string(
+    const char * section, const char *key,
+    const char *vin,
+    int index = -1, const char *suffix = NULL,
+    bool remove = false
+);
 
-void ad2_get_nv_arg(const char *key, std::string &value);
-void ad2_set_nv_arg(const char *key, const char *value);
-void ad2_set_nv_slot_key_int(const char *key, int slot, const char *suffix, int value);
-void ad2_get_nv_slot_key_int(const char *key, int slot, const char *suffix, int *value);
-void ad2_set_nv_slot_key_string(const char *key, int slot, const char *suffix, const char *value);
-void ad2_get_nv_slot_key_string(const char *key, int slot, const char *suffix, std::string &value);
+#define CFG_SECTION_MAIN ""
+
+// persistent configuration load/save
+void ad2_load_persistent_config();
+void ad2_save_persistent_config();
 
 // ASYNC serialized http request api for components.
 
