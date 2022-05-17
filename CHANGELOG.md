@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.0 P0] - 2022-04-16 Sean Mathews - coder @f34rdotcom
+## [1.1.0] - 2022-04-16 Sean Mathews - coder @f34rdotcom
 Big changes:
   - Help file and docs refactor to make more user friendly.
   - Replace NVS config storage with spiffs partition and human readable ini file.
