@@ -53,6 +53,7 @@ Big changes:
   - Yes :)
 
 ### Change log
+- [X] API: Default state added UNKNOWN. switch events not triggered on first state change. Still need to work on AUTO reset and default_state these will likely change this or make this more clear. For now just be sure they are in an UNKNOWN state to start. Also fixed a typo in current unused code for rest time.
 - [X] *: Cleanup help and docs.
 - [X] CORE: Continued cleanup and docs.
 - [X] TWILIO: Finish refactor for core config change etc.

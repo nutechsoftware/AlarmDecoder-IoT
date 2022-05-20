@@ -48,6 +48,7 @@ enum AD2_PARSER_STATES {
  * AD2 zone STATES enum tri-state.
  */
 typedef enum AD2_CMD_ZONE_STATE {
+    AD2_STATE_UNKNOWN = -1,
     AD2_STATE_CLOSED = 0,
     AD2_STATE_OPEN,
     AD2_STATE_TROUBLE
@@ -217,7 +218,7 @@ typedef enum AD2_MESSAGE_TYPES {
  */
 class AD2ZoneState
 {
-    AD2_CMD_ZONE_state_t _state = AD2_STATE_CLOSED;
+    AD2_CMD_ZONE_state_t _state = AD2_STATE_UNKNOWN;
     bool _is_system = false;
     unsigned long _state_auto_reset_time = 0;
 
@@ -364,7 +365,7 @@ public:
  * Example to search for and track 5800 wireless or VPLEX bus device
  *  with a serial number of 0123456.
  *
- *  AD2EventSearch *es = new AD2EventSearch(AD2_STATE_CLOSED, 0);
+ *  AD2EventSearch *es = new AD2EventSearch(AD2_STATE_UNKNOWN, 0);
  *  es->PRE_FILTER_MESAGE_TYPE.push_back(RFX_MESSAGE_TYPE);
  *  es->PRE_FILTER_REGEX = "!RFX:0123456,.*";
  *  es->OPEN_REGEX_LIST.push_back("RFX:0123456,1.......");
@@ -418,11 +419,11 @@ public:
     // get/set reset_time_
     int getResetTime()
     {
-        return current_state_;
+        return reset_time_;
     }
-    void setResetTime(int state)
+    void setResetTime(int ms)
     {
-        current_state_ = state;
+        reset_time_ = ms;
     }
 
     ///< List of MESSAGE TYPES to filter for.

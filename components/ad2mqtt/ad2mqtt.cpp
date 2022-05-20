@@ -1257,7 +1257,7 @@ void mqtt_init()
             key += std::to_string(swID);
 
             // construct our search object.
-            AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
+            AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_UNKNOWN, 0);
 
             // store validated output formats.
             es1->OPEN_OUTPUT_FORMAT = open_output_format;
