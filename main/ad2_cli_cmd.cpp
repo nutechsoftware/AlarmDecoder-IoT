@@ -582,10 +582,6 @@ static void _cli_cmd_switch_event(const char *command_string)
         return;
     }
 
-    // get the switch command arg to end of string.
-    ad2_copy_nth_arg(arg, command_string, 3, true);
-
-
     // check all settings verbs against provided verb and proform setting logic
     std::stringstream ss(AD2SWITCH_SK_DELETE1 " " AD2SWITCH_SK_DELETE2 " "
                          AD2SWITCH_SK_DEFAULT " "
@@ -616,25 +612,38 @@ static void _cli_cmd_switch_event(const char *command_string)
                 break;
             case 3: // default
                 // TODO: validate
+                // get the switch command arg to end of string.
+                ad2_copy_nth_arg(arg, command_string, 3, true);
                 ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_DEFAULT, std::atoi(arg.c_str()));
                 break;
             case 4: // reset
                 // TODO: validate
+                // get the switch command arg to end of string.
+                ad2_copy_nth_arg(arg, command_string, 3, true);
                 ad2_set_config_key_int(key.c_str(), AD2SWITCH_SK_RESET, std::atoi(arg.c_str()));
                 break;
             case 5: // type
                 // TODO: validate
+                // get the switch command arg to end of string.
+                ad2_copy_nth_arg(arg, command_string, 3, true);
                 ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, arg.c_str());
                 break;
             case 6: // filter
                 // TODO: validate
+                // get the switch command arg to end of string.
+                ad2_copy_nth_arg(arg, command_string, 3, true);
                 ad2_set_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, arg.c_str());
                 break;
             case 7: // open
             case 8: // close
             case 9: // trouble
                 // TODO: validate
-                ad2_set_config_key_string(key.c_str(), sk.c_str(), arg.c_str());
+                // get the <verb> IDX
+                ad2_copy_nth_arg(arg, command_string, 3, false);
+                itmp = std::atoi(arg.c_str());
+                // get the REGEX to EOL
+                ad2_copy_nth_arg(arg, command_string, 4, true);
+                ad2_set_config_key_string(key.c_str(), sk.c_str(), arg.c_str(), itmp);
                 break;
             }
             // all done.

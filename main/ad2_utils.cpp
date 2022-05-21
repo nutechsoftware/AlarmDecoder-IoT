@@ -711,12 +711,17 @@ void ad2_set_config_key_bool(
 #endif
     bool done;
     if (remove) {
-        done = _ad2ini.Delete(section, tkey.c_str(), false);
+        if (_ad2ini.KeyExists(section, tkey.c_str())) {
+            done = _ad2ini.Delete(section, tkey.c_str(), false);
+        } else {
+            // asked to delete but does not exist. Still consider done.
+            done = true;
+        }
     } else {
         done = _ad2ini.SetBoolValue(section, tkey.c_str(), vin);
     }
     if (!done) {
-        ESP_LOGE(TAG, "%s: fail ini Set|Delete.", __func__);
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete(%s).", __func__, tkey.c_str());
     } else {
         _config_dirty = true;
     }
@@ -796,7 +801,12 @@ void ad2_set_config_key_int(
 #endif
     bool done;
     if (remove) {
-        done = _ad2ini.Delete(section, tkey.c_str(), false);
+        if (_ad2ini.KeyExists(section, tkey.c_str())) {
+            done = _ad2ini.Delete(section, tkey.c_str(), false);
+        } else {
+            // asked to delete but does not exist. Still consider done.
+            done = true;
+        }
     } else {
         done = _ad2ini.SetLongValue(section, tkey.c_str(), vin);
     }
@@ -882,12 +892,17 @@ void ad2_set_config_key_string(
 #endif
     bool done;
     if (remove) {
-        done = _ad2ini.Delete(section, tkey.c_str(), false);
+        if (_ad2ini.KeyExists(section, tkey.c_str())) {
+            done = _ad2ini.Delete(section, tkey.c_str(), false);
+        } else {
+            // asked to delete but does not exist. Still consider done.
+            done = true;
+        }
     } else {
         done = _ad2ini.SetValue(section, tkey.c_str(), vin);
     }
     if (!done) {
-        ESP_LOGE(TAG, "%s: fail ini Set|Delete. '%s'", __func__, tkey.c_str());
+        ESP_LOGE(TAG, "%s: fail ini Set|Delete(%s).", __func__, tkey.c_str());
     } else {
         _config_dirty = true;
     }

@@ -53,6 +53,7 @@ Big changes:
   - Yes :)
 
 ### Change log
+- [X] SM - CORE: Found/fix issues in global switch command. Setting search strings for open,close,fault.
 - [X] SM - API: I needed to add reset time and default value to virtual switches for my test case to work. Time is currently not tested and is only TRUE > 0 false <= 0 instead of time in ms. Found a few glitches in global switches while doing this testing.
 - [X] SM - API: Default state added UNKNOWN. switch events not triggered on first state change. Still need to work on AUTO reset and default_state these will likely change this or make this more clear. For now just be sure they are in an UNKNOWN state to start. Also fixed a typo in current unused code for rest time.
 - [X] SM - *: Cleanup help and docs.
