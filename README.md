@@ -232,7 +232,7 @@ Usage: switch <swid> [command] [<arg>]
 
 Commands:
     delete | -              Clear switch  settings
-    default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON)
+    default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON) [-1]UNKNOWN
     reset TIME              Auto rest TIME in ms 0 to disable
     types TYPE, TYPE,...    Message type filter list or blank to disable
     filter REGEX            Pre filter REGEX or blank to disable

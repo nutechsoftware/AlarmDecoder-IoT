@@ -702,7 +702,7 @@ static struct cli_command cmd_list[] = {
         "\r\n"
         "Commands:\r\n"
         "    delete | -              Clear switch  settings\r\n"
-        "    default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
+        "    default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON) [-1]UNKNOWN\r\n"
         "    reset TIME              Auto rest TIME in ms 0 to disable\r\n"
         "    types TYPE, TYPE,...    Message type filter list or blank to disable\r\n"
         "    filter REGEX            Pre filter REGEX or blank to disable\r\n"
