@@ -416,6 +416,16 @@ public:
         current_state_ = state;
     }
 
+    // get/set current_state_
+    int getDefaultState()
+    {
+        return default_state_;
+    }
+    void setDefaultState(int state)
+    {
+        default_state_ = state;
+    }
+
     // get/set reset_time_
     int getResetTime()
     {

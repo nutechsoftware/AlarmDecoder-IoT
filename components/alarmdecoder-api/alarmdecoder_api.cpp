@@ -422,6 +422,13 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
         if (i->varg) {
             AD2EventSearch *eSearch = (AD2EventSearch*)i->varg;
             bool done = false;
+
+            // test reset time if set and restore state to default if true.
+            // FIXME: For now only TRUE/FALSE no actual time tracked.
+            if (eSearch->getResetTime()) {
+                eSearch->setState(eSearch->getDefaultState());
+            }
+
             int savedstate = eSearch->getState();
             std::string outformat;
 

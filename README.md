@@ -234,7 +234,7 @@ Commands:
     delete | -              Clear switch  settings
     default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON)
     reset TIME              Auto rest TIME in ms 0 to disable
-    type TYPE, TYPE,...     Message type filter list or blank to disable
+    types TYPE, TYPE,...    Message type filter list or blank to disable
     filter REGEX            Pre filter REGEX or blank to disable
     open IDX REGEX          OPEN event REGEX filter for IDX 1-8
     close IDX REGEX         CLOSE event REGEX filter for IDX 1-8

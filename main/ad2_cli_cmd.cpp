@@ -540,9 +540,9 @@ static void _cli_cmd_switch_event(const char *command_string)
             switch(sk_index) {
             case 1: // default
             case 2: // reset
-                itmp = -1;
+                itmp = -2; // UNKNOWN is -1 so -2 etc is invalid and would indicate empty.
                 ad2_get_config_key_int(key.c_str(), sk.c_str(), &itmp);
-                if (itmp > -1) {
+                if (itmp > -2) {
                     ad2_printf_host(false, "%s = %i\r\n", sk.c_str(), itmp);
                 } else {
                     ad2_printf_host(false, "# %s = \r\n", sk.c_str());
@@ -695,7 +695,7 @@ static struct cli_command cmd_list[] = {
         "    delete | -              Clear switch  settings\r\n"
         "    default STATE           Default STATE [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
         "    reset TIME              Auto rest TIME in ms 0 to disable\r\n"
-        "    type TYPE, TYPE,...     Message type filter list or blank to disable\r\n"
+        "    types TYPE, TYPE,...    Message type filter list or blank to disable\r\n"
         "    filter REGEX            Pre filter REGEX or blank to disable\r\n"
         "    open IDX REGEX          OPEN event REGEX filter for IDX 1-8\r\n"
         "    close IDX REGEX         CLOSE event REGEX filter for IDX 1-8\r\n"

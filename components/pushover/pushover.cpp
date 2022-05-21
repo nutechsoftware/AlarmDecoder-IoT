@@ -502,8 +502,20 @@ void pushover_init()
             key += " ";
             key += std::to_string(swID);
 
+            // Default switch state from global switch settings
+            int defaultState = AD2_STATE_UNKNOWN; // default default to unknown.
+            ad2_get_config_key_int(key.c_str(),
+                                   AD2SWITCH_SK_DEFAULT,
+                                   &defaultState);
+
+            // Auto reset time from global switch settings
+            int autoReset = 0;
+            ad2_get_config_key_int(key.c_str(),
+                                   AD2SWITCH_SK_RESET,
+                                   &autoReset);
+
             // construct our search object.
-            AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_UNKNOWN, 0);
+            AD2EventSearch *es1 = new AD2EventSearch((AD2_CMD_ZONE_state_t)defaultState, autoReset);
 
             // store validated output formats.
             es1->OPEN_OUTPUT_FORMAT = open_output_format;
