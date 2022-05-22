@@ -621,7 +621,7 @@ MQTT is an OASIS standard messaging protocol for the Internet of Things (IoT). I
 Usage: mqtt (enable|url|commands|tprefix|dprefix) [<arg>]
 Usage: mqtt switch <swid> [delete|-|open|close|trouble] [<arg>]
 
-    Configuration tool for Pushover.net notification
+    Configuration tool for MQTT notification
 Commands:
     enable [Y|N]            Component enable flag
     url [url]               MQTT URL string

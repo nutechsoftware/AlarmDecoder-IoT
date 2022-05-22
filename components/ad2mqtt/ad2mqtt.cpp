@@ -1080,7 +1080,7 @@ static struct cli_command mqtt_cmd_list[] = {
         "Usage: mqtt (enable|url|commands|tprefix|dprefix) [<arg>]\r\n"
         "Usage: mqtt switch <swid> [delete|-|open|close|trouble] [<arg>]\r\n"
         "\r\n"
-        "    Configuration tool for Pushover.net notification\r\n"
+        "    Configuration tool for MQTT notification\r\n"
         "Commands:\r\n"
         "    enable [Y|N]            Component enable flag\r\n"
         "    url [url]               MQTT URL string\r\n"
