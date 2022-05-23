@@ -4,7 +4,7 @@ sudo: required
 language: python
 
 python:
-  - "3.7"
+  - "nightly"
 
 os:
   - linux
@@ -17,6 +17,7 @@ cache:
 
 install:
   - pip install -U platformio
+  - pio update
 
 before_script:
   - sh test/install_astyle.sh

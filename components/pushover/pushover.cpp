@@ -2,7 +2,7 @@
 *  @file    pushover.cpp
 *  @author  Sean Mathews <coder@f34r.com>
 *  @date    01/06/2021
-*  @version 1.0.0
+*  @version 1.0.1
 *
 *  @brief Simple commands to post to api.pushover.net
 *
@@ -33,7 +33,6 @@ static const char *TAG = "PUSHOVER";
 #include "alarmdecoder_main.h"
 
 // specific includes
-#include "pushover.h"
 
 //#define DEBUG_PUSHOVER
 #define AD2_DEFAULT_PUSHOVER_SLOT 0
@@ -43,45 +42,24 @@ static const char *TAG = "PUSHOVER";
 const char PUSHOVER_URL[] = "https://api.pushover.net/" PUSHOVER_API_VERSION "/messages.json";
 
 #define PUSHOVER_COMMAND        "pushover"
-#define PUSHOVER_PREFIX         "po"
-#define PUSHOVER_TOKEN_CFGKEY   "apptoken"
-#define PUSHOVER_USERKEY_CFGKEY "userkey"
-#define PUSHOVER_SAS_CFGKEY     "switch"
+#define PUSHOVER_TOKEN_SUBCMD   "apptoken"
+#define PUSHOVER_USERKEY_SUBCMD "userkey"
+#define PUSHOVER_SWITCH_SUBCMD  "switch"
 
-#define MAX_SEARCH_KEYS 9
+#define PUSHOVER_CONFIG_SECTION "pushover"
 
-// NV storage sub key values for virtual search switch
-#define SK_NOTIFY_SLOT       "N"
-#define SK_DEFAULT_STATE     "D"
-#define SK_AUTO_RESET        "R"
-#define SK_TYPE_LIST         "T"
-#define SK_PREFILTER_REGEX   "P"
-#define SK_OPEN_REGEX_LIST   "O"
-#define SK_CLOSED_REGEX_LIST "C"
-#define SK_TROUBLE_REGEX_LIST  "F"
-#define SK_OPEN_OUTPUT_FMT   "o"
-#define SK_CLOSED_OUTPUT_FMT "c"
-#define SK_TROUBLE_OUTPUT_FMT  "f"
+#define PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY "notify"
+#define PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN "open"
+#define PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE "close"
+#define PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE "trouble"
+#define PUSHOVER_CONFIG_SWITCH_VERBS ( \
+    PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN " " \
+    PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE " " \
+    PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE)
+
 
 static std::vector<AD2EventSearch *> pushover_AD2EventSearches;
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-/**
- * @brief Root cert for api.pushover.net
- *   The PEM file was extracted from the output of this command:
- *  openssl s_client -showcerts -connect www.howsmyssl.com:443 </dev/null
- *  The CA root cert is the last cert given in the chain of certs.
- *  To embed it in the app binary, the PEM file is named
- *  in the component.mk COMPONENT_EMBED_TXTFILES variable.
- */
-extern const uint8_t pushover_root_pem_start[] asm("_binary_pushover_root_pem_start");
-extern const uint8_t pushover_root_pem_end[]   asm("_binary_pushover_root_pem_end");
-#endif
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // forward decl
 
@@ -150,11 +128,11 @@ static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_clien
 static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
     request_message *r = (request_message*) config->user_data;
-
+#if defined(DEBUG_PUSHOVER)
     ESP_LOGI(TAG, "perform results = %d HTTP Status = %d, response length = %d response = '%s'", res,
              esp_http_client_get_status_code(client),
              esp_http_client_get_content_length(client), r->results.c_str());
-
+#endif
     // free message_data class will also delete the client_config in the distructor.
     delete r;
 
@@ -231,9 +209,8 @@ esp_err_t _pushover_http_event_handler(esp_http_client_event_t *evt)
  *
  * @note No full queue handler
  */
-void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void on_search_match_cb_pushover(std::string *msg, AD2PartitionState *s, void *arg)
 {
-    std::string nvkey;
 
     AD2EventSearch *es = (AD2EventSearch *)arg;
 
@@ -245,13 +222,11 @@ void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *
         request_message *r = new request_message();
 
         // load our settings for this event type.
-        // save the user key
-        nvkey = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_USERKEY_CFGKEY);
-        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->userkey);
+        // get the pushover user key
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_USERKEY_SUBCMD, r->userkey, notify_slot);
 
-        // save the token
-        nvkey = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_TOKEN_CFGKEY);
-        ad2_get_nv_slot_key_string(nvkey.c_str(), notify_slot, nullptr, r->token);
+        // get the pushover api token
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, PUSHOVER_TOKEN_SUBCMD, r->token, notify_slot);
 
         // save the message
         r->message = es->out_message;
@@ -284,291 +259,131 @@ void on_search_match_cb_po(std::string *msg, AD2VirtualPartitionState *s, void *
  * Command support values.
  */
 enum {
-    PUSHOVER_TOKEN_CFGKEY_ID = 0,
-    PUSHOVER_USERKEY_CFGKEY_ID,
-    PUSHOVER_SAS_CFGKEY_ID
+    PUSHOVER_TOKEN_SUBCMD_ID = 0,
+    PUSHOVER_USERKEY_SUBCMD_ID,
+    PUSHOVER_SWITCH_SUBCMD_ID
 };
-char * PUSHOVER_SETTINGS [] = {
-    (char*)PUSHOVER_TOKEN_CFGKEY,
-    (char*)PUSHOVER_USERKEY_CFGKEY,
-    (char*)PUSHOVER_SAS_CFGKEY,
+char * PUSHOVER_SUBCMD [] = {
+    (char*)PUSHOVER_TOKEN_SUBCMD,
+    (char*)PUSHOVER_USERKEY_SUBCMD,
+    (char*)PUSHOVER_SWITCH_SUBCMD,
     0 // EOF
 };
 
 /**
  * Component generic command event processing
- *  command: [COMMAND] [SUB] <id> <arg>
- * ex.
- *   [COMMAND] [SUB] 0 arg...
+ *
+ * Usage: pushover (apptoken|userkey) <acid> [<arg>]
  */
-static void _cli_cmd_pushover_event_generic(std::string &subcmd, char *string)
+static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *string)
 {
-    int slot = -1;
+    int accountId = -1;
     std::string buf;
 
     // get the sub command value validation
     ad2_copy_nth_arg(subcmd, string, 1);
     ad2_lcase(subcmd);
 
-    // build the NV storage key concat prefix to sub command. Take human readable and make it less so.
-    std::string key = std::string(PUSHOVER_PREFIX) + subcmd.c_str();
+    // get the accountID 1-8
     if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
-        slot = strtol(buf.c_str(), NULL, 10);
+        accountId = strtol(buf.c_str(), NULL, 10);
     }
-    if (slot >= 0) {
+    // Allowed accountId 1-8
+    if (accountId > 0 && accountId < 9) {
+        // <arg>
         if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
-            ad2_set_nv_slot_key_string(key.c_str(), slot, nullptr, buf.c_str());
-            ad2_printf_host(false, "Setting '%s' value finished.\r\n", subcmd.c_str());
+            ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
+            ad2_printf_host(false, "Setting <acid> #%02i '%s' value '%s' finished.\r\n", accountId, subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
-            ad2_get_nv_slot_key_string(key.c_str(), slot, nullptr, buf);
-            ad2_printf_host(false, "Current slot #%02i '%s' value '%s'\r\n", slot, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
+            ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf, accountId);
+            ad2_printf_host(false, "Current <acid> #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
-        ad2_printf_host(false, "Missing <slot>\r\n");
+        ad2_printf_host(false, "Missing or invalid <acid> [1-8].\r\n");
     }
 }
 
 /**
- * component SmartSwitch command event processing
- *  command: [COMMAND] [SUB] <id> <setting> <arg1> <arg2>
- * ex. Switch #0 [N]otification slot 0
- *   [COMMAND] [SUB] 0 N 0
+ * Component SmartSwitch command event processing
+ *
+ *  Usage: pushover switch <swid> [delete|-|notify|open|close|trouble] [<arg>]
  */
-static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, char *instring)
+static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, const char *instring)
 {
-    int i;
-    int slot = -1;
-    std::string buf;
-    std::string arg1;
-    std::string arg2;
-    std::string tmpsz;
+    int swID = 0;
+    std::string scmd;
+    std::string tbuf;
+    std::string arg;
+
+    // sub key "switch N AAAAA"
+    std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
 
     // get the sub command value validation
-    std::string key = std::string(PUSHOVER_PREFIX) + subcmd.c_str();
-
-    if (ad2_copy_nth_arg(buf, instring, 2) >= 0) {
-        slot = std::atoi (buf.c_str());
+    if (ad2_copy_nth_arg(tbuf, instring, 2) >= 0) {
+        swID = std::atoi (tbuf.c_str());
     }
-    // add the slot# to the key max 99 slots.
-    if (slot > 0 && slot < 100) {
+    // Switch ID to the key.
+    if (swID > 0 && swID <= AD2_MAX_SWITCHES) {
 
-        if (ad2_copy_nth_arg(buf, instring, 3) >= 0) {
+        // sub command
+        if (ad2_copy_nth_arg(scmd, instring, 3) >= 0) {
 
-            // sub key suffix.
-            std::string sk = ad2_string_printf("%c", buf[0]);
+            // load remaining arg data
+            ad2_copy_nth_arg(arg, instring, 4, true);
 
-            /* setting */
-            switch(buf[0]) {
-            case '-': // Remove entry
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_NOTIFY_SLOT, NULL);
-                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_DEFAULT_STATE, -1);
-                ad2_set_nv_slot_key_int(key.c_str(), slot, SK_AUTO_RESET, -1);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TYPE_LIST, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_PREFILTER_REGEX, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_REGEX_LIST, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_REGEX_LIST, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_REGEX_LIST, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_OPEN_OUTPUT_FMT, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_CLOSED_OUTPUT_FMT, NULL);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, SK_TROUBLE_OUTPUT_FMT, NULL);
-                ad2_printf_host(false, "Deleteing smartswitch #%i.\r\n", slot);
-                break;
-            case SK_NOTIFY_SLOT[0]: // Notification slot
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg2, instring, 4, true);
-                ad2_trim(arg2);
-                tmpsz = arg2.length() == 0 ? "Clearing" : "Setting";
-                ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.length() ? arg2.c_str() : nullptr);
-                ad2_printf_host(false, "%s smartswitch #%i to use notification settings from slots #%s.\r\n", tmpsz.c_str(), slot, arg2.c_str());
-                break;
-            case SK_DEFAULT_STATE[0]: // Default state
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host(false, "Setting smartswitch #%i to use default state '%s' %i.\r\n", slot, AD2Parse.state_str[i].c_str(), i);
-                break;
-            case SK_AUTO_RESET[0]: // Auto Reset
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                ad2_set_nv_slot_key_int(key.c_str(), slot, sk.c_str(), i);
-                ad2_printf_host(false, "Setting smartswitch #%i auto reset value %i.\r\n", slot, i);
-                break;
-            case SK_TYPE_LIST[0]: // Message type filter list
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg1, instring, 4, true);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host(false, "Setting smartswitch #%i message type filter list to '%s'.\r\n", slot, arg1.c_str());
-                break;
-            case SK_PREFILTER_REGEX[0]: // Pre filter REGEX
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg1, instring, 4, true);
-                ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host(false, "Setting smartswitch #%i pre filter regex to '%s'.\r\n", slot, arg1.c_str());
-                break;
-
-            case SK_OPEN_REGEX_LIST[0]: // Open state REGEX list editor
-            case SK_CLOSED_REGEX_LIST[0]: // Closed state REGEX list editor
-            case SK_TROUBLE_REGEX_LIST[0]: // Fault state REGEX list editor
-                // Add index to file name to track N number of elements.
-                ad2_copy_nth_arg(arg1, instring, 4);
-                i = std::atoi (arg1.c_str());
-                if ( i > 0 && i < MAX_SEARCH_KEYS) {
-                    // consume the arge and to EOL
-                    ad2_copy_nth_arg(arg2, instring, 5, true);
-                    std::string op = arg2.length() > 0 ? "Setting" : "Clearing";
-                    sk+=ad2_string_printf("%02i", i);
-                    if (buf[0] == SK_OPEN_REGEX_LIST[0]) {
-                        tmpsz = "OPEN";
-                    }
-                    if (buf[0] == SK_CLOSED_REGEX_LIST[0]) {
-                        tmpsz = "CLOSED";
-                    }
-                    if (buf[0] == SK_TROUBLE_REGEX_LIST[0]) {
-                        tmpsz = "TROUBLE";
-                    }
-                    ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg2.c_str());
-                    ad2_printf_host(false, "%s smartswitch #%i REGEX filter #%02i for state '%s' to '%s'.\r\n", op.c_str(), slot, i, tmpsz.c_str(), arg2.c_str());
-                } else {
-                    ad2_printf_host(false, "Error invalid index %i. Valid values are 1-8.\r\n", slot, i);
-                }
-                break;
-
-            case SK_OPEN_OUTPUT_FMT[0]: // Open state output format string
-            case SK_CLOSED_OUTPUT_FMT[0]: // Closed state output format string
-            case SK_TROUBLE_OUTPUT_FMT[0]: // Fault state output format string
-                // consume the arge and to EOL
-                ad2_copy_nth_arg(arg1, instring, 4, true);
-                if (buf[0] == SK_OPEN_OUTPUT_FMT[0]) {
-                    tmpsz = "OPEN";
-                }
-                if (buf[0] == SK_CLOSED_OUTPUT_FMT[0]) {
-                    tmpsz = "CLOSED";
-                }
-                if (buf[0] == SK_TROUBLE_OUTPUT_FMT[0]) {
-                    tmpsz = "TROUBLE";
-                }
-                ad2_set_nv_slot_key_string(key.c_str(), slot, sk.c_str(), arg1.c_str());
-                ad2_printf_host(false, "Setting smartswitch #%i output format string for '%s' state to '%s'.\r\n", slot, tmpsz.c_str(), arg1.c_str());
-                break;
-
-            default:
-                ESP_LOGW(TAG, "Unknown setting '%c' ignored.", buf[0]);
+            // sub key test.
+            if (scmd.compare(AD2SWITCH_SK_DELETE1) == 0 || scmd.compare(AD2SWITCH_SK_DELETE2) == 0) {
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY, true);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN, true);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE, true);
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), NULL, swID, PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE, true);
+                ad2_printf_host(false, "Removing switch #%i settings from pushover config.\r\n", swID);
+            } else if (scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY) == 0) {
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), arg.c_str(), swID, scmd.c_str());
+                ad2_printf_host(false, "Setting switch #%i %s string to '%s'.\r\n", swID, scmd.c_str(), arg.c_str());
+            } else if (scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN) == 0 ||
+                       scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE) == 0 ||
+                       scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE) == 0) {
+                ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), arg.c_str(), swID, scmd.c_str());
+                ad2_printf_host(false, "Setting switch #%i output string for state '%s' to '%s'.\r\n", swID, scmd.c_str(), arg.c_str());
+            } else if (scmd.compare(PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN) == 0) {
+                ESP_LOGW(TAG, "Unknown sub command setting '%s' ignored.", scmd.c_str());
                 return;
             }
         } else {
-            // query show contents.
-            int i;
-            std::string out;
-            std::string args = SK_NOTIFY_SLOT
-                               SK_DEFAULT_STATE
-                               SK_AUTO_RESET
-                               SK_TYPE_LIST
-                               SK_PREFILTER_REGEX
-                               SK_OPEN_REGEX_LIST
-                               SK_CLOSED_REGEX_LIST
-                               SK_TROUBLE_REGEX_LIST
-                               SK_OPEN_OUTPUT_FMT
-                               SK_CLOSED_OUTPUT_FMT
-                               SK_TROUBLE_OUTPUT_FMT;
+            // check all settings verbs against provided verb and proform setting logic
+            std::stringstream ss(
+                PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY " "
+                PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN " "
+                PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE " "
+                PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
-            ad2_printf_host(false, "Pushover SmartSwitch #%i report\r\n", slot);
-            // sub key suffix.
             std::string sk;
-            for(char& c : args) {
-                std::string sk = ad2_string_printf("%c", c);
-                switch(c) {
-                case SK_NOTIFY_SLOT[0]:
-                    i = 0; // Default 0
-                    ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host(false, "# Set notification slots [%c] to #%s.\r\n", c, out.c_str());
-                    ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
-                    break;
-                case SK_DEFAULT_STATE[0]:
-                    i = 0; // Default CLOSED
-                    ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host(false, "# Set default virtual switch state [%c] to '%s'(%i)\r\n", c, AD2Parse.state_str[i].c_str(), i);
-                    ad2_printf_host(false, "%s %s %i %c %i\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i);
-                    break;
-                case SK_AUTO_RESET[0]:
-                    i = 0; // Defaut 0 or disabled
-                    ad2_get_nv_slot_key_int(key.c_str(), slot, sk.c_str(), &i);
-                    ad2_printf_host(false, "# Set auto reset time in ms [%c] to '%s'\r\n", c, (i > 0) ? ad2_to_string(i).c_str() : "DISABLED");
-                    ad2_printf_host(false, "%s %s %i %c %i\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i);
-                    break;
-                case SK_TYPE_LIST[0]:
-                    out = "";
-                    ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    ad2_printf_host(false, "# Set message type list [%c]\r\n", c);
-                    if (out.length()) {
-                        ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
-                    } else {
-                        ad2_printf_host(false, "# disabled\r\n");
-                    }
-                    break;
-                case SK_PREFILTER_REGEX[0]:
-                    out = "";
-                    ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    if (out.length()) {
-                        ad2_printf_host(false, "# Set pre filter REGEX [%c]\r\n", c);
-                        ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
-                    }
-                    break;
-                case SK_OPEN_REGEX_LIST[0]:
-                case SK_CLOSED_REGEX_LIST[0]:
-                case SK_TROUBLE_REGEX_LIST[0]:
-                    // * Find all sub keys and show info.
-                    if (c == SK_OPEN_REGEX_LIST[0]) {
-                        tmpsz = "OPEN";
-                    }
-                    if (c == SK_CLOSED_REGEX_LIST[0]) {
-                        tmpsz = "CLOSED";
-                    }
-                    if (c == SK_TROUBLE_REGEX_LIST[0]) {
-                        tmpsz = "TROUBLE";
-                    }
-                    for ( i = 1; i < MAX_SEARCH_KEYS; i++ ) {
-                        out = "";
-                        std::string tsk = sk + ad2_string_printf("%02i", i);
-                        ad2_get_nv_slot_key_string(key.c_str(), slot, tsk.c_str(), out);
-                        if (out.length()) {
-                            ad2_printf_host(false, "# Set '%s' state REGEX Filter [%c] #%02i.\r\n", tmpsz.c_str(), c, i);
-                            ad2_printf_host(false, "%s %s %i %c %i %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, i, out.c_str());
-                        }
-                    }
-                    break;
-                case SK_OPEN_OUTPUT_FMT[0]:
-                case SK_CLOSED_OUTPUT_FMT[0]:
-                case SK_TROUBLE_OUTPUT_FMT[0]:
-                    if (c == SK_OPEN_OUTPUT_FMT[0]) {
-                        tmpsz = "OPEN";
-                    }
-                    if (c == SK_CLOSED_OUTPUT_FMT[0]) {
-                        tmpsz = "CLOSED";
-                    }
-                    if (c == SK_TROUBLE_OUTPUT_FMT[0]) {
-                        tmpsz = "TROUBLE";
-                    }
-                    out = "";
-                    ad2_get_nv_slot_key_string(key.c_str(), slot, sk.c_str(), out);
-                    if (out.length()) {
-                        ad2_printf_host(false, "# Set output format string for '%s' state [%c].\r\n", tmpsz.c_str(), c);
-                        ad2_printf_host(false, "%s %s %i %c %s\r\n", PUSHOVER_COMMAND, PUSHOVER_SAS_CFGKEY, slot, c, out.c_str());
-                    }
-                    break;
+            bool command_found = false;
+            ad2_printf_host(false, "## [pushover] switch %i configuration.\r\n", swID);
+            while (ss >> sk) {
+                tbuf = "";
+                ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, key.c_str(), tbuf, swID, sk.c_str());
+                if (tbuf.length()) {
+                    ad2_printf_host(false, "%s = %s\r\n", sk.c_str(), tbuf.c_str());
+                } else {
+                    ad2_printf_host(false, "# %s = \r\n", sk.c_str());
                 }
             }
+            // dump finished, all done.
+            return;
         }
     } else {
-        ad2_printf_host(false, "Missing or invalid <slot> 1-99\r\n");
-        // TODO: DUMP when slot is 0 or 100
+        ad2_printf_host(false, "Missing or invalid switch <id> 1-255\r\n");
+        // TODO: DUMP all when swID is 0 or > AD2_MAX_SWITCHES
     }
 }
 
 /**
  * Component command router
  */
-static void _cli_cmd_pushover_command_router(char *string)
+static void _cli_cmd_pushover_command_router(const char *string)
 {
     int i;
     std::string subcmd;
@@ -578,17 +393,17 @@ static void _cli_cmd_pushover_command_router(char *string)
     ad2_lcase(subcmd);
 
     for(i = 0;; ++i) {
-        if (PUSHOVER_SETTINGS[i] == 0) {
+        if (PUSHOVER_SUBCMD[i] == 0) {
             ad2_printf_host(false, "What?\r\n");
             break;
         }
-        if(subcmd.compare(PUSHOVER_SETTINGS[i]) == 0) {
+        if(subcmd.compare(PUSHOVER_SUBCMD[i]) == 0) {
             switch(i) {
-            case PUSHOVER_TOKEN_CFGKEY_ID:   // 'apptoken' sub command
-            case PUSHOVER_USERKEY_CFGKEY_ID: // 'userkey' sub command
+            case PUSHOVER_TOKEN_SUBCMD_ID:   // 'apptoken' sub command
+            case PUSHOVER_USERKEY_SUBCMD_ID: // 'userkey' sub command
                 _cli_cmd_pushover_event_generic(subcmd, string);
                 break;
-            case PUSHOVER_SAS_CFGKEY_ID:
+            case PUSHOVER_SWITCH_SUBCMD_ID:
                 _cli_cmd_pushover_smart_alert_switch(subcmd, string);
                 break;
             }
@@ -606,53 +421,31 @@ static struct cli_command pushover_cmd_list[] = {
     {
         // ### Pushover.net notification component
         (char*)PUSHOVER_COMMAND,(char*)
-        "#### Configuration for Pushover.net notification\r\n"
-        "- Sets the ```Application Token/Key``` for a given notification slot. Multiple slots allow for multiple pushover accounts or applications.\r\n"
-        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " {slot} {hash}```\r\n"
-        "    - {slot}: [N]\r\n"
-        "      - For default use 0.\r\n"
-        "    - {hash}: Pushover.net ```User Auth Token```.\r\n"
-        "  - Example: ```" PUSHOVER_COMMAND " " PUSHOVER_TOKEN_CFGKEY " 0 aabbccdd112233..```\r\n"
-        "- Sets the 'User Key' for a given notification slot.\r\n"
-        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " {slot} {hash}```\r\n"
-        "    - {slot}: [N]\r\n"
-        "      - For default use 0.\r\n"
-        "    - {hash}: Pushover ```User Key```.\r\n"
-        "  - Example: ```" PUSHOVER_COMMAND " " PUSHOVER_USERKEY_CFGKEY " 0 aabbccdd112233..```\r\n"
-        "- Define a smart virtual switch that will track and alert alarm panel state changes using user configurable filter and formatting rules.\r\n"
-        "  - ```" PUSHOVER_COMMAND " " PUSHOVER_SAS_CFGKEY " {slot} {setting} {arg1} [arg2]```\r\n"
-        "    - {slot}\r\n"
-        "      - 1-99 : Supports multiple virtual smart alert switches.\r\n"
-        "    - {setting}\r\n"
-        "      - [-] Delete switch\r\n"
-        "      - [N] Notification slots\r\n"
-        "        -  Comma separated list of notification slots to use for sending this events.\r\n"
-        "      - [D] Default state\r\n"
-        "        - {arg1}: [0]CLOSE(OFF) [1]OPEN(ON)\r\n"
-        "      - [R] AUTO Reset.\r\n"
-        "        - {arg1}:  time in ms 0 to disable\r\n"
-        "      - [T] Message type filter.\r\n"
-        "        - {arg1}: Message type list separated by ',' or empty to disables filter.\r\n"
-        "          - Message Types: [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,CRC,VER,ERR,EVENT]\r\n"
-        "            - For EVENT type the message will be generated by the API and not the AD2\r\n"
-        "      - [P] Pre filter REGEX or empty to disable.\r\n"
-        "      - [O] Open(ON) state regex search string list management.\r\n"
-        "        - {arg1}: Index # 1-8\r\n"
-        "        - {arg2}: Regex string for this slot or empty string  to clear\r\n"
-        "      - [C] Close(OFF) state regex search string list management.\r\n"
-        "        - {arg1}: Index # 1-8\r\n"
-        "        - {arg2}: Regex string for this slot or empty string to clear\r\n"
-        "      - [F] Trouble state regex search string list management.\r\n"
-        "        - {arg1}: Index # 1-8\r\n"
-        "        - {arg2}: Regex string for this slot or empty  string to clear\r\n"
-        "      - [o] Open output format string.\r\n"
-        "      - [c] Close output format string.\r\n"
-        "      - [f] Trouble output format string.\r\n\r\n", _cli_cmd_pushover_command_router
+        "Usage: pushover (apptoken|userkey) <acid> [<arg>]\r\n"
+        "Usage: pushover switch <swid> [delete|-|notify|open|close|trouble] [<arg>]\r\n"
+        "\r\n"
+        "    Configuration tool for Pushover.net notification\r\n"
+        "Commands:\r\n"
+        "    apptoken acid [hash]    Application token/key HASH\r\n"
+        "    userkey acid [hash]     User Auth Token HASH\r\n"
+        "    switch swid SCMD [ARG]  Configure virtual switches\r\n"
+        "Sub-Commands:\r\n"
+        "    delete | -              Clear switch notification settings\r\n"
+        "    notify <acid>,...       List of accounts [1-8] to use for notification\r\n"
+        "    open <message>          Send <message> for OPEN events\r\n"
+        "    close <message>         Send <message> for CLOSE events\r\n"
+        "    trouble <message>       Send <message> for TROUBLE events\r\n"
+        "Options:\r\n"
+        "    acid                    Account storage location 1-8\r\n"
+        "    swid                    ad2iot virtual switch ID 1-255.\r\n"
+        "                            See ```switch``` command\r\n"
+        "    message                 Message to send for this notification\r\n"
+        , _cli_cmd_pushover_command_router
     },
 };
 
 /**
- * Register component cli commands
+ * Register cli commands
  */
 void pushover_register_cmds()
 {
@@ -667,83 +460,153 @@ void pushover_register_cmds()
  */
 void pushover_init()
 {
-    // Register search based virtual switches with the AlarmDecoderParser.
-    std::string key = std::string(PUSHOVER_PREFIX) + std::string(PUSHOVER_SAS_CFGKEY);
-    int subscribers = 0;
-    for (int i = 1; i < 99; i++) {
-        std::string slots;
-        ad2_get_nv_slot_key_string(key.c_str(), i, SK_NOTIFY_SLOT, slots);
-        if (slots.length()) {
-            AD2EventSearch *es1 = new AD2EventSearch(AD2_STATE_CLOSED, 0);
 
-            // read notification slot list into std::list
+    // Register search based virtual switches if enabled.
+    // [switch N]
+    int subscribers = 0;
+    for (int swID = 1; swID < AD2_MAX_SWITCHES; swID++) {
+        // load switch settings for 'swID' and test if found
+        std::string open_output_format;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  open_output_format,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_OPEN);
+        std::string close_output_format;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  close_output_format,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_CLOSE);
+        std::string trouble_output_format;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  trouble_output_format,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE);
+        std::string notify_slots_string;
+        ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION,
+                                  AD2SWITCH_CONFIG_SECTION,
+                                  notify_slots_string,
+                                  swID,
+                                  PUSHOVER_CONFIG_SWITCH_SUFFIX_NOTIFY);
+
+        // Only process entries with notify list and at least one output string.
+        if ( notify_slots_string.length() &&
+                ( open_output_format.length() ||
+                  close_output_format.length() ||
+                  trouble_output_format.length() )
+           ) {
+            // key switch N
+            std::string key = std::string(AD2SWITCH_CONFIG_SECTION);
+            key += " ";
+            key += std::to_string(swID);
+
+            // Default switch state from global switch settings
+            int defaultState = AD2_STATE_UNKNOWN; // default default to unknown.
+            ad2_get_config_key_int(key.c_str(),
+                                   AD2SWITCH_SK_DEFAULT,
+                                   &defaultState);
+
+            // Auto reset time from global switch settings
+            int autoReset = 0;
+            ad2_get_config_key_int(key.c_str(),
+                                   AD2SWITCH_SK_RESET,
+                                   &autoReset);
+
+            // construct our search object.
+            AD2EventSearch *es1 = new AD2EventSearch((AD2_CMD_ZONE_state_t)defaultState, autoReset);
+
+            // store validated output formats.
+            es1->OPEN_OUTPUT_FORMAT = open_output_format;
+            es1->CLOSE_OUTPUT_FORMAT = close_output_format;
+            es1->TROUBLE_OUTPUT_FORMAT = trouble_output_format;
+
+            // save notify list to PTR_ARG.
             std::list<uint8_t> *pslots = new std::list<uint8_t>;
             std::vector<std::string> vres;
-            ad2_tokenize(slots, ",", vres);
+            ad2_tokenize(notify_slots_string, ",", vres);
             for (auto &slotstring : vres) {
                 uint8_t s = std::atoi(slotstring.c_str());
                 pslots->push_front((uint8_t)s & 0xff);
             }
-
-            // Save the notification slot. That is all we need to complete the task.
-            es1->INT_ARG = 0;
             es1->PTR_ARG = pslots;
 
-            // We at least need some output format or skip
-            ad2_get_nv_slot_key_string(key.c_str(), i, SK_OPEN_OUTPUT_FMT, es1->OPEN_OUTPUT_FORMAT);
-            ad2_get_nv_slot_key_string(key.c_str(), i, SK_CLOSED_OUTPUT_FMT, es1->CLOSED_OUTPUT_FORMAT);
-            ad2_get_nv_slot_key_string(key.c_str(), i, SK_TROUBLE_OUTPUT_FMT, es1->TROUBLE_OUTPUT_FORMAT);
-            if ( es1->OPEN_OUTPUT_FORMAT.length()
-                    || es1->CLOSED_OUTPUT_FORMAT.length()
-                    || es1->TROUBLE_OUTPUT_FORMAT.length() ) {
+            // save the NVS Virtual SWITCH ID so we can read the data back later.
+            es1->INT_ARG = swID;
 
-                std::string notify_types_sz = "";
-                std::vector<std::string> notify_types_v;
-                ad2_get_nv_slot_key_string(key.c_str(), i, SK_TYPE_LIST, notify_types_sz);
-                ad2_tokenize(notify_types_sz, ", ", notify_types_v);
-                for (auto &sztype : notify_types_v) {
-                    ad2_trim(sztype);
-                    auto x = AD2Parse.message_type_id.find(sztype);
-                    if(x != std::end(AD2Parse.message_type_id)) {
-                        ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
-                        es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
-                    }
+            // switch filter settings
+            std::string filter;
+
+            // Get the optional switch types to listen for.
+            std::string types = "";
+            std::vector<std::string> notify_types_v;
+            ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_TYPES, types);
+            ad2_tokenize(types, ", ", notify_types_v);
+            for (auto &sztype : notify_types_v) {
+                ad2_trim(sztype);
+                auto x = AD2Parse.message_type_id.find(sztype);
+                if(x != std::end(AD2Parse.message_type_id)) {
+                    ad2_message_t mt = (ad2_message_t)AD2Parse.message_type_id.at(sztype);
+                    es1->PRE_FILTER_MESAGE_TYPE.push_back(mt);
                 }
-                ad2_get_nv_slot_key_string(key.c_str(), i, SK_PREFILTER_REGEX, es1->PRE_FILTER_REGEX);
+            }
 
-                // Load all regex search patterns for OPEN,CLOSE and TROUBLE sub keys.
-                std::string regex_sk_list = SK_TROUBLE_REGEX_LIST SK_CLOSED_REGEX_LIST SK_OPEN_REGEX_LIST;
-                for(char& c : regex_sk_list) {
-                    std::string sk = ad2_string_printf("%c", c);
-                    for ( int a = 1; a < MAX_SEARCH_KEYS; a++) {
-                        std::string out = "";
-                        std::string tsk = sk + ad2_string_printf("%02i", a);
-                        ad2_get_nv_slot_key_string(key.c_str(), i, tsk.c_str(), out);
-                        if ( out.length()) {
-                            if (c == SK_OPEN_REGEX_LIST[0]) {
-                                es1->OPEN_REGEX_LIST.push_back(out);
-                            }
-                            if (c == SK_CLOSED_REGEX_LIST[0]) {
-                                es1->CLOSED_REGEX_LIST.push_back(out);
-                            }
-                            if (c == SK_TROUBLE_REGEX_LIST[0]) {
-                                es1->TROUBLE_REGEX_LIST.push_back(out);
-                            }
+            // load [switch N] required regex match settings
+            std::string prefilter_regex;
+            ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+
+            // Load all regex search patterns for open, close, and trouble sub keys.
+            std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
+                                        AD2SWITCH_SK_CLOSE " "
+                                        AD2SWITCH_SK_TROUBLE;
+
+            std::stringstream ss(regex_sk_list);
+            std::string sk;
+            int sk_index = 0;
+            while (ss >> sk) {
+                for ( int a = 1; a < AD2_MAX_SWITCH_SEARCH_KEYS; a++) {
+                    std::string out = "";
+                    ad2_get_config_key_string(key.c_str(), sk.c_str(), out, a);
+
+                    if ( out.length()) {
+                        if (sk_index == 0) {
+                            es1->OPEN_REGEX_LIST.push_back(out);
+                        }
+                        if (sk_index == 1) {
+                            es1->CLOSE_REGEX_LIST.push_back(out);
+                        }
+                        if (sk_index == 2) {
+                            es1->TROUBLE_REGEX_LIST.push_back(out);
                         }
                     }
                 }
+                sk_index++;
+            }
 
+            // Must provide at least one states or it will be skipped.
+            if (es1->OPEN_REGEX_LIST.size() ||
+                    es1->CLOSE_REGEX_LIST.size() ||
+                    es1->TROUBLE_REGEX_LIST.size()) {
                 // Save the search to a list for management.
                 pushover_AD2EventSearches.push_back(es1);
 
-                // subscribe the AD2EventSearch virtual switch callback.
-                AD2Parse.subscribeTo(on_search_match_cb_po, es1);
+                // subscribe to the callback for events.
+                AD2Parse.subscribeTo(on_search_match_cb_pushover, es1);
 
                 // keep track of how many for user feedback.
                 subscribers++;
+
             } else {
-                // incomplete switch call distructor.
-                es1->~AD2EventSearch();
+                // incomplete switch so delete it and supporting pointers.
+                delete pslots;
+                delete es1;
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+            }
+        } else {
+            if (open_output_format.length() || close_output_format.length()
+                    || trouble_output_format.length()) {
+                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
             }
         }
     }
@@ -759,8 +622,5 @@ void pushover_free()
 {
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_PUSHOVER_CLIENT */
 

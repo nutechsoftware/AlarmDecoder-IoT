@@ -42,10 +42,14 @@ static const char *TAG = "WEBUI";
 #define MAX_CLIENTS 4
 #define MAX_FIFO_BUFFERS 30
 #define MAXCONNECTIONS MAX_CLIENTS+1
-
+#define WEBUI_DOC_ROOT         "/www"
 #define WEBUI_COMMAND          "webui"
 #define WEBUI_SUBCMD_ENABLE    "enable"
 #define WEBUI_SUBCMD_ACL       "acl"
+
+#define WEBUI_CONFIG_SECTION  "webui"
+
+#define WEBUI_DEFAULT_ACL "0.0.0.0/0"
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (255)
@@ -82,7 +86,7 @@ enum {
  * @brief websocket session storage structure.
  */
 struct ws_session_storage {
-    int vpartID;
+    int partID;
     int codeID;
 };
 
@@ -226,24 +230,25 @@ static void ws_alarmstate_async_send(void *arg)
             // lookup session context from socket id.
             struct ws_session_storage *sess = (ws_session_storage *)httpd_sess_get_ctx(server, wsfd);
             if (sess) {
-                // get the partition state based upon the virtual partition ID on the AD2IoT firmware.
-                AD2VirtualPartitionState *s = ad2_get_partition_state(sess->vpartID);
-
-                // build the standard json AD2IoT device and alarm state object.
-                cJSON *root = ad2_get_partition_state_json(s);
-                cJSON *zone_alerts = ad2_get_partition_zone_alerts_json(s);
-                cJSON_AddStringToObject(root, "event", "SYNC");
-                cJSON_AddItemToObject(root, "zone_alerts", zone_alerts);
-                char *sys_info = cJSON_Print(root);
-                cJSON_Minify(sys_info);
-                httpd_ws_frame_t ws_pkt;
-                memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-                ws_pkt.payload = (uint8_t*)sys_info;
-                ws_pkt.len = strlen(sys_info);
-                ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-                httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
-                cJSON_free(sys_info);
-                cJSON_Delete(root);
+                // get the partition state based upon the partition ID on the AD2IoT firmware.
+                AD2PartitionState *s = ad2_get_partition_state(sess->partID);
+                if (s) {
+                    // build the standard json AD2IoT device and alarm state object.
+                    cJSON *root = ad2_get_partition_state_json(s);
+                    cJSON *zone_alerts = ad2_get_partition_zone_alerts_json(s);
+                    cJSON_AddStringToObject(root, "event", "SYNC");
+                    cJSON_AddItemToObject(root, "zone_alerts", zone_alerts);
+                    char *sys_info = cJSON_Print(root);
+                    cJSON_Minify(sys_info);
+                    httpd_ws_frame_t ws_pkt;
+                    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+                    ws_pkt.payload = (uint8_t*)sys_info;
+                    ws_pkt.len = strlen(sys_info);
+                    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+                    httpd_ws_send_frame_async(server, wsfd, &ws_pkt);
+                    cJSON_free(sys_info);
+                    cJSON_Delete(root);
+                }
             }
         }
     }
@@ -284,9 +289,9 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
             std::vector<std::string> args_v;
             ad2_tokenize(args, ", ", args_v);
             int codeID = atoi(args_v[1].c_str());
-            int vpartID = atoi(args_v[0].c_str());
+            int partID = atoi(args_v[0].c_str());
             ((ws_session_storage *)req->sess_ctx)->codeID = codeID;
-            ((ws_session_storage *)req->sess_ctx)->vpartID = vpartID;
+            ((ws_session_storage *)req->sess_ctx)->partID = partID;
 
             // trigger an async send using httpd_queue_work
             return httpd_queue_work(req->handle, ws_alarmstate_async_send, (void *)httpd_req_to_sockfd(req));
@@ -308,26 +313,26 @@ esp_err_t ad2ws_handler(httpd_req_t *req)
         if(strncmp((char*)ws_pkt.payload, key_send.c_str(), key_send.length()) == 0) {
             std::string sendbuf = (char *)&ws_pkt.payload[key_send.length()];
             int codeID = ((ws_session_storage *)req->sess_ctx)->codeID;
-            int vpartID = ((ws_session_storage *)req->sess_ctx)->vpartID;
+            int partID = ((ws_session_storage *)req->sess_ctx)->partID;
 
             if (sendbuf.rfind("<DISARM>", 0) == 0) {
-                ad2_disarm(codeID, vpartID);
+                ad2_disarm(codeID, partID);
             } else if (sendbuf.rfind("<STAY>", 0) == 0) {
-                ad2_arm_stay(codeID, vpartID);
+                ad2_arm_stay(codeID, partID);
             } else if (sendbuf.rfind("<AWAY>", 0) == 0) {
-                ad2_arm_away(codeID, vpartID);
+                ad2_arm_away(codeID, partID);
             } else if (sendbuf.rfind("<EXIT>", 0) == 0) {
-                ad2_exit_now(vpartID);
+                ad2_exit_now(partID);
             } else if (sendbuf.rfind("<AUX_ALARM>", 0) == 0) {
-                ad2_aux_alarm(vpartID);
+                ad2_aux_alarm(partID);
             } else if (sendbuf.rfind("<PANIC_ALARM>", 0) == 0) {
-                ad2_panic_alarm(vpartID);
+                ad2_panic_alarm(partID);
             } else if (sendbuf.rfind("<FIRE_ALARM>", 0) == 0) {
-                ad2_fire_alarm(vpartID);
+                ad2_fire_alarm(partID);
             } else if (sendbuf.rfind("<BYPASS>", 0) == 0) {
                 // <BYPASS>XX
                 std::string zone = sendbuf.substr(8, string::npos);
-                ad2_bypass_zone(codeID, vpartID, std::atoi(zone.c_str()));
+                ad2_bypass_zone(codeID, partID, std::atoi(zone.c_str()));
             } else {
                 ESP_LOGW(TAG, "Unknown websocket command '%s'", sendbuf.c_str());
             }
@@ -354,9 +359,9 @@ esp_err_t file_get_handler(httpd_req_t *req)
 
     struct stat file_stat;
 
-    // extract the full file path using AD2_MOUNT_POINT as the root.
+    // extract the full file path using AD2_USD_MOUNT_POINT as the root.
     char temppath[FILE_PATH_MAX];
-    const char *filename = get_path_from_uri(temppath,  AD2_MOUNT_POINT,
+    const char *filename = get_path_from_uri(temppath,  "/" AD2_USD_MOUNT_POINT WEBUI_DOC_ROOT,
                            req->uri, sizeof(temppath));
     if (!filename) {
         ESP_LOGE(TAG, "Filename is too long");
@@ -385,7 +390,7 @@ esp_err_t file_get_handler(httpd_req_t *req)
         // Check if _NOT_ exists swap for 404.html
         if (stat(filepath.c_str(), &file_stat) != 0) {
             // not found check if we have a custom 404.html file in our document root.
-            filepath = AD2_MOUNT_POINT "/404.html";
+            filepath = "/" AD2_USD_MOUNT_POINT WEBUI_DOC_ROOT "/404.html";
             if (stat(filepath.c_str(), &file_stat) != 0) {
                 httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "file not found.<br>Connect a uSD card with a FAT32 partition and the html content in the root directory before the device starts.");
                 return ESP_FAIL; // close socket
@@ -511,11 +516,11 @@ esp_err_t file_get_handler(httpd_req_t *req)
  * @brief Generic callback for all AlarmDecoder API event subscriptions.
  *
  * @param [in]msg std::string panel message.
- * @param [in]s AD2VirtualPartitionState *.
+ * @param [in]s AD2PartitionState *.
  * @param [in]arg cast as int for event type (ON_ARM,,,).
  *
  */
-void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *arg)
+void webui_on_state_change(std::string *msg, AD2PartitionState *s, void *arg)
 {
 #if CONFIG_HTTPD_WS_SUPPORT
 #if defined(DEBUG_WEBUI)
@@ -529,8 +534,8 @@ void webui_on_state_change(std::string *msg, AD2VirtualPartitionState *s, void *
             if (httpd_ws_get_fd_info(server, client_fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET) {
                 struct ws_session_storage *sess = (ws_session_storage *)httpd_sess_get_ctx(server, client_fds[i]);
                 if (sess) {
-                    // get the partition state based upon the virtual partition requested.
-                    AD2VirtualPartitionState *temps = ad2_get_partition_state(sess->vpartID);
+                    // get the partition state based upon the partition requested.
+                    AD2PartitionState *temps = ad2_get_partition_state(sess->partID);
                     if (temps && s->partition == temps->partition) {
                         cJSON *root = ad2_get_partition_state_json(s);
                         cJSON *zone_alerts = ad2_get_partition_zone_alerts_json(s);
@@ -650,7 +655,7 @@ void webui_server_task(void *pvParameters)
  * ex.
  *   [COMMAND] 0 arg...
  */
-static void _cli_cmd_webui_event(char *string)
+static void _cli_cmd_webui_event(const char *string)
 {
 
     // key value validation
@@ -683,14 +688,14 @@ static void _cli_cmd_webui_event(char *string)
              */
             case WEBUI_SUBCMD_ENABLE_ID:
                 if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
-                    ad2_set_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_set_config_key_bool(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ENABLE, (arg[0] == 'Y' || arg[0] ==  'y'));
                     ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
                 }
 
                 {
                     // show contents of this slot
-                    int en = 0;
-                    ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &en);
+                    bool en = false;
+                    ad2_get_config_key_bool(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ENABLE, &en);
                     ad2_printf_host(false, "WebUI daemon is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
                 }
                 break;
@@ -703,14 +708,14 @@ static void _cli_cmd_webui_event(char *string)
                     webui_acl.clear();
                     int res = webui_acl.add(arg);
                     if (res == webui_acl.ACL_FORMAT_OK) {
-                        ad2_set_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, arg.c_str());
+                        ad2_set_config_key_string(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ACL, arg.c_str());
                     } else {
                         ad2_printf_host(false, "Error parsing ACL string. Check ACL format. Not saved.\r\n");
                     }
                 }
                 // show contents of this slot set default to allow all
-                acl = "0.0.0.0/0";
-                ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
+                acl = WEBUI_DEFAULT_ACL;
+                ad2_get_config_key_string(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ACL, acl);
                 ad2_printf_host(false, WEBUI_COMMAND " 'acl' set to '%s'.\r\n", acl.c_str());
                 break;
             default:
@@ -727,18 +732,17 @@ static void _cli_cmd_webui_event(char *string)
 static struct cli_command webui_cmd_list[] = {
     {
         (char*)WEBUI_COMMAND,(char*)
-        "####  Configuration for web UI server\r\n"
-        "- ```" WEBUI_COMMAND " {sub command} {arg}```\r\n"
-        "  - {sub command}\r\n"
-        "    - [" WEBUI_SUBCMD_ENABLE "] Enable / Disable WebUI daemon\r\n"
-        "      -  {arg1}: [Y]es [N]o\r\n"
-        "        - [N] Default state\r\n"
-        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ENABLE " Y\r\n"
-        "    - [" WEBUI_SUBCMD_ACL "] Set / Get ACL list\r\n"
-        "      - {arg1}: ACL LIST\r\n"
-        "      -  String of CIDR values separated by commas.\r\n"
-        "        - Default: Empty string disables ACL list\r\n"
-        "        - Example: " WEBUI_COMMAND " " WEBUI_SUBCMD_ACL " 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4\r\n\r\n", _cli_cmd_webui_event
+        "Usage: webui <command> [arg]\r\n"
+        "\r\n"
+        "    Configuration tool for WebUI server\r\n"
+        "Commands:\r\n"
+        "    enable [Y|N]            Set or get enable flag\r\n"
+        "    acl [aclString|-]       Set or get ACL CIDR CSV list\r\n"
+        "                            use - to delete\r\n"
+        "Examples:\r\n"
+        "    ```webui enable Y```\r\n"
+        "    ```webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```\r\n"
+        , _cli_cmd_webui_event
     }
 };
 
@@ -759,10 +763,25 @@ void webui_register_cmds()
  */
 void webui_init(void)
 {
-    // load and parse ACL if set or set default to allow all.
-    std::string acl = "0.0.0.0/0";
+    // if netif not enabled then we can't start.
+    if (!hal_get_netif_started()) {
+        ad2_printf_host(true, "%s daemon disabled. Network interface not enabled.", TAG);
+        return;
+    }
 
-    ad2_get_nv_slot_key_string(WEBUI_COMMAND, WEBUI_SUBCMD_ACL_ID, nullptr, acl);
+    bool en = -1;
+    ad2_get_config_key_bool(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ENABLE, &en);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!en) {
+        ad2_printf_host(true, "%s: daemon disabled.", TAG);
+        return;
+    }
+
+    // load and parse ACL if set or set default to allow all.
+    std::string acl = WEBUI_DEFAULT_ACL;
+
+    ad2_get_config_key_string(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ACL, acl);
     if (acl.length()) {
         int res = webui_acl.add(acl);
         if (res != webui_acl.ACL_FORMAT_OK) {
@@ -770,16 +789,7 @@ void webui_init(void)
         }
     }
 
-    int enabled = 0;
-    ad2_get_nv_slot_key_int(WEBUI_COMMAND, WEBUI_SUBCMD_ENABLE_ID, nullptr, &enabled);
-
-    // nothing more needs to be done once commands are set if not enabled.
-    if (!enabled) {
-        ad2_printf_host(true, "%s: service disabled.", TAG);
-        return;
-    }
-
-    ad2_printf_host(true, "%s: Init done. Service starting.", TAG);
+    ad2_printf_host(true, "%s: Init done, daemon starting.", TAG);
 
     // Subscribe to AlarmDecoder events
     AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);

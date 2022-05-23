@@ -24,17 +24,18 @@
 #ifndef _AD2_CLI_CMD_H_
 #define _AD2_CLI_CMD_H_
 
-#define AD2_REBOOT   "restart"
-#define AD2_NETMODE  "netmode"
-#define AD2_BUTTON   "button"
-#define AD2_ZONE     "zone"
-#define AD2_CODE     "code"
-#define AD2_VPART    "vpart"
-#define AD2_SOURCE   "ad2source"
-#define AD2_TERM     "ad2term"
-#define AD2_LOGMODE  "logmode"
-#define AD2_ERASE_NVS "factory-reset"
-#define AD2_UNLOCKER "teaser :c)"
+#define AD2_CMD_REBOOT   "restart"
+#define AD2_CMD_NETMODE  "netmode"
+#define AD2_CMD_SWITCH   "switch"
+#define AD2_CMD_ZONE     "zone"
+#define AD2_CMD_CODE     "code"
+#define AD2_CMD_PART     "partition"
+#define AD2_CMD_SOURCE   "ad2source"
+#define AD2_CMD_CONFIG   "ad2config"
+#define AD2_CMD_TERM     "ad2term"
+#define AD2_CMD_LOGMODE  "logmode"
+#define AD2_CMD_FACTORY "factory-reset"
+#define AD2_CMD_UNLOCKER "teaser :c)"
 
 #ifdef __cplusplus
 extern "C" {

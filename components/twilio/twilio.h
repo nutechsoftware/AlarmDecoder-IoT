@@ -24,17 +24,10 @@
 #define _TWILIO_H
 #if CONFIG_AD2IOT_TWILIO_CLIENT
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void twilio_register_cmds();
 void twilio_init();
 void twilio_add_queue(std::string &sid, std::string &token, std::string &from, std::string &to, char type, std::string &arg);
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* CONFIG_AD2IOT_TWILIO_CLIENT */
 #endif /* _TWILIO_H */
 

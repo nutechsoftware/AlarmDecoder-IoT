@@ -43,14 +43,21 @@ extern "C" {
 
 static struct cli_command_list *cli_cmd_list;
 
-static void cli_cmd_help(char *string);
+// forward decl
+static void cli_cmd_help(const char *string);
 
 /**
  * @brief command list for module
  */
 static struct cli_command help_cmd = {
-    (char*)AD2_HELP_CMD, (char*)"- Show the list of commands or give more detail on a specific command.\r\n"
-    "  ```" AD2_HELP_CMD " [command]```\r\n\r\n", cli_cmd_help
+    (char*)AD2_HELP_CMD, (char*)
+    "Usage: help [command]\r\n"
+    "    You are here -> .\r\n"
+    "    Display information about builtin commands or list available commands\r\n"
+    "Options:\r\n"
+    "    command                 Specify the command for details on command usage\r\n"
+    "                            or leave blank for list of available commands\r\n"
+    , cli_cmd_help
 };
 
 /**
@@ -146,18 +153,16 @@ void cli_register_command(cli_cmd_t* cmd)
  *
  * @param [in]cmd char * command string with args if any.
  */
-static void cli_cmd_help(char *cmd)
+static void cli_cmd_help(const char *cmd)
 {
     bool showhelp = true;
     cli_cmd_list_t* now = cli_cmd_list;
     std::string buf; // buffer to hold help argument
 
-    ad2_printf_host(false, "\n");
     if (ad2_copy_nth_arg(buf, cmd, 1) >= 0) {
         cli_cmd_t *command;
         command = cli_find_command(buf.c_str());
         if (command != NULL) {
-            ad2_printf_host(false, "Help for command '%s'\r\n\r\n", command->command);
             // spool bytes until we reach the null term.
             char *help_string = command->help_string;
             while (*help_string) {
@@ -165,7 +170,6 @@ static void cli_cmd_help(char *cmd)
                 uart_wait_tx_done(UART_NUM_0, 100);
                 help_string++;
             }
-            ad2_printf_host(false, "\r\n");
             showhelp = false;
         } else {
             ad2_printf_host(false, ", Command not found '%s'\r\n", cmd);
@@ -181,7 +185,7 @@ static void cli_cmd_help(char *cmd)
             if (!now->cmd) {
                 continue;
             }
-            if (sendpfx && now->next) {
+            if (sendpfx) {
                 sendpfx = false;
                 ad2_printf_host(false, ",\r\n   ");
             }
@@ -201,7 +205,7 @@ static void cli_cmd_help(char *cmd)
                 x = 0;
             }
         }
-        ad2_printf_host(false, "]\r\n\r\nType help <command> for details on each command.\r\n\r\n");
+        ad2_printf_host(false, "]\r\nType help <command> for details on each command.\r\n");
     }
 }
 
@@ -447,10 +451,10 @@ void uart_cli_main()
     xTaskCreate(esp_uart_cli_task, "uart_cli_task", 1024*5, NULL, tskIDLE_PRIORITY+2, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
-    ad2_printf_host(true, "Send '.' three times in the next 5 seconds to stop the init.");
+    ad2_printf_host(true, "%s: Send '.' three times in the next 5 seconds to stop the init.", TAG);
     fflush(stdout);
     _cli_util_wait_for_user_input(5000);
-    ad2_printf_host(true, "Starting main task.");
+    ad2_printf_host(true, "%s: Starting main task.", TAG);
 
 }
 

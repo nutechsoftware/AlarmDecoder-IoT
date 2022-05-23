@@ -1,8 +1,8 @@
 # Name,   Type, SubType, Offset,   Size,   Flags
-stnv,     data, nvs,     ,        0x4000,
-nvs,      data, nvs,     ,        0xF000,
-otadata,  data, ota,     ,        0x2000,
-phy_init, data, phy,     ,        0x1000,
-nvs_key,  data, nvs_keys, ,       0x1000, encrypted
-ota_0,    app,  ota_0,   ,        1900K,
-ota_1,    app,  ota_1,   ,        1900K,
+nvs,      data, nvs,     0x009000,  0x004000,
+otadata,  data, ota,     0x00d000,  0x002000,
+phy_init, data, phy,     0x00f000,  0x001000,
+nvs_key,  data, nvs_keys,0x010000,  0x001000, encrypted
+spiffs,   data, spiffs,  0x011000,  0x04f000,
+ota_0,    app,  ota_0,   0x060000,  0x1d0000,
+ota_1,    app,  ota_1,   0x230000,  0x1d0000,

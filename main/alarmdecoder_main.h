@@ -76,6 +76,13 @@ extern int g_ad2_client_handle;
 // global ad2 connection mode ['S'ocket | 'C'om port]
 extern uint8_t g_ad2_mode;
 
+// global ad2 connection mode args
+extern std::string g_ad2_mode_args;
+
+
+// global uSD card mounted flag
+extern bool g_uSD_mounted;
+
 // global host console access mutex
 extern SemaphoreHandle_t g_ad2_console_mutex;
 

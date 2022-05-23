@@ -39,7 +39,7 @@ static const char *TAG = "AD2OTA";
 //#define DEBUG_OTA
 
 #define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
-#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv10_version_info.json"
+#define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv11_version_info.json"
 #define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
 #define OTA_SIGNATURE_SIZE 256
@@ -67,7 +67,7 @@ int ota_get_polling_period_day();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
 esp_err_t ota_https_update_device(const char *buildflags);
 esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version_info_len);
-void ota_do_version(char *arg);
+void ota_do_version(const char *arg);
 
 extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
 extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
@@ -773,12 +773,12 @@ static void ota_polling_task_func(void *arg)
             if (available_version) {
                 ota_available_version = available_version;
                 AD2Parse.updateVersion(available_version);
-                ESP_LOGI(TAG, "Get avail version found '%s' on the server.", available_version);
+                ESP_LOGI(TAG, "Get available version found '%s' on the server.", available_version);
                 free(available_version);
             } else {
                 // if nothing available then it must be the same we have installed.
                 ota_available_version = FIRMWARE_VERSION;
-                ESP_LOGI(TAG, "Get avail version found NO available version on the server.");
+                ESP_LOGI(TAG, "Get available version found NO available version on the server.");
             }
         }
 
@@ -792,7 +792,7 @@ static void ota_polling_task_func(void *arg)
 /**
  * @brief Initiate and OTA update
  */
-void ota_do_update(char *command)
+void ota_do_update(const char *command)
 {
     if (ota_task_handle != NULL) {
         ESP_LOGW(TAG, "Device is currently updating.");
@@ -807,15 +807,20 @@ void ota_do_update(char *command)
 static struct cli_command ota_cmd_list[] = {
     {
         (char*)OTA_UPGRADE_CMD,(char*)
-        "- Preform an OTA upgrade now download and install new flash.\r\n"
-        "  - ```" OTA_UPGRADE_CMD " [buildflag]```\r\n"
-        "    - [buildflag]: Specify build for the release. default current if omitted.\r\n"
-        "      - See release page for details on available builds.\r\n\r\n", ota_do_update
+        "Usage: upgrade [buildflag]\r\n"
+        "\r\n"
+        "    Preform an OTA upgrade now download and install new flash\r\n"
+        "Options:\r\n"
+        "    buildflag               Specify a different build or use current if omitted\r\n"
+        "                            See release page for details on available builds\r\n"
+        , ota_do_update
     },
     {
         (char*)OTA_VERSION_CMD,(char*)
-        "- Report the current and available version.\r\n"
-        "  - ```" OTA_VERSION_CMD "```\r\n\r\n", ota_do_version
+        "Usage: version\r\n"
+        "\r\n"
+        "    Report the current and available version\r\n"
+        , ota_do_version
     }
 };
 
@@ -835,7 +840,7 @@ void ota_init()
 /**
  * @brief Show installed and available version
  */
-void ota_do_version(char *arg)
+void ota_do_version(const char *arg)
 {
     ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }

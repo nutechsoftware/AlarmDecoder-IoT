@@ -6,8 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
+- [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
+- [ ] CORE: Push includes down to lower level. main include has too many component specific includes.
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
-- [ ] CORE: Refactor help to reduce memory usage and remove duplicate strings from the code in general.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
 - [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
@@ -31,6 +33,64 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
+## [1.1.0] - 2022-04-16 Sean Mathews - coder @f34rdotcom
+Big changes:
+  - Help file and docs refactor to make more user friendly.
+  - Replace NVS config storage with spiffs partition and human readable ini file.
+  - FTP server to allow for remote editing of the configuration file on /spiffs or /sdcard partition.
+  - Migrate the redundant use of ```switch``` in each component to a global ```switch``` command and refactor existing components to use global ```switch``` settings.
+  - Update OTA config settings so older firmware will not see this new branch. Updates to older firmware will require manual re-flashing until I get an update firmware done.
+### Added
+  - Commands
+    - ad2config
+      * Allow AD2IoT to enforce AD2pHat or attached AD2* device firmware settings.
+    - switch
+      * Global switches for use by all components.
+    - ftpd
+      * Remote HTTP content or ad2iot.ini config file management.
+  - Config using https://github.com/brofield/simpleini
+### Changed
+  - Yes :)
+
+### Change log
+- [X] SM - CORE: Found/fix issues in global switch command. Setting search strings for open,close,fault.
+- [X] SM - API: I needed to add reset time and default value to virtual switches for my test case to work. Time is currently not tested and is only TRUE > 0 false <= 0 instead of time in ms. Found a few glitches in global switches while doing this testing.
+- [X] SM - API: Default state added UNKNOWN. switch events not triggered on first state change. Still need to work on AUTO reset and default_state these will likely change this or make this more clear. For now just be sure they are in an UNKNOWN state to start. Also fixed a typo in current unused code for rest time.
+- [X] SM - *: Cleanup help and docs.
+- [X] SM - CORE: Continued cleanup and docs.
+- [X] SM - TWILIO: Finish refactor for core config change etc.
+- [X] SM - CORE: Add new command ad2config to set AlarmDecoder configuration settings to be enforced on attached AD2* device.
+- [X] SM - CORE: Adding shim for doing OTA or /sdcard/fw.hex update of AD2* attached to AD2IoT device.
+- [X] SM - CORE: Add ability to configure AD2* board (command 'C')  from AD2IoT so it can be configured just one time during setup. Optional or in addition add MQTT command to update config. It needs to be smart. If the only attribute in the local config is "foo=bar" then it should only attempt to change the AD2* config value "foo" if the value "bar" is different. All other AD2* config settings not specified will be left as is on the AD2* device.
+- [X] SM - API: Modify getZoneType and getZoneString to return bool to detect if a zone has settings.
+- [X] SM - MQTT: Send zone descriptions for all [ZONE N] entries instead of looking at partition zones list.
+- [X] SM - CORE: MAX sockets error during testing. Increase LWIP MAX sockets from 10 to 16.
+- [X] SM - CORE: Change short verb 'part' to full word 'partition'. I will look at adding short verbs or partial matching later but I need it to default to full words to keep it simple and clear.
+- [X] SM - CORE: Remove more references to 0 index. Humans...
+- [X] SM - CORE: Help refactoring to make more realistic shell interface.
+- [X] SM - PUSHOVER: Help syntax refactor.
+- [X] SM - PUSHOVER: Update to latest changes. Remove hard coded ssl key needed for older espressif. Update to latest config and ad2iot virtual switch templates.
+- [X] SM - FTPD: Fixed stalling when client is bad and does not close a socket. Now if a new client connets it will close the current connection.
+- [X] SM - FTPD: Fixed rename added response code 350 for RNFR.
+- [X] SM - MQTT: misc cleanup from testing.
+- [X] SM - MQTT: Unique id. Tested with multiple and only showed one. This fixed it.
+- [X] SM - FTPD: Refactor to allow virtual paths to /spiffs and /sdcard folders so both uSD and spiff flash files can be modified. Other virtual folders can be added with little difficulty. Virtual path /spiffs will error with mkdir since spiffs does not allow for folders and has limits on filename sizes.
+- [X] SM - CORE: Refactor partition table max config storage and app size. This fixed my boot issue and pio_fix_app_address.py so it was removed. The stnv partition was removed and hopefully I can make STSDK work with me on the name. I changed the nvs partition to 16KB . I added a 280KB spiffs partition and set the app partition size down to 1.856MB so it would all work. At boot the system will report both the sdcard and spiffs size and usage.
+- [X] SM - API: Change CLOSED to CLOSE.
+- [X] SM - FTPD: Add ```REST``` verb to reboot. Warning: Will not save running config. FileZilla ```Server->Enter Custom Command``` type in ```REST``` and press OK to send.
+- [X] SM - *: Lots more cleanup.
+- [X] SM - CORE: remove nvs config storage and change to spiffs and posix files and https://github.com/brofield/simpleini library for the config. Config will load from /sdcard/ad2iot.ini first and if that fails it will load from /spiffs/ad2iot.ini and if that fails it will continue with default settings.
+- [X] SM - CORE: Partition structure change. Bump major revision. Older units must be manually flashed or run a special migration release.
+- [X] SM - CORE: Add new ```switch N``` command to move switches to a global area and allow components to add extra args for internal use but use the same switch template for all modules. Less typing just define switches and then in modules like MQTT or Pushover define the module specific settings for that switch such as the output format for ```open```.
+- [X] SM - ALL: Refactor configuration adding option for ini file on uSD card. I tried to make it backwards compatible and all critical configuration settings such as ```netmode``` are all compatible but partitions, codes, virtual switches all needed to be changed to be more user friendly in the ad2iot.ini config file.
+- [X] SM - ALL: Remove references to virtual for partitions. It was too confusing, just part or maybe I will allow both partition and part for short.
+- [X] SM - CORE: Move mounting of uSD card early after NV init to allow for loading/saving config early.
+- [X] SM - WEBUI: Moved content into ```www``` folder on uSD to protect sensitive data. Users that upgrade can use FTPD to create the folder and move the files. This will be necessary when adding config files into the uSD that they are outside of the document root for the webUI component.
+- [X] SM - FTPD: Adding new FTP server to allow update of uSD web pages remotely. With ACL access can be limited to a specific subnet mask or single address.
+- [X] SM - STSDK: Build error with stsdk and latest stsdk build environment.
+- [X] SM - MQTT: Add system flag for zone notification publish.
+- [X] SM - API: Add support for system flags in zones. On Ademco special zones for system events exist such as 0xFC for "Failed Call" state.
+
 ## [1.0.9 P4] - 2022-02-22 Sean Mathews - coder @f34rdotcom
 Add missing logic for MQTT ```commands``` subscription with new ```commands``` enable/disable command. Misc minor cleanup of warnings. Refactor ad2_ helpers for arming to support code or codeID. Added initial support for Auto Discovery with Home Assistant and MQTT.
 ### Added

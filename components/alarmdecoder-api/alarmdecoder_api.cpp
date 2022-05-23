@@ -33,7 +33,7 @@ static const char *TAG = "AD2API";
 #define BEEPS_TIMEOUT 30
 
 // nostate
-AD2VirtualPartitionState *nostate = nullptr;
+AD2PartitionState *nostate = nullptr;
 
 /**
  * @brief constructor
@@ -265,17 +265,17 @@ void AlarmDecoderParser::notifyRawDataSubscribers(uint8_t *data, size_t len)
  *
  * @param [in]ev event class.
  * @param [in]msg message that generated event.
- * @param [in]pstate virtual partition state
+ * @param [in]pstate partition state
  *
  */
-void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate)
+void AlarmDecoderParser::notifySubscribers(ad2_event_t ev, std::string &msg, AD2PartitionState *pstate)
 {
     // Build a human readable string of the event and send
     // as the msg to notifySearchSubscribers with a message type of "EVENT".
     // notifySearchSubscribers will check all search subscribers and look
     // for any matches calling the search call back if a match is found.
 
-    // convert event to human readable string and state OPEN/CLOSE/FAULT
+    // convert event to human readable string and state OPEN/CLOSE/TROUBLE
     std::string emsg;
     if (event_str.find((int)ev) == event_str.end()) {
         emsg = "EVENT ID " + std::to_string(ev);
@@ -414,14 +414,21 @@ void AlarmDecoderParser::subscribeTo(AD2SubScriber::AD2ParserCallback_sub_t fn, 
  *
  * @param [in]mt message type.
  * @param [in]msg message that generated event.
- * @param [in]s virtual partition state. May be nullptr only valid for ALPHA messages.
+ * @param [in]s partition state. May be nullptr only valid for ALPHA messages.
  */
-void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2VirtualPartitionState *pstate)
+void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2PartitionState *pstate)
 {
     for ( subscribers_t::iterator i = AD2Subscribers[ON_SEARCH_MATCH].begin(); i != AD2Subscribers[ON_SEARCH_MATCH].end(); ++i ) {
         if (i->varg) {
             AD2EventSearch *eSearch = (AD2EventSearch*)i->varg;
             bool done = false;
+
+            // test reset time if set and restore state to default if true.
+            // FIXME: For now only TRUE/FALSE no actual time tracked.
+            if (eSearch->getResetTime()) {
+                eSearch->setState(eSearch->getDefaultState());
+            }
+
             int savedstate = eSearch->getState();
             std::string outformat;
 
@@ -457,8 +464,8 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
 
             // Test CLOSED REGEX list stop on first matching statement.
             /// only test if a list is supplied.
-            if (!done && eSearch->CLOSED_REGEX_LIST.size()) {
-                for(auto &regexstr : eSearch->CLOSED_REGEX_LIST) {
+            if (!done && eSearch->CLOSE_REGEX_LIST.size()) {
+                for(auto &regexstr : eSearch->CLOSE_REGEX_LIST) {
                     std::smatch m;
                     std::regex e(regexstr);
                     const auto& tmsg = msg;
@@ -467,7 +474,7 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     if (res) {
                         // no match next subscriber.
                         eSearch->setState(AD2_STATE_CLOSED);
-                        outformat = eSearch->CLOSED_OUTPUT_FORMAT;
+                        outformat = eSearch->CLOSE_OUTPUT_FORMAT;
                         // Clear last output results before we collect new.
                         eSearch->RESULT_GROUPS.clear();
                         // save the regex group results if any.
@@ -549,7 +556,7 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
  * @param [in]update if true update mask adding new bits.
  *
  */
-AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(int address, bool update)
+AD2PartitionState * AlarmDecoderParser::getAD2PState(int address, bool update)
 {
     uint32_t amask = 1;
     amask <<= address;
@@ -565,10 +572,10 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(int address, bool up
  * @param [in]update if true update mask adding new bits.
  *
  */
-AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, bool update)
+AD2PartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, bool update)
 {
     // Create or return a pointer to our partition storage class.
-    AD2VirtualPartitionState *ad2ps = nullptr;
+    AD2PartitionState *ad2ps = nullptr;
 
     // look for an exact match.
     if ( AD2PStates.find(*amask) == AD2PStates.end()) {
@@ -600,11 +607,11 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, boo
 
         // Did not find entry. Make new.
         if (!ad2ps && update) {
-            ad2ps = AD2PStates[*amask] = new AD2VirtualPartitionState;
+            ad2ps = AD2PStates[*amask] = new AD2PartitionState;
             ad2ps->partition = AD2PStates.size();
             ad2ps->primary_address = 0;
 #if defined(IDF_VER)
-            ESP_LOGD(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
+            ESP_LOGI(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
 #endif
         }
 
@@ -624,16 +631,18 @@ AD2VirtualPartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, boo
  * @param [out]alpha std::string * alpha for the zone.
  *
  */
-void AlarmDecoderParser::getZoneString(uint8_t zone, std::string &alpha)
+bool AlarmDecoderParser::getZoneString(uint8_t zone, std::string &alpha)
 {
     if (AD2ZoneAlpha.count(zone)) {
         alpha = AD2ZoneAlpha[zone];
+        return true;
     } else {
         alpha = "ZONE ";
         // zero pad 3 digit zone number string
         char zstr[4];
         snprintf(zstr, sizeof(zstr), "%03d", (int)zone);
         alpha += zstr;
+        return false;
     }
 }
 
@@ -658,13 +667,13 @@ void AlarmDecoderParser::setZoneString(uint8_t zone, const char* alpha)
  * @param [out]type std::string * type for the zone.
  *
  */
-void AlarmDecoderParser::getZoneType(uint8_t zone, std::string &type)
+bool AlarmDecoderParser::getZoneType(uint8_t zone, std::string &type)
 {
     if (AD2ZoneType.count(zone)) {
         type = AD2ZoneType[zone];
-    } else {
-        type = "motion";
+        return true;
     }
+    return false;
 }
 
 /**
@@ -793,7 +802,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                 xStart = esp_timer_get_time();
 #endif
                 // state mask
-                AD2VirtualPartitionState *ad2ps = nullptr;
+                AD2PartitionState *ad2ps = nullptr;
 
                 // Next wait for start of next message
                 AD2_Parser_State = AD2_PARSER_SCANNING_START;
@@ -844,18 +853,18 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                             ad2ps = nostate;
 
                             // Find the state based upon the zone.
-                            std::map<uint32_t, AD2VirtualPartitionState *>::iterator vpart_it = AD2PStates.begin();
+                            std::map<uint32_t, AD2PartitionState *>::iterator part_it = AD2PStates.begin();
 
-                            // Look at each virtual partition for a zone list match
+                            // Look at each partition for a zone list match
                             // and send a notification for every matching partition.
                             bool _zone_found = false;
-                            while (vpart_it != AD2PStates.end()) {
-                                // If zone is in the known zone list then use this virtual partition.
-                                std::list<uint8_t> *zl = &vpart_it->second->zone_list;
+                            while (part_it != AD2PStates.end()) {
+                                // If zone is in the known zone list then use this partition.
+                                std::list<uint8_t> *zl = &part_it->second->zone_list;
                                 if ( find (zl->begin(), zl->end(), zone) != zl->end()) {
                                     _zone_found = true;
                                     // Found a match. Get pointer to partition state that matches this zone
-                                    ad2ps = vpart_it->second;
+                                    ad2ps = part_it->second;
                                     // Update the zone state object No timeout needed for DSC
                                     ad2ps->zone_states[zone].state(value > 0 ? AD2_STATE_OPEN : AD2_STATE_CLOSED);
                                     // Set the effected zone for the partition state.
@@ -865,7 +874,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                     // Done. Zone can only be mapped to one partition.
                                     break;
                                 }
-                                vpart_it++;
+                                part_it++;
                             }
                             // If not found then use default system partition for state storage.
                             if (!_zone_found) {
@@ -912,26 +921,34 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                         MESSAGE_TYPE = CRC_MESSAGE_TYPE;
                         notifySubscribers(ON_CRC, msg, nostate);
                     } else if (msg.find("!VER:") == 0) {
-                        // save the AlarmDecoder firmware version string.
-                        ad2_version_string = msg.substr(5);
-                        // call ON_VER callback if enabled.
-                        MESSAGE_TYPE = VER_MESSAGE_TYPE;
-                        notifySubscribers(ON_VER, msg, nostate);
+                        // save the AlarmDecoder firmware version string if change.
+                        std::string _new = msg.substr(5);
+                        if ( _new.compare(ad2_version_string) != 0 ) {
+                            // save new value
+                            ad2_version_string = _new;
+                            // call ON_VER callback if enabled.
+                            MESSAGE_TYPE = VER_MESSAGE_TYPE;
+                            notifySubscribers(ON_VER, msg, nostate);
+                        }
                     } else if (msg.find("!ERR:") == 0) {
                         // call ON_ERR callback if enabled.
                         MESSAGE_TYPE = ERR_MESSAGE_TYPE;
                         notifySubscribers(ON_ERR, msg, nostate);
                     } else if (msg.find("!CONFIG>") == 0) {
-                        // save the AlarmDecoder firmware configuration string.
-                        ad2_config_string = msg.substr(8);
-                        // Early update AlarmDecoder panel mode.
-                        std::string mode;
-                        if (query_key_value_string(ad2_config_string, "MODE", mode) >= 0 ) {
-                            panel_type = mode[0];
+                        // save the AlarmDecoder firmware configuration string if change.
+                        std::string _new = msg.substr(8);
+                        if ( _new.compare(ad2_config_string) != 0 ) {
+                            // save new value
+                            ad2_config_string = _new;
+                            // Early update AlarmDecoder panel mode.
+                            std::string mode;
+                            if (query_key_value_string(ad2_config_string, "MODE", mode) >= 0 ) {
+                                panel_type = mode[0];
+                            }
+                            // call ON_CFG callback if enabled.
+                            MESSAGE_TYPE = CFG_MESSAGE_TYPE;
+                            notifySubscribers(ON_CFG, msg, nostate);
                         }
-                        // call ON_CFG callback if enabled.
-                        MESSAGE_TYPE = CFG_MESSAGE_TYPE;
-                        notifySubscribers(ON_CFG, msg, nostate);
                     }
                 } else {
                     // http://www.alarmdecoder.com/wiki/index.php/Protocol#Keypad
@@ -1277,6 +1294,9 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                             _zone = (uint8_t) strtol(ad2ps->last_numeric_message.c_str(), 0, 10);
                                         }
 
+                                        // Flag as system if HEX value.
+                                        ad2ps->zone_states[_zone].is_system(_ishex);
+
                                         bool _send_event = false;
 
                                         // this message is part of the zone low battery report
@@ -1425,14 +1445,14 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
  */
 void AlarmDecoderParser::checkZoneTimeout()
 {
-    AD2VirtualPartitionState *ad2ps = nullptr;
+    AD2PartitionState *ad2ps = nullptr;
     // Find the state based upon the zone.
-    std::map<uint32_t, AD2VirtualPartitionState *>::iterator vpart_it = AD2PStates.begin();
+    std::map<uint32_t, AD2PartitionState *>::iterator part_it = AD2PStates.begin();
 
-    // Look at each virtual partition zone list for state timeouts.
+    // Look at each partition zone list for state timeouts.
     // and send a notification for every matching partition.
-    while (vpart_it != AD2PStates.end()) {
-        ad2ps = vpart_it->second;
+    while (part_it != AD2PStates.end()) {
+        ad2ps = part_it->second;
         if (ad2ps) {
             std::string msg = "ZONE_CHECK";
             for (std::pair<uint8_t, AD2ZoneState> e : ad2ps->zone_states) {
@@ -1456,7 +1476,7 @@ void AlarmDecoderParser::checkZoneTimeout()
                 }
             }
         }
-        vpart_it++;
+        part_it++;
     }
 }
 
@@ -1466,7 +1486,7 @@ void AlarmDecoderParser::checkZoneTimeout()
 void AlarmDecoderParser::test()
 {
     for (int x = 0; x < 10000; x++) {
-        AD2PStates[1] = new AD2VirtualPartitionState;
+        AD2PStates[1] = new AD2PartitionState;
         AD2PStates[1]->ready = false;
         delete AD2PStates[1];
     }

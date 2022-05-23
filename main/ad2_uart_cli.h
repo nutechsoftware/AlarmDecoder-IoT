@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-typedef void (* command_function_t)(char *string);
+typedef void (* command_function_t)(const char *string);
 
 typedef struct cli_command {
     char *command;

@@ -47,11 +47,12 @@ enum AD2_PARSER_STATES {
 /**
  * AD2 zone STATES enum tri-state.
  */
-typedef enum AD2_ZONE_STATE {
+typedef enum AD2_CMD_ZONE_STATE {
+    AD2_STATE_UNKNOWN = -1,
     AD2_STATE_CLOSED = 0,
     AD2_STATE_OPEN,
     AD2_STATE_TROUBLE
-} ad2_zone_state_t;
+} AD2_CMD_ZONE_state_t;
 
 // The actual max is ~90 but leave some room for future.
 // WARN: use int8_t so must be <= 127 for overflow protection.
@@ -179,7 +180,7 @@ typedef enum AD2_MESSAGE_TYPES {
                     (((x) & 0x000000ffUL) << 24))
 
 /**
- * Data structure for each Virtual partition state.
+ * Data structure for each partition state.
  *
  * https://www.alarmdecoder.com/wiki/index.php/Protocol
  *
@@ -217,26 +218,35 @@ typedef enum AD2_MESSAGE_TYPES {
  */
 class AD2ZoneState
 {
-    ad2_zone_state_t _state = AD2_STATE_CLOSED;
+    AD2_CMD_ZONE_state_t _state = AD2_STATE_UNKNOWN;
+    bool _is_system = false;
     unsigned long _state_auto_reset_time = 0;
 
     bool _low_battery = false;
     unsigned long _battery_auto_reset_time = 0;
 
 public:
-    ad2_zone_state_t state()
+    AD2_CMD_ZONE_state_t state()
     {
         return _state;
     }
-    void state(ad2_zone_state_t state)
+    void state(AD2_CMD_ZONE_state_t state)
     {
         _state = state;
         _state_auto_reset_time = 0;
     }
-    void state(ad2_zone_state_t state, unsigned long auto_reset_time)
+    void state(AD2_CMD_ZONE_state_t state, unsigned long auto_reset_time)
     {
         _state = state;
         _state_auto_reset_time = auto_reset_time;
+    }
+    void is_system(bool is_system)
+    {
+        _is_system = is_system;
+    }
+    bool is_system()
+    {
+        return _is_system;
     }
     void state_reset_time(unsigned long auto_reset_time)
     {
@@ -271,11 +281,11 @@ public:
 };
 
 /**
- * @brief Virtual partition state container.
+ * @brief partition state container.
  * Contains the active state for a partition including all zone
  * states for the partition.
  */
-class AD2VirtualPartitionState
+class AD2PartitionState
 {
 public:
 
@@ -355,14 +365,14 @@ public:
  * Example to search for and track 5800 wireless or VPLEX bus device
  *  with a serial number of 0123456.
  *
- *  AD2EventSearch *es = new AD2EventSearch(AD2_STATE_CLOSED, 0);
+ *  AD2EventSearch *es = new AD2EventSearch(AD2_STATE_UNKNOWN, 0);
  *  es->PRE_FILTER_MESAGE_TYPE.push_back(RFX_MESSAGE_TYPE);
  *  es->PRE_FILTER_REGEX = "!RFX:0123456,.*";
  *  es->OPEN_REGEX_LIST.push_back("RFX:0123456,1.......");
- *  es->CLOSED_REGEX_LIST.push_back("RFX:0123456,0.......");
+ *  es->CLOSE_REGEX_LIST.push_back("RFX:0123456,0.......");
  *  es->TROUBLE_REGEX_LIST.push_back("RFX:0123456,......1.");
  *  es->OPEN_OUTPUT_FORMAT = "TEST SENSOR OPEN";
- *  es->CLOSED_OUTPUT_FORMAT = "TEST SENSOR CLOSE";
+ *  es->CLOSE_OUTPUT_FORMAT = "TEST SENSOR CLOSE";
  *  es->TROUBLE_OUTPUT_FORMAT = "TEST SENSOR TROUBLE";
  *  AD2Parse.subscribeTo(on_search_match_cb, es);
  *
@@ -390,7 +400,7 @@ public:
         , reset_time_( 0 )
     { }
 
-    AD2EventSearch(ad2_zone_state_t default_state, int reset_time_in_ms)
+    AD2EventSearch(AD2_CMD_ZONE_state_t default_state, int reset_time_in_ms)
         : current_state_(default_state)
         , default_state_(default_state)
         , reset_time_(reset_time_in_ms)
@@ -406,14 +416,24 @@ public:
         current_state_ = state;
     }
 
+    // get/set current_state_
+    int getDefaultState()
+    {
+        return default_state_;
+    }
+    void setDefaultState(int state)
+    {
+        default_state_ = state;
+    }
+
     // get/set reset_time_
     int getResetTime()
     {
-        return current_state_;
+        return reset_time_;
     }
-    void setResetTime(int state)
+    void setResetTime(int ms)
     {
-        current_state_ = state;
+        reset_time_ = ms;
     }
 
     ///< List of MESSAGE TYPES to filter for.
@@ -429,7 +449,7 @@ public:
 
     ///< List of REGEX patterns when matched report a CLOSED state.
     std::vector<std::string>
-    CLOSED_REGEX_LIST;
+    CLOSE_REGEX_LIST;
 
     ///< List of REGEX patterns when matched report a TROUBLE state.
     std::vector<std::string>
@@ -442,11 +462,11 @@ public:
     ///< Output format string to pass group results with macros ${ON_OFF} ${OPEN_CLOSE} and more.
     ///< Must safely deal with mismatch of args to params.
     ///< ex. OPEN: "AUDIBLE ALARM ZONE ${GROUP0}"
-    ///< ex. CLOSED: "CANCEL ALARM USER ${GROUP0}"
+    ///< ex. CLOSE: "CANCEL ALARM USER ${GROUP0}"
     ///< ex. OPEN: "FRONT DOOR ${OPEN_CLOSE}"
-    ///< ex. CLOSED: "HVAC ${ON_OFF}"
+    ///< ex. CLOSE: "HVAC ${ON_OFF}"
     std::string OPEN_OUTPUT_FORMAT;
-    std::string CLOSED_OUTPUT_FORMAT;
+    std::string CLOSE_OUTPUT_FORMAT;
     std::string TROUBLE_OUTPUT_FORMAT;
 
     ///< Event message. Message that triggered a change.
@@ -468,7 +488,7 @@ class AD2SubScriber
 public:
 
     // API Subscriber callback function pointer type
-    typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2VirtualPartitionState*, void *arg);
+    typedef void (*AD2ParserCallback_sub_t)(std::string*, AD2PartitionState*, void *arg);
     typedef void (*AD2ParserCallbackRawRXData_sub_t)(uint8_t *, size_t len, void *arg);
 
     void *fn;
@@ -520,17 +540,17 @@ public:
     int query_key_value_string(std::string &query_str, const char *key, std::string &val);
 
     // get AD2PPState by mask create if flag is set and no match found.
-    AD2VirtualPartitionState * getAD2PState(int address, bool update=false);
-    AD2VirtualPartitionState * getAD2PState(uint32_t *mask, bool update=false);
+    AD2PartitionState * getAD2PState(int address, bool update=false);
+    AD2PartitionState * getAD2PState(uint32_t *mask, bool update=false);
 
-    // get zone string using Alpha descriptor if found in AD2ZoneAlpha or use standard format 'ZONE XXX' if not found.
-    void getZoneString(uint8_t zone, std::string &alpha);
+    // get zone string using Alpha descriptor if found in AD2ZoneAlpha return true if found.
+    bool getZoneString(uint8_t zone, std::string &alpha);
 
     // set zone alpha string in AD2ZoneAlpha
     void setZoneString(uint8_t zone, const char *alpha);
 
-    // get zone string using zone type if found in AD2ZoneType or use standard format 'motion' if not found.
-    void getZoneType(uint8_t zone, std::string &type);
+    // get zone string using zone type if found in AD2ZoneType return true if found.
+    bool getZoneType(uint8_t zone, std::string &type);
 
     // set zone type string in AD2ZoneType
     void setZoneType(uint8_t zone, const char *alpha);
@@ -609,10 +629,10 @@ public:
     };
 
     /**
-     * @brief Virtual partition states.
+     * @brief partition states.
      * The key is a mask that groups all partitions messages together.
      */
-    typedef std::map<uint32_t, AD2VirtualPartitionState *> ad2pstates_t;
+    typedef std::map<uint32_t, AD2PartitionState *> ad2pstates_t;
 
     /**
     * @brief Zone config strings
@@ -653,14 +673,14 @@ protected:
     ad2subs_t AD2Subscribers;
 
     // Notify a given subscriber group.
-    void notifySubscribers(ad2_event_t ev, std::string &msg, AD2VirtualPartitionState *pstate);
+    void notifySubscribers(ad2_event_t ev, std::string &msg, AD2PartitionState *pstate);
 
     // @brief Notify raw data subscribers some bytes were received from the AD2*.
     // @note this currently happens before parsing.
     void notifyRawDataSubscribers(uint8_t *data, size_t len);
 
     // @brief Notify a given subscriber group.
-    void notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2VirtualPartitionState *s);
+    void notifySearchSubscribers(ad2_message_t mt, std::string &msg, AD2PartitionState *s);
 
     // Parser state control starts out as AD2_PARSER_RESET.
     int AD2_Parser_State;
