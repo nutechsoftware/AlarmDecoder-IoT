@@ -33,12 +33,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.0] - 2022-04-16 Sean Mathews - coder @f34rdotcom
+## [1.1.0] - 2022-05-23 Sean Mathews - coder @f34rdotcom
 Big changes:
   - Help file and docs refactor to make more user friendly.
   - Replace NVS config storage with spiffs partition and human readable ini file.
   - FTP server to allow for remote editing of the configuration file on /spiffs or /sdcard partition.
   - Migrate the redundant use of ```switch``` in each component to a global ```switch``` command and refactor existing components to use global ```switch``` settings.
+  - Added support for UNKNOWN(-1) state to switch ```default``` state and ```reset``` > 0 will auto reset switch after event back to the default state.
   - Update OTA config settings so older firmware will not see this new branch. Updates to older firmware will require manual re-flashing until I get an update firmware done.
 ### Added
   - Commands
@@ -46,6 +47,8 @@ Big changes:
       * Allow AD2IoT to enforce AD2pHat or attached AD2* device firmware settings.
     - switch
       * Global switches for use by all components.
+      * New ```default``` value option UNKNOWN(-1).
+      * auto reset to ```default``` with ```reset``` > 0 in case the open event tracked does not have a close event.
     - ftpd
       * Remote HTTP content or ad2iot.ini config file management.
   - Config using https://github.com/brofield/simpleini
