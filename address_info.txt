@@ -1,4 +1,5 @@
-ota_data_initial.bin : 0x11000
 bootloader.bin : 0x1000
-alarmdecoder_stsdk_esp32.bin : 0x20000
-partitions.2MB.bin : 0x8000
+partitions.bin : 0x8000
+ota_data_initial.bin : 0xd000
+spiffs.bin : 0x11000
+alarmdecoder_ad2iot_esp32.bin : 0x60000

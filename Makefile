@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := alarmdecoder_stsdk_esp32
+PROJECT_NAME := alarmdecoder_ad2iot_esp32
 
 EXTRA_COMPONENT_DIRS := ${IDF_PATH}/../../iot-core
 

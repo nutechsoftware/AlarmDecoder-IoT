@@ -7,5 +7,5 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # Problem with IPv6 being disabled and these components.
 set(EXCLUDE_COMPONENTS "coap" "asio")
 
-project(alarmdecoder_stsdk_esp32)
+project(alarmdecoder_ad2iot_esp32)
 
