@@ -38,7 +38,7 @@ static const char *TAG = "AD2OTA";
 
 //#define DEBUG_OTA
 
-#define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
+#define CONFIG_OTA_SERVER_URL "https://www.alarmdecoder.com/ad2iotota/"
 #define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv11_version_info.json"
 #define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
@@ -67,7 +67,6 @@ void ota_do_version(const char *arg);
 
 extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
 extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
-extern const uint8_t update_server_root_pem_start[]         asm("_binary_ota_update_server_root_pem_start");
 
 // OTA Update task
 TaskHandle_t ota_task_handle = NULL;
@@ -443,7 +442,6 @@ esp_err_t ota_https_update_device(const char *buildflags)
     std::string fwfile = ad2_string_printf(CONFIG_FIRMWARE_UPGRADE_URL_FMT, buildflags);
     config->url = fwfile.c_str();
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
-    config->cert_pem = (const char *)update_server_root_pem_start;
     config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
@@ -629,7 +627,6 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
     config->url = CONFIG_FIRMWARE_VERSION_INFO_URL;
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
-    config->cert_pem = (char *)update_server_root_pem_start;
     config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
