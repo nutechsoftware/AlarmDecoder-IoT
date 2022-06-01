@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Add new command ```top``` to show task list and some stats. Needed something for sanity checking and tuning.
 - [X] OTA: Remove private key and use global ca store and real world certs. For now point to www.alarmdecoder.com site and use it's cert for encryption.
 - [X] CORE: Remove remaining cdecl that is no longer needed except for the one entrypoint from FreeRTOS.
 - [X] CORE: Misc cleanup no code changes. Updated address_info.txt missed on last release.
