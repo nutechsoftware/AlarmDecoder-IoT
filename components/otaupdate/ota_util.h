@@ -24,7 +24,7 @@
 #ifndef _OTA_UTIL_H
 #define _OTA_UTIL_H
 
-void ota_do_update(char *arg);
+void ota_do_update(const char *arg);
 void ota_init();
 
 #endif /* _OTA_UTIL_H */
