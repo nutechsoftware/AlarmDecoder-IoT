@@ -58,10 +58,6 @@ static const char *TAG = "AD2OTA";
 #define OTA_FIRST_CHECK_DELAY_MS 30*1000
 #define OTA_SOCKET_TIMEOUT 10*1000
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // forward decl
 int ota_get_polling_period_day();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
@@ -844,7 +840,3 @@ void ota_do_version(const char *arg)
 {
     ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif

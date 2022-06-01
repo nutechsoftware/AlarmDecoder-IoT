@@ -24,17 +24,10 @@
 #define _SER2SOCKD_H
 #if CONFIG_AD2IOT_SER2SOCKD
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void ser2sockd_register_cmds();
 void ser2sockd_init();
 void ser2sockd_sendall(uint8_t *buffer, size_t len);
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* CONFIG_AD2IOT_SER2SOCKD */
 #endif /* _SER2SOCKD_H */
 

@@ -35,10 +35,6 @@ static const char *TAG = "AD2CLICMD";
 // specific includes
 #include "ad2_cli_cmd.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @brief Set the alpha descriptor for a given zone.
  *
@@ -858,7 +854,3 @@ void register_ad2_cli_cmd(void)
         cli_register_command(&cmd_list[i]);
     }
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif

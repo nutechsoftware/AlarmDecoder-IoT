@@ -37,15 +37,6 @@
 #define AD2_CMD_FACTORY "factory-reset"
 #define AD2_CMD_UNLOCKER "teaser :c)"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void register_ad2_cli_cmd(void);
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
 #endif /* _AD2_CLI_CMD_H_ */
-

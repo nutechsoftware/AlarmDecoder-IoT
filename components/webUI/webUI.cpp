@@ -92,11 +92,6 @@ struct ws_session_storage {
 
 // C++
 
-// extern C
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Include template engine from
 //   https://github.com/full-stack-ex/tiny-template-engine-arduino
 // Currently not functional with esp-idf development platform only Arduino so some mods were needed.
@@ -809,7 +804,4 @@ void webui_init(void)
     xTaskCreate(&webui_server_task, "webui_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_WEBSERVER_UI */

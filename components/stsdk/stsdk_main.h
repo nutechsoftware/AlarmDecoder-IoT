@@ -49,9 +49,6 @@
 
 //#define SET_PIN_NUMBER_CONFRIM
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 void stsdk_register_cmds(void);
 void stsdk_init(void);
 void button_event(IOT_CAP_HANDLE *handle, int type, int count);
@@ -106,8 +103,5 @@ extern IOT_CAP_HANDLE *refresh_cap_handle;
 
 extern int noti_led_mode;
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* _STSDK_MAIN_H */
 

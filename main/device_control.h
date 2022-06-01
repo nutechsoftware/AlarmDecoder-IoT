@@ -85,11 +85,6 @@
 #define GPIO_ETH_PHY_MDIO GPIO_NUM_18
 
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 enum switch_onoff_state {
     SWITCH_OFF = 0,
     SWITCH_ON = 1,
@@ -147,8 +142,5 @@ void hal_get_socket_local_ip(int sockfd, std::string& IP);
 void hal_set_log_mode(char m);
 void hal_dump_hw_info();
 void hal_init_persistent_storage();
-#ifdef __cplusplus
-}
-#endif
 #endif /* _DEVICE_CONTROL_H */
 

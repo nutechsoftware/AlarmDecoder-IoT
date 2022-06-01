@@ -18,10 +18,6 @@
 
 #include "caps/iot_caps_helper_switch.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct caps_switch_data {
     IOT_CAP_HANDLE* handle;
     void *usr_data;
@@ -41,7 +37,3 @@ typedef struct caps_switch_data {
 } caps_switch_data_t;
 
 caps_switch_data_t *caps_switch_initialize(IOT_CTX *ctx, const char *component, void *init_usr_cb, void *usr_data);
-#ifdef __cplusplus
-}
-#endif
-

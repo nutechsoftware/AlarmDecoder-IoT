@@ -54,10 +54,6 @@
 
 #include "ad2_uart_cli.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // global thread control
 extern int g_StopMainTask;
 
@@ -88,10 +84,6 @@ extern SemaphoreHandle_t g_ad2_console_mutex;
 
 // global eventgroup for network sync and control
 extern EventGroupHandle_t g_ad2_net_event_group;
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _ALARMDECODER_MAIN_H */
 

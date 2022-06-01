@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Remove remaining cdecl that is no longer needed except for the one entrypoint from FreeRTOS.
 - [X] CORE: Misc cleanup no code changes. Updated address_info.txt missed on last release.
 - [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
 - [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.

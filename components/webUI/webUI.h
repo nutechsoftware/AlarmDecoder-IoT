@@ -24,15 +24,8 @@
 #define _WEBUI_H
 #if CONFIG_AD2IOT_WEBSERVER_UI
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void webui_register_cmds();
 void webui_init();
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* CONFIG_AD2IOT_WEBSERVER_UI */
 #endif /* _WEBUI_H */

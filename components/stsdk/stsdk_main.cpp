@@ -45,10 +45,6 @@ static const char *TAG = "STSDK";
 #include "stsdk_main.h"
 #include "ota_util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // @brief global ST status tracking
 iot_status_t g_iot_status = IOT_STATUS_IDLE;
 
@@ -1470,8 +1466,5 @@ void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
     hal_ota_do_update(nullptr);
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_STDK_IOT_CORE */
 

@@ -24,15 +24,8 @@
 #ifndef _OTA_UTIL_H
 #define _OTA_UTIL_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void ota_do_update(char *arg);
 void ota_init();
 
-#ifdef __cplusplus
-}
-#endif
 #endif /* _OTA_UTIL_H */
 

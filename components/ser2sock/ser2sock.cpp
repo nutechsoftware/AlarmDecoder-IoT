@@ -54,9 +54,6 @@ static const char *TAG = "SER2SOCKD";
 
 #define S2SD_CONFIG_SECTION "ser2sockd"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 // forward decl
 void ser2sockd_server_task(void *pvParameters);
 
@@ -815,7 +812,4 @@ CLEAN_UP:
     vTaskDelete(NULL);
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_SER2SOCKD */

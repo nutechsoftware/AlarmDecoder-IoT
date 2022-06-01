@@ -82,10 +82,6 @@ static const char *TAG = "AD2_IoT";
 #include "ftpd.h"
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
 * Control main task processing
 *  0 : running the main function.
@@ -723,6 +719,8 @@ void dump_mem_stats()
     ad2_printf_host(true, "Total Heap Size %.2f Kb\nFree Space %.2f Kb\nDRAM  %.2f Kb\nIRAM  %.2f Kb\n",Total/1024,Free_Size/1024,DRam/1024,IRam/1024);
 }
 
+// external call from FreeRTOS is CDECL
+extern "C" {
 /**
  * @brief AlarmDecoder App main
  */
@@ -1031,7 +1029,4 @@ void app_main()
 
 }
 
-#ifdef __cplusplus
 } // extern "C"
-#endif
-

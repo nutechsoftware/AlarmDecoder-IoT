@@ -37,10 +37,6 @@ static const char *TAG = "UARTCLI";
 
 //#define DEBUG_CLI
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 static struct cli_command_list *cli_cmd_list;
 
 // forward decl
@@ -457,8 +453,3 @@ void uart_cli_main()
     ad2_printf_host(true, "%s: Starting main task.", TAG);
 
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
