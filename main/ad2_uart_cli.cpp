@@ -444,7 +444,7 @@ void uart_cli_main()
 
     // uart cli worker thread
     // 20210815SM: 1404 bytes stack free after first connection.
-    xTaskCreate(esp_uart_cli_task, "uart_cli_task", 1024*5, NULL, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(esp_uart_cli_task, "AD2 cli", 1024*6, NULL, tskIDLE_PRIORITY+2, NULL);
 
     // Press \n to halt further processing and just enable CLI processing.
     ad2_printf_host(true, "%s: Send '.' three times in the next 5 seconds to stop the init.", TAG);

@@ -412,59 +412,67 @@ void _pretty_process_list()
     // Format string for data columns.
     #define TABBED_LINE_FMT "%-16s%-6s%-9s%-6s%-4s%-4s%-12s%-4s\r\n"
 
-    char buf[1024];
     std::map<std::string, std::vector<string>> table;
-    std::string recordStr;
 
     // clear screen home cursor
     ad2_printf_host(false, "\033[H\033[2J\033[3J");
 
     // get task list and load into storage container
-    vTaskList(buf);
-    std::stringstream sstreamA(buf);
+    {   // keep stack free
+        char buf[800];
+        vTaskList(buf);
+        std::stringstream sstream(buf);
+        std::string processKey;
+        std::string recordStr;
 
-    std::string processKey;
-    while (std::getline(sstreamA, recordStr)) {
-        std::vector<string> items;
-        istringstream record(recordStr);
-        std::string field;
-        int fi = 0;
-        processKey = "";
-        while (std::getline(record, field, '\t')) {
-            ad2_trim(field);
-            if (field.length()) {
-                fi++;
-                if (fi == 1) {
-                    processKey = field;
-                } else {
-                    items.push_back(field);
+        while (std::getline(sstream, recordStr)) {
+            std::vector<string> items;
+            istringstream record(recordStr);
+            std::string field;
+            int fi = 0;
+            processKey = "";
+            while (std::getline(record, field, '\t')) {
+                ad2_trim(field);
+                if (field.length()) {
+                    fi++;
+                    if (fi == 1) {
+                        processKey = field;
+                    } else {
+                        items.push_back(field);
+                    }
                 }
             }
+            table[processKey] = items;
         }
-        table[processKey] = items;
     }
 
     // get Runtime Stats list and merge into container
-    vTaskGetRunTimeStats(buf);
-    std::stringstream sstreamB(buf);
-    while (std::getline(sstreamB, recordStr)) {
-        istringstream record(recordStr);
-        std::string field;
-        int fi = 0;
-        int tmpA = 0;
-        processKey = "";
-        while (std::getline(record, field, '\t')) {
-            // FIXME: better tokenizer looking for any white space not just \t. Some columns have '\t\t'
-            ad2_trim(field);
-            if (field.length()) {
-                fi++;
+    {   // keep stack free
+        char buf[800];
+        vTaskGetRunTimeStats(buf);
+        std::stringstream sstream(buf);
+        std::string processKey;
+        std::string recordStr;
 
-                if (fi == 1) {
-                    processKey = field;
-                } else {
-                    if (processKey.length() && table.find(processKey) != table.end()) {
-                        tmpA = table[processKey].size();
-                        table[processKey].push_back(field);
+        while (std::getline(sstream, recordStr)) {
+            istringstream record(recordStr);
+            std::string field;
+            int fi = 0;
+            int tmpA = 0;
+            processKey = "";
+            while (std::getline(record, field, '\t')) {
+                // FIXME: better tokenizer looking for any white space not just \t. Some columns have '\t\t'
+                ad2_trim(field);
+                if (field.length()) {
+                    fi++;
+
+                    if (fi == 1) {
+                        processKey = field;
+                    } else {
+                        if (processKey.length() && table.find(processKey) != table.end()) {
+                            tmpA = table[processKey].size();
+                            table[processKey].push_back(field);
+                        }
                     }
                 }
             }
@@ -490,7 +498,9 @@ void _pretty_process_list()
     }
 
    ad2_printf_host(false,
-        "   State\r\n"
+        "\r\n"
+        "   State legend\r\n"
+        "    'X' - Active\r\n"
         "    'B' - Blocked\r\n"
         "    'R' - Ready\r\n"
         "    'D' - Deleted (waiting clean up)\r\n"

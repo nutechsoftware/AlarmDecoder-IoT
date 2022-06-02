@@ -651,7 +651,7 @@ static void ser2sock_client_task(void *pvParameters)
  */
 void init_ser2sock_client(const char *args)
 {
-    xTaskCreate(ser2sock_client_task, "ser2sock_client", 1024*8, (void*)strdup(args), tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(ser2sock_client_task, "AD2 ser2sock RX", 1024*8, (void*)strdup(args), tskIDLE_PRIORITY+2, NULL);
 }
 
 /**
@@ -701,7 +701,7 @@ void init_ad2_uart_client(const char *args)
     // Main AlarmDecoderParser:
     // 20210815SM: 1220 bytes stack free.
     // 20211201SM: expand to 8k. Main task for everything.
-    xTaskCreate(ad2uart_client_task, "ad2uart_client", 1024*8, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(ad2uart_client_task, "AD2 GPIO COM RX", 1024*8, (void *)AF_INET, tskIDLE_PRIORITY+2, NULL);
 
 }
 
@@ -893,13 +893,9 @@ void app_main()
     }
 
 #if CONFIG_STDK_IOT_CORE
-    bool stEN = -1;
-    ad2_get_config_key_bool(AD2MAIN_CONFIG_SECTION, STSDK_ENABLE, &stEN);
     // Enable STSDK if no setting found.
-    if (stEN == -1) {
-        ESP_LOGI(TAG,"STSDK enable setting not found. Saving new enabled by default.");
-        ad2_set_config_key_bool(AD2MAIN_CONFIG_SECTION, STSDK_ENABLE, true);
-    }
+    bool stEN = true;
+    ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &stEN);
 #endif
 
     // get the network mode set default mode to 'N'
@@ -962,23 +958,6 @@ void app_main()
 #endif
 
     // Start components
-#if CONFIG_STDK_IOT_CORE
-    // Disable stsdk if network mode is not N
-    if ( net_mode == 'N') {
-        /**
-         * Initialize SmartThings SDK
-         *
-         *  WARNING: If enabled it will consume the esp_event_loop_init and
-         * only one task can create this.
-         */
-        stsdk_init();
-        // Kick off a connect to SmartThings server to get things started.
-        stsdk_connection_start();
-    } else {
-        ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
-        ad2_printf_host(true, "'netmode' <> 'N' disabling SmartThings.");
-    }
-#endif
 
     // Initialize ad2 HTTP request sendQ and consumer task.
     ad2_init_http_sendQ();
@@ -1008,7 +987,7 @@ void app_main()
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
     // Start main AlarmDecoder IoT app task
-    xTaskCreate(ad2_app_main_task, "ad2_app_main_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ad2_app_main_task, "AD2 main", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // Start firmware update task
     ota_init();
@@ -1022,6 +1001,26 @@ void app_main()
     // init ser2sock server
     ser2sockd_init();
     AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
+#endif
+
+#if CONFIG_STDK_IOT_CORE
+    // Disable stsdk if network mode is not N
+    if ( net_mode == 'N') {
+        /**
+         * Initialize SmartThings SDK
+         *
+         *  WARNING: If enabled it will consume the esp_event_loop_init and
+         * only one task can create this.
+         */
+        stsdk_init();
+
+        // Kick off a connect to SmartThings server to get things started.
+        // Warning: Blocking until completion of onboarding
+        stsdk_connection_start();
+    } else {
+        ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
+        ad2_printf_host(true, "'netmode' <> 'N' disabling SmartThings.");
+    }
 #endif
 
     // Init finished parsing data from the AD2* can now safely start.

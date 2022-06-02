@@ -791,7 +791,7 @@ void ota_do_update(const char *command)
         ESP_LOGW(TAG, "Device is currently updating.");
         return;
     }
-    xTaskCreate(&ota_task_func, "ota_task_func", 1024*8, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
+    xTaskCreate(&ota_task_func, "AD2 OTA Update", 1024*8, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**
@@ -827,7 +827,7 @@ void ota_init()
         cli_register_command(&ota_cmd_list[i]);
     }
 
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ota_polling_task_func, "AD2 OTA monitor", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 /**

@@ -1826,7 +1826,7 @@ void ad2_init_http_sendQ()
 
     // Start the queue consumer task. Keep the stack as small as possible.
     // 20210815SM: 1444 bytes stack free
-    xTaskCreate(_http_sendQ_consumer_task, "_http_sendQ_consumer_task", 1024 * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(_http_sendQ_consumer_task, "AD2 sendQ RX", 1024 * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
 }
 
 /**

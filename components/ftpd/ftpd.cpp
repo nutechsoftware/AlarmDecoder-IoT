@@ -1851,7 +1851,7 @@ void ftpd_init()
     }
 
     ad2_printf_host(true, "%s: Init done. Daemon starting.", TAG);
-    xTaskCreate(&ftp_daemon_task, "ftp_daemon_task", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(&ftp_daemon_task, "ftp daemon", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }
 #endif /* CONFIG_AD2IOT_FTP_DAEMON */
