@@ -460,7 +460,6 @@ void _pretty_process_list()
             istringstream record(recordStr);
             std::string field;
             int fi = 0;
-            int tmpA = 0;
             processKey = "";
             while (std::getline(record, field, '\t')) {
                 // FIXME: better tokenizer looking for any white space not just \t. Some columns have '\t\t'
@@ -472,7 +471,6 @@ void _pretty_process_list()
                         processKey = field;
                     } else {
                         if (processKey.length() && table.find(processKey) != table.end()) {
-                            tmpA = table[processKey].size();
                             table[processKey].push_back(field);
                         }
                     }
