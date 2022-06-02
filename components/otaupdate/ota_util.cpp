@@ -827,7 +827,7 @@ void ota_init()
         cli_register_command(&ota_cmd_list[i]);
     }
 
-    xTaskCreate(ota_polling_task_func, "AD2 OTA monitor", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ota_polling_task_func, "AD2 OTA CHECK", 1024*2, NULL, tskIDLE_PRIORITY, NULL);
 }
 
 /**

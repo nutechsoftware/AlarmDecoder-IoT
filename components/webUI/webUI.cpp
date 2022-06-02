@@ -801,7 +801,7 @@ void webui_init(void)
     // SUbscribe to ON_ZONE_CHANGE events
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
 
-    xTaskCreate(&webui_server_task, "www/ws daemon", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(&webui_server_task, "AD2 webUI", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 #endif /*  CONFIG_AD2IOT_WEBSERVER_UI */

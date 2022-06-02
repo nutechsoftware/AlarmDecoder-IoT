@@ -261,7 +261,7 @@ void ser2sockd_init(void)
 
     // ser2sockd worker thread
     // 20210815SM: 1284 bytes stack free after first connection.
-    xTaskCreate(&ser2sockd_server_task, "ser2sock daemon", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(&ser2sockd_server_task, "AD2 ser2sockd", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }
 
