@@ -410,7 +410,7 @@ static void _cli_cmd_factory_reset_event(const char *string)
 void _pretty_process_list()
 {
     // Format string for data columns.
-    #define TABBED_LINE_FMT "%-16s%-6s%-9s%-6s%-4s%-4s%-12s%-4s\r\n"
+#define TABBED_LINE_FMT "%-16s%-6s%-9s%-6s%-4s%-4s%-12s%-4s\r\n"
 
     std::map<std::string, std::vector<string>> table;
 
@@ -418,7 +418,8 @@ void _pretty_process_list()
     ad2_printf_host(false, "\033[H\033[2J\033[3J");
 
     // get task list and load into storage container
-    {   // keep stack free
+    {
+        // keep stack free
         char buf[800];
         vTaskList(buf);
         std::stringstream sstream(buf);
@@ -447,7 +448,8 @@ void _pretty_process_list()
     }
 
     // get Runtime Stats list and merge into container
-    {   // keep stack free
+    {
+        // keep stack free
         char buf[800];
         vTaskGetRunTimeStats(buf);
         std::stringstream sstream(buf);
@@ -480,8 +482,7 @@ void _pretty_process_list()
     }
 
     ad2_printf_host(false, TABBED_LINE_FMT, "Name", "State", "Priority", "Stack", "Num", "CPU", "CNT", "BUSY");
-    for (auto const& x : table)
-    {
+    for (auto const& x : table) {
         // sanity check
         if (x.second.size() == 7) {
             // format and print the process and details
@@ -497,15 +498,15 @@ void _pretty_process_list()
         }
     }
 
-   ad2_printf_host(false,
-        "\r\n"
-        "   State legend\r\n"
-        "    'X' - Active\r\n"
-        "    'B' - Blocked\r\n"
-        "    'R' - Ready\r\n"
-        "    'D' - Deleted (waiting clean up)\r\n"
-        "    'S' - Suspended, or Blocked without a timeout\r\n"
-    );
+    ad2_printf_host(false,
+                    "\r\n"
+                    "   State legend\r\n"
+                    "    'X' - Active\r\n"
+                    "    'B' - Blocked\r\n"
+                    "    'R' - Ready\r\n"
+                    "    'D' - Deleted (waiting clean up)\r\n"
+                    "    'S' - Suspended, or Blocked without a timeout\r\n"
+                   );
 
 }
 

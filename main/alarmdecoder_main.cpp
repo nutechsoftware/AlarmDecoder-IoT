@@ -721,311 +721,311 @@ void dump_mem_stats()
 
 // external call from FreeRTOS is CDECL
 extern "C" {
-/**
- * @brief AlarmDecoder App main
- */
-void app_main()
-{
+    /**
+     * @brief AlarmDecoder App main
+     */
+    void app_main()
+    {
 
-    // Create console access mutex.
-    g_ad2_console_mutex = xSemaphoreCreateMutex();
+        // Create console access mutex.
+        g_ad2_console_mutex = xSemaphoreCreateMutex();
 
-    // Redirect ESP-IDF log to our own handler.
-    esp_log_set_vprintf(&ad2_log_vprintf_host);
+        // Redirect ESP-IDF log to our own handler.
+        esp_log_set_vprintf(&ad2_log_vprintf_host);
 
-    // start with log level error.
-    esp_log_level_set("*", ESP_LOG_NONE);        // set all components to ERROR level
+        // start with log level error.
+        esp_log_level_set("*", ESP_LOG_NONE);        // set all components to ERROR level
 
-    // init the AD2IoT gpio
-    hal_gpio_init();
+        // init the AD2IoT gpio
+        hal_gpio_init();
 
-    // init host(USB) uart port
-    hal_host_uart_init();
-    ad2_printf_host(false, "\r\n");
-    ad2_printf_host(true, AD2_SIGNON, TAG, FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
+        // init host(USB) uart port
+        hal_host_uart_init();
+        ad2_printf_host(false, "\r\n");
+        ad2_printf_host(true, AD2_SIGNON, TAG, FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
-    ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
+        ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
 #endif
 
-    // dump the hardware info to the console
-    hal_dump_hw_info();
+        // dump the hardware info to the console
+        hal_dump_hw_info();
 
-    // initialize storage for config settings.
-    hal_init_persistent_storage();
+        // initialize storage for config settings.
+        hal_init_persistent_storage();
 
-    // Initialize attached uSD card.
-    if (hal_init_sd_card()) {
-        g_uSD_mounted = true;
-    }
-
-    // Load persistent configuration ini
-    size_t mem_a = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    ad2_load_persistent_config();
-    size_t mem_b = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    ad2_printf_host(true, "%s: Approximate Configuration memory usage: %d B", TAG, mem_a - mem_b);
-
-    // load and set the logging level.
-    hal_set_log_mode(ad2_get_log_mode());
-
-    // create event group
-    g_ad2_net_event_group = xEventGroupCreate();
-
-    // init the partition database from config storage
-    // see ad2_cli_cmd::part
-    // partition 1 is the default partition for some notifications.
-    for (int n = 1; n <= AD2_MAX_PARTITION; n++) {
-        int x = -1;
-        std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(n);
-        ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &x);
-        // if we found a NV record then initialize the AD2PState for the mask.
-        if (x != -1) {
-            // Init AD2PState and set primary address
-            AD2PartitionState *s = AD2Parse.getAD2PState(x, true);
-            s->primary_address = x;
-
-            // If a zone list is provided then parse it and save in the zone_list.
-            std::string zlist;
-            ad2_get_config_key_string(_section.c_str(), PART_CONFIG_ZONES, zlist);
-            ad2_trim(zlist);
-            if (zlist.length()) {
-                std::vector<std::string> vres;
-                ad2_tokenize(zlist, ",", vres);
-                for (auto &zonestring : vres) {
-                    uint8_t z = std::atoi(zonestring.c_str());
-                    s->zone_list.push_front((uint8_t)z & 0xff);
-                }
-            }
-            ad2_printf_host(true, "%s: init partition slot %i address %i zones '%s'", TAG, n, x, zlist.c_str());
+        // Initialize attached uSD card.
+        if (hal_init_sd_card()) {
+            g_uSD_mounted = true;
         }
-    }
-    // Load Zone config "description" json string parse and save to AD2Parse class.
-    std::string config;
-    for (int n = 1; n <= AD2_MAX_ZONES; n++) {
-        config = "";
-        std::string _section = std::string(AD2ZONE_CONFIG_SECTION " ") + std::to_string(n);
-        ad2_get_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, config);
-        if (config.length()) {
-            // Parse JSON string extract "alpha" and "type" strings.
-            cJSON *json = cJSON_Parse(config.c_str());
-            if (json) {
-                cJSON *jsonDesc = cJSON_GetObjectItem(json, "alpha");
-                if (cJSON_IsString(jsonDesc)) {
-                    AD2Parse.setZoneString(n, jsonDesc->valuestring);
+
+        // Load persistent configuration ini
+        size_t mem_a = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        ad2_load_persistent_config();
+        size_t mem_b = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        ad2_printf_host(true, "%s: Approximate Configuration memory usage: %d B", TAG, mem_a - mem_b);
+
+        // load and set the logging level.
+        hal_set_log_mode(ad2_get_log_mode());
+
+        // create event group
+        g_ad2_net_event_group = xEventGroupCreate();
+
+        // init the partition database from config storage
+        // see ad2_cli_cmd::part
+        // partition 1 is the default partition for some notifications.
+        for (int n = 1; n <= AD2_MAX_PARTITION; n++) {
+            int x = -1;
+            std::string _section = std::string(AD2PART_CONFIG_SECTION " ") + std::to_string(n);
+            ad2_get_config_key_int(_section.c_str(), PART_CONFIG_ADDRESS, &x);
+            // if we found a NV record then initialize the AD2PState for the mask.
+            if (x != -1) {
+                // Init AD2PState and set primary address
+                AD2PartitionState *s = AD2Parse.getAD2PState(x, true);
+                s->primary_address = x;
+
+                // If a zone list is provided then parse it and save in the zone_list.
+                std::string zlist;
+                ad2_get_config_key_string(_section.c_str(), PART_CONFIG_ZONES, zlist);
+                ad2_trim(zlist);
+                if (zlist.length()) {
+                    std::vector<std::string> vres;
+                    ad2_tokenize(zlist, ",", vres);
+                    for (auto &zonestring : vres) {
+                        uint8_t z = std::atoi(zonestring.c_str());
+                        s->zone_list.push_front((uint8_t)z & 0xff);
+                    }
                 }
-                cJSON *jsonType = cJSON_GetObjectItem(json, "type");
-                if (cJSON_IsString(jsonType)) {
-                    AD2Parse.setZoneType(n, jsonType->valuestring);
-                }
+                ad2_printf_host(true, "%s: init partition slot %i address %i zones '%s'", TAG, n, x, zlist.c_str());
             }
         }
-    }
+        // Load Zone config "description" json string parse and save to AD2Parse class.
+        std::string config;
+        for (int n = 1; n <= AD2_MAX_ZONES; n++) {
+            config = "";
+            std::string _section = std::string(AD2ZONE_CONFIG_SECTION " ") + std::to_string(n);
+            ad2_get_config_key_string(_section.c_str(), ZONE_CONFIG_DESCRIPTION, config);
+            if (config.length()) {
+                // Parse JSON string extract "alpha" and "type" strings.
+                cJSON *json = cJSON_Parse(config.c_str());
+                if (json) {
+                    cJSON *jsonDesc = cJSON_GetObjectItem(json, "alpha");
+                    if (cJSON_IsString(jsonDesc)) {
+                        AD2Parse.setZoneString(n, jsonDesc->valuestring);
+                    }
+                    cJSON *jsonType = cJSON_GetObjectItem(json, "type");
+                    if (cJSON_IsString(jsonType)) {
+                        AD2Parse.setZoneType(n, jsonType->valuestring);
+                    }
+                }
+            }
+        }
 
 #if CONFIG_STDK_IOT_CORE
-    // Register STSDK CLI commands.
-    stsdk_register_cmds();
+        // Register STSDK CLI commands.
+        stsdk_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_SER2SOCKD
-    // Register ser2sock daemon CLI commands.
-    ser2sockd_register_cmds();
+        // Register ser2sock daemon CLI commands.
+        ser2sockd_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_TWILIO_CLIENT
-    // Register TWILIO CLI commands.
-    twilio_register_cmds();
+        // Register TWILIO CLI commands.
+        twilio_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
-    // Register PUSHOVER CLI commands.
-    pushover_register_cmds();
+        // Register PUSHOVER CLI commands.
+        pushover_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_WEBSERVER_UI
-    // Initialize WEB SEVER USER INTERFACE
-    webui_register_cmds();
+        // Initialize WEB SEVER USER INTERFACE
+        webui_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_MQTT_CLIENT
-    // Register MQTT CLI commands.
-    mqtt_register_cmds();
+        // Register MQTT CLI commands.
+        mqtt_register_cmds();
 #endif
 
 #if CONFIG_AD2IOT_FTP_DAEMON
-    // Register FTPD DAEMON commands.
-    ftpd_register_cmds();
+        // Register FTPD DAEMON commands.
+        ftpd_register_cmds();
 #endif
 
-    // Register AD2 CLI commands.
-    register_ad2_cli_cmd();
+        // Register AD2 CLI commands.
+        register_ad2_cli_cmd();
 
-    // Load AD2IoT operating mode [Socket|UART] and argument
-    std::string ad2_mode_string = "";
-    ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, ad2_mode_string);
+        // Load AD2IoT operating mode [Socket|UART] and argument
+        std::string ad2_mode_string = "";
+        ad2_get_config_key_string(AD2MAIN_CONFIG_SECTION, AD2MODE_CONFIG_KEY, ad2_mode_string);
 
 
-    // Create stream for parsing.
-    std::istringstream ss(ad2_mode_string);
+        // Create stream for parsing.
+        std::istringstream ss(ad2_mode_string);
 
-    // Load AD2 connection type Com|Socket from mode string
-    std::string temp_mode;
-    std::getline(ss, temp_mode, ' ');
-    g_ad2_mode = temp_mode[0];
+        // Load AD2 connection type Com|Socket from mode string
+        std::string temp_mode;
+        std::getline(ss, temp_mode, ' ');
+        g_ad2_mode = temp_mode[0];
 
-    // Load the connection args from the stream.
-    std::string ad2_mode_args;
-    std::getline(ss, ad2_mode_args, ' ');
+        // Load the connection args from the stream.
+        std::string ad2_mode_args;
+        std::getline(ss, ad2_mode_args, ' ');
 
-    // If the hardware is local UART start it now.
-    if (g_ad2_mode == 'C') {
-        init_ad2_uart_client(ad2_mode_args.c_str());
-    }
+        // If the hardware is local UART start it now.
+        if (g_ad2_mode == 'C') {
+            init_ad2_uart_client(ad2_mode_args.c_str());
+        }
 
-    // Start the CLI.
-    // Press "..."" to halt startup and stay if a safe mode command line only.
-    uart_cli_main();
+        // Start the CLI.
+        // Press "..."" to halt startup and stay if a safe mode command line only.
+        uart_cli_main();
 
-    if (g_ad2_mode == 'S') {
-        ad2_printf_host(true, "Delaying start of ad2source SOCKET after network is up.");
-    } else if(g_ad2_mode != 'C') {
-        ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
-        ad2_printf_host(true, "AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.");
-    }
+        if (g_ad2_mode == 'S') {
+            ad2_printf_host(true, "Delaying start of ad2source SOCKET after network is up.");
+        } else if(g_ad2_mode != 'C') {
+            ESP_LOGI(TAG, "Unknown ad2source mode '%c'", g_ad2_mode);
+            ad2_printf_host(true, "AlarmDecoder protocol source mode NOT configured. Configure using ad2source command.");
+        }
 
 #if CONFIG_STDK_IOT_CORE
-    // Enable STSDK if no setting found.
-    bool stEN = true;
-    ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &stEN);
+        // Enable STSDK if no setting found.
+        bool stEN = true;
+        ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &stEN);
 #endif
 
-    // get the network mode set default mode to 'N'
-    std::string netmode_args;
-    char net_mode = ad2_get_network_mode(netmode_args);
-    ad2_printf_host(true, "%s: 'netmode' set to '%c'.", TAG, net_mode);
+        // get the network mode set default mode to 'N'
+        std::string netmode_args;
+        char net_mode = ad2_get_network_mode(netmode_args);
+        ad2_printf_host(true, "%s: 'netmode' set to '%c'.", TAG, net_mode);
 
-    /**
-     * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.
-     */
-    if ( net_mode != 'N') {
-        hal_init_network_stack();
-    }
+        /**
+         * Start the network TCP/IP driver stack if Ethernet or Wifi enabled.
+         */
+        if ( net_mode != 'N') {
+            hal_init_network_stack();
+        }
 
-    /**
-     * Start the network hardware driver(s)
-     *
-     * FIXME: SmartThings needs to manage the Wifi during adopting.
-     * For now just one interface more is much more complex.
-     */
+        /**
+         * Start the network hardware driver(s)
+         *
+         * FIXME: SmartThings needs to manage the Wifi during adopting.
+         * For now just one interface more is much more complex.
+         */
 #if CONFIG_AD2IOT_USE_ETHERNET
-    if ( net_mode == 'E') {
-        // Init the hardware ethernet driver and hadware
-        hal_init_eth(netmode_args);
-    }
+        if ( net_mode == 'E') {
+            // Init the hardware ethernet driver and hadware
+            hal_init_eth(netmode_args);
+        }
 #endif
 #if CONFIG_AD2IOT_USE_WIFI
-    if ( net_mode == 'W') {
-        // Init the wifi driver and hardware
-        hal_init_wifi(netmode_args);
-    }
+        if ( net_mode == 'W') {
+            // Init the wifi driver and hardware
+            hal_init_wifi(netmode_args);
+        }
 #endif
 
 #if 0 // FIXME add build switch for release builds.
-    // AlarmDecoder callback wire up for testing.
-    AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
-    AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
-    AD2Parse.subscribeTo(ON_DISARM, my_ON_DISARM_CB, nullptr);
-    AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_FIRE_CHANGE, my_ON_FIRE_CHANGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
+        // AlarmDecoder callback wire up for testing.
+        AD2Parse.subscribeTo(ON_ZONE_CHANGE, my_ON_ZONE_CHANGE_CB, nullptr);
+        AD2Parse.subscribeTo(ON_LRR, my_ON_LRR_CB, nullptr);
+        AD2Parse.subscribeTo(ON_ARM, my_ON_ARM_CB, nullptr);
+        AD2Parse.subscribeTo(ON_DISARM, my_ON_DISARM_CB, nullptr);
+        AD2Parse.subscribeTo(ON_READY_CHANGE, my_ON_READY_CHANGE_CB, nullptr);
+        AD2Parse.subscribeTo(ON_CHIME_CHANGE, my_ON_CHIME_CHANGE_CB, nullptr);
+        AD2Parse.subscribeTo(ON_FIRE_CHANGE, my_ON_FIRE_CHANGE_CB, nullptr);
+        AD2Parse.subscribeTo(ON_LOW_BATTERY, my_ON_LOW_BATTERY_CB, nullptr);
 #else
-    // Subscribe standard AlarmDecoder events
-    AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
-    AD2Parse.subscribeTo(ON_ARM, ad2_on_state_change, (void *)ON_ARM);
-    AD2Parse.subscribeTo(ON_DISARM, ad2_on_state_change, (void *)ON_DISARM);
-    AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_on_state_change, (void *)ON_CHIME_CHANGE);
-    AD2Parse.subscribeTo(ON_BEEPS_CHANGE, ad2_on_state_change, (void *)ON_BEEPS_CHANGE);
-    AD2Parse.subscribeTo(ON_FIRE_CHANGE, ad2_on_state_change, (void *)ON_FIRE_CHANGE);
-    AD2Parse.subscribeTo(ON_POWER_CHANGE, ad2_on_state_change, (void *)ON_POWER_CHANGE);
-    AD2Parse.subscribeTo(ON_READY_CHANGE, ad2_on_state_change, (void *)ON_READY_CHANGE);
-    AD2Parse.subscribeTo(ON_LOW_BATTERY, ad2_on_state_change, (void *)ON_LOW_BATTERY);
-    AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_on_state_change, (void *)ON_ALARM_CHANGE);
-    AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, ad2_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
-    AD2Parse.subscribeTo(ON_EXIT_CHANGE, ad2_on_state_change, (void *)ON_EXIT_CHANGE);
-    AD2Parse.subscribeTo(ON_CFG, ad2_on_cfg, (void *)ON_CFG);
-    AD2Parse.subscribeTo(ON_VER, ad2_on_ver, (void *)ON_VER);
+        // Subscribe standard AlarmDecoder events
+        AD2Parse.subscribeTo(ON_ALPHA_MESSAGE, my_ON_ALPHA_MESSAGE_CB, nullptr);
+        AD2Parse.subscribeTo(ON_ARM, ad2_on_state_change, (void *)ON_ARM);
+        AD2Parse.subscribeTo(ON_DISARM, ad2_on_state_change, (void *)ON_DISARM);
+        AD2Parse.subscribeTo(ON_CHIME_CHANGE, ad2_on_state_change, (void *)ON_CHIME_CHANGE);
+        AD2Parse.subscribeTo(ON_BEEPS_CHANGE, ad2_on_state_change, (void *)ON_BEEPS_CHANGE);
+        AD2Parse.subscribeTo(ON_FIRE_CHANGE, ad2_on_state_change, (void *)ON_FIRE_CHANGE);
+        AD2Parse.subscribeTo(ON_POWER_CHANGE, ad2_on_state_change, (void *)ON_POWER_CHANGE);
+        AD2Parse.subscribeTo(ON_READY_CHANGE, ad2_on_state_change, (void *)ON_READY_CHANGE);
+        AD2Parse.subscribeTo(ON_LOW_BATTERY, ad2_on_state_change, (void *)ON_LOW_BATTERY);
+        AD2Parse.subscribeTo(ON_ALARM_CHANGE, ad2_on_state_change, (void *)ON_ALARM_CHANGE);
+        AD2Parse.subscribeTo(ON_ZONE_BYPASSED_CHANGE, ad2_on_state_change, (void *)ON_ZONE_BYPASSED_CHANGE);
+        AD2Parse.subscribeTo(ON_EXIT_CHANGE, ad2_on_state_change, (void *)ON_EXIT_CHANGE);
+        AD2Parse.subscribeTo(ON_CFG, ad2_on_cfg, (void *)ON_CFG);
+        AD2Parse.subscribeTo(ON_VER, ad2_on_ver, (void *)ON_VER);
 #endif
 
-    // Start components
+        // Start components
 
-    // Initialize ad2 HTTP request sendQ and consumer task.
-    ad2_init_http_sendQ();
+        // Initialize ad2 HTTP request sendQ and consumer task.
+        ad2_init_http_sendQ();
 
 #if CONFIG_AD2IOT_TWILIO_CLIENT
-    // Initialize twilio client
-    twilio_init();
+        // Initialize twilio client
+        twilio_init();
 #endif
 #if CONFIG_AD2IOT_PUSHOVER_CLIENT
-    // Initialize pushover client
-    pushover_init();
+        // Initialize pushover client
+        pushover_init();
 #endif
 #if CONFIG_AD2IOT_WEBSERVER_UI
-    // Initialize WEB SEVER USER INTERFACE
-    webui_init();
+        // Initialize WEB SEVER USER INTERFACE
+        webui_init();
 #endif
 #if CONFIG_AD2IOT_MQTT_CLIENT
-    // Initialize MQTT client
-    mqtt_init();
+        // Initialize MQTT client
+        mqtt_init();
 #endif
 #if CONFIG_AD2IOT_FTP_DAEMON
-    // Initialize FTP daemon
-    ftpd_init();
+        // Initialize FTP daemon
+        ftpd_init();
 #endif
 
-    // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+        // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-    // Start main AlarmDecoder IoT app task
-    xTaskCreate(ad2_app_main_task, "AD2 main", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
+        // Start main AlarmDecoder IoT app task
+        xTaskCreate(ad2_app_main_task, "AD2 main", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
-    // Start firmware update task
-    ota_init();
+        // Start firmware update task
+        ota_init();
 
-    // If the AD2* is a socket connection we can hopefully start it now.
-    if (g_ad2_mode == 'S') {
-        init_ser2sock_client(ad2_mode_args.c_str());
-    }
+        // If the AD2* is a socket connection we can hopefully start it now.
+        if (g_ad2_mode == 'S') {
+            init_ser2sock_client(ad2_mode_args.c_str());
+        }
 
 #if CONFIG_AD2IOT_SER2SOCKD
-    // init ser2sock server
-    ser2sockd_init();
-    AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
+        // init ser2sock server
+        ser2sockd_init();
+        AD2Parse.subscribeTo(SER2SOCKD_ON_RAW_RX_DATA, nullptr);
 #endif
 
 #if CONFIG_STDK_IOT_CORE
-    // Disable stsdk if network mode is not N
-    if ( net_mode == 'N') {
-        /**
-         * Initialize SmartThings SDK
-         *
-         *  WARNING: If enabled it will consume the esp_event_loop_init and
-         * only one task can create this.
-         */
-        stsdk_init();
+        // Disable stsdk if network mode is not N
+        if ( net_mode == 'N') {
+            /**
+             * Initialize SmartThings SDK
+             *
+             *  WARNING: If enabled it will consume the esp_event_loop_init and
+             * only one task can create this.
+             */
+            stsdk_init();
 
-        // Kick off a connect to SmartThings server to get things started.
-        // Warning: Blocking until completion of onboarding
-        stsdk_connection_start();
-    } else {
-        ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
-        ad2_printf_host(true, "'netmode' <> 'N' disabling SmartThings.");
-    }
+            // Kick off a connect to SmartThings server to get things started.
+            // Warning: Blocking until completion of onboarding
+            stsdk_connection_start();
+        } else {
+            ESP_LOGI(TAG, "'netmode' <> 'N' disabling SmartThings.");
+            ad2_printf_host(true, "'netmode' <> 'N' disabling SmartThings.");
+        }
 #endif
 
-    // Init finished parsing data from the AD2* can now safely start.
-    g_init_done = true;
+        // Init finished parsing data from the AD2* can now safely start.
+        g_init_done = true;
 
-}
+    }
 
 } // extern "C"
