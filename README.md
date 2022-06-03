@@ -182,6 +182,38 @@ Usage: restart
 Usage: factory-reset
     Erase config storage and reboot to factory defaults
 ```
+- top
+```console
+Usage: top
+    Provides a dynamic real-time view of the running system
+    Press any key to exit
+
+Example:
+
+top - 00:02:27.659 up 0 days Tasks: 16
+Mem: 303992 total, 87176 free, 31768 min free
+
+Name            ID  State Priority Stack CPU# TIME       %BUSY 
+sys_evt           8 B           20  1044    0       4617   0.00
+AD2 ota check    16 B            0  1436    0    1595583   1.08
+Tmr Svc           4 B            1  1672    0      19579   0.01
+IDLE              3 R            0  1916    0  141940779  96.17
+AD2 cli           6 R            2  1924    0    1164302   0.79
+mqtt_task        12 B            5  2252    0     259754   0.18
+tiT               7 B           18  2392    0     167177   0.11
+AD2 ser2sockd    17 B            1  2708    0     811432   0.55
+emac_rx           9 S           15  3232    0      78704   0.05
+httpd            14 B            5  3336    0        777   0.00
+AD2 sendQ        10 B            1  3600    0        247   0.00
+esp_timer         1 S           22  3672    0      11178   0.01
+AD2 main         15 B            1  3712    0      19229   0.01
+AD2 webUI        11 B            1  4200    0       4057   0.00
+AD2 GPIO COM RX   5 R            2  5356    0    1109066   0.75
+ftp daemon       13 B            1  7376    0        551   0.00
+
+  State legend
+    'B'locked 'R'eady 'D'eleted 'S'uspended
+```
 - upgrade
 ```console
 Usage: upgrade [buildflag]
@@ -805,8 +837,8 @@ AD2IOT # help
 Available AD2IoT terminal commands
   [ser2sockd, twilio, pushover, webui, mqtt, ftpd,
    restart, netmode, switch, zone, code, partition,
-   ad2source, ad2config, ad2term, logmode, factory-reset, help,
-   upgrade, version]
+   ad2source, ad2config, ad2term, logmode, factory-reset, top,
+   help, upgrade, version]
 Type help <command> for details on each command.
 
 ```

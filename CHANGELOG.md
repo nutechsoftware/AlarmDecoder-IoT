@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Refactor top and add docs. The FreeRTOS in stats reports were glitchy so it was replaced with uxTaskGetSystemState().
 - [X] STSDK: Small fixes. Still a big mess :(
 - [X] *: Nice task names.
 - [X] CORE: Fix from prior change const cast.

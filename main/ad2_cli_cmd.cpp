@@ -410,100 +410,95 @@ static void _cli_cmd_factory_reset_event(const char *string)
 void _pretty_process_list()
 {
     // Format string for data columns.
-#define TABBED_LINE_FMT "%-16s%-6s%-9s%-6s%-4s%-4s%-12s%-4s\r\n"
+    // "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY"
+#define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-10s %-6s\r\n"
+#define TABBED_LINE_FMT "%-15s %3u %-5s %8u %5u %4u %10lu %6.2f\r\n"
 
     std::map<std::string, std::vector<string>> table;
 
-    // clear screen home cursor
-    ad2_printf_host(false, "\033[H\033[2J\033[3J");
+    uint32_t ulTotalTime = 0, ulStatsAsPercentage = 0;
+    TaskStatus_t *pxTSArray = NULL;
+    UBaseType_t uxArraySize = 0;
 
-    // get task list and load into storage container
-    {
-        // keep stack free
-        char buf[800];
-        vTaskList(buf);
-        std::stringstream sstream(buf);
-        std::string processKey;
-        std::string recordStr;
+    // get task count or hard coded size to alloc memory.
+    //uxArraySize = uxTaskGetNumberOfTasks();
+#define MAX_TASKS 25
+    uxArraySize = MAX_TASKS;
 
-        while (std::getline(sstream, recordStr)) {
-            std::vector<string> items;
-            istringstream record(recordStr);
-            std::string field;
-            int fi = 0;
-            processKey = "";
-            while (std::getline(record, field, '\t')) {
-                ad2_trim(field);
-                if (field.length()) {
-                    fi++;
-                    if (fi == 1) {
-                        processKey = field;
-                    } else {
-                        items.push_back(field);
-                    }
+    // make buffer for results
+    pxTSArray = (TaskStatus_t *)malloc(uxArraySize * sizeof( TaskStatus_t ));
+    // sanity test did we get the memory.
+    if (pxTSArray != NULL) {
+        uxArraySize = uxTaskGetSystemState( pxTSArray, uxArraySize, &ulTotalTime );
+        std::chrono::milliseconds ms(esp_log_timestamp());
+        uint32_t days = std::chrono::duration_cast<std::chrono::seconds>(ms).count()/(60*60*24);
+
+        // memory stats
+        size_t heap_total = heap_caps_get_total_size(MALLOC_CAP_8BIT);
+        size_t heap_free = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        size_t heap_min_free = heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
+        // clear screen home cursor and print header
+        ad2_printf_host(false, "\033[H\033[2J\033[3J");
+        ad2_printf_host(false, "top - %s up %i days Tasks: %-2lu\r\n", esp_log_system_timestamp(), days, uxArraySize);
+        ad2_printf_host(false, "Mem: %lu total, %lu free, %lu min free\r\n\r\n", heap_total, heap_free, heap_min_free);
+
+        ad2_printf_host(false, "\033[7m");
+        ad2_printf_host(false, TABBED_HEADER_FMT, "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY");
+        ad2_printf_host(false, "\033[m");
+
+        // reject div zero and no entries.
+        if( uxArraySize && ulTotalTime > 0 ) {
+            std::list<int> sort_list;
+
+            // sort on stack high water mark lowest first.
+            std::sort(pxTSArray, pxTSArray+uxArraySize,
+            [] (TaskStatus_t a, TaskStatus_t b) -> bool {
+                return ((a.usStackHighWaterMark < b.usStackHighWaterMark));
+            });
+
+            // format each process for top list.
+            for( int x = 0; x < uxArraySize; x++ ) {
+
+                // format human readable state
+                std::string state;
+                switch (pxTSArray[x].eCurrentState) {
+                case eRunning:
+                case eReady  :
+                    state = "R";
+                    break;
+                case eBlocked:
+                    state = "B";
+                    break;
+                case eSuspended:
+                    state = "S";
+                    break;
+                case eDeleted:
+                    state = "D";
+                    break;
+                case eInvalid:
+                    state = "?";
+                    break;
                 }
+                ad2_printf_host(false, TABBED_LINE_FMT,
+                                pxTSArray[x].pcTaskName,
+                                (unsigned int)pxTSArray[x].xTaskNumber,
+                                state.c_str(),
+                                (unsigned int)pxTSArray[x].uxCurrentPriority,
+                                (unsigned int)pxTSArray[x].usStackHighWaterMark,
+                                (unsigned int)pxTSArray[x].xCoreID,
+                                (unsigned int)pxTSArray[x].ulRunTimeCounter,
+                                (double)((pxTSArray[x].ulRunTimeCounter*100.00)/ulTotalTime));
             }
-            table[processKey] = items;
+
         }
+        free(pxTSArray);
     }
 
-    // get Runtime Stats list and merge into container
-    {
-        // keep stack free
-        char buf[800];
-        vTaskGetRunTimeStats(buf);
-        std::stringstream sstream(buf);
-        std::string processKey;
-        std::string recordStr;
-
-        while (std::getline(sstream, recordStr)) {
-            istringstream record(recordStr);
-            std::string field;
-            int fi = 0;
-            processKey = "";
-            while (std::getline(record, field, '\t')) {
-                // FIXME: better tokenizer looking for any white space not just \t. Some columns have '\t\t'
-                ad2_trim(field);
-                if (field.length()) {
-                    fi++;
-
-                    if (fi == 1) {
-                        processKey = field;
-                    } else {
-                        if (processKey.length() && table.find(processKey) != table.end()) {
-                            table[processKey].push_back(field);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    ad2_printf_host(false, TABBED_LINE_FMT, "Name", "State", "Priority", "Stack", "Num", "CPU", "CNT", "BUSY");
-    for (auto const& x : table) {
-        // sanity check
-        if (x.second.size() == 7) {
-            // format and print the process and details
-            std::string name = x.first.c_str();
-            std::string state = x.second[0];
-            std::string priority = x.second[1];
-            std::string stack = x.second[2];
-            std::string num = x.second[3];
-            std::string cpu = x.second[4];
-            std::string cyc = x.second[5];
-            std::string busy = x.second[6];
-            ad2_printf_host(false, TABBED_LINE_FMT, name.c_str(), state.c_str(), priority.c_str(), stack.c_str(), num.c_str(), cpu.c_str(), cyc.c_str(), busy.c_str());
-        }
-    }
-
+    // print footer
     ad2_printf_host(false,
                     "\r\n"
                     "   State legend\r\n"
-                    "    'X' - Active\r\n"
-                    "    'B' - Blocked\r\n"
-                    "    'R' - Ready\r\n"
-                    "    'D' - Deleted (waiting clean up)\r\n"
-                    "    'S' - Suspended, or Blocked without a timeout\r\n"
+                    "    'B'locked 'R'eady 'D'eleted 'S'uspended\r\n"
                    );
 
 }
@@ -976,8 +971,8 @@ static struct cli_command cmd_list[] = {
         (char*)AD2_CMD_TOP,(char*)
         "Usage: top"
         "\r\n"
-        "    Show process list and stats updated every second.\r\n"
-        "    Press any key to exit.\r\n"
+        "    Provides a dynamic real-time view of the running system\r\n"
+        "    Press any key to exit\r\n"
         , _cli_cmd_top_event
     }
 };
