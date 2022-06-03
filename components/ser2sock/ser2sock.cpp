@@ -778,16 +778,16 @@ void ser2sockd_server_task(void *pvParameters)
                 _poll_exception_fdset(&except_fdset);
 
                 /* poll our read fdset */
-                did_work = _poll_read_fdset(&read_fdset);
+                did_work |= _poll_read_fdset(&read_fdset);
 
                 /* poll our write fdset */
-                did_work = _poll_write_fdset(&write_fdset);
+                did_work |= _poll_write_fdset(&write_fdset);
 
                 /* if we did not do anything then sleep a little predict
                 next go round will be idle too
                 */
                 if (!did_work) {
-                    vTaskDelay(10 / portTICK_PERIOD_MS);
+                    vTaskDelay(100 / portTICK_PERIOD_MS);
                 }
                 /* if network goes away then we are done */
                 if (!hal_get_network_connected()) {
