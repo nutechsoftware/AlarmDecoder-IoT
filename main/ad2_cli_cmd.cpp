@@ -406,30 +406,50 @@ static void _cli_cmd_factory_reset_event(const char *string)
 /**
  * @brief Dump report of current tasks sorted by lowest stack free watermark.
  * FIXME: Move this someplace else? Not exactly HW related. This is OS layer(FreeRTOS).
+ * NOTE: Must be called periodically to track current process busy time.
  */
 void _pretty_process_list()
 {
     // Format string for data columns.
-    // "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY"
-#define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-10s %-6s\r\n"
-#define TABBED_LINE_FMT "%-15s %3u %-5s %8u %5u %4u %10lu %6.2f\r\n"
+    // "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY, %CUR"
+    #define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-10s %-6s %-6s\r\n"
+    #define TABBED_LINE_FMT "%-15s %3u %-5s %8u %5u %4u %10lu %6.2f %6.2f\r\n"
 
-    std::map<std::string, std::vector<string>> table;
+    // static storage for cache by pxTSArray[x].xTaskNumber to track current
+    // CPU usage by process.
+    // static N
+    static uint64_t uLastTime = 0;
+    static std::map<unsigned int, unsigned int> task_last_time;
 
-    uint32_t ulTotalTime = 0, ulStatsAsPercentage = 0;
+    // init static uLastTime
+    if (!uLastTime) {
+        uLastTime = esp_timer_get_time();
+    }
+
+    // temp vars
+    uint64_t uTotalTime = 0;
     TaskStatus_t *pxTSArray = NULL;
     UBaseType_t uxArraySize = 0;
 
     // get task count or hard coded size to alloc memory.
-    //uxArraySize = uxTaskGetNumberOfTasks();
-#define MAX_TASKS 25
-    uxArraySize = MAX_TASKS;
+    uxArraySize = uxTaskGetNumberOfTasks();
 
     // make buffer for results
     pxTSArray = (TaskStatus_t *)malloc(uxArraySize * sizeof( TaskStatus_t ));
     // sanity test did we get the memory.
     if (pxTSArray != NULL) {
-        uxArraySize = uxTaskGetSystemState( pxTSArray, uxArraySize, &ulTotalTime );
+
+        // send null for 32 bit total time. We will use a 64bit counter.
+        uxArraySize = uxTaskGetSystemState( pxTSArray, uxArraySize, NULL );
+
+        // 64bit microsecond system time overflows every 1.84467440737096E+019. A Very long time!
+        uTotalTime = esp_timer_get_time();
+
+        // calculate time since last called for current process CPU busy calculations.
+        uint64_t uDeltaTime = uTotalTime - uLastTime;
+        uLastTime = uTotalTime;
+
+        // Log time for human readable
         std::chrono::milliseconds ms(esp_log_timestamp());
         uint32_t days = std::chrono::duration_cast<std::chrono::seconds>(ms).count()/(60*60*24);
 
@@ -437,17 +457,18 @@ void _pretty_process_list()
         size_t heap_total = heap_caps_get_total_size(MALLOC_CAP_8BIT);
         size_t heap_free = heap_caps_get_free_size(MALLOC_CAP_8BIT);
         size_t heap_min_free = heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
+
         // clear screen home cursor and print header
         ad2_printf_host(false, "\033[H\033[2J\033[3J");
         ad2_printf_host(false, "top - %s up %i days Tasks: %-2lu\r\n", esp_log_system_timestamp(), days, uxArraySize);
         ad2_printf_host(false, "Mem: %lu total, %lu free, %lu min free\r\n\r\n", heap_total, heap_free, heap_min_free);
 
         ad2_printf_host(false, "\033[7m");
-        ad2_printf_host(false, TABBED_HEADER_FMT, "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY");
+        ad2_printf_host(false, TABBED_HEADER_FMT, "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%TBusy", "%Busy");
         ad2_printf_host(false, "\033[m");
 
         // reject div zero and no entries.
-        if( uxArraySize && ulTotalTime > 0 ) {
+        if( uxArraySize && uTotalTime > 0 ) {
             std::list<int> sort_list;
 
             // sort on stack high water mark lowest first.
@@ -458,6 +479,10 @@ void _pretty_process_list()
 
             // format each process for top list.
             for( int x = 0; x < uxArraySize; x++ ) {
+
+                // keep some data on local stack avoid array expansion multiple times.
+                unsigned int _cur_TaskID = (unsigned int)pxTSArray[x].xTaskNumber;
+                unsigned int _cur_RunTimeCounter = pxTSArray[x].ulRunTimeCounter;
 
                 // format human readable state
                 std::string state;
@@ -479,15 +504,38 @@ void _pretty_process_list()
                     state = "?";
                     break;
                 }
+
+                // calculate the process CPU usage since last update.
+
+                // result storage default to 0.0%
+                double dCurBUSYCalc = 0.0;
+
+                // fetch this tasks last ulRunTimeCounter from the cache
+                map<unsigned int, unsigned int>::iterator it;
+                it = task_last_time.find(_cur_TaskID);
+
+                // if found calculate current process cpu busy time.
+                if (it != task_last_time.end()) {
+                    // calculate ms ticks busy since last test
+                    unsigned int rtdiff = _cur_RunTimeCounter - it->second;
+                    if (uDeltaTime) {
+                        dCurBUSYCalc = (double)((rtdiff*100.00)/uDeltaTime);
+                    }
+                }
+
+                // update the last RunTimeCounter by Task ID.
+                task_last_time[_cur_TaskID] = _cur_RunTimeCounter;
+
                 ad2_printf_host(false, TABBED_LINE_FMT,
                                 pxTSArray[x].pcTaskName,
-                                (unsigned int)pxTSArray[x].xTaskNumber,
+                                (unsigned int)_cur_TaskID,
                                 state.c_str(),
                                 (unsigned int)pxTSArray[x].uxCurrentPriority,
                                 (unsigned int)pxTSArray[x].usStackHighWaterMark,
                                 (unsigned int)pxTSArray[x].xCoreID,
-                                (unsigned int)pxTSArray[x].ulRunTimeCounter,
-                                (double)((pxTSArray[x].ulRunTimeCounter*100.00)/ulTotalTime));
+                                _cur_RunTimeCounter,
+                                (double)((_cur_RunTimeCounter*100.00)/uTotalTime),
+                                (double)(dCurBUSYCalc));
             }
 
         }
@@ -499,6 +547,9 @@ void _pretty_process_list()
                     "\r\n"
                     "   State legend\r\n"
                     "    'B'locked 'R'eady 'D'eleted 'S'uspended\r\n"
+                    "   Column legend\r\n"
+                    "    Stack: Minimum stack free bytes, CPU#: CPU affinity\r\n"
+                    "    TBusy: %% busy total, Busy: %% busy now\r\n"
                    );
 
 }

@@ -190,29 +190,29 @@ Usage: top
 
 Example:
 
-top - 00:02:27.659 up 0 days Tasks: 16
-Mem: 303992 total, 87176 free, 31768 min free
+top - 00:00:21.168 up 0 days Tasks: 13
+Mem: 303944 total, 167176 free, 163028 min free
 
-Name            ID  State Priority Stack CPU# TIME       %BUSY 
-sys_evt           8 B           20  1044    0       4617   0.00
-AD2 ota check    16 B            0  1436    0    1595583   1.08
-Tmr Svc           4 B            1  1672    0      19579   0.01
-IDLE              3 R            0  1916    0  141940779  96.17
-AD2 cli           6 R            2  1924    0    1164302   0.79
-mqtt_task        12 B            5  2252    0     259754   0.18
-tiT               7 B           18  2392    0     167177   0.11
-AD2 ser2sockd    17 B            1  2708    0     811432   0.55
-emac_rx           9 S           15  3232    0      78704   0.05
-httpd            14 B            5  3336    0        777   0.00
-AD2 sendQ        10 B            1  3600    0        247   0.00
-esp_timer         1 S           22  3672    0      11178   0.01
-AD2 main         15 B            1  3712    0      19229   0.01
-AD2 webUI        11 B            1  4200    0       4057   0.00
-AD2 GPIO COM RX   5 R            2  5356    0    1109066   0.75
-ftp daemon       13 B            1  7376    0        551   0.00
+Name            ID  State Priority Stack CPU# TIME       %TBusy %Busy 
+sys_evt           7 B           20  1040    0       5451   0.03   0.00
+Tmr Svc           4 B            1  1672    0       2068   0.01   0.03
+AD2 cli           5 R            2  1912    0     144358   0.68   0.89
+IDLE              3 R            0  1916    0   20676782  97.97  98.31
+tiT               6 B           18  2488    0      19531   0.09   0.08
+AD2 ser2sockd    14 B            1  2704    0      55845   0.26   0.60
+httpd            11 B            5  3336    0        702   0.00   0.00
+emac_rx           8 S           15  3404    0      14862   0.07   0.09
+AD2 sendQ         9 B            1  3600    0        204   0.00   0.00
+esp_timer         1 S           22  3672    0      11177   0.05   0.00
+AD2 ota check    13 B            0  3696    0         16   0.00   0.00
+AD2 main         12 B            1  3716    0       1299   0.01   0.01
+AD2 webUI        10 B            1  4192    0       1777   0.01   0.00
 
-  State legend
+   State legend
     'B'locked 'R'eady 'D'eleted 'S'uspended
+   Column legend
+    Stack: Minimum stack free bytes, CPU#: CPU affinity
+    TBusy: % busy total, Busy: % busy now
 ```
 - upgrade
 ```console

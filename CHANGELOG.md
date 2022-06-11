@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Improve top to deal with overflow. TODO IDLE task will overflow so make a spacial case keep a private IDLE run tiem counter.
 - [X] SER2SOCK: High CPU fix old bug found with new top command.
 - [X] CORE: Refactor top and add docs. The FreeRTOS in stats reports were glitchy so it was replaced with uxTaskGetSystemState().
 - [X] STSDK: Small fixes. Still a big mess :(
