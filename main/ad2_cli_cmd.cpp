@@ -412,14 +412,13 @@ void _pretty_process_list()
 {
     // Format string for data columns.
     // "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY, %CUR"
-    #define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-10s %-6s %-6s\r\n"
-    #define TABBED_LINE_FMT "%-15s %3u %-5s %8u %5u %4u %10lu %6.2f %6.2f\r\n"
+    #define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-20s %-6s %-6s\r\n"
+    #define TABBED_LINE_FMT "%-15s %3u %-5s %8u %5u %4u %20lu %6.2f %6.2f\r\n"
 
     // static storage for cache by pxTSArray[x].xTaskNumber to track current
     // CPU usage by process.
-    // static N
     static uint64_t uLastTime = 0;
-    static std::map<unsigned int, unsigned int> task_last_time;
+    static std::map<unsigned int, std::pair<unsigned int, uint64_t>> task_times;
 
     // init static uLastTime
     if (!uLastTime) {
@@ -464,7 +463,7 @@ void _pretty_process_list()
         ad2_printf_host(false, "Mem: %lu total, %lu free, %lu min free\r\n\r\n", heap_total, heap_free, heap_min_free);
 
         ad2_printf_host(false, "\033[7m");
-        ad2_printf_host(false, TABBED_HEADER_FMT, "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%TBusy", "%Busy");
+        ad2_printf_host(false, TABBED_HEADER_FMT, "Name", "ID", "State", "Priority", "Stack", "CPU#", "Time", "%TBusy", "%Busy");
         ad2_printf_host(false, "\033[m");
 
         // reject div zero and no entries.
@@ -511,20 +510,35 @@ void _pretty_process_list()
                 double dCurBUSYCalc = 0.0;
 
                 // fetch this tasks last ulRunTimeCounter from the cache
-                map<unsigned int, unsigned int>::iterator it;
-                it = task_last_time.find(_cur_TaskID);
+                map<unsigned int, std::pair<unsigned int, uint64_t>>::iterator it;
+                it = task_times.find(_cur_TaskID);
 
-                // if found calculate current process cpu busy time.
-                if (it != task_last_time.end()) {
-                    // calculate ms ticks busy since last test
-                    unsigned int rtdiff = _cur_RunTimeCounter - it->second;
-                    if (uDeltaTime) {
-                        dCurBUSYCalc = (double)((rtdiff*100.00)/uDeltaTime);
+                uint64_t uTaskTime = 0;
+
+                // if found.
+                if (it != task_times.end()) {
+                    uint32_t tdelta = 0;
+                    // find delta time used by task since last test Look for overflow and fix
+                    if (_cur_RunTimeCounter < it->second.first) {
+                        tdelta += (_cur_RunTimeCounter + ((uint32_t)-1 - it->second.first)) ;
+                    } else {
+                        tdelta += (_cur_RunTimeCounter - it->second.first);
                     }
-                }
 
-                // update the last RunTimeCounter by Task ID.
-                task_last_time[_cur_TaskID] = _cur_RunTimeCounter;
+                    // update total task time
+                    it->second.second+=tdelta;
+
+                    // calculate ms ticks busy since last test
+                    if (uDeltaTime) {
+                        dCurBUSYCalc = (double)((tdelta*100.0)/uDeltaTime);
+                    }
+                    it->second.first = _cur_RunTimeCounter;
+                    uTaskTime = it->second.second;
+                } else {
+                    task_times[_cur_TaskID].first = _cur_RunTimeCounter;
+                    task_times[_cur_TaskID].second = _cur_RunTimeCounter;
+                    uTaskTime = _cur_RunTimeCounter;
+                }
 
                 ad2_printf_host(false, TABBED_LINE_FMT,
                                 pxTSArray[x].pcTaskName,
@@ -533,8 +547,8 @@ void _pretty_process_list()
                                 (unsigned int)pxTSArray[x].uxCurrentPriority,
                                 (unsigned int)pxTSArray[x].usStackHighWaterMark,
                                 (unsigned int)pxTSArray[x].xCoreID,
-                                _cur_RunTimeCounter,
-                                (double)((_cur_RunTimeCounter*100.00)/uTotalTime),
+                                (uint64_t)uTaskTime,
+                                (double)((uTaskTime*100.00)/uTotalTime),
                                 (double)(dCurBUSYCalc));
             }
 
