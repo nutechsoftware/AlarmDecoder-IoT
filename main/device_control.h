@@ -142,5 +142,6 @@ void hal_get_socket_local_ip(int sockfd, std::string& IP);
 void hal_set_log_mode(char m);
 void hal_dump_hw_info();
 void hal_init_persistent_storage();
+uint64_t hal_uptime_us();
 #endif /* _DEVICE_CONTROL_H */
 

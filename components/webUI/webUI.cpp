@@ -104,7 +104,7 @@ struct ws_session_storage {
 void uptimeString(std::string &tstring)
 {
     // 64bit milliseconds since boot
-    int64_t ms = esp_timer_get_time() / 1000;
+    int64_t ms = hal_uptime_us() / 1000;
     // seconds
     int32_t s = ms / 1000;
     // days

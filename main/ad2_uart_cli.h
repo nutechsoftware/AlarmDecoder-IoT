@@ -40,7 +40,8 @@ typedef struct cli_command_list {
     struct cli_command_list* next;
 } cli_cmd_list_t;
 
-void uart_cli_main();
+void cli_main();
 void cli_register_command(cli_cmd_t* cmd);
+void cli_task_notify();
 
 #endif /* _AD2_UART_CLI_H_ */

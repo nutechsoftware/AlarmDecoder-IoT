@@ -998,7 +998,13 @@ void hal_ota_do_update(const char * arg)
     ota_do_update((char*)arg);
 }
 
-
+/**
+ * @brief Get time in microseconds since boot.
+ */
+uint64_t hal_uptime_us()
+{
+    return esp_timer_get_time();
+}
 
 /**
  * @brief get CONNECTED state.

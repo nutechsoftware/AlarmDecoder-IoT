@@ -260,7 +260,7 @@ static void _cli_util_wait_for_user_input(unsigned int timeout_ms)
  * @param [in]pvParameters void * to parameters.
  *
  */
-static void esp_uart_cli_task(void *pvParameters)
+static void uart_cli_task(void *pvParameters)
 {
 
     // Configure a temporary buffer for the incoming data
@@ -425,7 +425,7 @@ static void esp_uart_cli_task(void *pvParameters)
         static int extra_info = EXTRA_INFO_EVERY;
         if(!--extra_info) {
             extra_info = EXTRA_INFO_EVERY;
-            ESP_LOGI(TAG, "esp_uart_cli_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
+            ESP_LOGI(TAG, "uart_cli_task stack free %d", uxTaskGetStackHighWaterMark(NULL));
         }
 #endif
     } //main loop
@@ -434,17 +434,28 @@ static void esp_uart_cli_task(void *pvParameters)
 }
 
 /**
+ * @brief Notify(wake) any cli task command waiting
+ */
+static TaskHandle_t cli_task_handle = NULL;
+void cli_task_notify()
+{
+    if (cli_task_handle) {
+        xTaskNotifyGive(cli_task_handle);
+    }
+}
+
+/**
  * @brief Start the CLI task after a few second pause to allow the user
  * to halt any further processing and stay in CLI mode.
  */
-void uart_cli_main()
+void cli_main()
 {
     /* to decide whether the main function is running or not by user action... */
     g_StopMainTask = 1;    //default value is 1;  stop for a timeout
 
     // uart cli worker thread
     // 20210815SM: 1404 bytes stack free after first connection.
-    xTaskCreate(esp_uart_cli_task, "AD2 cli", 1024*6, NULL, tskIDLE_PRIORITY+2, NULL);
+    xTaskCreate(uart_cli_task, "AD2 cli", 1024*6, NULL, tskIDLE_PRIORITY+2, &cli_task_handle);
 
     // Press \n to halt further processing and just enable CLI processing.
     ad2_printf_host(true, "%s: Send '.' three times in the next 5 seconds to stop the init.", TAG);

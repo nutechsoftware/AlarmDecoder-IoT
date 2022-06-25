@@ -1424,7 +1424,7 @@ void FTPD::processCommand()
 
             }
         }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     } // End loop processing commands.
 
 #if defined(FTPD_DEBUG)
