@@ -113,7 +113,9 @@ void ad2_load_persistent_config()
             ad2_printf_host( false, " failed(");
             ad2_printf_host( false, _ini_file_error(rc));
             ad2_printf_host( false, ")");
-            // last option create a new one.
+
+            // last option create a new one with factory reset and reboot.
+            hal_factory_reset()
 
         } else {
             ad2_printf_host(false, " success.");

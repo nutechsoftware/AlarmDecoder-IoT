@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] CORE: Create default ad2iot.ini with settings for easy configuration over ftp.
+- [X] CORE: Tweak partitions again. Added 64k coredump partition and expanded spiffs by 64k by reducing the two firmware image partition size by 64k. Max program size is 1,835,008 bytes.
+- [X] CONTRIB: Add new schematics for AD2IoT main board and carrier with component values.
 - [X] CORE: Improve top command and make optional with menuconfig.
 - [X] FTPD: Added more sleep time to task it was using too much cpu when idle.
 - [X] HAL: Rename esp_uart_* to uart_*, Remove esp_timer replace with hal_uptime_us().
