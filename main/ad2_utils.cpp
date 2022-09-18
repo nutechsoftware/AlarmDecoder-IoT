@@ -115,7 +115,7 @@ void ad2_load_persistent_config()
             ad2_printf_host( false, ")");
 
             // last option create a new one with factory reset and reboot.
-            hal_factory_reset()
+            hal_factory_reset();
 
         } else {
             ad2_printf_host(false, " success.");
@@ -1828,7 +1828,7 @@ void ad2_init_http_sendQ()
 
     // Start the queue consumer task. Keep the stack as small as possible.
     // 20210815SM: 1444 bytes stack free
-    xTaskCreate(_http_sendQ_consumer_task, "AD2 sendQ", 1024 * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(_http_sendQ_consumer_task, "AD2 sendQ", 1024 * 8, NULL, tskIDLE_PRIORITY + 1, NULL);
 }
 
 /**

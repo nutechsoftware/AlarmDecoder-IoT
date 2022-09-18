@@ -6,7 +6,7 @@
   * 3.2. [SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin](#smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin)
 * 4. [Configuring the AD2IoT device](#configuring-the-ad2iot-device)
 * 5. [AD2Iot CLI - command line interface](#ad2iot-cli---command-line-interface)
-  * 5.1. [Main commands](#main-commands)
+  * 5.1. [Basic commands](#basic-commands)
   * 5.2. [Ser2sock server component](#ser2sock-server-component)
     * 5.2.1. [Configuration for Ser2sock server](#configuration-for-ser2sock-server)
   * 5.3. [Web User Interface webUI component](#web-user-interface-webui-component)
@@ -110,8 +110,9 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - ```ad2source COM 4:36```
     - Network shared AD2* device over ser2sock
       - ```ad2source SOCK 192.168.0.121:10000```
-  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the partition # from 1-8.
-    - ```ad2config mode=A&address=18```
+  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the mode 'D' and the partition # from 1-8.
+    - Typical Ademco Vista setting: ```ad2config mode=A&address=18```
+    - Typical DSC Power Series setting: ```ad2config mode=D&address=1```
   - Configure the default partition address and optional zones in partition 1.
     - ```partition 1 18 2,3,4,5```
   - Define any additional partitions and optional zones.
@@ -134,7 +135,7 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - ```restart```
     - Configure notifications
 
-  - SmartThings Direct-connected device mode.
+  - SmartThings Direct-connected device mode.```*stsdk firmware only```
     - Disable networking to allow the SmartThings driver to manage the network hardware and allow adopting over 802.11 b/g/n 2.4ghz Wi-Fi.
       - ```netmode N```
     - Configure the default partition in slot 1 for the partition to connect to the SmartThings app.
@@ -151,7 +152,7 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - ```restart```
     - Additional notification components will only work after the device is adopted and connected to the local Wi-Fi network.
 
-###  5.1. <a name='main-commands'></a>Main commands
+###  5.1. <a name='basic-commands'></a>Main commands
 - help
 ```console
 Usage: help [command]
@@ -513,26 +514,27 @@ Twilio (/ˈtwɪlioʊ/) is an American cloud communications platform as a service
 
 ####  5.6.1. <a name='configuration-for-twilio-notifications'></a>Configuration tool for Twilio notifications
 ```console
-Usage: twilio (sid|token|from|to|type|format) <acid> [<arg>]
+Usage: twilio (disable|sid|token|from|to|type|format) <acid> [<arg>]
 Usage: twilio switch <swid> [delete|-|notify|open|close|trouble] [<arg>]
 
     Configuration tool for Twilio + SendGrid notifications
 Commands:
-    sid acid [hash]         Twilio String Identifider(SID)
+    disable acid [Y|N]      Disable notification account(acid)
+    sid acid [hash]         Twilio String Identifier(SID)
     token acid [hash]       Twilio Auth Token
     from acid [address]     Validated Email or Phone #
     to acid [address]       Email or Phone #
     type acid [M|C|E]       Notification type Mail, Call, EMail
     format acid [format]    Output format string
     switch swid SCMD [ARG]  Configure switches
-Sub-Commands:
+Sub-Commands: switch
     delete | -              Clear switch notification settings
-    notify <acid>,...       List of accounts [1-8] to use for notification
+    notify <acid>,...       List of accounts [1-999] to use for notification
     open <message>          Send <message> for OPEN events
     close <message>         Send <message> for CLOSE events
     trouble <message>       Send <message> for TROUBLE events
 Options:
-    acid                    Account storage location 1-8
+    acid                    Account storage location 1-999
     swid                    ad2iot virtual switch ID 1-255.
                             See ```switch``` command
     message                 Message to send for this notification

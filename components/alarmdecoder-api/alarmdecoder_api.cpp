@@ -452,10 +452,10 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
             /// only test if supplied.
             if (pfregex.length()) {
                 std::smatch m;
-                std::regex e(pfregex);
+                std::regex re(pfregex);
                 const auto& tmsg = msg;
                 std::match_results< std::string::const_iterator > mr;
-                bool res = std::regex_search(tmsg, m, e);
+                bool res = std::regex_search(tmsg, m, re);
                 if (!res) {
                     // no match next subscriber.
                     continue;
@@ -466,21 +466,29 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
             /// only test if a list is supplied.
             if (!done && eSearch->CLOSE_REGEX_LIST.size()) {
                 for(auto &regexstr : eSearch->CLOSE_REGEX_LIST) {
-                    std::smatch m;
-                    std::regex e(regexstr);
-                    const auto& tmsg = msg;
-                    std::match_results< std::string::const_iterator > mr;
-                    bool res = std::regex_search(tmsg, m, e);
-                    if (res) {
-                        // no match next subscriber.
-                        eSearch->setState(AD2_STATE_CLOSED);
-                        outformat = eSearch->CLOSE_OUTPUT_FORMAT;
-                        // Clear last output results before we collect new.
-                        eSearch->RESULT_GROUPS.clear();
-                        // save the regex group results if any.
-                        for(auto idx : m) {
-                            eSearch->RESULT_GROUPS.push_back(idx);
+                    try {
+                        std::smatch m;
+                        std::regex re(regexstr);
+                        const auto& tmsg = msg;
+                        std::match_results< std::string::const_iterator > mr;
+                        bool res = std::regex_search(tmsg, m, re);
+                        if (res) {
+                            // regex match
+                            eSearch->setState(AD2_STATE_CLOSED);
+                            outformat = eSearch->CLOSE_OUTPUT_FORMAT;
+                            // Clear last output results before we collect new.
+                            eSearch->RESULT_GROUPS.clear();
+                            // save the regex group results if any.
+                            for(auto idx : m) {
+                                eSearch->RESULT_GROUPS.push_back(idx);
+                            }
+                            done = true;
+                            break;
                         }
+                    } catch (std::exception const& e) { // catch (std::regex_error& e) {
+#if defined(IDF_VER)
+                        ESP_LOGE(TAG, "!ERR: regex error: '%s' '%s' '%s'", e.what(), regexstr.c_str(), msg.c_str());
+#endif
                         done = true;
                         break;
                     }
@@ -496,7 +504,7 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     const auto& tmsg = msg;
                     bool res = std::regex_search(tmsg, m, e);
                     if (res) {
-                        // no match next subscriber.
+                        // regex match
                         eSearch->setState(AD2_STATE_OPEN);
                         outformat = eSearch->OPEN_OUTPUT_FORMAT;
                         // Clear last output results before we collect new.
@@ -521,7 +529,7 @@ void AlarmDecoderParser::notifySearchSubscribers(ad2_message_t mt, std::string &
                     std::match_results< std::string::const_iterator > mr;
                     bool res = std::regex_search(tmsg, m, e);
                     if (res) {
-                        // no match next subscriber.
+                        // regex match
                         outformat = eSearch->TROUBLE_OUTPUT_FORMAT;
                         eSearch->setState(AD2_STATE_TROUBLE);
                         // Clear last output results before we collect new.

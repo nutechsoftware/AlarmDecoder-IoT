@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [X] API: Crashes during long term testing have happened during regex parsing in the API as a result of low memory. Adding a TRY/CATCH to fail more gracefully but a better fix needs to be looked at in pushing the issue upstream to the application layer via a async call that the device is low on memory or a notification failed due to low memory. The low memory is usually been the result of some leak in one of the modules when everything is turned on all at once so some decisions need to be made on what services to use. Every service that uses SSL has a big effect on overall memory consumption when initialized.
+- [X] STSDK: Remove stsdk json files that are not used.
+- [X] CORE: Misc cleanup of docs. Remove redundant code in factory_reset. Bump AD2 sendQ stack from 4k to 8k to be safe but it needs more study.
+- [X] TWILIO: Add 'disable' verb to twilio notification slots to make it easy to turn on/off. Log the info when an event is sent out to the sendQ. Max sub account change from 8 to 999. Fix missing pre 'filter' verb value not being saved into search object. Add INFO log report for each notification to help debug REGEX strings. Reduce memory remove saved notification values and instead lookup as needed.
 - [X] CORE: Create default ad2iot.ini with settings for easy configuration over ftp.
 - [X] CORE: Tweak partitions again. Added 64k coredump partition and expanded spiffs by 64k by reducing the two firmware image partition size by 64k. Max program size is 1,835,008 bytes.
 - [X] CONTRIB: Add new schematics for AD2IoT main board and carrier with component values.

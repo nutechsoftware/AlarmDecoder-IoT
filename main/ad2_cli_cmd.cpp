@@ -399,7 +399,6 @@ static void _cli_cmd_restart_event(const char *string)
 static void _cli_cmd_factory_reset_event(const char *string)
 {
     hal_factory_reset();
-    hal_restart();
 }
 
 /**
