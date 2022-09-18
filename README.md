@@ -135,7 +135,7 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - ```restart```
     - Configure notifications
 
-  - SmartThings Direct-connected device mode.```*stsdk firmware only```
+  - SmartThings Direct-connected device mode.```*stsdk firmware build only```
     - Disable networking to allow the SmartThings driver to manage the network hardware and allow adopting over 802.11 b/g/n 2.4ghz Wi-Fi.
       - ```netmode N```
     - Configure the default partition in slot 1 for the partition to connect to the SmartThings app.
@@ -191,23 +191,24 @@ Usage: top
 
 Example:
 
-top - 00:00:21.168 up 0 days Tasks: 13
-Mem: 303944 total, 167176 free, 163028 min free
+top - 15:40:23.477 up 31 days TS: 2734823413319 Tasks: 14
+Mem: 298328 total, 95508 free, 37876 min free
 
-Name            ID  State Priority Stack CPU# TIME       %TBusy %Busy 
-sys_evt           7 B           20  1040    0       5451   0.03   0.00
-Tmr Svc           4 B            1  1672    0       2068   0.01   0.03
-AD2 cli           5 R            2  1912    0     144358   0.68   0.89
-IDLE              3 R            0  1916    0   20676782  97.97  98.31
-tiT               6 B           18  2488    0      19531   0.09   0.08
-AD2 ser2sockd    14 B            1  2704    0      55845   0.26   0.60
-httpd            11 B            5  3336    0        702   0.00   0.00
-emac_rx           8 S           15  3404    0      14862   0.07   0.09
-AD2 sendQ         9 B            1  3600    0        204   0.00   0.00
-esp_timer         1 S           22  3672    0      11177   0.05   0.00
-AD2 ota check    13 B            0  3696    0         16   0.00   0.00
-AD2 main         12 B            1  3716    0       1299   0.01   0.01
-AD2 webUI        10 B            1  4192    0       1777   0.01   0.00
+Name            ID  State Priority Stack CPU# Time                 %TBusy %Busy 
+sys_evt           8 B           20  1048    0                 4646   0.00   0.00
+AD2 ota check    15 B            0  1368    0             50118679   0.00   0.00
+Tmr Svc           4 B            1  1480    0            343028056   0.01   0.03
+IDLE              3 R            0  1820    0        2692433658498  98.45  96.25
+AD2 cli           6 R            2  1932    0          10170914876   0.37   1.25
+tiT               7 B           18  2364    0           1134852575   0.04   0.05
+emac_rx           9 S           15  3236    0           1149697995   0.04   0.02
+httpd            13 B            5  3340    0                  769   0.00   0.00
+AD2 main         14 B            1  3468    0          11172565723   0.41   0.41
+esp_timer         1 S           22  3672    0                29148   0.00   0.00
+AD2 webUI        11 B            1  4192    0             48403756   0.00   0.00
+AD2 GPIO COM RX   5 B            2  4288    0          18014970412   0.66   2.00
+AD2 sendQ        10 B            1  5460    0            298731230   0.01   0.00
+ftp daemon       12 B            1  7376    0                  615   0.00   0.00
 
    State legend
     'B'locked 'R'eady 'D'eleted 'S'uspended
@@ -423,10 +424,11 @@ Examples:
 ```
 
 ###  5.4. <a name='smartthings-direct-connected-device.'></a>SmartThings Direct Connected device.
+###### ```Only available in stsdk firmware build```
 Direct-connected devices connect directly to the SmartThings cloud. The SDK for Direct Connected Devices is equipped to manage all MQTT topics and onboarding requirements, freeing you to focus on the actions and attributes of your device. To facilitate the development of device application in an original chipset SDK, the core device library and the examples were separated into two git repositories. That is, if you want to use the core device library in your original chipset SDK that installed before, you may simply link it to develop a device application in your existing development environment. For more info see https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.
 
 ####  5.4.1. <a name='-configuration-for-smartthings-iot-client'></a> Configuration tool for SmartThings IoT client
-- Enable SmartThings component
+- Enable SmartThings component *stsdk
   - ```stenable {bool}```
     - {bool}: [Y]es/[N]o
 - Sets the SmartThings device_info serialNumber.
