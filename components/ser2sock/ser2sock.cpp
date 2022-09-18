@@ -54,9 +54,6 @@ static const char *TAG = "SER2SOCKD";
 
 #define S2SD_CONFIG_SECTION "ser2sockd"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 // forward decl
 void ser2sockd_server_task(void *pvParameters);
 
@@ -264,7 +261,7 @@ void ser2sockd_init(void)
 
     // ser2sockd worker thread
     // 20210815SM: 1284 bytes stack free after first connection.
-    xTaskCreate(&ser2sockd_server_task, "ser2sockd_server_task", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(&ser2sockd_server_task, "AD2 ser2sockd", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }
 
@@ -781,16 +778,16 @@ void ser2sockd_server_task(void *pvParameters)
                 _poll_exception_fdset(&except_fdset);
 
                 /* poll our read fdset */
-                did_work = _poll_read_fdset(&read_fdset);
+                did_work |= _poll_read_fdset(&read_fdset);
 
                 /* poll our write fdset */
-                did_work = _poll_write_fdset(&write_fdset);
+                did_work |= _poll_write_fdset(&write_fdset);
 
                 /* if we did not do anything then sleep a little predict
                 next go round will be idle too
                 */
                 if (!did_work) {
-                    vTaskDelay(10 / portTICK_PERIOD_MS);
+                    vTaskDelay(100 / portTICK_PERIOD_MS);
                 }
                 /* if network goes away then we are done */
                 if (!hal_get_network_connected()) {
@@ -815,7 +812,4 @@ CLEAN_UP:
     vTaskDelete(NULL);
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_SER2SOCKD */

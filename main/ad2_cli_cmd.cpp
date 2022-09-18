@@ -35,10 +35,6 @@ static const char *TAG = "AD2CLICMD";
 // specific includes
 #include "ad2_cli_cmd.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @brief Set the alpha descriptor for a given zone.
  *
@@ -403,9 +399,7 @@ static void _cli_cmd_restart_event(const char *string)
 static void _cli_cmd_factory_reset_event(const char *string)
 {
     hal_factory_reset();
-    hal_restart();
 }
-
 
 /**
  * @brief event handler for netmode command
@@ -858,7 +852,3 @@ void register_ad2_cli_cmd(void)
         cli_register_command(&cmd_list[i]);
     }
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif

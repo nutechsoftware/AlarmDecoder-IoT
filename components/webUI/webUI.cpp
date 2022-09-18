@@ -92,11 +92,6 @@ struct ws_session_storage {
 
 // C++
 
-// extern C
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Include template engine from
 //   https://github.com/full-stack-ex/tiny-template-engine-arduino
 // Currently not functional with esp-idf development platform only Arduino so some mods were needed.
@@ -109,7 +104,7 @@ extern "C" {
 void uptimeString(std::string &tstring)
 {
     // 64bit milliseconds since boot
-    int64_t ms = esp_timer_get_time() / 1000;
+    int64_t ms = hal_uptime_us() / 1000;
     // seconds
     int32_t s = ms / 1000;
     // days
@@ -806,10 +801,7 @@ void webui_init(void)
     // SUbscribe to ON_ZONE_CHANGE events
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
 
-    xTaskCreate(&webui_server_task, "webui_server_task", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(&webui_server_task, "AD2 webUI", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
 #endif /*  CONFIG_AD2IOT_WEBSERVER_UI */

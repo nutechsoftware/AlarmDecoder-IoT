@@ -41,10 +41,6 @@ static const char *TAG = "HAL";
 // specific includes
 #include "ota_util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // forward decl for private event handlers.
 void _eth_event_handler(void *arg, esp_event_base_t event_base,
                         int32_t event_id, void *event_data);
@@ -1002,7 +998,13 @@ void hal_ota_do_update(const char * arg)
     ota_do_update((char*)arg);
 }
 
-
+/**
+ * @brief Get time in microseconds since boot.
+ */
+uint64_t hal_uptime_us()
+{
+    return esp_timer_get_time();
+}
 
 /**
  * @brief get CONNECTED state.
@@ -1229,7 +1231,3 @@ void hal_init_persistent_storage()
         ad2_printf_host(true, "%s: SPIFFS partition size: %d B, free: %d B.", TAG, total, total-used);
     }
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif

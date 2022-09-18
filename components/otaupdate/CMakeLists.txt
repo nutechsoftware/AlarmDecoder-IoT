@@ -1,4 +1,3 @@
-set(EXTRA_EMBED "ota_update_server_root.pem")
 idf_component_register(SRCS "ota_util.cpp"
                     REQUIRES idf::nvs_flash
                     REQUIRES idf::alarmdecoder-api

@@ -44,6 +44,7 @@ static const char *TAG = "TWILIO";
 #define SENDGRID_URL "https://api.sendgrid.com/" SENDGRID_API_VERSION "/mail/send"
 
 #define TWILIO_COMMAND        "twilio"
+#define TWILIO_DISABLE_SUBCMD "disable"
 #define TWILIO_SID_SUBCMD     "sid"
 #define TWILIO_TOKEN_SUBCMD   "token"
 #define TWILIO_FROM_SUBCMD    "from"
@@ -81,15 +82,15 @@ enum {
 /**
  * @brief class that will be stored in the sendQ for each request.
  */
-class request_message
+class tw_request_message
 {
 public:
-    request_message()
+    tw_request_message()
     {
         config_client = (esp_http_client_config_t *)calloc(1, sizeof(esp_http_client_config_t));
         state = TWILIO_NEXT_STATE_DONE;
     }
-    ~request_message()
+    ~tw_request_message()
     {
         if (config_client) {
             free(config_client);
@@ -100,12 +101,7 @@ public:
     esp_http_client_config_t* config_client;
 
     // Application specific
-    std::string type;
-    std::string sid;
-    std::string token;
-    std::string from;
-    std::string to;
-    std::string format;
+    int notify_slot;
     std::string message;
     std::string url;
     std::string post;
@@ -118,17 +114,33 @@ public:
  *   https://www.twilio.com/docs/sms/api/message-resource
  *   https://stackoverflow.com/questions/48898162/interactive-voice-menu-on-twilio-twiml
  */
-static void _build_twilio_message_post(esp_http_client_handle_t client, request_message *r)
+static void _build_twilio_message_post(esp_http_client_handle_t client, tw_request_message *r)
 {
     esp_err_t err;
     std::string auth_header;
 
+    // get token for this notification slot from config.
+    std::string sidString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_SID_SUBCMD, sidString, r->notify_slot);
+
+    // get sid for this notification slot from config.
+    std::string tokenString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TOKEN_SUBCMD, tokenString, r->notify_slot);
+
     // Set the Authorization header
-    auth_header = "Basic " + ad2_make_basic_auth_string(r->sid, r->token);
+    auth_header = "Basic " + ad2_make_basic_auth_string(sidString, tokenString);
     esp_http_client_set_header(client, "Authorization", auth_header.c_str());
 
+    // get from for this notification slot from config.
+    std::string fromString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FROM_SUBCMD, fromString, r->notify_slot);
+
+    // get to for this notification slot from config.
+    std::string toString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TO_SUBCMD, toString, r->notify_slot);
+
     // Set post body
-    r->post = "To=" + ad2_urlencode(r->to) + "&From=" + ad2_urlencode(r->from) + \
+    r->post = "To=" + ad2_urlencode(toString) + "&From=" + ad2_urlencode(fromString) + \
               "&Body=" + ad2_urlencode(r->message);
 
     // does not copy data just a pointer so we have to maintain memory.
@@ -139,24 +151,45 @@ static void _build_twilio_message_post(esp_http_client_handle_t client, request_
  * Build the json POST body for a twilio Message API call
  *   https://www.twilio.com/docs/voice/api/sip-making-calls
  */
-static void _build_twilio_call_post(esp_http_client_handle_t client, request_message *r)
+static void _build_twilio_call_post(esp_http_client_handle_t client, tw_request_message *r)
 {
     esp_err_t err;
     std::string auth_header;
 
+    // get sid for this notification slot from config.
+    std::string sidString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_SID_SUBCMD, sidString, r->notify_slot);
+
+    // get token for this notification slot from config.
+    std::string tokenString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TOKEN_SUBCMD, tokenString, r->notify_slot);
+
     // Set the Authorization header
-    auth_header = "Basic " + ad2_make_basic_auth_string(r->sid, r->token);
+    auth_header = "Basic " + ad2_make_basic_auth_string(sidString, tokenString);
     esp_http_client_set_header(client, "Authorization", auth_header.c_str());
 
     // Build the Twiml message using the format and message as the arg
     // TODO: Multiple args by splitting r->message using , or |
-    std::string twiml = fmt::format(r->format, r->message);
+
+    // get format template string for this notification slot from config.
+    std::string formatString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FORMAT_SUBCMD, formatString, r->notify_slot);
+
+    // get from for this notification slot from config.
+    std::string fromString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FROM_SUBCMD, fromString, r->notify_slot);
+
+    // get to for this notification slot from config.
+    std::string toString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TO_SUBCMD, toString, r->notify_slot);
+
+    std::string twiml = fmt::format(formatString, r->message);
 #if defined(DEBUG_TWILIO)
     ESP_LOGI(TAG, "Sending Twiml message: %s", twiml.c_str());
 #endif
 
     // Set post body
-    r->post = "To=" + ad2_urlencode(r->to) + "&From=" + ad2_urlencode(r->from) + \
+    r->post = "To=" + ad2_urlencode(toString) + "&From=" + ad2_urlencode(fromString) + \
               "&Twiml=" + ad2_urlencode(twiml);
 
     // does not copy data just a pointer so we have to maintain memory.
@@ -166,12 +199,16 @@ static void _build_twilio_call_post(esp_http_client_handle_t client, request_mes
 /**
  * Build the json POST body for a sendgrid message API call
  */
-static void _build_sendgrid_post(esp_http_client_handle_t client, request_message *r)
+static void _build_sendgrid_post(esp_http_client_handle_t client, tw_request_message *r)
 {
     esp_err_t err;
 
+    // get sid for this notification slot from config.
+    std::string tokenString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TOKEN_SUBCMD, tokenString, r->notify_slot);
+
     // Set the Authorization header
-    std::string auth_header = "Bearer " + r->token;
+    std::string auth_header = "Bearer " + tokenString;
     esp_http_client_set_header(client, "Authorization", auth_header.c_str());
 
     // object: root
@@ -180,9 +217,13 @@ static void _build_sendgrid_post(esp_http_client_handle_t client, request_messag
     // array: personalizations
     cJSON *_personalizations = cJSON_CreateArray();
 
+    // get from for this notification slot from config.
+    std::string fromString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FROM_SUBCMD, fromString, r->notify_slot);
+
     // object: from
     cJSON *_from = cJSON_CreateObject();
-    cJSON_AddStringToObject(_from, "email", r->from.c_str());
+    cJSON_AddStringToObject(_from, "email", fromString.c_str());
 
     // array: content
     cJSON *_content = cJSON_CreateArray();
@@ -197,9 +238,13 @@ static void _build_sendgrid_post(esp_http_client_handle_t client, request_messag
     cJSON_AddItemToObject(_root, "personalizations", _personalizations);
     cJSON_AddItemToObject(_root, "content", _content);
 
+    // get from for this notification slot from config.
+    std::string toString;
+    ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TO_SUBCMD, toString, r->notify_slot);
+
     // _personalizations -> to[]
     std::vector<std::string> to_list;
-    ad2_tokenize(r->to, ", ", to_list);
+    ad2_tokenize(toString, ", ", to_list);
     for (auto &szto : to_list) {
         cJSON *_to = cJSON_CreateArray();
         cJSON *_pitem = cJSON_CreateObject();
@@ -235,10 +280,15 @@ static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_clien
 {
     // if perform failed this can be NULL
     if (client) {
-        request_message *r = (request_message*) config->user_data;
+        tw_request_message *r = (tw_request_message*) config->user_data;
+
+        // get twilio [type] : Used to determine delivery settings using SendGrid or twilio servers.
+        std::string type;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TYPE_SUBCMD, type, r->notify_slot);
+        type.resize(1);
 
         // Build POST based upon notification type
-        switch(r->type[0]) {
+        switch(type[0]) {
 
         // Twilio Call api
         //     https://www.twilio.com/docs/voice/api/sip-making-calls
@@ -275,25 +325,57 @@ static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_clien
  */
 static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
-    request_message *r = (request_message*) config->user_data;
+    tw_request_message *r = (tw_request_message*) config->user_data;
 #if defined(DEBUG_TWILIO)
     ESP_LOGI(TAG, "perform results = %d HTTP Status = %d, response length = %d response = '%s'", res,
              esp_http_client_get_status_code(client),
              esp_http_client_get_content_length(client), r->results.c_str());
 #endif
-    // If first request was OK and we are scheduled to make GET for details.
-    if (res == ESP_OK && r->state == TWILIO_NEXT_STATE_GET) {
+
+    // parse some data from json response if one exists.
+    std::string jsonStatus;
+    std::string jsonMessage;
+    std::string notify_url;
+
+    cJSON * root = cJSON_Parse(r->results.c_str());
+    if (root) {
 
         // If the request contains a subresource_uris and Notifications.json then request it next else we are done.
-        cJSON * root   = cJSON_Parse(r->results.c_str());
         cJSON * subr_uris = cJSON_GetObjectItem(root, "subresource_uris");
-        // { "subresource_uris" : { "notifications" : "FOO", ...}}
-        cJSON * notifications_url = cJSON_GetObjectItem(subr_uris, "notifications");
-        std::string notify_url;
-        if (notifications_url->valuestring) {
-            notify_url = notifications_url->valuestring;
+        if (subr_uris) {
+            // { "subresource_uris" : { "notifications" : "FOO", ...}}
+            cJSON * notifications_url = cJSON_GetObjectItem(subr_uris, "notifications");
+            if (notifications_url) {
+                notify_url = cJSON_GetStringValue(notifications_url);
+            }
         }
+
+        // json status
+        cJSON * status = cJSON_GetObjectItem(root, "status");
+        if (status) {
+            jsonStatus = cJSON_GetStringValue(status);
+        }
+
+        // json error
+        cJSON * errors = cJSON_GetObjectItem(root, "errors");
+        if (errors) {
+            jsonStatus = "error";
+            cJSON * error = cJSON_GetArrayItem(errors, 0);
+            if (error) {
+                cJSON * message = cJSON_GetObjectItem(error, "message");
+                if (message) {
+                    jsonMessage = cJSON_GetStringValue(message);
+                }
+            }
+        }
+
         cJSON_Delete(root);
+    }
+
+    ESP_LOGI(TAG,"Notify slot #%i response code: '%i' status: '%s' message: '%s'", r->notify_slot, esp_http_client_get_status_code(client), jsonStatus.c_str(), jsonMessage.c_str());
+
+    // If first request was OK and we are scheduled to make GET for details.
+    if (res == ESP_OK && r->state == TWILIO_NEXT_STATE_GET) {
 
         // Last thing we will do and we are done.
         r->state = TWILIO_NEXT_STATE_DONE;
@@ -329,8 +411,7 @@ static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, 
  */
 esp_err_t _twilio_http_event_handler(esp_http_client_event_t *evt)
 {
-    request_message *r;
-    size_t len;
+    tw_request_message *r;
 
     switch(evt->event_id) {
     case HTTP_EVENT_ON_HEADER:
@@ -369,7 +450,7 @@ esp_err_t _twilio_http_event_handler(esp_http_client_event_t *evt)
 #endif
         if (evt->data_len) {
             // Save the results into our message_data structure.
-            r = (request_message *)evt->user_data;
+            r = (tw_request_message *)evt->user_data;
             r->results.append((char*)evt->data, evt->data_len);
         }
         break;
@@ -399,43 +480,42 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
     std::list<uint8_t> *notify_list = (std::list<uint8_t>*)es->PTR_ARG;
     for (uint8_t const& notify_slot : *notify_list) {
 
+        // skip if this notification slot if disabled.
+        // cli example: twilio disable 1 true
+        bool bDiabled = false;
+        ad2_get_config_key_bool(TWILIO_CONFIG_SECTION, TWILIO_DISABLE_SUBCMD, &bDiabled, notify_slot);
+        if (bDiabled) {
+            continue;
+        }
+
         // Container to store details needed for delivery.
-        request_message *r = new request_message();
+        tw_request_message *r = new tw_request_message();
 
-        // load our settings for this event type.
-
-        // get twilio api sid
-        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_SID_SUBCMD, r->sid, notify_slot);
-
-        // get twilio api token
-        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TOKEN_SUBCMD, r->token, notify_slot);
-
-        // get twilio api from
-        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FROM_SUBCMD, r->from, notify_slot);
-
-        // get twilio api to
-        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TO_SUBCMD, r->to, notify_slot);
-
-        // get twilio [type] : Used to determin delivery using sendgrid or twilio servers.
-        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TYPE_SUBCMD, r->type, notify_slot);
-        r->type.resize(1);
-
-        // get format template string
-        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_FORMAT_SUBCMD, r->format, notify_slot);
+        // save the Account storage ID for the notification.
+        r->notify_slot = notify_slot;
 
         // save the message
         r->message = es->out_message;
 
+        // get sid for this notification slot from config.
+        std::string sidString;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_SID_SUBCMD, sidString, r->notify_slot);
+
+        // get twilio [type] : Used to determine delivery settings using SendGrid or twilio servers.
+        std::string type;
+        ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TYPE_SUBCMD, type, notify_slot);
+        type.resize(1);
+
         // Settings specific for http_client_config
 
         // Configure the URL based upon the request type.
-        switch(r->type[0]) {
+        switch(type[0]) {
 
         // Twilio Call api
         //     https://www.twilio.com/docs/voice/api/sip-making-calls
         case TWILIO_NOTIFY_CALL[0]:
             // Build dynamic URL and set pointer to config_client->url;
-            r->url = ad2_string_printf(TWILIO_URL_FMT, r->sid.c_str(), "Calls.json");
+            r->url = ad2_string_printf(TWILIO_URL_FMT, sidString.c_str(), "Calls.json");
             r->config_client->url = r->url.c_str();
             // POST and parse resutls for url to query.
             r->state = TWILIO_NEXT_STATE_GET;
@@ -445,7 +525,7 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
         //     https://www.twilio.com/docs/sms/api/message-resource
         case TWILIO_NOTIFY_MESSAGE[0]:
             // Build dynamic URL and set pointer to config_client->url;
-            r->url = ad2_string_printf(TWILIO_URL_FMT, r->sid.c_str(), "Messages.json");
+            r->url = ad2_string_printf(TWILIO_URL_FMT, sidString.c_str(), "Messages.json");
             r->config_client->url = r->url.c_str();
             // Single POST request then done
             r->state = TWILIO_NEXT_STATE_DONE;
@@ -462,7 +542,7 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
 
         // Unknown.
         default:
-            ESP_LOGW(TAG, "Unknown message type '%c' aborting adding to sendQ.", r->type[0]);
+            ESP_LOGW(TAG, "Unknown message type '%c' aborting adding to sendQ.", type[0]);
             // destroy storage class if we fail to add to the sendQ
             delete r;
             return;
@@ -480,9 +560,7 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
         // Add client config to the http_sendQ for processing.
         bool res = ad2_add_http_sendQ(r->config_client, _sendQ_ready_handler, _sendQ_done_handler);
         if (res) {
-#if defined(DEBUG_TWILIO)
-            ESP_LOGI(TAG,"Adding HTTP request to ad2_add_http_sendQ");
-#endif
+            ESP_LOGI(TAG,"Switch #%i match message '%s'. Sending '%s' to acid #%i", es->INT_ARG, msg->c_str(), es->out_message.c_str(), notify_slot);
         } else {
             ESP_LOGE(TAG,"Error adding HTTP request to ad2_add_http_sendQ.");
             // destroy storage class if we fail to add to the sendQ
@@ -501,6 +579,7 @@ enum {
     TWILIO_TO_SUBCMD_ID,
     TWILIO_TYPE_SUBCMD_ID,
     TWILIO_FORMAT_SUBCMD_ID,
+    TWILIO_DISABLE_SUBCMD_ID,
     TWILIO_SWITCH_SUBCMD_ID
 };
 char * TWILIO_SUBCMDS [] = {
@@ -510,6 +589,7 @@ char * TWILIO_SUBCMDS [] = {
     (char*)TWILIO_TO_SUBCMD,
     (char*)TWILIO_TYPE_SUBCMD,
     (char*)TWILIO_FORMAT_SUBCMD,
+    (char*)TWILIO_DISABLE_SUBCMD,
     (char*)TWILIO_SWITCH_SUBCMD,
     0 // EOF
 };
@@ -528,12 +608,12 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, const char *strin
     ad2_copy_nth_arg(subcmd, string, 1);
     ad2_lcase(subcmd);
 
-    // get the accountID 1-8
+    // get the accountID 1-999
     if (ad2_copy_nth_arg(buf, string, 2) >= 0) {
         accountId = strtol(buf.c_str(), NULL, 10);
     }
-    // Allowed accountId 1-8
-    if (accountId > 0 && accountId < 9) {
+    // Allowed accountId 1-999
+    if (accountId > 0 && accountId < 1000) {
         // <arg>
         if (ad2_copy_nth_arg(buf, string, 3, true) >= 0) {
 
@@ -542,15 +622,25 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, const char *strin
                 ad2_remove_ws(buf);
             }
 
-            ad2_set_config_key_string(TWILIO_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
+            // disabled is bool all others are string.
+            if(subcmd.compare(TWILIO_DISABLE_SUBCMD) == 0) {
+                ad2_set_config_key_bool(TWILIO_CONFIG_SECTION, subcmd.c_str(), (buf[0] == 'Y' || buf[0] ==  'y'), accountId);
+            } else {
+                ad2_set_config_key_string(TWILIO_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
+            }
             ad2_printf_host(false, "Setting '%s' value '%s' finished.\r\n", subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
             ad2_get_config_key_string(TWILIO_CONFIG_SECTION, subcmd.c_str(), buf, accountId);
+            if(subcmd.compare(TWILIO_DISABLE_SUBCMD) == 0) {
+                if (buf.compare("true") == 0) {
+                    buf = "Y";
+                }
+            }
             ad2_printf_host(false, "Current acid #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
-        ad2_printf_host(false, "Missing or invalid <acid> [1-8].\r\n");
+        ad2_printf_host(false, "Missing or invalid <acid> [1-999].\r\n");
     }
 }
 
@@ -610,7 +700,6 @@ static void _cli_cmd_twilio_smart_alert_switch(std::string &subcmd, const char *
                 TWILIO_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
             std::string sk;
-            bool command_found = false;
             ad2_printf_host(false, "## [twilio] switch %i configuration.\r\n", swID);
             while (ss >> sk) {
                 tbuf = "";
@@ -655,6 +744,7 @@ static void _cli_cmd_twilio_command_router(const char *string)
             case TWILIO_TO_SUBCMD_ID:  // 'to' sub command
             case TWILIO_TYPE_SUBCMD_ID:  // 'type' sub command
             case TWILIO_FORMAT_SUBCMD_ID:  // 'format' sub command
+            case TWILIO_DISABLE_SUBCMD_ID:  // 'disable' sub command
                 _cli_cmd_twilio_event_generic(subcmd, string);
                 break;
             case TWILIO_SWITCH_SUBCMD_ID:
@@ -675,26 +765,27 @@ static struct cli_command twilio_cmd_list[] = {
     {
         // ### Twilio notification component
         (char*)TWILIO_COMMAND,(char*)
-        "Usage: twilio (sid|token|from|to|type|format) <acid> [<arg>]\r\n"
+        "Usage: twilio (disable|sid|token|from|to|type|format) <acid> [<arg>]\r\n"
         "Usage: twilio switch <swid> [delete|-|notify|open|close|trouble] [<arg>]\r\n"
         "\r\n"
         "    Configuration tool for Twilio + SendGrid notifications\r\n"
         "Commands:\r\n"
-        "    sid acid [hash]         Twilio String Identifider(SID)\r\n"
+        "    disable acid [Y|N]      Disable notification account(acid)\r\n"
+        "    sid acid [hash]         Twilio String Identifier(SID)\r\n"
         "    token acid [hash]       Twilio Auth Token\r\n"
         "    from acid [address]     Validated Email or Phone #\r\n"
         "    to acid [address]       Email or Phone #\r\n"
         "    type acid [M|C|E]       Notification type Mail, Call, EMail\r\n"
         "    format acid [format]    Output format string\r\n"
         "    switch swid SCMD [ARG]  Configure switches\r\n"
-        "Sub-Commands:\r\n"
+        "Sub-Commands: switch\r\n"
         "    delete | -              Clear switch notification settings\r\n"
-        "    notify <acid>,...       List of accounts [1-8] to use for notification\r\n"
+        "    notify <acid>,...       List of accounts [1-999] to use for notification\r\n"
         "    open <message>          Send <message> for OPEN events\r\n"
         "    close <message>         Send <message> for CLOSE events\r\n"
         "    trouble <message>       Send <message> for TROUBLE events\r\n"
         "Options:\r\n"
-        "    acid                    Account storage location 1-8\r\n"
+        "    acid                    Account storage location 1-999\r\n"
         "    swid                    ad2iot virtual switch ID 1-255.\r\n"
         "                            See ```switch``` command\r\n"
         "    message                 Message to send for this notification\r\n"
@@ -815,6 +906,7 @@ void twilio_init()
             // load [switch N] required regex match settings
             std::string prefilter_regex;
             ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+            es1->PRE_FILTER_REGEX = prefilter_regex;
 
             // Load all regex search patterns for open, close, and trouble sub keys.
             std::string regex_sk_list = AD2SWITCH_SK_OPEN " "

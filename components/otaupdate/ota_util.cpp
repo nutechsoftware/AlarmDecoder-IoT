@@ -38,7 +38,7 @@ static const char *TAG = "AD2OTA";
 
 //#define DEBUG_OTA
 
-#define CONFIG_OTA_SERVER_URL "https://ad2iotota.alarmdecoder.com:4443/"
+#define CONFIG_OTA_SERVER_URL "https://www.alarmdecoder.com/ad2iotota/"
 #define CONFIG_FIRMWARE_VERSION_INFO_URL CONFIG_OTA_SERVER_URL "ad2iotv11_version_info.json"
 #define CONFIG_FIRMWARE_UPGRADE_URL_FMT CONFIG_OTA_SERVER_URL "signed_alarmdecoder_%s_esp32.bin"
 
@@ -58,10 +58,6 @@ static const char *TAG = "AD2OTA";
 #define OTA_FIRST_CHECK_DELAY_MS 30*1000
 #define OTA_SOCKET_TIMEOUT 10*1000
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // forward decl
 int ota_get_polling_period_day();
 esp_err_t ota_api_get_available_version(char *update_info, unsigned int update_info_len, char **new_version);
@@ -71,7 +67,6 @@ void ota_do_version(const char *arg);
 
 extern const uint8_t firmware_signature_public_key_start[]  asm("_binary_firmware_signature_public_key_pem_start");
 extern const uint8_t firmware_signature_public_key_end[]    asm("_binary_firmware_signature_public_key_pem_end");
-extern const uint8_t update_server_root_pem_start[]         asm("_binary_ota_update_server_root_pem_start");
 
 // OTA Update task
 TaskHandle_t ota_task_handle = NULL;
@@ -447,7 +442,6 @@ esp_err_t ota_https_update_device(const char *buildflags)
     std::string fwfile = ad2_string_printf(CONFIG_FIRMWARE_UPGRADE_URL_FMT, buildflags);
     config->url = fwfile.c_str();
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
-    config->cert_pem = (const char *)update_server_root_pem_start;
     config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
@@ -633,7 +627,6 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
     esp_http_client_config_t* config = (esp_http_client_config_t*)calloc(sizeof(esp_http_client_config_t), 1);
     config->url = CONFIG_FIRMWARE_VERSION_INFO_URL;
     config->timeout_ms = OTA_SOCKET_TIMEOUT;
-    config->cert_pem = (char *)update_server_root_pem_start;
     config->transport_type = HTTP_TRANSPORT_OVER_SSL;
     config->event_handler = _http_event_handler;
 
@@ -798,7 +791,7 @@ void ota_do_update(const char *command)
         ESP_LOGW(TAG, "Device is currently updating.");
         return;
     }
-    xTaskCreate(&ota_task_func, "ota_task_func", 1024*8, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
+    xTaskCreate(&ota_task_func, "AD2 OTA Update", 1024*8, strdup(command), tskIDLE_PRIORITY+2, &ota_task_handle);
 }
 
 /**
@@ -834,7 +827,7 @@ void ota_init()
         cli_register_command(&ota_cmd_list[i]);
     }
 
-    xTaskCreate(ota_polling_task_func, "ota_polling_task_func", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(ota_polling_task_func, "AD2 ota check", 1024*4, NULL, tskIDLE_PRIORITY, NULL);
 }
 
 /**
@@ -844,7 +837,3 @@ void ota_do_version(const char *arg)
 {
     ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }
-
-#ifdef __cplusplus
-} // extern "C"
-#endif

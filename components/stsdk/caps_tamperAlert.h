@@ -18,10 +18,6 @@
 
 #include "caps/iot_caps_helper_tamperAlert.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct caps_tamperAlert_data {
     IOT_CAP_HANDLE* handle;
     void *usr_data;
@@ -38,7 +34,3 @@ typedef struct caps_tamperAlert_data {
 } caps_tamperAlert_data_t;
 
 caps_tamperAlert_data_t *caps_tamperAlert_initialize(IOT_CTX *ctx, const char *component, void *init_usr_cb, void *usr_data);
-#ifdef __cplusplus
-}
-#endif
-

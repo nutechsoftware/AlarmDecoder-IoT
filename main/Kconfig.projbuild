@@ -1,5 +1,11 @@
 menu "AlarmDecoder IoT Configuration (AD2iot)"
 
+config AD2IOT_TOP
+    bool "Enable TOP command"
+    default y
+    help
+        Enable support for TOP command and background task to monitor FreeRTOS tasks.
+
 config AD2IOT_USE_WIFI
     bool "Enable WiFi driver"
     default y

@@ -33,6 +33,40 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
+## [1.1.1] - 2022-09-18 Sean Mathews - coder @f34rdotcom
+Changes:
+  - Partition change add new coredump partition.
+    - This change will require manual flash OTA will not work. Hopefully this is the last partition change.
+  - Improved top command from 1.1.0 fixed bugs and rollover issues.
+  - Twilio
+    - New sub command to disable or enable notification slots.
+    - Expanding total notification slots from 8 to 999.
+    - Memory optimization.
+  - General
+    - Continued work on docs.
+    - Continued work on memory and CPU optimization.
+### Change log
+- [X] SM API: Crashes during long term testing have happened during regex parsing in the API as a result of low memory. Adding a TRY/CATCH to fail more gracefully but a better fix needs to be looked at in pushing the issue upstream to the application layer via a async call that the device is low on memory or a notification failed due to low memory. The low memory is usually been the result of some leak in one of the modules when everything is turned on all at once so some decisions need to be made on what services to use. Every service that uses SSL has a big effect on overall memory consumption when initialized.
+- [X] SM STSDK: Remove stsdk json files that are not used.
+- [X] SM CORE: Misc cleanup of docs. Remove redundant code in factory_reset. Bump AD2 sendQ stack from 4k to 8k to be safe but it needs more study.
+- [X] SM TWILIO: Add 'disable' verb to twilio notification slots to make it easy to turn on/off. Log the info when an event is sent out to the sendQ. Max sub account change from 8 to 999. Fix missing pre 'filter' verb value not being saved into search object. Add INFO log report for each notification to help debug REGEX strings. Reduce memory remove saved notification values and instead lookup as needed.
+- [X] SM CORE: Create default ad2iot.ini with settings for easy configuration over ftp.
+- [X] SM CORE: Tweak partitions again. Added 64k coredump partition and expanded spiffs by 64k by reducing the two firmware image partition size by 64k. Max program size is 1,835,008 bytes.
+- [X] SM CONTRIB: Add new schematics for AD2IoT main board and carrier with component values.
+- [X] SM CORE: Improve top command and make optional with menuconfig.
+- [X] SM FTPD: Added more sleep time to task it was using too much cpu when idle.
+- [X] SM HAL: Rename esp_uart_* to uart_*, Remove esp_timer replace with hal_uptime_us().
+- [X] SM CORE: Improve top to deal with overflow. TODO IDLE task will overflow so make a spacial case keep a private IDLE run tiem counter.
+- [X] SM SER2SOCK: High CPU fix old bug found with new top command.
+- [X] SM CORE: Refactor top and add docs. The FreeRTOS in stats reports were glitchy so it was replaced with uxTaskGetSystemState().
+- [X] SM STSDK: Small fixes. Still a big mess :(
+- [X] SM *: Nice task names.
+- [X] SM CORE: Fix from prior change const cast.
+- [X] SM CORE: Change platform.ini to be more clear on IDF version and remove old comment that is no longer relevant.
+- [X] SM CORE: Add new command ```top``` to show task list and some stats. Needed something for sanity checking and tuning.
+- [X] SM OTA: Remove private key and use global ca store and real world certs. For now point to www.alarmdecoder.com site and use it's cert for encryption.
+- [X] SM CORE: Remove remaining cdecl that is no longer needed except for the one entrypoint from FreeRTOS.
+- [X] SM CORE: Misc cleanup no code changes. Updated address_info.txt missed on last release.
 ## [1.1.0] - 2022-05-23 Sean Mathews - coder @f34rdotcom
 Big changes:
   - Help file and docs refactor to make more user friendly.
