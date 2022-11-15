@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.1 P1] - 2022-11-14 Sean Mathews - coder @f34rdotcom
+## [1.1.2] - 2022-11-14 Sean Mathews - coder @f34rdotcom
 Changes:
   - Fix missing compile flag with new espidf that caused auth failure with twilio.
     - Add new? lost switch ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH.
