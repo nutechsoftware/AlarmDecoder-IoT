@@ -333,38 +333,64 @@ static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, 
 #endif
 
     // parse some data from json response if one exists.
-    std::string jsonStatus;
-    std::string jsonMessage;
+    std::string szStatus;
+    std::string szMessage;
     std::string notify_url;
 
     cJSON * root = cJSON_Parse(r->results.c_str());
     if (root) {
+        // check for exceptions and report
+        // https://www.twilio.com/docs/usage/twilios-response#response-formats-exceptions
+        cJSON * code = cJSON_GetObjectItem(root, "code");
+        if (code) {
+            ESP_LOGI(TAG,"parse exception code json");
+            szStatus = "Exception";
+            int ret_code = code->valueint;
+
+            std::string ret_message;
+            cJSON * jso_message = cJSON_GetObjectItem(root, "message");
+            if (jso_message && jso_message->valuestring) {
+                ret_message = jso_message->valuestring;
+            }
+
+            std::string ret_more_info;
+            cJSON * jso_more_info = cJSON_GetObjectItem(root, "more_info");
+            if (jso_more_info && jso_more_info->valuestring) {
+                ret_more_info = jso_more_info->valuestring;
+            }
+
+            int ret_status = -1;
+            cJSON * jso_status = cJSON_GetObjectItem(root, "status");
+            if (jso_status) {
+                ret_status = jso_status->valueint;
+            }
+
+            szMessage = ad2_string_printf("code: %i, message: '%s', more_info: '%s', status: %i",
+               ret_code, ret_message.c_str(), ret_more_info.c_str(), ret_status);
+        }
 
         // If the request contains a subresource_uris and Notifications.json then request it next else we are done.
         cJSON * subr_uris = cJSON_GetObjectItem(root, "subresource_uris");
         if (subr_uris) {
+            ESP_LOGI(TAG,"parse subresource_uris json");
+            szStatus = "subresource_uris";
             // { "subresource_uris" : { "notifications" : "FOO", ...}}
             cJSON * notifications_url = cJSON_GetObjectItem(subr_uris, "notifications");
-            if (notifications_url) {
-                notify_url = cJSON_GetStringValue(notifications_url);
+            if (notifications_url && notifications_url->valuestring) {
+                notify_url = notifications_url->valuestring;
             }
-        }
-
-        // json status
-        cJSON * status = cJSON_GetObjectItem(root, "status");
-        if (status) {
-            jsonStatus = cJSON_GetStringValue(status);
         }
 
         // json error
         cJSON * errors = cJSON_GetObjectItem(root, "errors");
         if (errors) {
-            jsonStatus = "error";
+            ESP_LOGI(TAG,"parse error json");
+            szStatus = "error";
             cJSON * error = cJSON_GetArrayItem(errors, 0);
             if (error) {
                 cJSON * message = cJSON_GetObjectItem(error, "message");
-                if (message) {
-                    jsonMessage = cJSON_GetStringValue(message);
+                if (message && message->valuestring) {
+                    szMessage = message->valuestring;
                 }
             }
         }
@@ -372,7 +398,7 @@ static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, 
         cJSON_Delete(root);
     }
 
-    ESP_LOGI(TAG,"Notify slot #%i response code: '%i' status: '%s' message: '%s'", r->notify_slot, esp_http_client_get_status_code(client), jsonStatus.c_str(), jsonMessage.c_str());
+    ESP_LOGI(TAG,"Notify slot #%i response code: '%i' status: '%s' message: '%s'", r->notify_slot, esp_http_client_get_status_code(client), szStatus.c_str(), szMessage.c_str());
 
     // If first request was OK and we are scheduled to make GET for details.
     if (res == ESP_OK && r->state == TWILIO_NEXT_STATE_GET) {

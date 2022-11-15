@@ -33,6 +33,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
+## [1.1.1 P1] - 2022-11-14 Sean Mathews - coder @f34rdotcom
+Changes:
+  - Fix missing compile flag with new espidf that caused auth failure with twilio.
+    - Add new? lost switch ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH.
+  - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
+    - TODO: Find more time to audit and cleanup code.
+  - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
+### Change log
+  - [X] SM CORE: Fix missing compile flag ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH
+  - [X] SM TWILIO: Improve error handling and response data validation.
+  - [X] SM CORE: Small changes to default ad2iot.ini to fix a few switch numbers and add testing for all default switches in components.
 ## [1.1.1] - 2022-09-18 Sean Mathews - coder @f34rdotcom
 Changes:
   - Partition change add new coredump partition.
