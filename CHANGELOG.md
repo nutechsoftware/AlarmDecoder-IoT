@@ -35,11 +35,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## Releases
 ## [1.1.0 P2] - 2022-11-14 Sean Mathews - coder @f34rdotcom
 Changes:
+  - Add Travis platformio build test.
   - Fix missing settings and organized sdkconfig.defaults.
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
 ### Change log
+  - [X] SM CORE: Travis build platform io project test.
   - [X] SM CORE: Fix sdkconfig.defaults was missing critical bits. Better organized now and "should" build same exact same firmware as in release.
   - [X] SM CORE: Fix missing compile flag ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH
   - [X] SM TWILIO: Improve error handling and response data validation.
