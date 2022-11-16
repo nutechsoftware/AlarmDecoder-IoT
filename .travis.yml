@@ -1,10 +1,10 @@
 dist: xenial
-sudo: required
+sudo: false
 
 language: python
 
 python:
-  - "nightly"
+  - "3.9"
 
 os:
   - linux
@@ -14,6 +14,7 @@ cache:
   directories:
   - "~/.platformio"
   - $HOME/astyle
+  - $HOME/.cache/pip
 
 install:
   - pip install -U platformio
@@ -35,7 +36,7 @@ script:
         echo "Please fix style issues as shown above"
         exit 1
       fi
-
+  - pio run -e esp32-poe-iso
 notifications:
   email:
     on_success: change
