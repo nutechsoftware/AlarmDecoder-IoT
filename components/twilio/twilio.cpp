@@ -366,7 +366,7 @@ static bool _sendQ_done_handler(esp_err_t res, esp_http_client_handle_t client, 
             }
 
             szMessage = ad2_string_printf("code: %i, message: '%s', more_info: '%s', status: %i",
-               ret_code, ret_message.c_str(), ret_more_info.c_str(), ret_status);
+                                          ret_code, ret_message.c_str(), ret_more_info.c_str(), ret_status);
         }
 
         // If the request contains a subresource_uris and Notifications.json then request it next else we are done.

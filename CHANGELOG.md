@@ -6,24 +6,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
 - [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
 - [ ] CORE: Push includes down to lower level. main include has too many component specific includes.
-- [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] CORE: Audit Espressif v3.2 api usage look for more that are soon to be deprecated.
-- [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
 - [ ] CORE: FIXME: Setting HOST NAME when using static IP over ethernet not working.
 - [ ] CORE: FIXME: reboot of esp32 causes connected ser2sock clients to hang. So far various attempts to fix have been unsuccessful. Will need to do some network captures to determine the problem.
 - [ ] CORE: HUP/RESTART needs to be centralized so cleanup ex(_fifo_destroy) can happen first. How to connect with STSDK having its own restart calls.
-- [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
 - [ ] CORE: Noted coredump when doing oil change check and a twilio message goes out. Both are mbedtls web requests. Will need to investigate and possibly serialize web requests.
-- [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Improve: Finish wiring Virtual Switch A & B and Button A & B.
-- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
 - [ ] CORE: Wishlist: Compile for bare metal BeagleBone Black and Raspberry Pi. https://forums.freertos.org/t/freertos-porting-to-raspberry-pi-3/6686/5. Alternatively run inside an ESP32 Virtual machine on a Pi?
 - [ ] CORE: TODO: better hardware abstraction. Need to remove _esp_ specific code to make it easier to port to other hardware. Trying to keep the code as POSIX as possible with the limited resources I have.
 - [ ] CORE: TODO: ```'ping'``` command could come in handy. Again today needed this with ST MQTT servers seeming to be down.
+- [ ] STSDK: TODO. FIX Ability to build stsdk component inside of pio build environment. Currently only possible to build with STSDK build.py script.
+- [ ] STSDK: Improve: Connect Component OutputA & OutputB with switch capabilities tied to hal_
 - [ ] STSDK: TODO: Add SmartThings Zone devices.
+- [ ] STSDK: TODO: Find way to set IOT_PUB_QUEUE_LENGTH & IOT_QUEUE_LENGTH from 10 to 20 during build.
+- [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] webUI: Add REST api compatible with the current webapp including a secret key. This is low priority as this method of connection is not very efficient.
 
 ### AJ
@@ -33,18 +33,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.2] - 2022-11-14 Sean Mathews - coder @f34rdotcom
+## [1.1.0 P2] - 2022-11-14 Sean Mathews - coder @f34rdotcom
 Changes:
-  - Fix missing compile flag with new espidf that caused auth failure with twilio.
-    - Add new? lost switch ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH.
+  - Fix missing settings and organized sdkconfig.defaults.
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
 ### Change log
+  - [X] SM CORE: Fix sdkconfig.defaults was missing critical bits. Better organized now and "should" build same exact same firmware as in release.
   - [X] SM CORE: Fix missing compile flag ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH
   - [X] SM TWILIO: Improve error handling and response data validation.
   - [X] SM CORE: Small changes to default ad2iot.ini to fix a few switch numbers and add testing for all default switches in components.
-## [1.1.1] - 2022-09-18 Sean Mathews - coder @f34rdotcom
+## [1.1.0 P1] - 2022-09-18 Sean Mathews - coder @f34rdotcom
 Changes:
   - Partition change add new coredump partition.
     - This change will require manual flash OTA will not work. Hopefully this is the last partition change.
