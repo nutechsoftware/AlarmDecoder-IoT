@@ -1,10 +1,10 @@
-dist: xenial
+dist: focal
 sudo: false
 
 language: python
 
 python:
-  - "nightly"
+  - "3.10.2"
 
 os:
   - linux
