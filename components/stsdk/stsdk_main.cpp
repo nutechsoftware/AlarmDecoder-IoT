@@ -45,6 +45,10 @@ static const char *TAG = "STSDK";
 #include "stsdk_main.h"
 #include "ota_util.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // @brief global ST status tracking
 iot_status_t g_iot_status = IOT_STATUS_IDLE;
 
@@ -82,6 +86,22 @@ caps_powerSource_data_t *cap_powerSource_data;
 // @brief Battery [% int 0 - 100]
 caps_battery_data_t *cap_battery_data;
 
+char * STSDK_SUBCMD [] = {
+    (char*)STSDK_SUBCMD_ENABLE,
+    (char*)STSDK_SUBCMD_CLEANUP,
+    (char*)STSDK_SUBCMD_SERIAL,
+    (char*)STSDK_SUBCMD_PUBKEY,
+    (char*)STSDK_SUBCMD_PRIVKEY,
+    0 // EOF
+};
+
+enum {
+    STSDK_SUBCMD_ENABLE_ID = 0,
+    STSDK_SUBCMD_CLEANUP_ID,
+    STSDK_SUBCMD_SERIAL_ID,
+    STSDK_SUBCMD_PUBKEY_ID,
+    STSDK_SUBCMD_PRIVKEY_ID
+};
 
 /**
  * @brief component: chime
@@ -184,175 +204,174 @@ caps_momentary_data_t *cap_momentary_data_disarm;
 
 
 /**
- * Enable/Disable STSDK component.
- */
-static void _cli_cmd_enable_event(char *string)
-{
-    ESP_LOGI(TAG, "%s: enable/disable STSDK", __func__);
-    std::string arg;
-    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        ad2_set_config_key_bool(STSDK_ENABLE, nullptr, (arg[0] == 'Y' || arg[0] ==  'y'));
-        ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
-    }
-
-    // show contents of this slot
-    bool en = false;
-    ad2_get_config_key_bool(STSDK_ENABLE, nullptr, &en);
-    ad2_printf_host(false, "SmartThings SDK driver is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
-
-}
-
-/**
- * Forget all STSDK state revert back to adoption mode.
- */
-static void _cli_cmd_cleanup_event(char *string)
-{
-    ESP_LOGI(TAG, "%s: clean-up data with restart option", __func__);
-    ad2_printf_host(false, "Calling clean-up for STSDK settings.\r\n");
-    st_conn_cleanup(ctx, true);
-}
-
-/**
- * Configure the AD2IoT SmartThings device_info.json
- *  field stored in NV
- *
- *  command: stserial <serialNumber>
+ * @brief SmartThings generic command event processing
+ *  command: [COMMAND] <id> <arg>
  * ex.
- *   stserial AaBbCcDdEeFf...
+ *   [COMMAND] 0 arg...
  */
-static void _cli_cmd_stserial_event(char *string)
+static void _cli_cmd_stsdk_event(const char *string)
 {
-    std::string arg;
-    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        nvs_handle my_handle;
-        esp_err_t err;
-        err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
+
+    // key value validation
+    std::string cmd;
+    ad2_copy_nth_arg(cmd, string, 0);
+    ad2_lcase(cmd);
+
+    if(cmd.compare(STSDK_COMMAND) != 0) {
+        ad2_printf_host(false, "What?\r\n");
+        return;;
+    }
+
+    // key value validation
+    std::string subcmd;
+    ad2_copy_nth_arg(subcmd, string, 1);
+    ad2_lcase(subcmd);
+
+    int i;
+    bool en;
+    for(i = 0;; ++i) {
+        if (STSDK_SUBCMD[i] == 0) {
+            ad2_printf_host(false, "What?\r\n");
+            break;
         }
-        err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
-        if ( err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-            ad2_printf_host(false, "Failed setting value.\r\n");
-        } else {
-            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
+        if(subcmd.compare(STSDK_SUBCMD[i]) == 0) {
+            std::string arg;
+            std::string key;
+            switch(i) {
+            /**
+             * Enable/Disable STSDK client.
+             */
+            case STSDK_SUBCMD_ENABLE_ID:
+                if (ad2_copy_nth_arg(arg, string, 2) >= 0) {
+                    ad2_set_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, (arg[0] == 'Y' || arg[0] ==  'y'));
+                    ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
+                }
+
+                // show contents of this slot
+                en = false;
+                ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &en);
+                ad2_printf_host(true, "SmartThings Direct Connected Devices SDK client is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
+                break;
+            /**
+             * Forget all STSDK state revert back to adoption mode.
+             */
+            case STSDK_SUBCMD_CLEANUP_ID:
+                ESP_LOGI(TAG, "%s: clean-up data with restart option", __func__);
+                ad2_printf_host(true, "Calling clean-up for STSDK settings.\r\n");
+                st_conn_cleanup(ctx, true);
+                break;
+            /**
+             * SmartThings Serial.
+             */
+            case STSDK_SUBCMD_SERIAL_ID:
+                // arg found save to nvs
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    // save to the stnv nvs partition
+                    nvs_handle my_handle;
+                    esp_err_t err;
+                    err = nvs_open_from_partition("nvs", "stdk", NVS_READWRITE, &my_handle);
+                    if ( err != ESP_OK) {
+                        ESP_LOGE(TAG, "%s: nvs_open_from_partition err: %s", __func__, esp_err_to_name(err));
+                    }
+                    err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
+                    if ( err != ESP_OK) {
+                        ESP_LOGE(TAG, "%s: nvs_set_str err: %s", __func__, esp_err_to_name(err));
+                        ad2_printf_host(true, "Failed setting value.\r\n");
+                    } else {
+                        ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
+                    }
+                    err = nvs_commit(my_handle);
+                    nvs_close(my_handle);
+                    break;
+                }
+                // If no arg then return current show contents of this slot
+                ad2_printf_host(true, "SmartThings 'serial' arg missing.\r\n");
+                break;
+            /**
+             * SmartThings PrivateKey.
+             */
+            case STSDK_SUBCMD_PRIVKEY_ID:
+                // arg found save to nvs
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    // save to the stnv nvs partition
+                    nvs_handle my_handle;
+                    esp_err_t err;
+                    err = nvs_open_from_partition("nvs", "stdk", NVS_READWRITE, &my_handle);
+                    if ( err != ESP_OK) {
+                        ESP_LOGE(TAG, "%s: nvs_open_from_partition err: %s", __func__, esp_err_to_name(err));
+                    }
+                    err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
+                    if ( err != ESP_OK) {
+                        ESP_LOGE(TAG, "%s: nvs_set_str err: %s", __func__, esp_err_to_name(err));
+                        ad2_printf_host(true, "Failed setting value.\r\n");
+                    } else {
+                        ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
+                    }
+                    err = nvs_commit(my_handle);
+                    nvs_close(my_handle);
+                    break;
+                }
+                // If no arg then return current show contents of this slot
+                ad2_printf_host(true, "SmartThings 'privatekey' arg missing.\r\n");
+                break;
+            /**
+             * SmartThings PublicKey.
+             */
+            case STSDK_SUBCMD_PUBKEY_ID:
+                // arg found save to nvs
+                if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
+                    // save to the stnv nvs partition
+                    nvs_handle my_handle;
+                    esp_err_t err;
+                    err = nvs_open_from_partition("nvs", "stdk", NVS_READWRITE, &my_handle);
+                    if ( err != ESP_OK) {
+                        ESP_LOGE(TAG, "%s: nvs_open_from_partition err: %s", __func__, esp_err_to_name(err));
+                    }
+                    err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
+                    if ( err != ESP_OK) {
+                        ESP_LOGE(TAG, "%s: nvs_set_str err: %s", __func__, esp_err_to_name(err));
+                        ad2_printf_host(true, "Failed setting value.\r\n");
+                    } else {
+                        ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
+                    }
+                    err = nvs_commit(my_handle);
+                    nvs_close(my_handle);
+                    break;
+                }
+                // If no arg then return current show contents of this slot
+                ad2_printf_host(true, "SmartThings 'publickey' arg missing.\r\n");
+                break;
+            default:
+                break;
+            }
+            break;
         }
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    } else {
-        ad2_printf_host(false, "Missing <serialNumber>\r\n");
     }
 }
-
-/**
- * Configure the AD2IoT SmartThings device_info.json
- *  field stored in NV
- *
- *  command: stpublickey <publicKey>
- * ex.
- *   stpublickey AaBbCcDdEeFf...
- */
-static void _cli_cmd_stpublickey_event(char *string)
-{
-    std::string arg;
-    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        nvs_handle my_handle;
-        esp_err_t err;
-        err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
-        }
-        err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
-        if ( err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-            ad2_printf_host(false, "Failed setting value.\r\n");
-        } else {
-            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
-        }
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    } else {
-        ad2_printf_host(false, "Missing <publicKey>\r\n");
-    }
-}
-
-/**
- * Configure the AD2IoT SmartThings device_info.json
- *  field stored in NV
- *
- *  command: stprivatekey <privateKey>
- * ex.
- *   stprivatekey AaBbCcDdEeFf...
- */
-static void _cli_cmd_stprivatekey_event(char *string)
-{
-    std::string arg;
-    if (ad2_copy_nth_arg(arg, string, 1) >= 0) {
-        nvs_handle my_handle;
-        esp_err_t err;
-        err = nvs_open_from_partition("stnv", "stdk", NVS_READWRITE, &my_handle);
-        if ( err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: nvs_open_from_partition err %d", __func__, err);
-        }
-        err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
-        if ( err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: nvs_set_str err %d", __func__, err);
-            ad2_printf_host(false, "Failed setting value.\r\n");
-        } else {
-            ad2_printf_host(false, "Success setting value. Restart required to take effect.\r\n");
-        }
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    } else {
-        ad2_printf_host(false, "Missing <privateKey>\r\n");
-    }
-}
-
-char * STSDK_SETTINGS [] = {
-    (char*)STSDK_ENABLE,
-    (char*)STSDK_CLEANUP,
-    (char*)STSDK_SERIAL,
-    (char*)STSDK_PUBKEY,
-    (char*)STSDK_PRIVKEY,
-    0 // EOF
-};
 
 /**
  * @brief command list for module
  */
 static struct cli_command stsdk_cmd_list[] = {
     {
-        (char*)STSDK_ENABLE,(char*)
-        "Usage: stenable [arg]\r\n"
+        (char*)STSDK_COMMAND,(char*)
+        "Usage: smartthings <command> [arg]\r\n"
         "\r\n"
-        "    Configuration tool for STSDK client\r\n"
-        "Options:\r\n"
-        "    arg [Y | N]             Enable or Disable STSDK client\r\n"
-        , _cli_cmd_enable_event
-    },
-    {
-        (char*)STSDK_CLEANUP,(char*)
-        "- Cleanup NV data with restart option\r\n"
-        "  - ```" STSDK_CLEANUP "```\r\n\r\n", _cli_cmd_cleanup_event
-    },
-    {
-        (char*)STSDK_SERIAL,(char*)
-        "- Sets the SmartThings device_info serialNumber.\r\n"
-        "  - ```" STSDK_SERIAL " {serialNumber}```\r\n"
-        "  - Example: ```" STSDK_SERIAL " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stserial_event
-    },
-    {
-        (char*)STSDK_PUBKEY,(char*)
-        "- Sets the SmartThings device_info publicKey.\r\n"
-        "  - ```" STSDK_PUBKEY " {publicKey}```\r\n"
-        "  - Example: ```" STSDK_PUBKEY " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stpublickey_event
-    },
-    {
-        (char*)STSDK_PRIVKEY,(char*)
-        "- Sets the SmartThings device_info privateKey.\r\n"
-        "  - ```" STSDK_PRIVKEY " {privateKey}```\r\n"
-        "  - Example: ```" STSDK_PRIVKEY " AaBbCcDdEeFfGg...```\r\n\r\n", _cli_cmd_stprivatekey_event
-    },
+        "    Configuration tool for SmartThings Direct Connected Devices SDK\r\n"
+        "    NOTE: Only the enable setting is kept in the ad2iot.ini config.\r\n"
+        "    The remaining settings are kept in the ```stnv``` partition and\r\n"
+        "    managed by the SmartThings Direct Device SDK.\r\n"
+        "Commands:\r\n"
+        "    enable [Y|N]            Set or get enable flag\r\n"
+        "    cleanup                 Reset the NVS partition\r\n"
+        "    serial <string>         Set the device serial\r\n"
+        "    publickey <string>      Set the device public key\r\n"
+        "    privatekey <string>     Set the device private key\r\n"
+        "Examples:\r\n"
+        "    ```smartthings enable Y```\r\n"
+        "    ```smartthings publickey aabbccddeeffAABBCCDEEFF```\r\n"
+        , _cli_cmd_stsdk_event
+    }
 };
 
 #if 0 // TODO/FIXME
@@ -1001,7 +1020,7 @@ void stsdk_init(void)
     int iot_err;
 
     bool en = false;
-    ad2_get_config_key_bool(STSDK_ENABLE, 0, nullptr, &en);
+    ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &en);
 
     // nothing more needs to be done once commands are set if not enabled.
     if (!en) {
@@ -1465,6 +1484,7 @@ void update_firmware_cmd_cb(IOT_CAP_HANDLE *handle,
 {
     hal_ota_do_update(nullptr);
 }
-
+#ifdef __cplusplus
+} // extern "C"
+#endif
 #endif /*  CONFIG_STDK_IOT_CORE */
-

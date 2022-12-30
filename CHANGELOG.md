@@ -33,6 +33,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
+## [1.1.0 P3] - 2022-12-__ Sean Mathews - coder @f34rdotcom
+Changes:
+  - Get STSDK building again.
+### Change log
+  - [X] SM CORE: Add fixes for stsdk code that I have been sitting on. Mostly just CDECL stuff.
+  - [X] SM CORE: Fix CMakeList.txt to fetch SimpleIni from github and include it for stsdk building.
+  - [ ] SM FTPD: Does not build with stsdk.
+  - [ ] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
 ## [1.1.0 P2] - 2022-11-14 Sean Mathews - coder @f34rdotcom
 Changes:
   - Add Travis platformio build test.
