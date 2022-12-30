@@ -743,16 +743,24 @@ Examples:
 cd ~
 mkdir esp
 
-# Install the xtensa esp32 compiler
+# Get and install esp-idf toolchain v5.0
 cd ~/esp
-wget https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
-tar -xvf xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
+git clone -b v5.0 --recursive https://github.com/espressif/esp-idf.git
 
-# Get and install esp-idf toolchain v4.3.2
-cd ~/esp
-git clone -b v4.3.2 --recursive https://github.com/espressif/esp-idf.git
 cd ~/esp/esp-idf
-./install.sh
+## Added esp32 to the end. Need to test above again with this change.
+./install.sh esp32
+
+## At the end will be prompted to set the environment for building by sourcing the exports.sh file created during setup of stsdk c-ref. You can also follow the espressif docs and set the alias get_idf to '. $HOME/esp/esp-idf/export.sh'
+
+. ./export.sh
+
+# Install the xtensa esp32 toolchain
+## Is this automagic now? During setup of esp-idf above.
+### Downloading xtensa-esp32-elf-gcc8_4_0-esp-2021r2-linux-amd64.tar.gz to /home/mathewss/.espressif/dist/xtensa-esp32-elf-gcc8_4_0-esp-2021r2-linux-amd64.tar.gz.tmp
+cd ~/esp
+wget https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-97-gc752ad5-5.2.0.tar.gz
+tar -xvf xtensa-esp32-elf-linux64-1.22.0-97-gc752ad5-5.2.0.tar.gz
 
 # Install st-device-sdk-c-ref master branch currently v1.7.5.
 cd ~/esp
@@ -760,18 +768,23 @@ git clone https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.git
 cd st-device-sdk-c-ref
 python setup.py esp32
 
-## At the end will be prompted to set the environment for building by sourcing the exports.sh file created during setup of stsdk c-ref.
-. ./export.sh
+# Confirm the switch example can be built before continuing.
+python build.py esp32 switch_example
 
 # Link our external AlarmDecoder-IoT project into the apps folder for st-device-sdk-c-ref.
+# or fetch the AlarmDecoder-IoT project directly inside of the st-device-sdk-c-ref apps/esp32/ folder.
 ln -s ~/Code/AlarmDecoder-IoT ~/esp/st-device-sdk-c-ref/apps/esp32
 ```
 
 ####  6.2.2. <a name='configure-the-project'></a>Configure the project
-Run menu config and enable/disable components. Each module will consume code space and memory so test with the ```top``` command to be sure resources are not being exausted.
+Run menu config and enable/disable components. Each module will consume code space and memory so test with the ```top``` command to be sure resources are not being exausted. 
+  - Component config:
+    - Enable ```SmartThings IoT Core```
+      - Enable ESP32 support. ```BSP Support(ESP32)```
+    - Disable ```AD2Iot * FTP demon```
 ```
 cd ~/esp/st-device-sdk-c-ref
-./build.py esp32 AlarmDecoder-IoT menuconfig
+python build.py esp32 AlarmDecoder-IoT menuconfig
 ```
 
 ####  6.2.3. <a name='build,-flash,-and-run'></a>Build, Flash, and Run
@@ -780,7 +793,7 @@ Build the project and flash it to the board, then run monitor tool to view seria
 
 ```
 cd ~/esp/st-device-sdk-c-ref
-./build.sh esp32 AlarmDecoder-IoT build flash monitor -p /dev/ttyUSB0
+python build.py esp32 AlarmDecoder-IoT build flash monitor -p /dev/ttyUSB0
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)
