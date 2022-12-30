@@ -33,22 +33,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.0 P3] - 2022-12-__ Sean Mathews - coder @f34rdotcom
-Changes:
-  - Get STSDK building again.
-### Change log
-  - [X] SM CORE: Add fixes for stsdk code that I have been sitting on. Mostly just CDECL stuff.
-  - [X] SM CORE: Fix CMakeList.txt to fetch SimpleIni from github and include it for stsdk building.
-  - [ ] SM FTPD: Does not build with stsdk.
-  - [ ] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
-## [1.1.0 P2] - 2022-11-14 Sean Mathews - coder @f34rdotcom
+## [1.1.0 P2] - 2022-12-29 Sean Mathews - coder @f34rdotcom
 Changes:
   - Add Travis platformio build test.
   - Fix missing settings and organized sdkconfig.defaults.
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
+  - Get STSDK building again.
 ### Change log
+  - [ ] SM FTPD: Does not build with stsdk.
+  - [ ] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
+  - [X] SM CORE: Add fixes for stsdk code that I have been sitting on. Mostly just CDECL stuff.
+  - [X] SM CORE: Fix CMakeList.txt to fetch SimpleIni from github and include it for stsdk building.
   - [X] SM CORE: Travis build platform io project test.
   - [X] SM CORE: Fix sdkconfig.defaults was missing critical bits. Better organized now and "should" build same exact same firmware as in release.
   - [X] SM CORE: Fix missing compile flag ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH
