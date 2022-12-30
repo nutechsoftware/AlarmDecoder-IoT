@@ -44,9 +44,10 @@ Changes:
 ### Change log
   - [ ] SM FTPD: Does not build with stsdk.
   - [ ] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
+  - [X] SM CORE: Update README.md docs on building project including stsdk and platformio.
   - [X] SM CORE: Add fixes for stsdk code that I have been sitting on. Mostly just CDECL stuff.
   - [X] SM CORE: Fix CMakeList.txt to fetch SimpleIni from github and include it for stsdk building.
-  - [X] SM CORE: Travis build platform io project test.
+  - [X] SM CORE: Travis build platformio project test.
   - [X] SM CORE: Fix sdkconfig.defaults was missing critical bits. Better organized now and "should" build same exact same firmware as in release.
   - [X] SM CORE: Fix missing compile flag ESP_HTTP_CLIENT_ENABLE_BASIC_AUTH
   - [X] SM TWILIO: Improve error handling and response data validation.

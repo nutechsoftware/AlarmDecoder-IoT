@@ -23,7 +23,7 @@
     * 5.8.1. [Configuration for FTP server](#configuration-for-ftp-server)
 * 6. [Building firmware](#building-firmware)
   * 6.1. [PlatformIO](#platformio)
-    * 6.1.1. [TODO: Setup notes](#todo:-setup-notes)
+    * 6.1.1. [TODO: Setup notes](#platformio-setup-notes)
   * 6.2. [SmartThings device SDK build environment](#smartthings-device-sdk-build-environment)
     * 6.2.1. [Setup build environment](#setup-build-environment)
     * 6.2.2. [Configure the project](#configure-the-project)
@@ -734,24 +734,44 @@ Examples:
 
 ##  6. <a name='building-firmware'></a>Building firmware
 ###  6.1. <a name='platformio'></a>PlatformIO
-####  6.1.1. <a name='todo:-setup-notes'></a>TODO: Setup notes
+####  6.1.1. <a name='platformio-setup-notes'></a>Open the project and use the platformio UI inside of vscode to build and flash. Select esp32dev or esp32-poe-iso tree and select Build to compile.
 ###  6.2. <a name='smartthings-device-sdk-build-environment'></a>SmartThings device SDK build environment
 ####  6.2.1. <a name='setup-build-environment'></a>Setup build environment
-- Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
-- Select the esp32 build environment. Branch v1.4 seems to be the current active branch and uses espidf v4.0.1-317-g50b3e2c81.
+- Based on the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) for setting up a build environment and [This community post](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055) to build the code inside of the stsdk c-ref build environment.
 ```
-cd ~/esp
- git clone https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.git -b release/v1.4
- cd st-device-sdk-c-ref
-./setup.py esp32
-```
+# Make the root esp folder.
+cd ~
+mkdir esp
 
-- Place the contents of this his project in ```st-device-sdk-c-ref/apps/esp32/```
+# Install the xtensa esp32 compiler
+cd ~/esp
+wget https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
+tar -xvf xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
+
+# Get and install esp-idf toolchain v4.3.2
+cd ~/esp
+git clone -b v4.3.2 --recursive https://github.com/espressif/esp-idf.git
+cd ~/esp/esp-idf
+./install.sh
+
+# Install st-device-sdk-c-ref master branch currently v1.7.5.
+cd ~/esp
+git clone https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.git
+cd st-device-sdk-c-ref
+python setup.py esp32
+
+## At the end will be prompted to set the environment for building by sourcing the exports.sh file created during setup of stsdk c-ref.
+. ./export.sh
+
+# Link our external AlarmDecoder-IoT project into the apps folder for st-device-sdk-c-ref.
+ln -s ~/Code/AlarmDecoder-IoT ~/esp/st-device-sdk-c-ref/apps/esp32
+```
 
 ####  6.2.2. <a name='configure-the-project'></a>Configure the project
-
+Run menu config and enable/disable components. Each module will consume code space and memory so test with the ```top``` command to be sure resources are not being exausted.
 ```
-./build.sh esp32 AlarmDecoder-IoT menuconfig
+cd ~/esp/st-device-sdk-c-ref
+./build.py esp32 AlarmDecoder-IoT menuconfig
 ```
 
 ####  6.2.3. <a name='build,-flash,-and-run'></a>Build, Flash, and Run
@@ -759,6 +779,7 @@ cd ~/esp
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
+cd ~/esp/st-device-sdk-c-ref
 ./build.sh esp32 AlarmDecoder-IoT build flash monitor -p /dev/ttyUSB0
 ```
 
