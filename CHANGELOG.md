@@ -27,13 +27,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] webUI: Add REST api compatible with the current webapp including a secret key. This is low priority as this method of connection is not very efficient.
 
 ### AJ
-- [ ] Add a GitHub Action to run a `pio` build on every PR
 - [ ] Migrate `astyle` to GitHub Action
-- [ ] Update README.md to reflect `pio` build changes
 
 ---
 ## Releases
-## [1.1.0 P2] - 2022-12-29 Sean Mathews - coder @f34rdotcom
+## [1.1.0 P2] - 2023-01-11 Sean Mathews - coder @f34rdotcom
 Changes:
   - Add Travis platformio build test.
   - Fix missing settings and organized sdkconfig.defaults.
@@ -41,9 +39,12 @@ Changes:
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
   - Get STSDK building again.
+  - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
   - [ ] SM FTPD: Does not build with stsdk.
-  - [ ] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
+  - [X] SM CORE: Docs improvements.
+  - [X] SM STSDK: Build and uploaded set keys but was not able to adopt. '''Error 81-001 Something went wrong'''
+  - [X] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
   - [X] SM CORE: Update README.md docs on building project including stsdk and platformio.
   - [X] SM CORE: Add fixes for stsdk code that I have been sitting on. Mostly just CDECL stuff.
   - [X] SM CORE: Fix CMakeList.txt to fetch SimpleIni from github and include it for stsdk building.

@@ -99,7 +99,7 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
   - To save settings to the [ad2iot.ini](data/ad2iot.ini) use the ```restart``` command. This will save any settings changed in memory to the active configuration file before restarting to load the new settings.
 - Configuration using the configuration file.
   - The ad2iot will first attempt to load the [ad2iot.ini](data/ad2iot.ini) config file from the first fat32 partition on a uSD card if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition in the file [ad2iot.ini](data/ad2iot.ini).
-  - To access /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). Use the custom FTP command ```REST``` to restart the ad2iot and force it to load the new configuration.
+  - To access /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). With FileZilla edit the configuration upload and send a custom FTP command using the "Server" menu and the "Enter custom command.." sub menu. Enter ```REST``` to restart the ad2iot and force it to load the configuration.
   - Sample config file with internal documentation can be found here [data/ad2iot.ini](data/ad2iot.ini)
   - Be sure to set the ftpd acl to only allow trusted systems to manage the files on the uSD card.
 
@@ -231,6 +231,10 @@ Usage: version
 
     Report the current and available version
 ```
+```console
+AD2IOT # version
+Installed version(AD2IOT-1102) build flag (webui) available version(AD2IOT-1102).
+```
 - netmode
 ```console
 Usage: netmode [(N | W | E)] [<arg>]
@@ -253,6 +257,11 @@ Examples:
     Ethernet Static IPv4 address.
       ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```
 ```
+```console
+# Example config file ini setting
+# Enable ethernet driver and use DHCP for setting address
+netmode = E mode=d
+```
 - switch
 ```console
 Usage: switch <swid> [command] [<arg>]
@@ -274,23 +283,61 @@ Commands:
     close IDX REGEX         CLOSE event REGEX filter for IDX 1-8
     trouble IDX REGEX       TROUBLE event REGEX filter for IDX 1-8
 Options:
-    switchId                ad2iot virtual switch ID 1-255
+    swid                    ad2iot virtual switch ID 1-255
     IDX                     REGEX index 1-8 for multiple tests
     REGEX                   Regular expression or exact match string.
     TYPE                    Message types [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,
                             CRC,VER,ERR,EVENT]
 
-Common search verbs for type EVENT
-      arm {STAY|AWAY}
-      disarm
-      power {AC|BATTERY}
-      ready {ON|OFF}
-      alarm {ON/OFF}
-      fire {ON|OFF}
-      chime {ON|OFF}
-      exit {ON|OFF}
-      programming {ON|OFF}
-      zone {OPEN,CLOSE,TROUBLE} ZONE_NUMBER
+Common message verbs and arguments received for type EVENT
+      ARM {STAY|AWAY}
+      DISARM
+      POWER {AC|BATTERY}
+      READY {ON|OFF}
+      ALARM {ON/OFF}
+      FIRE {ON|OFF}
+      CHIME {ON|OFF}
+      EXIT {ON|OFF}
+      PROGRAMMING {ON|OFF}
+      ZONE {OPEN,CLOSE,TROUBLE} {ZONE_NUMBER}
+```
+```console
+# Example config file ini section [switch N]
+[switch 10]
+# Test ZONE tracking event for zone 3
+default = 0
+reset = 0
+types = EVENT
+filter = ZONE.*
+open 1 = ZONE OPEN 3
+close 1 = ZONE CLOSE 3
+trouble 1 = ZONE TROUBLE 3
+
+[switch 60]
+# RFX serial 0123456
+default = -1
+reset = 0
+types = RFX
+filter = !RFX:0123456,.*
+open 1 = !RFX:0123456,1.......
+close 1 = !RFX:0123456,0.......
+trouble 1 = !RFX:0123456,......1.
+
+[switch 91]
+# AC switch
+default = -1
+reset = 0
+types = EVENT
+open 1 = POWER BATTERY
+close 1 = POWER AC
+
+[switch 95]
+# Fire switch
+default = -1
+reset = 0
+types = EVENT
+open 1 = FIRE ON
+close 1 = FIRE OFF
 ```
 - code
 ```console
@@ -301,6 +348,12 @@ Options:
     codeId                  Code ID 1 - 128
     -                       Delete entry
     value                   Code string
+```
+```console
+# Example config file ini setting
+[code]
+1 = 4112
+2 = 1234
 ```
 - ad2term
 ```console
@@ -325,6 +378,12 @@ Options:
                             device. Can be partial config.
                             Example set mode Ademco with default address 18.
                             ```ad2config mode=A&address=18```
+```
+```console
+# Example config file ini setting
+# This will push these settings to the AD2* board.
+# Avoid multiple systems trying to enforce this setting. That would be bad.
+ad2config = address=18&mode=A
 ```
 - partition
 ```console
@@ -362,6 +421,13 @@ Examples:
       ```partition 2 -```
         Note: address - will remove an entry.
 ```
+```console
+# Example config file ini section [partition N]
+# Note: Must add [zone N] sections for each zone for zone details.
+[partition 1]
+address = 18
+zones = 2,3,4,5,6,24,25,26
+```
 - zone
 ```console
 Usage: zone <zoneId> [- | <value>]
@@ -372,6 +438,23 @@ Options:
     -                       Delete entry
     value                   json string with type and alpha attributes
                             {"type": "smoke", "alpha": "TESTING LAB SMOKE"}
+```
+```console
+# Example config file ini section [zone NN]
+# Note: Must add each zone to the [partition N] zones list.
+# For MQTT "type" is translated to "device_class" for the device discovery document.
+# "alpha" is translated to "name"
+#   https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+#   https://www.home-assistant.io/integrations/binary_sensor/#device-class
+#
+[zone 1]
+description = {"type": "smoke", "alpha": "Smoke Alarm"}
+
+[zone 3]
+description = {"type": "door", "alpha": "Back Door"}
+
+[zone 4]
+description = {"type": "motion", "alpha": "Entry Motion"}
 ```
 - ad2source
 ```console
@@ -389,6 +472,11 @@ Examples:
     Set source to local attached uart with TX on GPIO 4 and RX on GPIO 36.
       ```ad2source COM 4:36```
 ```
+```console
+# Example config file ini setting
+# Use caution changing this setting it can change GPIO pin states.
+ad2source = C 4:36
+```
 ###  5.2. <a name='ser2sock-server-component'></a>Ser2sock server component
 Ser2sock allows sharing of a serial device over a TCP/IP network. It also supports encryption and authentication via OpenSSL. Typically configured for port 10000 several home automation systems are able to use this protocol to talk to the AlarmDecoder device for a raw stream of messages. Please be advised that network scanning of this port can lead to alarm faults. It is best to use the Access Control List feature to only allow specific hosts to communicate directly with the AD2* and the alarm panel.
 
@@ -403,6 +491,12 @@ Commands:
 Examples:
     ```ser2sockd enable Y```
     ```ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+```
+```console
+# Example config file ini setting
+[ser2sockd]
+enable = true
+acl = 192.168.0.0/16, 10.10.0.0/16
 ```
 
 ###  5.3. <a name='web-user-interface-webui-component'></a>Web User Interface webUI component
@@ -422,7 +516,12 @@ Examples:
     ```webui enable Y```
     ```webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
 ```
-
+```console
+# Example config file ini setting
+[webui]
+enable = true
+acl = 192.168.0.0/16, 10.10.0.0/16
+```
 ###  5.4. <a name='smartthings-direct-connected-device.'></a>SmartThings Direct Connected device.
 ###### ```Only available in stsdk firmware build```
 Direct-connected devices connect directly to the SmartThings cloud. The SDK for Direct Connected Devices is equipped to manage all MQTT topics and onboarding requirements, freeing you to focus on the actions and attributes of your device. To facilitate the development of device application in an original chipset SDK, the core device library and the examples were separated into two git repositories. That is, if you want to use the core device library in your original chipset SDK that installed before, you may simply link it to develop a device application in your existing development environment. For more info see https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.
@@ -526,7 +625,7 @@ Commands:
     token acid [hash]       Twilio Auth Token
     from acid [address]     Validated Email or Phone #
     to acid [address]       Email or Phone #
-    type acid [M|C|E]       Notification type Mail, Call, EMail
+    type acid [M|C|E]       Notification type SMS, Call, EMail
     format acid [format]    Output format string
     switch swid SCMD [ARG]  Configure switches
 Sub-Commands: switch
@@ -574,28 +673,28 @@ Options:
     # Twilio config section
     [twilio]
 
-    # Account ID #1 EMail using api.sendgrid.com
+    # Account storage ID(acid) #1 EMail using api.sendgrid.com
     sid 1 = NA
     token 1 = Abcdefg012345....
     from 1 = foo@example.com
     to 1 = bar@example.com
-    type 1 = email
+    type 1 = E
     format 1 = {}
 
-    # Account ID #2 Text message using api.twilio.com
+    # Account storage ID(acid) #2 Text message using api.twilio.com
     sid 2 Abcdefg012345....
     token 2 = Abcdefg012345....
     from 2 = 15555551234
     to 2 = 15555551234
-    type 2 = text
+    type 2 = M
     format 2 = {}
 
-    # Account ID #3 Voice Twiml call using api.twilio.com
+    # Account storage ID(acid) #3 Voice Twiml call using api.twilio.com
     sid 3 = Abcdefg012345....
     token 3 = Abcdefg012345....
     from 3 = 15555551234
     to 3 = 15555551234
-    type 3 = call
+    type 3 = C
     format 3 = <Response><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say></Response>
     ```
   - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and TROUBLE REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
@@ -731,7 +830,15 @@ Examples:
     ```ftpd enable Y```
     ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
 ```
+```console
+# Example config file ini section
+[ftpd]
+## Enable / Disable true or false
+enable = true
 
+## Access control list
+acl = 192.168.0.0/16, 10.10.0.0/16
+```
 ##  6. <a name='building-firmware'></a>Building firmware
 ###  6.1. <a name='platformio'></a>PlatformIO
 ####  6.1.1. <a name='platformio-setup-notes'></a>Open the project and use the platformio UI inside of vscode to build and flash. Select esp32dev or esp32-poe-iso tree and select Build to compile.
@@ -743,7 +850,7 @@ Examples:
 cd ~
 mkdir esp
 
-# Get and install esp-idf toolchain v5.0
+# Get and install esp-idf toolchain v5.0(AF), v4.3.2(AF),
 cd ~/esp
 git clone -b v5.0 --recursive https://github.com/espressif/esp-idf.git
 

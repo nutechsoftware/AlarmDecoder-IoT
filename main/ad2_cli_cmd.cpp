@@ -704,7 +704,7 @@ static struct cli_command cmd_list[] = {
         "    close IDX REGEX         CLOSE event REGEX filter for IDX 1-8\r\n"
         "    trouble IDX REGEX       TROUBLE event REGEX filter for IDX 1-8\r\n"
         "Options:\r\n"
-        "    switchId                ad2iot virtual switch ID 1-255\r\n"
+        "    swid                    ad2iot virtual switch ID 1-255\r\n"
         "    IDX                     REGEX index 1-8 for multiple tests\r\n"
         "    REGEX                   Regular expression or exact match string.\r\n"
         "    TYPE                    Message types [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,\r\n"

@@ -1,6 +1,6 @@
-### Place this folder in the root directory of a fat32 formatted uSD disk.
+### Place the contents of this folder in the root directory of a fat32 formatted uSD disk.
 ```
-├── README.md
+├── README-WWW.md
 └── www
    ├── 404.html
    ├── 404.html.tpl
