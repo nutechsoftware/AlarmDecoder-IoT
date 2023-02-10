@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.0 P2] - 2023-01-11 Sean Mathews - coder @f34rdotcom
+## [1.1.0 P2] - 2023-01-?? Sean Mathews - coder @f34rdotcom
 Changes:
   - Add Travis platformio build test.
   - Fix missing settings and organized sdkconfig.defaults.
