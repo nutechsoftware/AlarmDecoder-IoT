@@ -41,7 +41,7 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
           python setup.py esp32
-          . ./export.sh
+          #. ./export.sh
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           pwd
           python -c "import os; print(os.environ)"
