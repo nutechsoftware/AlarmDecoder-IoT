@@ -36,7 +36,7 @@ jobs:
       - name: setup build environment for stsdk-c-ref
         run: |
           cd .st-device-sdk-c-ref
-          python setup.py
+          python setup.py esp32
 
       - name: goto done early abort for testing.
         run: exit 1
