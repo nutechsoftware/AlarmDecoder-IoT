@@ -22,5 +22,8 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Build AlarmDecoder-IoT PlatformIO Project
+      - name: Build esp32-poe-iso
         run: pio run -e esp32-poe-iso
+
+      - name: Build spiffs.bin
+        run: pio run -t buildfs -e esp32-poe-iso
