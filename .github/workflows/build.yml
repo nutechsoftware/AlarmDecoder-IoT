@@ -34,8 +34,9 @@ jobs:
           path: ./.st-device-sdk-c-ref
 
       - name: setup build environment for stsdk-c-ref
-        run: cd .st-device-sdk-c-ref
-        run: python setup.py
+        run: |
+          cd .st-device-sdk-c-ref
+          python setup.py
 
       - name: goto done early abort for testing.
         run: exit 1
