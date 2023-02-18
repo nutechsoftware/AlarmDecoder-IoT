@@ -5,6 +5,7 @@ on: [push, workflow_dispatch]
 env:
   PP: AD2IoT-Release
   SHELL: /bin/bash
+ TERM: 'xterm-256color'
 
 jobs:
   build:
@@ -40,9 +41,9 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
           python setup.py esp32
-          ln -s ../../AlarmDecoder-IoT apps/esp32/
+          ln -s ../../../AlarmDecoder-IoT apps/esp32/
           pwd
-          echo os.environ
+          python -c "import os; print(os.environ)"
           ls -l apps/esp32/
           ls -l apps/esp32/AlarmDecoder-IoT
           python build.py esp32 AlarmDecoder-IoT
