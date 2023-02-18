@@ -27,9 +27,6 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Install zip
-        uses: montudor/action-zip@v1
-
       - name: Build esp32-poe-iso
         run: pio run -e esp32-poe-iso
 
@@ -49,11 +46,8 @@ jobs:
           cp .pio/build/esp32-poe-iso/partitions.bin $PP/esp32/esp32-poe-iso-webui/
           cp .pio/build/esp32-poe-iso/ota_data_initial.bin $PP/esp32/esp32-poe-iso-webui/
 
-      - name: Zip Release files
-        run: zip -qq -r $PP.zip $PP
-
       - name: Upload firmware package Artifact
         uses: actions/upload-artifact@v3
         with:
           name: AD2IoT-Release-Package
-          path: AD2IoT-Release.zip
+          path: AD2IoT-Release
