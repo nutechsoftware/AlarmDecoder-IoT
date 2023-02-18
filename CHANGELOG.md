@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
+- [ ] FTPD: Does not build with stsdk.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
 - [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
@@ -33,7 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## Releases
 ## [1.1.0 P2] - 2023-01-?? Sean Mathews - coder @f34rdotcom
 Changes:
-  - Add Travis platformio build test.
+  - Add Github action build test.
   - Fix missing settings and organized sdkconfig.defaults.
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
@@ -42,7 +43,6 @@ Changes:
   - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
   - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(
-  - [ ] SM FTPD: Does not build with stsdk.
   - [X] SM CORE: Docs improvements.
   - [X] SM STSDK: Build and uploaded set keys but was not able to adopt. '''Error 81-001 Something went wrong'''
   - [X] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
