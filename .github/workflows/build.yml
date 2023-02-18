@@ -3,7 +3,7 @@ name: CI build
 on: [push, workflow_dispatch]
 
 env:
-  PP: AD2IoTRelease
+  PP: AD2IoT-Release
 
 jobs:
   build:
@@ -56,4 +56,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: AD2IoT-Release-Package
-          path: $PP
+          path: AD2IoT-Release.zip
