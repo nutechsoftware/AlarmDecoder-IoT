@@ -4,6 +4,7 @@ on: [push, workflow_dispatch]
 
 env:
   PP: AD2IoT-Release
+  SHELL: /bin/bash
 
 jobs:
   build:
