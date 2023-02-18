@@ -61,7 +61,7 @@ To switch to a specific build over the internet using OTA include the buildflag 
 
 If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release of the AD2IoT firmware over USB.
 
-See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
+See the README-FLASH-ESP32.md inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
 
 ###  3.1. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
 - Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
