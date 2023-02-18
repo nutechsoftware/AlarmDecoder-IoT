@@ -27,3 +27,9 @@ jobs:
 
       - name: Build spiffs.bin
         run: pio run -t buildfs -e esp32-poe-iso
+
+      - name: Build firmware package
+        run: cwd
+
+      - name: Upload firmware package Artifact
+        run: ls

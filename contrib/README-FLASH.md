@@ -1,6 +1,6 @@
 Use the ESP32 flashing tool.
 https://www.espressif.com/en/support/download/other-tools
-https://www.espressif.com/sites/default/files/tools/flash_download_tool_v3.8.5.zip
+https://www.espressif.com/sites/default/files/tools/flash_download_tool_3.9.0_0.zip
 
 
 Select "Developer mode"
