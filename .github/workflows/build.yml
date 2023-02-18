@@ -39,7 +39,7 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
           python setup.py esp32
-          ln -s ../ apps/esp32/AlarmDecoder-IoT
+          ln -s /home/runner/work/AlarmDecoder-IoT/AlarmDecoder-IoT apps/esp32/
           pwd
           ls -l apps/esp32/
           ls -l apps/esp32/AlarmDecoder-IoT
