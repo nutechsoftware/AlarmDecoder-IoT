@@ -30,12 +30,12 @@ jobs:
       - name: Checkout st-device-sdk-c-ref
         uses: actions/checkout@v2
         with:
-          submodules: true
           repository: SmartThingsCommunity/st-device-sdk-c-ref
           path: ./.st-device-sdk-c-ref
 
       - name: setup build environment for stsdk-c-ref
-        run: ls -l .st-device-sdk-c-ref
+        run: cd .st-device-sdk-c-ref
+        run: python setup.py
 
       - name: goto done early abort for testing.
         run: exit 1
