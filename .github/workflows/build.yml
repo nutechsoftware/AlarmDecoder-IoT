@@ -45,7 +45,7 @@ jobs:
           pwd
           python -c "import os; print(os.environ)"
           ls -l apps/esp32/
-          ls -l apps/esp32/AlarmDecoder-IoT
+          ls -l apps/esp32/AlarmDecoder-IoT/
           python build.py esp32 AlarmDecoder-IoT
 
       - name: goto done early abort for testing.
