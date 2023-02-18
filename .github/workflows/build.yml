@@ -29,7 +29,7 @@ jobs:
         run: pio run -t buildfs -e esp32-poe-iso
 
       - name: Build firmware package
-        run: cwd
+        run: pwd
 
       - name: Upload firmware package Artifact
         run: ls
