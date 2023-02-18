@@ -36,9 +36,11 @@ jobs:
       - name: setup build environment for stsdk-c-ref
         run: |
           cd .st-device-sdk-c-ref
-          git config user.name "GitHub Actions Bot"
-          git config user.email "<>"
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "<>"
           python setup.py esp32
+          ln -s ../ apps/esp32/AlarmDecoder-IoT
+          python build.py esp32 AlarmDecoder-IoT
 
       - name: goto done early abort for testing.
         run: exit 1
