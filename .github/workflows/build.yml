@@ -23,4 +23,4 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build AlarmDecoder-IoT PlatformIO Project
-        run: pio run
+        run: pio run -e esp32-poe-iso
