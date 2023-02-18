@@ -24,10 +24,20 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install required packages
-        run: sudo apt-get install -y git wget flex bison gperf python3 python3-pip python3-setuptools cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+      - name: Install required packages for st-device-c-ref build
+        run: sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
 
-      - name: goto done
+      - name: Checkout st-device-sdk-c-ref
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          repository: SmartThingsCommunity/st-device-sdk-c-ref
+          path: ./.st-device-sdk-c-ref
+
+      - name: setup build environment for stsdk-c-ref
+        run: ls -l .st-device-sdk-c-ref
+
+      - name: goto done early abort for testing.
         run: exit 1
 
       - name: Install PlatformIO Core
