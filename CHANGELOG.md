@@ -34,7 +34,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## Releases
 ## [1.1.0 P2] - 2023-01-?? Sean Mathews - coder @f34rdotcom
 Changes:
-  - Add Github action build test.
+  - Add CI using github Actions to test building and create an Artifact with the compiled firmware package and instructions. For more info on Artifacts see https://docs.github.com/en/actions/managing-workflow-runs/downloading-workflow-artifacts
+  - Removed travis-ci support.
   - Fix missing settings and organized sdkconfig.defaults.
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
@@ -42,7 +43,7 @@ Changes:
   - Get STSDK building again.
   - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
-  - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(
+  - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(. No loss now we can generate a release file something that seemed much more difficult with travis-ci. Add a workflow file named ```CI build``` to test and build a release file with compiled firmware and instructions. See the ```CI build``` build Summary page for the Artifacts file ```AD2IoT-Release-Package```
   - [X] SM CORE: Docs improvements.
   - [X] SM STSDK: Build and uploaded set keys but was not able to adopt. '''Error 81-001 Something went wrong'''
   - [X] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
