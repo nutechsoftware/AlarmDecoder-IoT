@@ -5,7 +5,7 @@ on: [push, workflow_dispatch]
 env:
   PP: AD2IoT-Release
   SHELL: /bin/bash
- TERM: 'xterm-256color'
+  TERM: 'xterm-256color'
 
 jobs:
   build:
