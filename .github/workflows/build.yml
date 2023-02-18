@@ -40,6 +40,7 @@ jobs:
           git config --global user.email "<>"
           python setup.py esp32
           ln -s ../ apps/esp32/AlarmDecoder-IoT
+          ls -l apps/esp32/
           python build.py esp32 AlarmDecoder-IoT
 
       - name: goto done early abort for testing.
