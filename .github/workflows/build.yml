@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: goto done early abort for testing.
+        run: |
+          python -c "import os; print(os.environ)"
+          exit 1
+
       - name: Install required packages for st-device-c-ref build
         run: sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
 
@@ -39,14 +44,12 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
           python setup.py esp32
-          ln -s /home/runner/work/AlarmDecoder-IoT/AlarmDecoder-IoT apps/esp32/
+          ln -s ../../AlarmDecoder-IoT apps/esp32/
           pwd
+          echo os.environ
           ls -l apps/esp32/
           ls -l apps/esp32/AlarmDecoder-IoT
           python build.py esp32 AlarmDecoder-IoT
-
-      - name: goto done early abort for testing.
-        run: exit 1
 
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
