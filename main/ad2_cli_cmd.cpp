@@ -803,6 +803,8 @@ static struct cli_command cmd_list[] = {
         "                            device. Can be partial config.\r\n"
         "                            Example set mode Ademco with default address 18.\r\n"
         "                            ```ad2config mode=A&address=18```\r\n"
+        "                            Example set mode DSC with default address 1 Slot 2.\r\n"
+        "                            ```ad2config mode=D&address=12```\r\n"
         , _cli_cmd_ad2config_event
     },
     {

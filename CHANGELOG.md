@@ -41,6 +41,7 @@ Changes:
   - Get STSDK building again.
   - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
+  - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(
   - [ ] SM FTPD: Does not build with stsdk.
   - [X] SM CORE: Docs improvements.
   - [X] SM STSDK: Build and uploaded set keys but was not able to adopt. '''Error 81-001 Something went wrong'''

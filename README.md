@@ -110,9 +110,9 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - ```ad2source COM 4:36```
     - Network shared AD2* device over ser2sock
       - ```ad2source SOCK 192.168.0.121:10000```
-  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the mode 'D' and the partition # from 1-8.
+  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the mode 'D' and the partition # from 1-8 followed by the Slot 1-8 So address=11 is Partition #1 Slot #1.
     - Typical Ademco Vista setting: ```ad2config mode=A&address=18```
-    - Typical DSC Power Series setting: ```ad2config mode=D&address=1```
+    - Typical DSC Power Series setting: ```ad2config mode=D&address=11```
   - Configure the default partition address and optional zones in partition 1.
     - ```partition 1 18 2,3,4,5```
   - Define any additional partitions and optional zones.
@@ -299,7 +299,7 @@ Common message verbs and arguments received for type EVENT
       CHIME {ON|OFF}
       EXIT {ON|OFF}
       PROGRAMMING {ON|OFF}
-      ZONE {OPEN,CLOSE,TROUBLE} {ZONE_NUMBER}
+      ZONE {OPEN,CLOSE,TROUBLE} {zero padded 3 digit zone number}
 ```
 ```console
 # Example config file ini section [switch N]
@@ -309,9 +309,9 @@ default = 0
 reset = 0
 types = EVENT
 filter = ZONE.*
-open 1 = ZONE OPEN 3
-close 1 = ZONE CLOSE 3
-trouble 1 = ZONE TROUBLE 3
+open 1 = ZONE OPEN 003
+close 1 = ZONE CLOSE 003
+trouble 1 = ZONE TROUBLE 003
 
 [switch 60]
 # RFX serial 0123456
@@ -378,6 +378,8 @@ Options:
                             device. Can be partial config.
                             Example set mode Ademco with default address 18.
                             ```ad2config mode=A&address=18```
+                            Example set mode DSC with default Partiion 1 Slot 2.
+                            ```ad2config mode=D&address=12```
 ```
 ```console
 # Example config file ini setting
