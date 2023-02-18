@@ -32,4 +32,4 @@ jobs:
         run: pwd
 
       - name: Upload firmware package Artifact
-        run: ls
+        run: ls .pio/build/esp32-poe-iso/
