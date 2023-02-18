@@ -27,16 +27,19 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Build esp32-poe-iso
-        run: pio run -e esp32-poe-iso
-
-      - name: Build spiffs.bin
-        run: pio run -t buildfs -e esp32-poe-iso
-
       - name: Create base Artifact release package structure
         run: |
           mkdir $PP
           cp README.md CHANGELOG.md LICENSE $PP/
+
+      - name: Build esp32-poe-iso
+        run: pio run -e esp32-poe-iso
+
+      - name: Build spiffs.bin for esp32-poe-iso
+        run: pio run -t buildfs -e esp32-poe-iso
+
+      - name: Add esp32-poe-iso build to release package
+        run: |
           mkdir $PP/esp32
           cp contrib/README-FLASH-ESP32.md contrib/ESP32-DOWNLOAD-TOOL-UPLOADING-FIRMWARE.png $PP/esp32/
           mkdir $PP/esp32/esp32-poe-iso-webui
