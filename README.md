@@ -39,7 +39,7 @@
 # AlarmDecoder IoT Network Appliance
  [Latest stable release ![Release Version](https://img.shields.io/github/release/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic) ![Release Date](https://img.shields.io/github/release-date/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/releases/latest/) [![.github/workflows/build.yml](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml/badge.svg?branch=master&event=push)](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml)
 
- [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/tree/dev) [![.github/workflows/build.yml](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml/badge.svg?branch=dev&event=push)](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml)
+ [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/tree/dev) [![build](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml/badge.svg?branch=dev&event=push)](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml)
 
 ##  1. <a name='overview'></a>Overview
 
