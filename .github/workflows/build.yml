@@ -53,7 +53,7 @@ jobs:
 
       - name: Add esp32-poe-iso stsdk build to release package
         run: |
-          mkdir $PP/esp32/esp32-poe-iso-webui
+          mkdir $PP/esp32/esp32-poe-iso-stsdk
           cp build/partition_table/partition-table.bin $PP/esp32/esp32-poe-iso-stsdk/partitions.bin
           cp build/alarmdecoder_ad2iot_esp32.bin $PP/esp32/esp32-poe-iso-stsdk/firmware.bin
           cp build/bootloader/bootloader.bin $PP/esp32/esp32-poe-iso-stsdk/
