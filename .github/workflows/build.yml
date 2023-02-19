@@ -26,6 +26,13 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Create base Artifact release package structure
+        run: |
+          mkdir $PP
+          cp README.md CHANGELOG.md LICENSE $PP/
+          mkdir $PP/esp32
+          cp contrib/README-FLASH-ESP32.md contrib/ESP32-DOWNLOAD-TOOL-UPLOADING-FIRMWARE.png $PP/esp32/
+
       - name: Install required packages for st-device-c-ref build
         run: sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
 
@@ -35,7 +42,7 @@ jobs:
           repository: SmartThingsCommunity/st-device-sdk-c-ref
           path: ./.st-device-sdk-c-ref
 
-      - name: setup build environment for stsdk-c-ref
+      - name: setup build environment for stsdk-c-ref and build AlarmDecoder-IoT for SmartThings
         run: |
           cd .st-device-sdk-c-ref
           git config --global user.name "GitHub Actions Bot"
@@ -44,18 +51,16 @@ jobs:
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           python build.py esp32 AlarmDecoder-IoT
 
-      - name: goto done early abort for testing.
+      - name: Add esp32-poe-iso stsdk build to release package
         run: |
-          python -c "import os; print(os.environ)"
-          exit 1
+          mkdir $PP/esp32/esp32-poe-iso-webui
+          cp build/partition_table/partition-table.bin $PP/esp32/esp32-poe-iso-stsdk/partitions.bin
+          cp build/alarmdecoder_ad2iot_esp32.bin $PP/esp32/esp32-poe-iso-stsdk/firmware.bin
+          cp build/bootloader/bootloader.bin $PP/esp32/esp32-poe-iso-stsdk/
+          cp build/ota_data_initial.bin $PP/esp32/esp32-poe-iso-stsdk/
 
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
-
-      - name: Create base Artifact release package structure
-        run: |
-          mkdir $PP
-          cp README.md CHANGELOG.md LICENSE $PP/
 
       - name: Build esp32-poe-iso
         run: pio run -e esp32-poe-iso
@@ -63,10 +68,8 @@ jobs:
       - name: Build spiffs.bin for esp32-poe-iso
         run: pio run -t buildfs -e esp32-poe-iso
 
-      - name: Add esp32-poe-iso build to release package
+      - name: Add esp32-poe-iso webui build to release package
         run: |
-          mkdir $PP/esp32
-          cp contrib/README-FLASH-ESP32.md contrib/ESP32-DOWNLOAD-TOOL-UPLOADING-FIRMWARE.png $PP/esp32/
           mkdir $PP/esp32/esp32-poe-iso-webui
           cp .pio/build/esp32-poe-iso/spiffs.bin $PP/esp32/esp32-poe-iso-webui/
           cp .pio/build/esp32-poe-iso/firmware.bin $PP/esp32/esp32-poe-iso-webui/
