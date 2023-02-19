@@ -2,8 +2,8 @@
 * 1. [Overview](#overview)
 * 2. [Tested and recommended hardware](#tested-and-recommended-hardware)
 * 3. [Firmware](#firmware)
-  * 3.1. [webUI build (webui) - alarmdecoder_webui_esp32.bin](#webui-build-(webui)---alarmdecoder_webui_esp32.bin)
-  * 3.2. [SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin](#smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin)
+  * 3.1. [webUI build (webui) - esp32/esp32-poe-iso-webui](#webui-build-(webui)---esp32/esp32-poe-iso-webui)
+  * 3.2. [SmartThings build (stsdk) - esp32/esp32-poe-iso-stsdk](#smartthings-build-(stsdk)---esp32/esp32-poe-iso-stsdk)
 * 4. [Configuring the AD2IoT device](#configuring-the-ad2iot-device)
 * 5. [AD2Iot CLI - command line interface](#ad2iot-cli---command-line-interface)
   * 5.1. [Basic commands](#basic-commands)
@@ -54,27 +54,25 @@ The device firmware is stored in the onboard non-volatile flash making the devic
 * ESP32-DevKitC-32E. WiFi only applications.
 
 ##  3. <a name='firmware'></a>Firmware
-The firmware is already compiled for the ESP32-POE-ISO board and is available in the release page or via OTA(over-the-air) update. Currently the firmware is built with the following build flags 'stsdk' and 'webui'.
+Pre compiled firmware for the ESP32-POE-ISO board is available in the release package to flash to a new device or via OTA(over-the-air) update for devices that are already programmed with a current AD2IoT firmware.
 
-To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
+Currently two builds are available ```stsdk``` and ```webui```. To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
 - ```upgrade webui```
 
 If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release of the AD2IoT firmware over USB.
 
-See the README-FLASH-ESP32.md inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
+See the README-FLASH-ESP32.md inside the release file for instructions on flashing the firmware to a ESP32-POE-ISO board over USB.
 
-###  3.1. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
+###  3.1. <a name='webui-build-(webui)---esp32/esp32-poe-iso-webui'></a>webUI build (webui) - esp32/esp32-poe-iso-webui
 - Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
-
-This build uses the latest ESP-IDF v4.3 with the SmartThings driver is disabled.
 
 - Optional uSD card with a FAT32 root partition is required for webUI.
   - Copy the contents of contrib/webUI/flash-drive folder into the root directory of the card.
   - Optionally place the sample configuration file [data/ad2iot.ini](data/ad2iot.ini) on the root directory to override the default config storage on the internal /spiffs partition.
   - Reboot the device after inserting the card for changes to take effect.
 
-###  3.2. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
-- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings.
+###  3.2. <a name='smartthings-build-(stsdk)---esp32/esp32-poe-iso-stsdk'></a>SmartThings build (stsdk) - esp32/esp32-poe-iso-stsdk
+- Enabled components: SmartThings, Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
 
 This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 
