@@ -33,7 +33,14 @@
 static const char *TAG = "FTPD";
 
 // module specific includes
+/// Problem with dirent included as "C" already by STSDK build.
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <dirent.h>
+#ifdef __cplusplus
+}
+#endif
 #include <fstream>
 
 #define FTPD_COMMAND          "ftpd"

@@ -47,9 +47,10 @@ jobs:
           cd .st-device-sdk-c-ref
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
-          python setup.py esp32 > /dev/null 2>&1
+          python setup.py
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           python build.py esp32 AlarmDecoder-IoT
+          cd ..
 
       - name: Add esp32-poe-iso stsdk build to release package
         run: |
