@@ -6,7 +6,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
 
 ### SM - Sean Mathews coder at f34r.com
-- [ ] FTPD: Does not build with stsdk.
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
 - [ ] CORE: Needed feature ad2_fw_update() to update AD2* firmware.
 - [ ] CORE: TODO: Monitor limited sockets look for ways to reduce if possible.
@@ -45,6 +44,7 @@ Changes:
 ### Change log
   - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(. No loss now we can generate a release file something that seemed much more difficult with travis-ci. Add a workflow file named ```CI build``` to test and build a release file with compiled firmware and instructions. See the ```CI build``` build Summary page for the Artifacts file ```AD2IoT-Release-Package```
   - [X] SM CORE: Docs improvements.
+  - [X] SM FTPD: Does not build with stsdk. Had to wrap <dirent.h> in extern 'C' because stsdk already imports as extern. Testing did not show any issues and none were expected.
   - [X] SM STSDK: Build and uploaded set keys but was not able to adopt. '''Error 81-001 Something went wrong'''
   - [X] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
   - [X] SM CORE: Update README.md docs on building project including stsdk and platformio.
