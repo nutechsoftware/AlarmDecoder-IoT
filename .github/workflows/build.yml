@@ -37,7 +37,7 @@ jobs:
         run: sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
 
       - name: Checkout st-device-sdk-c-ref
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: SmartThingsCommunity/st-device-sdk-c-ref
           path: ./.st-device-sdk-c-ref
