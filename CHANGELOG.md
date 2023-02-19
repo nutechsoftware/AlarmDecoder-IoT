@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased] Open issues
+- [ ] CORE: TODO: Add astyle testing in new github action worflow.
+- [ ] STSDK: TODO: Successful adopting test.
 
 ### SM - Sean Mathews coder at f34r.com
 - [ ] API: Add countdown tracking for DSC/Ademco exit mode
@@ -26,20 +28,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - [ ] TWILIO & PUSHOVER: Add virtual partition qualifier to virtual switch command. Currently on the Twilio notification is hard coded to the default virtual partition in slot 0. The Pushover notification currently has no qualifier and sends messages regardless of the partition as long as it matches. Merge these into a single pattern allowing for the user to define it by its ```vpart``` id.
 - [ ] webUI: Add REST api compatible with the current webapp including a secret key. This is low priority as this method of connection is not very efficient.
 
-### AJ
-- [ ] Migrate `astyle` to GitHub Action
-
 ---
 ## Releases
 ## [1.1.0 P2] - 2023-01-?? Sean Mathews - coder @f34rdotcom
 Changes:
-  - Add CI using github Actions to test building and create an Artifact with the compiled firmware package and instructions. For more info on Artifacts see https://docs.github.com/en/actions/managing-workflow-runs/downloading-workflow-artifacts
+  - Add CI using github Actions to test building and create an Artifact with a release package with compiled firmware and instructions.
+    - More info on Artifacts: https://docs.github.com/en/actions/managing-workflow-runs/downloading-workflow-artifacts
   - Removed travis-ci support.
-  - Fix missing settings and organized sdkconfig.defaults.
+  - Fix missing settings and organized sdkconfig.defaults file.
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
   - Get STSDK building again.
+    - TODO: Confirm adopting works. So far I have not been successful.
   - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
   - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(. No loss now we can generate a release file something that seemed much more difficult with travis-ci. Add a workflow file named ```CI build``` to test and build a release file with compiled firmware and instructions. See the ```CI build``` build Summary page for the Artifacts file ```AD2IoT-Release-Package```
