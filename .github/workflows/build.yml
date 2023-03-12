@@ -50,6 +50,7 @@ jobs:
           git config --global user.email "<>"
           python setup.py esp32
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
+          cp $RUNNER_WORKSPACE/AlarmDecoder-IoT/sdkconfig.defaults.stsdk $RUNNER_WORKSPACE/AlarmDecoder-IoT/sdkconfig.defaults
           python build.py esp32 AlarmDecoder-IoT
           cd ..
 
