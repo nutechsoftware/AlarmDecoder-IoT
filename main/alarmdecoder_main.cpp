@@ -503,6 +503,7 @@ void _update_top_task_stats()
  */
 bool _show_pretty_process_list()
 {
+#if CONFIG_AD2IOT_TOP
     // Format string for data columns.
     // "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY, %CUR"
 #define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-20s %-6s %-6s\r\n"
@@ -621,6 +622,7 @@ bool _show_pretty_process_list()
                     "    Stack: Minimum stack free bytes, CPU#: CPU affinity\r\n"
                     "    TBusy: %% busy total, Busy: %% busy now\r\n"
                    );
+#endif
     return true;
 }
 
@@ -632,6 +634,7 @@ bool _show_pretty_process_list()
  */
 static void _cli_cmd_top_event(const char *string)
 {
+#if CONFIG_AD2IOT_TOP
     uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
     while(1) {
         if (ulTaskNotifyTake( pdTRUE, pdMS_TO_TICKS(100)) != 0) {
@@ -650,6 +653,7 @@ static void _cli_cmd_top_event(const char *string)
             break;
         }
     }
+#endif
 }
 #endif
 
@@ -966,11 +970,13 @@ void init_ad2_uart_client(const char *args)
  */
 void dump_mem_stats()
 {
+#if CONFIG_AD2IOT_TOP
     float Total = heap_caps_get_total_size(MALLOC_CAP_32BIT);
     float Free_Size = heap_caps_get_free_size(MALLOC_CAP_32BIT);
     float DRam = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     float IRam = heap_caps_get_free_size(MALLOC_CAP_32BIT) - heap_caps_get_free_size(MALLOC_CAP_8BIT);
     ad2_printf_host(true, "Total Heap Size %.2f Kb\nFree Space %.2f Kb\nDRAM  %.2f Kb\nIRAM  %.2f Kb\n",Total/1024,Free_Size/1024,DRam/1024,IRam/1024);
+#endif
 }
 
 // external call from FreeRTOS is CDECL
