@@ -46,17 +46,18 @@ jobs:
 
       - name: setup build environment for stsdk-c-ref and build AlarmDecoder-IoT for SmartThings
         run: |
+          # Overwrite defaults and restore when done with build.
+          cp sdkconfig.defaults.stsdk sdkconfig.defaults
           cd .st-device-sdk-c-ref
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
           python setup.py esp32
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
-          cp $RUNNER_WORKSPACE/AlarmDecoder-IoT/sdkconfig.defaults.stsdk $RUNNER_WORKSPACE/AlarmDecoder-IoT/sdkconfig.defaults
           python build.py esp32 AlarmDecoder-IoT
-          # FIXME: make better. After build restore sdkconfig.defaults and remove sdkconfig to force rebuild on later builds.
+          cd ..
+          # Restore defaults and remove any sdkconfig created
           git checkout sdkconfig.defaults
           rm sdkconfig
-          cd ..
 
       - name: Add esp32-poe-iso stsdk build to release package
         run: |
