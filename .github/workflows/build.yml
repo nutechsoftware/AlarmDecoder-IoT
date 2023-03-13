@@ -55,9 +55,10 @@ jobs:
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           python build.py esp32 AlarmDecoder-IoT
           cd ..
-          # Restore defaults and remove any sdkconfig created
+          # Restore defaults and remove any sdkconfig created in build.
           git checkout sdkconfig.defaults
           rm sdkconfig
+          # No need to make clean later build with pio will use a different work folder.
 
       - name: Add esp32-poe-iso stsdk build to release package
         run: |
