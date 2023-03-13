@@ -53,6 +53,9 @@ jobs:
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           cp $RUNNER_WORKSPACE/AlarmDecoder-IoT/sdkconfig.defaults.stsdk $RUNNER_WORKSPACE/AlarmDecoder-IoT/sdkconfig.defaults
           python build.py esp32 AlarmDecoder-IoT
+          # FIXME: make better. After build restore sdkconfig.defaults and remove sdkconfig to force rebuild on later builds.
+          git checkout sdkconfig.defaults
+          rm sdkconfig
           cd ..
 
       - name: Add esp32-poe-iso stsdk build to release package
