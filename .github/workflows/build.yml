@@ -83,6 +83,7 @@ jobs:
           cp .pio/build/esp32-poe-iso/firmware.bin $PP/esp32/esp32-poe-iso-webui/
 
       - name: Add common firmware files for each branch to the package.
+        run: |
           cp .pio/build/esp32-poe-iso/spiffs.bin $PP/esp32/esp32-poe-iso-webui/
           cp .pio/build/esp32-poe-iso/spiffs.bin $PP/esp32/esp32-poe-iso-stsdk/
           cp .pio/build/esp32-poe-iso/bootloader.bin $PP/esp32/esp32-poe-iso-webui/
