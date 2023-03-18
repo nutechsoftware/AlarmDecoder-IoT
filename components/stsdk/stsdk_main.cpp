@@ -41,6 +41,8 @@ static const char *TAG = "STSDK";
 #include "esp_netif.h"
 #endif
 
+static bool _enabled = false;
+
 // specific includes
 #include "stsdk_main.h"
 #include "ota_util.h"
@@ -224,7 +226,6 @@ static void _cli_cmd_stsdk_event(const char *string)
     ad2_lcase(subcmd);
 
     int i;
-    bool en;
     for(i = 0;; ++i) {
         if (STSDK_SUBCMD[i] == 0) {
             ad2_printf_host(false, "What?\r\n");
@@ -243,10 +244,9 @@ static void _cli_cmd_stsdk_event(const char *string)
                     ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
                 }
 
-                // show contents of this slot
-                en = false;
-                ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &en);
-                ad2_printf_host(true, "SmartThings Direct Connected Devices SDK client is '%s'.\r\n", (en ? "Enabled" : "Disabled"));
+                // load the current and show contents of this slot.
+                ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &_enabled);
+                ad2_printf_host(true, "SmartThings Direct Connected Devices SDK client is '%s'.\r\n", (_enabled ? "Enabled" : "Disabled"));
                 break;
             /**
              * Forget all STSDK state revert back to adoption mode.
@@ -263,10 +263,11 @@ static void _cli_cmd_stsdk_event(const char *string)
                 // arg found save
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_set_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_SERIAL, arg.c_str());
+                    ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
                     break;
                 }
                 // If no arg then return current show contents of this slot
-                ad2_printf_host(true, "SmartThings 'serial' arg missing.\r\n");
+                ad2_printf_host(true, "SmartThings '" STSDK_SUBCMD_SERIAL "' arg missing.\r\n");
                 break;
             /**
              * SmartThings PrivateKey.
@@ -275,10 +276,11 @@ static void _cli_cmd_stsdk_event(const char *string)
                 // arg found save
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_set_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_PRIVKEY, arg.c_str());
+                    ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
                     break;
                 }
                 // If no arg then return current show contents of this slot
-                ad2_printf_host(true, "SmartThings 'serial' arg missing.\r\n");
+                ad2_printf_host(true, "SmartThings '" STSDK_SUBCMD_PRIVKEY "' arg missing.\r\n");
                 break;
             /**
              * SmartThings PublicKey.
@@ -287,10 +289,11 @@ static void _cli_cmd_stsdk_event(const char *string)
                 // arg found save
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
                     ad2_set_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_PUBKEY, arg.c_str());
+                    ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
                     break;
                 }
                 // If no arg then return current show contents of this slot
-                ad2_printf_host(true, "SmartThings 'serial' arg missing.\r\n");
+                ad2_printf_host(true, "SmartThings '" STSDK_SUBCMD_PUBKEY "' arg missing.\r\n");
                 break;
 
             default:
@@ -969,11 +972,10 @@ void stsdk_init(void)
     unsigned int onboarding_config_len = onboarding_config_end - onboarding_config_start;
     int iot_err;
 
-    bool en = false;
-    ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &en);
+    ad2_get_config_key_bool(STSDK_CONFIG_SECTION, STSDK_SUBCMD_ENABLE, &_enabled);
 
     // nothing more needs to be done once commands are set if not enabled.
-    if (!en) {
+    if (!_enabled) {
         ESP_LOGI(TAG, "STSDK disabled");
         return;
     }
@@ -999,7 +1001,6 @@ void stsdk_init(void)
     static char *device_info_json = NULL;
     device_info_json = cJSON_Print(root);
     ctx = st_conn_init(onboarding_config, onboarding_config_len, (unsigned char*)device_info_json, strlen(device_info_json));
-    ad2_printf_host(false, "DeviceInfo JSON: %s", device_info_json);
 
     //cJSON_free(device_info_json);
     cJSON_Delete(root);
@@ -1320,6 +1321,8 @@ void stsdk_connection_start(void)
 {
     iot_pin_t *pin_num = NULL;
     int err;
+
+    if (!_enabled) return;
 
 #if defined(SET_PIN_NUMBER_CONFRIM)
     pin_num = (iot_pin_t *) malloc(sizeof(iot_pin_t));
