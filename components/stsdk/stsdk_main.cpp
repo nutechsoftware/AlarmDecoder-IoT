@@ -62,10 +62,6 @@ IOT_CTX* ctx = NULL;
 extern const uint8_t onboarding_config_start[]  asm("_binary_onboarding_config_json_start");
 extern const uint8_t onboarding_config_end[]    asm("_binary_onboarding_config_json_end");
 
-// device_info_start is null-terminated string
-extern const uint8_t device_info_start[]        asm("_binary_device_info_json_start");
-extern const uint8_t device_info_end[]          asm("_binary_device_info_json_end");
-
 /**
  * @brief component: main
  */
@@ -264,24 +260,9 @@ static void _cli_cmd_stsdk_event(const char *string)
              * SmartThings Serial.
              */
             case STSDK_SUBCMD_SERIAL_ID:
-                // arg found save to nvs
+                // arg found save
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
-                    // save to the stnv nvs partition
-                    nvs_handle my_handle;
-                    esp_err_t err;
-                    err = nvs_open_from_partition("nvs", "stdk", NVS_READWRITE, &my_handle);
-                    if ( err != ESP_OK) {
-                        ESP_LOGE(TAG, "%s: nvs_open_from_partition err: %s", __func__, esp_err_to_name(err));
-                    }
-                    err = nvs_set_str(my_handle, "SerialNum", arg.c_str());
-                    if ( err != ESP_OK) {
-                        ESP_LOGE(TAG, "%s: nvs_set_str err: %s", __func__, esp_err_to_name(err));
-                        ad2_printf_host(true, "Failed setting value.\r\n");
-                    } else {
-                        ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
-                    }
-                    err = nvs_commit(my_handle);
-                    nvs_close(my_handle);
+                    ad2_set_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_SERIAL, arg.c_str());
                     break;
                 }
                 // If no arg then return current show contents of this slot
@@ -291,56 +272,27 @@ static void _cli_cmd_stsdk_event(const char *string)
              * SmartThings PrivateKey.
              */
             case STSDK_SUBCMD_PRIVKEY_ID:
-                // arg found save to nvs
+                // arg found save
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
-                    // save to the stnv nvs partition
-                    nvs_handle my_handle;
-                    esp_err_t err;
-                    err = nvs_open_from_partition("nvs", "stdk", NVS_READWRITE, &my_handle);
-                    if ( err != ESP_OK) {
-                        ESP_LOGE(TAG, "%s: nvs_open_from_partition err: %s", __func__, esp_err_to_name(err));
-                    }
-                    err = nvs_set_str(my_handle, "PrivateKey", arg.c_str());
-                    if ( err != ESP_OK) {
-                        ESP_LOGE(TAG, "%s: nvs_set_str err: %s", __func__, esp_err_to_name(err));
-                        ad2_printf_host(true, "Failed setting value.\r\n");
-                    } else {
-                        ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
-                    }
-                    err = nvs_commit(my_handle);
-                    nvs_close(my_handle);
+                    ad2_set_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_PRIVKEY, arg.c_str());
                     break;
                 }
                 // If no arg then return current show contents of this slot
-                ad2_printf_host(true, "SmartThings 'privatekey' arg missing.\r\n");
+                ad2_printf_host(true, "SmartThings 'serial' arg missing.\r\n");
                 break;
             /**
              * SmartThings PublicKey.
              */
             case STSDK_SUBCMD_PUBKEY_ID:
-                // arg found save to nvs
+                // arg found save
                 if (ad2_copy_nth_arg(arg, string, 2, true) >= 0) {
-                    // save to the stnv nvs partition
-                    nvs_handle my_handle;
-                    esp_err_t err;
-                    err = nvs_open_from_partition("nvs", "stdk", NVS_READWRITE, &my_handle);
-                    if ( err != ESP_OK) {
-                        ESP_LOGE(TAG, "%s: nvs_open_from_partition err: %s", __func__, esp_err_to_name(err));
-                    }
-                    err = nvs_set_str(my_handle, "PublicKey", arg.c_str());
-                    if ( err != ESP_OK) {
-                        ESP_LOGE(TAG, "%s: nvs_set_str err: %s", __func__, esp_err_to_name(err));
-                        ad2_printf_host(true, "Failed setting value.\r\n");
-                    } else {
-                        ad2_printf_host(true, "Success setting value. Restart required to take effect.\r\n");
-                    }
-                    err = nvs_commit(my_handle);
-                    nvs_close(my_handle);
+                    ad2_set_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_PUBKEY, arg.c_str());
                     break;
                 }
                 // If no arg then return current show contents of this slot
-                ad2_printf_host(true, "SmartThings 'publickey' arg missing.\r\n");
+                ad2_printf_host(true, "SmartThings 'serial' arg missing.\r\n");
                 break;
+
             default:
                 break;
             }
@@ -1015,8 +967,6 @@ void stsdk_init(void)
 {
     unsigned char *onboarding_config = (unsigned char *) onboarding_config_start;
     unsigned int onboarding_config_len = onboarding_config_end - onboarding_config_start;
-    unsigned char *device_info = (unsigned char *) device_info_start;
-    unsigned int device_info_len = device_info_end - device_info_start;
     int iot_err;
 
     bool en = false;
@@ -1030,8 +980,30 @@ void stsdk_init(void)
 
     ESP_LOGI(TAG, "Starting STSDK");
 
-    // create a iot context
-    ctx = st_conn_init(onboarding_config, onboarding_config_len, device_info, device_info_len);
+    // Create a device info json string for the st_conn_init from internal NV keys
+    cJSON *root = cJSON_CreateObject();
+    cJSON *deviceInfo = cJSON_CreateObject();
+
+    std::string privateKey;
+    std::string publicKey;
+    std::string serialNumber;
+    ad2_get_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_PRIVKEY, privateKey);
+    ad2_get_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_PUBKEY, publicKey);
+    ad2_get_config_key_string(STSDK_CONFIG_SECTION, STSDK_SUBCMD_SERIAL, serialNumber);
+
+    cJSON_AddStringToObject(deviceInfo, "firmwareVersion", FIRMWARE_VERSION);
+    cJSON_AddStringToObject(deviceInfo, "privateKey", privateKey.c_str());
+    cJSON_AddStringToObject(deviceInfo, "publicKey", publicKey.c_str());
+    cJSON_AddStringToObject(deviceInfo, "serialNumber", serialNumber.c_str());
+    cJSON_AddItemToObject(root, "deviceInfo", deviceInfo);
+    static char *device_info_json = NULL;
+    device_info_json = cJSON_Print(root);
+    ctx = st_conn_init(onboarding_config, onboarding_config_len, (unsigned char*)device_info_json, strlen(device_info_json));
+    ad2_printf_host(false, "DeviceInfo JSON: %s", device_info_json);
+
+    //cJSON_free(device_info_json);
+    cJSON_Delete(root);
+
     if (ctx != NULL) {
         iot_err = st_conn_set_noti_cb(ctx, iot_noti_cb, NULL);
         if (iot_err) {
