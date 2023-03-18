@@ -40,14 +40,15 @@ Changes:
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
   - Get STSDK building again.
-    - TODO: Confirm adopting works. So far I have not been successful.
+    - Confirm adopting works after fixing key and serial storage omissions.
   - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
+  - [X] SM API,MQTT,PUSHOVER,TWILIO: Replace "fault" with "trouble" in error messages and code comments. Improve error reporting when validating and loading switches during init.
   - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(. No loss now we can generate a release file something that seemed much more difficult with travis-ci. Add a workflow file named ```CI build``` to test and build a release file with compiled firmware and instructions. See the ```CI build``` build Summary page for the Artifacts file ```AD2IoT-Release-Package```
   - [X] SM CORE: Docs improvements.
   - [X] SM FTPD: Does not build with stsdk. Had to wrap <dirent.h> in extern 'C' because stsdk already imports as extern. Testing did not show any issues and none were expected.
   - [X] SM STSDK: Build and uploaded set keys but was not able to adopt. '''Error 81-001 Something went wrong'''
-  - [X] SM CORE: Testing modules build. All built even mqtt? Ok... I did not expect that. Needs testing.
+  - [X] SM CORE: Testing stsdk and webui modules build. Currently not able to add ```top``` or ```mqtt``` modules with ```stsdk``` build.
   - [X] SM CORE: Update README.md docs on building project including stsdk and platformio.
   - [X] SM CORE: Add fixes for stsdk code that I have been sitting on. Mostly just CDECL stuff.
   - [X] SM CORE: Fix CMakeList.txt to fetch SimpleIni from github and include it for stsdk building.

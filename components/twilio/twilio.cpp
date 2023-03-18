@@ -979,12 +979,12 @@ void twilio_init()
                 // incomplete switch so delete it and supporting pointers.
                 delete pslots;
                 delete es1;
-                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Need at least one open, close, or trouble filter expressions.", swID);
             }
         } else {
             if (open_output_format.length() || close_output_format.length()
                     || trouble_output_format.length()) {
-                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
+                ESP_LOGE(TAG, "Section config error. Need at least one open, close, or trouble output strings for switch %i.", swID);
             }
         }
     }

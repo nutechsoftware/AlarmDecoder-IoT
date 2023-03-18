@@ -64,7 +64,7 @@ If the upgrade fails it may be the result of low memory on the device. Try disab
 See the README-FLASH-ESP32.md inside the release file for instructions on flashing the firmware to a ESP32-POE-ISO board over USB.
 
 ###  3.1. <a name='webui-build-(webui)---esp32/esp32-poe-iso-webui'></a>webUI build (webui) - esp32/esp32-poe-iso-webui
-- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
+- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd, top.
 
 - Optional uSD card with a FAT32 root partition is required for webUI.
   - Copy the contents of contrib/webUI/flash-drive folder into the root directory of the card.
@@ -72,7 +72,7 @@ See the README-FLASH-ESP32.md inside the release file for instructions on flashi
   - Reboot the device after inserting the card for changes to take effect.
 
 ###  3.2. <a name='smartthings-build-(stsdk)---esp32/esp32-poe-iso-stsdk'></a>SmartThings build (stsdk) - esp32/esp32-poe-iso-stsdk
-- Enabled components: SmartThings, Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
+- Enabled components: SmartThings, Pushover, Twilio, Sendgrid, ser2sock, webUI, ftpd.
 
 This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 

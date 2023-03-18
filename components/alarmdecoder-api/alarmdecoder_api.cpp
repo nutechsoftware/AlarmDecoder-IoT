@@ -1289,7 +1289,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
                                             && !ad2ps->exit_now) { // not exit countdown
 
                                         // get the numeric section and use as a zone #.
-                                        // conver base 16 to base 10 if needed.
+                                        // convert base 16 to base 10 if needed.
                                         bool _ishex = std::count_if(ad2ps->last_numeric_message.begin(),
                                                                     ad2ps->last_numeric_message.end(),
                                         [](unsigned char c) {
@@ -1319,9 +1319,11 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                                         // standard zone fault report.
                                         // [00000011000000000A--],002,[f70600ef1002000018020000000000],"FAULT 02                        "
-                                        // check zone(system_issue) set for zone fault report entry.
+                                        // alarm zone(alarm_event_occurred) report. Set for zone alarm report entry.
+                                        // [00110001111000010A--],011,[f70200ff101110802b020000000000],"ALARM 11 GARAGE DOOR            "
+                                        // check zone(system_issue) set for zone trouble report entry.
                                         // [00000401000000100A--],009,[f700001f1009040208020000000000],"CHECK 09                        "
-                                        if (ad2ps->system_issue) {
+                                        if (ad2ps->system_issue || ad2ps->alarm_event_occurred) {
                                             // Update the zone state object and set timeout
                                             if (ad2ps->zone_states[_zone].state() != AD2_STATE_TROUBLE) {
                                                 _send_event = true;
