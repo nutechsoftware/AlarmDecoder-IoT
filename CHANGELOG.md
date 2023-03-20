@@ -43,6 +43,10 @@ Changes:
     - Confirm adopting works after fixing key and serial storage omissions.
   - Improved documentation fixing errors and adding config file examples in each section.
 ### Change log
+  - [X] SM OTA: Noticed it was trying too hard to connect at first boot after first check timeout. Set retry check time to 5 minutes when network down and on too many fails skip for 24h.
+  - [X] SM MQTT,TWILIO,PUSOVER: Fix notify regex filter not applied to test causing a switch to fire even if a filter is set that would exclude it.
+  - [X] SM CORE: Service startup when network is disabled needs to be delayed waiting for the network to start.
+  - [X] SM CORE: cleanup some compiler warnings about unused vars. Others I need to add more error handling.
   - [X] SM API,MQTT,PUSHOVER,TWILIO: Replace "fault" with "trouble" in error messages and code comments. Improve error reporting when validating and loading switches during init.
   - [X] SM CORE: Moving from travis-ci to Github Actions for build testing. I ran out of credits :(. No loss now we can generate a release file something that seemed much more difficult with travis-ci. Add a workflow file named ```CI build``` to test and build a release file with compiled firmware and instructions. See the ```CI build``` build Summary page for the Artifacts file ```AD2IoT-Release-Package```
   - [X] SM CORE: Docs improvements.

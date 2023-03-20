@@ -526,7 +526,6 @@ static void _cli_cmd_switch_event(const char *command_string)
             AD2SWITCH_SK_CLOSE " "
             AD2SWITCH_SK_TROUBLE);
 
-        bool command_found = false;
         ad2_printf_host(false, "## switch %i global configuration.\r\n[%s]\r\n", sId, key.c_str());
         sk_index = 0;
         while (ss >> sk) {

@@ -1002,6 +1002,11 @@ void stsdk_init(void)
     device_info_json = cJSON_Print(root);
     ctx = st_conn_init(onboarding_config, onboarding_config_len, (unsigned char*)device_info_json, strlen(device_info_json));
 
+    // if ctx is good then the network layer should be up.
+    if (ctx != NULL) {
+        hal_set_netif_started(true);
+    }
+
     //cJSON_free(device_info_json);
     cJSON_Delete(root);
 

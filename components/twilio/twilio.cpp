@@ -500,7 +500,7 @@ void on_search_match_cb_tw(std::string *msg, AD2PartitionState *s, void *arg)
 
     AD2EventSearch *es = (AD2EventSearch *)arg;
 #if defined(DEBUG_TWILIO)
-    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%02i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
+    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' notify slot #%i", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
 #endif
     // es->PTR_ARG is the notification slots std::list for this notification.
     std::list<uint8_t> *notify_list = (std::list<uint8_t>*)es->PTR_ARG;
@@ -663,7 +663,7 @@ static void _cli_cmd_twilio_event_generic(std::string &subcmd, const char *strin
                     buf = "Y";
                 }
             }
-            ad2_printf_host(false, "Current acid #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
+            ad2_printf_host(false, "Current acid #%i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
         ad2_printf_host(false, "Missing or invalid <acid> [1-999].\r\n");

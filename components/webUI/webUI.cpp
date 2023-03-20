@@ -583,6 +583,17 @@ esp_err_t http_acl_test(httpd_handle_t hd, int sockfd)
 void webui_server_task(void *pvParameters)
 {
     esp_err_t err;
+#if defined(FTPD_DEBUG)
+     ESP_LOGI(TAG, "%s waiting for network layer to start.", TAG);
+#endif
+    while (1) {
+        if (!hal_get_netif_started()) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            break;
+        }
+    }
+    ESP_LOGI(TAG, "Network layer OK. %s daemon service starting.", TAG);
 
     // Configure the web server and handlers.
     server_config.uri_match_fn = httpd_uri_match_wildcard;
@@ -758,12 +769,6 @@ void webui_register_cmds()
  */
 void webui_init(void)
 {
-    // if netif not enabled then we can't start.
-    if (!hal_get_netif_started()) {
-        ad2_printf_host(true, "%s daemon disabled. Network interface not enabled.", TAG);
-        return;
-    }
-
     bool en = -1;
     ad2_get_config_key_bool(WEBUI_CONFIG_SECTION, WEBUI_SUBCMD_ENABLE, &en);
 
@@ -784,8 +789,6 @@ void webui_init(void)
         }
     }
 
-    ad2_printf_host(true, "%s: Init done, daemon starting.", TAG);
-
     // Subscribe to AlarmDecoder events
     AD2Parse.subscribeTo(ON_ARM, webui_on_state_change, (void *)ON_ARM);
     AD2Parse.subscribeTo(ON_DISARM, webui_on_state_change, (void *)ON_DISARM);
@@ -801,6 +804,7 @@ void webui_init(void)
     // SUbscribe to ON_ZONE_CHANGE events
     AD2Parse.subscribeTo(ON_ZONE_CHANGE, webui_on_state_change, (void *)ON_ZONE_CHANGE);
 
+    ad2_printf_host(true, "%s: Init done, daemon starting.", TAG);
     xTaskCreate(&webui_server_task, "AD2 webUI", 1024*5, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 

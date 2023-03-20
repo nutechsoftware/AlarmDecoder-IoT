@@ -56,6 +56,7 @@ static const char *TAG = "AD2OTA";
 #define OTA_VERSION_CMD   "version"
 
 #define OTA_FIRST_CHECK_DELAY_MS 30*1000
+#define OTA_RETRY_CHECK_DELAY_MS 300*1000
 #define OTA_SOCKET_TIMEOUT 10*1000
 
 // forward decl
@@ -719,7 +720,14 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
  */
 static void ota_polling_task_func(void *arg)
 {
+    uint32_t delay = OTA_FIRST_CHECK_DELAY_MS;
+    static int fail_count = 0;
     while (1) {
+        // failed too many times skip for 24h
+        if (fail_count > 2) {
+            fail_count--;
+            delay =  24 * 3600;
+        }
 #if defined(AD2_STACK_REPORT)
 #define EXTRA_INFO_EVERY 1
         static int extra_info = EXTRA_INFO_EVERY;
@@ -729,7 +737,7 @@ static void ota_polling_task_func(void *arg)
         }
 #endif
 
-        vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
+        vTaskDelay(delay / portTICK_PERIOD_MS);
 
         ESP_LOGI(TAG, "Starting check new version with current version '%s'-%s", FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
@@ -738,8 +746,10 @@ static void ota_polling_task_func(void *arg)
             continue;
         }
 
-        if (!hal_get_network_connected()) {
-            ESP_LOGI(TAG, "Device update check aborted. No internet connection.");
+        if (!hal_get_netif_started()) {
+            ESP_LOGI(TAG, "Device update check aborted. Network interface not started.");
+            delay = OTA_RETRY_CHECK_DELAY_MS;
+            fail_count++;
             continue;
         }
 
@@ -759,8 +769,12 @@ static void ota_polling_task_func(void *arg)
                 if (available_version) {
                     free(available_version);
                 }
+                fail_count++;
                 continue;
             }
+
+            // reset fail count upon success
+            fail_count = 0;
 
             // Update and notify subscribers of a new version
             if (available_version) {
@@ -775,7 +789,7 @@ static void ota_polling_task_func(void *arg)
             }
         }
 
-        /* Set polling period */
+        /* Get polling period in days from server response and set it */
         unsigned int polling_day = ota_get_polling_period_day();
         unsigned int task_delay_sec = polling_day * 24 * 3600;
         vTaskDelay(task_delay_sec * 1000 / portTICK_PERIOD_MS);

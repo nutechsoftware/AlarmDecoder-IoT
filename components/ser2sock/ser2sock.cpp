@@ -257,10 +257,9 @@ void ser2sockd_init(void)
         return;
     }
 
-    ad2_printf_host(true, "%s: Init done, daemon starting.", TAG);
-
     // ser2sockd worker thread
     // 20210815SM: 1284 bytes stack free after first connection.
+    ad2_printf_host(true, "%s: Init done, daemon starting.", TAG);
     xTaskCreate(&ser2sockd_server_task, "AD2 ser2sockd", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }
@@ -698,12 +697,25 @@ void ser2sockd_server_task(void *pvParameters)
     struct timeval wait;
 
 #if defined(S2SD_DEBUG)
-    ESP_LOGI(TAG, "ser2sock server task starting.");
+    ESP_LOGI(TAG, "%s waiting for network layer to start.", TAG);
+#endif
+    while (1) {
+        if (!hal_get_netif_started()) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            break;
+        }
+    }
+    ESP_LOGI(TAG, "Network layer is OK. %s client starting.", TAG);
+
+
+#if defined(S2SD_DEBUG)
+    ESP_LOGI(TAG, "%s waiting for network IP layer to start.", TAG);
 #endif
     for (;;) {
         if (hal_get_network_connected()) {
 #if defined(S2SD_DEBUG)
-            ESP_LOGI(TAG, "network up creating listening socket");
+            ESP_LOGI(TAG, "Network IP layer is OK. %s daemon service starting.", TAG);
 #endif
 #if CONFIG_LWIP_IPV6
             // IPv6 socket will listen on both IPv4 and IPv6 at the same time.

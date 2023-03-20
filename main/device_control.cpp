@@ -68,7 +68,8 @@ const int NET_STA_CONNECT_BIT		= BIT2;
 const int NET_STA_DISCONNECT_BIT	= BIT3;
 const int NET_AP_START_BIT 		= BIT4;
 const int NET_AP_STOP_BIT 		= BIT5;
-const int NET_CONNECT_STATE_BITS = BIT1|BIT2|BIT3|BIT4|BIT5;
+const int NET_NETIF_HAS_IP 		= BIT6;
+const int NET_CONNECT_STATE_BITS = BIT1|BIT2|BIT3|BIT4|BIT5|BIT6;
 
 static bool switchAState = SWITCH_OFF;
 static bool switchBState = SWITCH_OFF;
@@ -439,8 +440,7 @@ void hal_init_network_stack()
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 #endif
 
-
-    xEventGroupSetBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
+    hal_set_netif_started(true);
 
     ESP_LOGI(TAG, "network TCP/IP stack init finish");
     return;
@@ -983,11 +983,35 @@ bool hal_get_netif_started()
 }
 
 /**
+ * @brief Set network interface stack init state.
+ */
+void hal_set_netif_started(bool started)
+{
+    if (started) {
+      xEventGroupSetBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
+    } else {
+      xEventGroupClearBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
+    }
+}
+
+/**
  * @brief Get ip network connection state.
  */
 bool hal_get_network_connected()
 {
     return xEventGroupGetBits(g_ad2_net_event_group) & NET_STA_CONNECT_BIT;
+}
+
+/**
+ * @brief SET ip network connection state.
+ */
+void hal_set_network_connected(bool connected)
+{
+    if (connected) {
+      xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    } else {
+      xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    }
 }
 
 /**
@@ -1006,18 +1030,6 @@ uint64_t hal_uptime_us()
     return esp_timer_get_time();
 }
 
-/**
- * @brief get CONNECTED state.
- */
-void hal_set_network_connected(bool set)
-{
-    ESP_LOGD(TAG, "hal_set_network_connected %i", set);
-    if (set) {
-        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
-    } else {
-        xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
-    }
-}
 
 /**
  * @brief Initialize the uSD reader if one is connected.
@@ -1051,7 +1063,6 @@ bool hal_init_sd_card()
     } else {
         ad2_printf_host(false, " pass.");
         // show stats and return true
-        size_t total = 0, used = 0;
         FATFS *fs;
         DWORD fre_clust, fre_sect, tot_sect;
         FRESULT res;

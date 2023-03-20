@@ -72,7 +72,7 @@ See the README-FLASH-ESP32.md inside the release file for instructions on flashi
   - Reboot the device after inserting the card for changes to take effect.
 
 ###  3.2. <a name='smartthings-build-(stsdk)---esp32/esp32-poe-iso-stsdk'></a>SmartThings build (stsdk) - esp32/esp32-poe-iso-stsdk
-- Enabled components: SmartThings, Pushover, Twilio, Sendgrid, ser2sock, webUI, ftpd.
+- Enabled components: SmartThings, Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd, top.
 
 This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 
