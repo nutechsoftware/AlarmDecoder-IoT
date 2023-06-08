@@ -52,8 +52,7 @@ jobs:
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           python build.py esp32 AlarmDecoder-IoT
           cd ..
-          # Remove any sdkconfig created in build.
-          ls -l sdkconfig
+          # Remove any sdkconfig created in build to be safe.
           rm sdkconfig
 
       - name: Install PlatformIO Core
