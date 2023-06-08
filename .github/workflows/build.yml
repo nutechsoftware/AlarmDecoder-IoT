@@ -45,8 +45,6 @@ jobs:
 
       - name: setup build environment for stsdk-c-ref and build AlarmDecoder-IoT for SmartThings
         run: |
-          # Overwrite defaults and restore when done with build.
-          cp sdkconfig.defaults.stsdk sdkconfig.defaults
           cd .st-device-sdk-c-ref
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<>"
@@ -54,10 +52,9 @@ jobs:
           ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
           python build.py esp32 AlarmDecoder-IoT
           cd ..
-          # Restore defaults and remove any sdkconfig created in build.
-          git checkout sdkconfig.defaults
+          # Remove any sdkconfig created in build.
+          ls -l sdkconfig
           rm sdkconfig
-          # No need to make clean later build with pio will use a different work folder.
 
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
