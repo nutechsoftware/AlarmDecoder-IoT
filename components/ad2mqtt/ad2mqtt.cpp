@@ -36,6 +36,9 @@ static const char *TAG = "MQTT";
 // esp component includes
 #include "mqtt_client.h"
 
+// enable verbose debug logging
+//#define MQTT_DEBUG
+
 /* Constants that aren't configurable in menuconfig */
 #define MQTT_COMMAND        "mqtt"
 #define MQTT_ENABLE_SUBCMD  "enable"
@@ -819,7 +822,9 @@ void mqtt_free()
 void on_search_match_cb_mqtt(std::string *msg, AD2PartitionState *s, void *arg)
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
-
+#if defined(MQTT_DEBUG)
+    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' [switch %i]", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
+#endif
     std::string message = es->out_message;
 
     // Grab the topic using the virtual switch ID pre saved into INT_ARG
@@ -843,6 +848,13 @@ void on_search_match_cb_mqtt(std::string *msg, AD2PartitionState *s, void *arg)
                                          MQTT_DEF_QOS,
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
+
+        if (msg_id) {
+            ESP_LOGI(TAG,"Switch #%i match message '%s'. Sending '%s'", es->INT_ARG, msg->c_str(), es->out_message.c_str());
+        } else {
+            ESP_LOGE(TAG,"Error adding mqtt message.");
+        }
+
         cJSON_free(state);
         cJSON_Delete(root);
     }
@@ -926,7 +938,6 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, const char *in
                 MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
             std::string sk;
-            bool command_found = false;
             ad2_printf_host(false, "## [mqtt] switch %i configuration.\r\n", swID);
             while (ss >> sk) {
                 tbuf = "";
@@ -1115,40 +1126,23 @@ void mqtt_register_cmds()
 }
 
 /**
- * Initialize queue and SSL
+ * @brief daemon startup task
+ *
+ * @param [in]pvParameters currently not used NULL.
  */
-void mqtt_init()
+void mqtt_startup_task(void *pvParameters)
 {
-    // if netif not enabled then we can't start.
-    if (!hal_get_netif_started()) {
-        ad2_printf_host(true, "%s client disabled. Network interface not enabled.", TAG);
-        return;
-    }
-
-    bool en = false;
-    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD, &en);
-
-    // nothing more needs to be done once commands are set if not enabled.
-    if (!en) {
-        ad2_printf_host(true, "%s client disabled.", TAG);
-        return;
-    }
-
-#if 0 // debug logging settings.
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
-    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
-    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+#if defined(MQTT_DEBUG)
+    ESP_LOGI(TAG, "MQTT waiting for network layer to start.");
 #endif
-
-    // load commands subscription enable/disable setting
-    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_SUBCMD, &commands_enabled);
-
-    // generate our client's unique user id. UUID.
-    ad2_genUUID(0x10, mqttclient_UUID);
-    ad2_printf_host(true, "%s: Init UUID: %s", TAG, mqttclient_UUID.c_str());
+    while (1) {
+        if (!hal_get_netif_started()) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            break;
+        }
+    }
+    ESP_LOGI(TAG, "Network layer is OK. %s client starting.", TAG);
 
     // configure and start MQTT client
     esp_err_t err;
@@ -1199,6 +1193,39 @@ void mqtt_init()
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_mqtt_client_start return error: %s.", esp_err_to_name(err));
     }
+
+    vTaskDelete(NULL);
+}
+
+/**
+ * Initialize queue and SSL
+ */
+void mqtt_init()
+{
+    bool en = false;
+    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD, &en);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!en) {
+        ad2_printf_host(true, "%s client disabled.", TAG);
+        return;
+    }
+
+#if 0 // debug logging settings.
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+#endif
+
+    // load commands subscription enable/disable setting
+    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_SUBCMD, &commands_enabled);
+
+    // generate our client's unique user id. UUID.
+    ad2_genUUID(0x10, mqttclient_UUID);
+    ad2_printf_host(true, "%s: Init UUID: %s", TAG, mqttclient_UUID.c_str());
 
     // Subscribe standard AlarmDecoder events
     AD2Parse.subscribeTo(ON_ARM, mqtt_on_state_change, (void *)ON_ARM);
@@ -1302,6 +1329,7 @@ void mqtt_init()
             // load [switch N] required regex match settings
             std::string prefilter_regex;
             ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+            es1->PRE_FILTER_REGEX = prefilter_regex;
 
             // Load all regex search patterns for open, close, and trouble sub keys.
             std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
@@ -1347,18 +1375,18 @@ void mqtt_init()
             } else {
                 // incomplete switch so delete it.
                 delete es1;
-                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Need at least one open, close, or trouble filter expressions.", swID);
             }
         } else {
             if (open_output_format.length() || close_output_format.length()
                     || trouble_output_format.length()) {
-                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
+                ESP_LOGE(TAG, "Section config error. Need at least one open, close, or trouble output strings for switch %i.", swID);
             }
         }
     }
 
     ad2_printf_host(true, "%s: Init done. Found and configured %i virtual switches.", TAG, subscribers);
-
+    xTaskCreate(&mqtt_startup_task, "mqtt startup", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 #endif /*  CONFIG_AD2IOT_MQTT_CLIENT */

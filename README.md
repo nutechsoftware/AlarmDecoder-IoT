@@ -2,8 +2,8 @@
 * 1. [Overview](#overview)
 * 2. [Tested and recommended hardware](#tested-and-recommended-hardware)
 * 3. [Firmware](#firmware)
-  * 3.1. [webUI build (webui) - alarmdecoder_webui_esp32.bin](#webui-build-(webui)---alarmdecoder_webui_esp32.bin)
-  * 3.2. [SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin](#smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin)
+  * 3.1. [webUI build (webui) - esp32/esp32-poe-iso-webui](#webui-build-(webui)---esp32/esp32-poe-iso-webui)
+  * 3.2. [SmartThings build (stsdk) - esp32/esp32-poe-iso-stsdk](#smartthings-build-(stsdk)---esp32/esp32-poe-iso-stsdk)
 * 4. [Configuring the AD2IoT device](#configuring-the-ad2iot-device)
 * 5. [AD2Iot CLI - command line interface](#ad2iot-cli---command-line-interface)
   * 5.1. [Basic commands](#basic-commands)
@@ -23,7 +23,7 @@
     * 5.8.1. [Configuration for FTP server](#configuration-for-ftp-server)
 * 6. [Building firmware](#building-firmware)
   * 6.1. [PlatformIO](#platformio)
-    * 6.1.1. [TODO: Setup notes](#todo:-setup-notes)
+    * 6.1.1. [TODO: Setup notes](#platformio-setup-notes)
   * 6.2. [SmartThings device SDK build environment](#smartthings-device-sdk-build-environment)
     * 6.2.1. [Setup build environment](#setup-build-environment)
     * 6.2.2. [Configure the project](#configure-the-project)
@@ -37,9 +37,9 @@
 	/vscode-markdown-toc-config -->
 <!-- /vscode-markdown-toc -->
 # AlarmDecoder IoT Network Appliance
- [Latest stable release ![Release Version](https://img.shields.io/github/release/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic) ![Release Date](https://img.shields.io/github/release-date/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/releases/latest/) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-IoT/master?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-IoT)
+ [Latest stable release ![Release Version](https://img.shields.io/github/release/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic) ![Release Date](https://img.shields.io/github/release-date/nutechsoftware/AlarmDecoder-IoT.svg?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/releases/latest/) [![.github/workflows/build.yml](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml/badge.svg?branch=master&event=push)](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml)
 
- [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/tree/dev) [![Travis (.org) branch](https://img.shields.io/travis/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://travis-ci.org/nutechsoftware/AlarmDecoder-IoT)
+ [Latest development branch ![Development branch](https://img.shields.io/badge/dev-yellow?style=plastic) ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/nutechsoftware/AlarmDecoder-IoT/dev?style=plastic)](https://github.com/nutechsoftware/AlarmDecoder-IoT/tree/dev) [![.github/workflows/build.yml](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml/badge.svg?branch=dev&event=push)](https://github.com/nutechsoftware/AlarmDecoder-IoT/actions/workflows/build.yml)
 
 ##  1. <a name='overview'></a>Overview
 
@@ -54,27 +54,25 @@ The device firmware is stored in the onboard non-volatile flash making the devic
 * ESP32-DevKitC-32E. WiFi only applications.
 
 ##  3. <a name='firmware'></a>Firmware
-The firmware is already compiled for the ESP32-POE-ISO board and is available in the release page or via OTA(over-the-air) update. Currently the firmware is built with the following build flags 'stsdk' and 'webui'.
+Pre compiled firmware for the ESP32-POE-ISO board is available in the release package to flash to a new device or via OTA(over-the-air) update for devices that are already programmed with a current AD2IoT firmware.
 
-To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
+Currently two builds are available ```stsdk``` and ```webui```. To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
 - ```upgrade webui```
 
 If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release of the AD2IoT firmware over USB.
 
-See the README-FLASH.MD inside the release file for instructions on flashing the firmware over the ESP32-POE-ISO USB port.
+See the README-FLASH-ESP32.md inside the release file for instructions on flashing the firmware to a ESP32-POE-ISO board over USB.
 
-###  3.1. <a name='webui-build-(webui)---alarmdecoder_webui_esp32.bin'></a>webUI build (webui) - alarmdecoder_webui_esp32.bin
-- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd.
-
-This build uses the latest ESP-IDF v4.3 with the SmartThings driver is disabled.
+###  3.1. <a name='webui-build-(webui)---esp32/esp32-poe-iso-webui'></a>webUI build (webui) - esp32/esp32-poe-iso-webui
+- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd, top.
 
 - Optional uSD card with a FAT32 root partition is required for webUI.
   - Copy the contents of contrib/webUI/flash-drive folder into the root directory of the card.
   - Optionally place the sample configuration file [data/ad2iot.ini](data/ad2iot.ini) on the root directory to override the default config storage on the internal /spiffs partition.
   - Reboot the device after inserting the card for changes to take effect.
 
-###  3.2. <a name='smartthings-build-(stsdk)---alarmdecoder_stsdk_esp32.bin'></a>SmartThings build (stsdk) - alarmdecoder_stsdk_esp32.bin
-- Enabled components: Pushover, Twilio, Sendgrid, ser2sock, SmartThings.
+###  3.2. <a name='smartthings-build-(stsdk)---esp32/esp32-poe-iso-stsdk'></a>SmartThings build (stsdk) - esp32/esp32-poe-iso-stsdk
+- Enabled components: SmartThings, Pushover, Twilio, Sendgrid, ser2sock, webUI, MQTT, ftpd, top.
 
 This build is compiled using the [st-device-sdk-c-ref](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) from the SmartThings github repo and has the webUI component disabled.
 
@@ -99,7 +97,7 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
   - To save settings to the [ad2iot.ini](data/ad2iot.ini) use the ```restart``` command. This will save any settings changed in memory to the active configuration file before restarting to load the new settings.
 - Configuration using the configuration file.
   - The ad2iot will first attempt to load the [ad2iot.ini](data/ad2iot.ini) config file from the first fat32 partition on a uSD card if attached. If this fails it will attempt to load the same file from the internal spiffs partition. If this fails the system will use defaults and save any changes on ```restart``` command to the internal spiffs partition in the file [ad2iot.ini](data/ad2iot.ini).
-  - To access /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). Use the custom FTP command ```REST``` to restart the ad2iot and force it to load the new configuration.
+  - To access /sdcard/ad2iot.ini and /spiffs/ad2iot.ini files over the network enable the [FTPD component](#ftp-daemon-component). With FileZilla edit the configuration upload and send a custom FTP command using the "Server" menu and the "Enter custom command.." sub menu. Enter ```REST``` to restart the ad2iot and force it to load the configuration.
   - Sample config file with internal documentation can be found here [data/ad2iot.ini](data/ad2iot.ini)
   - Be sure to set the ftpd acl to only allow trusted systems to manage the files on the uSD card.
 
@@ -110,9 +108,9 @@ Configuration of the AD2IoT is done directly over the USB serial port using a co
       - ```ad2source COM 4:36```
     - Network shared AD2* device over ser2sock
       - ```ad2source SOCK 192.168.0.121:10000```
-  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the mode 'D' and the partition # from 1-8.
+  - Configure the AlarmDecoder firmware settings for the the attached alarm system. For Ademco mode a free keypad address needs to be assigned to each partition to control. DSC mode is ZeroConf and only requires the mode 'D' and the partition # from 1-8 followed by the Slot 1-8 So address=11 is Partition #1 Slot #1.
     - Typical Ademco Vista setting: ```ad2config mode=A&address=18```
-    - Typical DSC Power Series setting: ```ad2config mode=D&address=1```
+    - Typical DSC Power Series setting: ```ad2config mode=D&address=11```
   - Configure the default partition address and optional zones in partition 1.
     - ```partition 1 18 2,3,4,5```
   - Define any additional partitions and optional zones.
@@ -231,6 +229,10 @@ Usage: version
 
     Report the current and available version
 ```
+```console
+AD2IOT # version
+Installed version(AD2IOT-1102) build flag (webui) available version(AD2IOT-1102).
+```
 - netmode
 ```console
 Usage: netmode [(N | W | E)] [<arg>]
@@ -253,6 +255,11 @@ Examples:
     Ethernet Static IPv4 address.
       ```netmode E mode=s&ip=192.168.1.111&mask=255.255.255.0&gw=192.168.1.1&dns1=4.2.2.2&dns2=8.8.8.8```
 ```
+```console
+# Example config file ini setting
+# Enable ethernet driver and use DHCP for setting address
+netmode = E mode=d
+```
 - switch
 ```console
 Usage: switch <swid> [command] [<arg>]
@@ -274,23 +281,61 @@ Commands:
     close IDX REGEX         CLOSE event REGEX filter for IDX 1-8
     trouble IDX REGEX       TROUBLE event REGEX filter for IDX 1-8
 Options:
-    switchId                ad2iot virtual switch ID 1-255
+    swid                    ad2iot virtual switch ID 1-255
     IDX                     REGEX index 1-8 for multiple tests
     REGEX                   Regular expression or exact match string.
     TYPE                    Message types [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,
                             CRC,VER,ERR,EVENT]
 
-Common search verbs for type EVENT
-      arm {STAY|AWAY}
-      disarm
-      power {AC|BATTERY}
-      ready {ON|OFF}
-      alarm {ON/OFF}
-      fire {ON|OFF}
-      chime {ON|OFF}
-      exit {ON|OFF}
-      programming {ON|OFF}
-      zone {OPEN,CLOSE,TROUBLE} ZONE_NUMBER
+Common message verbs and arguments received for type EVENT
+      ARM {STAY|AWAY}
+      DISARM
+      POWER {AC|BATTERY}
+      READY {ON|OFF}
+      ALARM {ON/OFF}
+      FIRE {ON|OFF}
+      CHIME {ON|OFF}
+      EXIT {ON|OFF}
+      PROGRAMMING {ON|OFF}
+      ZONE {OPEN,CLOSE,TROUBLE} {zero padded 3 digit zone number}
+```
+```console
+# Example config file ini section [switch N]
+[switch 10]
+# Test ZONE tracking event for zone 3
+default = 0
+reset = 0
+types = EVENT
+filter = ZONE.*
+open 1 = ZONE OPEN 003
+close 1 = ZONE CLOSE 003
+trouble 1 = ZONE TROUBLE 003
+
+[switch 60]
+# RFX serial 0123456
+default = -1
+reset = 0
+types = RFX
+filter = !RFX:0123456,.*
+open 1 = !RFX:0123456,1.......
+close 1 = !RFX:0123456,0.......
+trouble 1 = !RFX:0123456,......1.
+
+[switch 91]
+# AC switch
+default = -1
+reset = 0
+types = EVENT
+open 1 = POWER BATTERY
+close 1 = POWER AC
+
+[switch 95]
+# Fire switch
+default = -1
+reset = 0
+types = EVENT
+open 1 = FIRE ON
+close 1 = FIRE OFF
 ```
 - code
 ```console
@@ -301,6 +346,12 @@ Options:
     codeId                  Code ID 1 - 128
     -                       Delete entry
     value                   Code string
+```
+```console
+# Example config file ini setting
+[code]
+1 = 4112
+2 = 1234
 ```
 - ad2term
 ```console
@@ -325,6 +376,14 @@ Options:
                             device. Can be partial config.
                             Example set mode Ademco with default address 18.
                             ```ad2config mode=A&address=18```
+                            Example set mode DSC with default Partiion 1 Slot 2.
+                            ```ad2config mode=D&address=12```
+```
+```console
+# Example config file ini setting
+# This will push these settings to the AD2* board.
+# Avoid multiple systems trying to enforce this setting. That would be bad.
+ad2config = address=18&mode=A
 ```
 - partition
 ```console
@@ -362,6 +421,13 @@ Examples:
       ```partition 2 -```
         Note: address - will remove an entry.
 ```
+```console
+# Example config file ini section [partition N]
+# Note: Must add [zone N] sections for each zone for zone details.
+[partition 1]
+address = 18
+zones = 2,3,4,5,6,24,25,26
+```
 - zone
 ```console
 Usage: zone <zoneId> [- | <value>]
@@ -372,6 +438,23 @@ Options:
     -                       Delete entry
     value                   json string with type and alpha attributes
                             {"type": "smoke", "alpha": "TESTING LAB SMOKE"}
+```
+```console
+# Example config file ini section [zone NN]
+# Note: Must add each zone to the [partition N] zones list.
+# For MQTT "type" is translated to "device_class" for the device discovery document.
+# "alpha" is translated to "name"
+#   https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+#   https://www.home-assistant.io/integrations/binary_sensor/#device-class
+#
+[zone 1]
+description = {"type": "smoke", "alpha": "Smoke Alarm"}
+
+[zone 3]
+description = {"type": "door", "alpha": "Back Door"}
+
+[zone 4]
+description = {"type": "motion", "alpha": "Entry Motion"}
 ```
 - ad2source
 ```console
@@ -389,6 +472,11 @@ Examples:
     Set source to local attached uart with TX on GPIO 4 and RX on GPIO 36.
       ```ad2source COM 4:36```
 ```
+```console
+# Example config file ini setting
+# Use caution changing this setting it can change GPIO pin states.
+ad2source = C 4:36
+```
 ###  5.2. <a name='ser2sock-server-component'></a>Ser2sock server component
 Ser2sock allows sharing of a serial device over a TCP/IP network. It also supports encryption and authentication via OpenSSL. Typically configured for port 10000 several home automation systems are able to use this protocol to talk to the AlarmDecoder device for a raw stream of messages. Please be advised that network scanning of this port can lead to alarm faults. It is best to use the Access Control List feature to only allow specific hosts to communicate directly with the AD2* and the alarm panel.
 
@@ -403,6 +491,12 @@ Commands:
 Examples:
     ```ser2sockd enable Y```
     ```ser2sockd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
+```
+```console
+# Example config file ini setting
+[ser2sockd]
+enable = true
+acl = 192.168.0.0/16, 10.10.0.0/16
 ```
 
 ###  5.3. <a name='web-user-interface-webui-component'></a>Web User Interface webUI component
@@ -422,7 +516,12 @@ Examples:
     ```webui enable Y```
     ```webui acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
 ```
-
+```console
+# Example config file ini setting
+[webui]
+enable = true
+acl = 192.168.0.0/16, 10.10.0.0/16
+```
 ###  5.4. <a name='smartthings-direct-connected-device.'></a>SmartThings Direct Connected device.
 ###### ```Only available in stsdk firmware build```
 Direct-connected devices connect directly to the SmartThings cloud. The SDK for Direct Connected Devices is equipped to manage all MQTT topics and onboarding requirements, freeing you to focus on the actions and attributes of your device. To facilitate the development of device application in an original chipset SDK, the core device library and the examples were separated into two git repositories. That is, if you want to use the core device library in your original chipset SDK that installed before, you may simply link it to develop a device application in your existing development environment. For more info see https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.
@@ -526,7 +625,7 @@ Commands:
     token acid [hash]       Twilio Auth Token
     from acid [address]     Validated Email or Phone #
     to acid [address]       Email or Phone #
-    type acid [M|C|E]       Notification type Mail, Call, EMail
+    type acid [M|C|E]       Notification type SMS, Call, EMail
     format acid [format]    Output format string
     switch swid SCMD [ARG]  Configure switches
 Sub-Commands: switch
@@ -574,28 +673,28 @@ Options:
     # Twilio config section
     [twilio]
 
-    # Account ID #1 EMail using api.sendgrid.com
+    # Account storage ID(acid) #1 EMail using api.sendgrid.com
     sid 1 = NA
     token 1 = Abcdefg012345....
     from 1 = foo@example.com
     to 1 = bar@example.com
-    type 1 = email
+    type 1 = E
     format 1 = {}
 
-    # Account ID #2 Text message using api.twilio.com
+    # Account storage ID(acid) #2 Text message using api.twilio.com
     sid 2 Abcdefg012345....
     token 2 = Abcdefg012345....
     from 2 = 15555551234
     to 2 = 15555551234
-    type 2 = text
+    type 2 = M
     format 2 = {}
 
-    # Account ID #3 Voice Twiml call using api.twilio.com
+    # Account storage ID(acid) #3 Voice Twiml call using api.twilio.com
     sid 3 = Abcdefg012345....
     token 3 = Abcdefg012345....
     from 3 = 15555551234
     to 3 = 15555551234
-    type 3 = call
+    type 3 = C
     format 3 = <Response><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say><Pause length="3"/><Say>{0}</Say></Response>
     ```
   - Send notifications from profile in slot #0 for 5800 RF sensor with SN 0123456 and trigger on OPEN(ON), CLOSE(OFF) and TROUBLE REGEX patterns. In this example the Text or EMail sent would event contain the user defined message.
@@ -731,27 +830,68 @@ Examples:
     ```ftpd enable Y```
     ```ftpd acl 192.168.0.0/28,192.168.1.0-192.168.1.10,192.168.3.4```
 ```
+```console
+# Example config file ini section
+[ftpd]
+## Enable / Disable true or false
+enable = true
 
+## Access control list
+acl = 192.168.0.0/16, 10.10.0.0/16
+```
 ##  6. <a name='building-firmware'></a>Building firmware
 ###  6.1. <a name='platformio'></a>PlatformIO
-####  6.1.1. <a name='todo:-setup-notes'></a>TODO: Setup notes
+####  6.1.1. <a name='platformio-setup-notes'></a>Open the project and use the platformio UI inside of vscode to build and flash. Select esp32dev or esp32-poe-iso tree and select Build to compile.
 ###  6.2. <a name='smartthings-device-sdk-build-environment'></a>SmartThings device SDK build environment
 ####  6.2.1. <a name='setup-build-environment'></a>Setup build environment
-- Follow the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) project for setting up a build environment. Confirm you can build the switch_example before continuing.
-- Select the esp32 build environment. Branch v1.4 seems to be the current active branch and uses espidf v4.0.1-317-g50b3e2c81.
+- Based on the instructions in the [SmartThings SDK for Direct connected devices for C](https://github.com/SmartThingsCommunity/st-device-sdk-c-ref) for setting up a build environment and [This community post](https://community.smartthings.com/t/how-to-build-direct-connected-devices/204055) to build the code inside of the stsdk c-ref build environment.
 ```
-cd ~/esp
- git clone https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.git -b release/v1.4
- cd st-device-sdk-c-ref
-./setup.py esp32
-```
+# Make the root esp folder.
+cd ~
+mkdir esp
 
-- Place the contents of this his project in ```st-device-sdk-c-ref/apps/esp32/```
+# Get and install esp-idf toolchain v5.0(AF), v4.3.2(AF),
+cd ~/esp
+git clone -b v5.0 --recursive https://github.com/espressif/esp-idf.git
+
+cd ~/esp/esp-idf
+## Added esp32 to the end. Need to test above again with this change.
+./install.sh esp32
+
+## At the end will be prompted to set the environment for building by sourcing the exports.sh file created during setup of stsdk c-ref. You can also follow the espressif docs and set the alias get_idf to '. $HOME/esp/esp-idf/export.sh'
+
+. ./export.sh
+
+# Install the xtensa esp32 toolchain
+## Is this automagic now? During setup of esp-idf above.
+### Downloading xtensa-esp32-elf-gcc8_4_0-esp-2021r2-linux-amd64.tar.gz to /home/mathewss/.espressif/dist/xtensa-esp32-elf-gcc8_4_0-esp-2021r2-linux-amd64.tar.gz.tmp
+cd ~/esp
+wget https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-97-gc752ad5-5.2.0.tar.gz
+tar -xvf xtensa-esp32-elf-linux64-1.22.0-97-gc752ad5-5.2.0.tar.gz
+
+# Install st-device-sdk-c-ref master branch currently v1.7.5.
+cd ~/esp
+git clone https://github.com/SmartThingsCommunity/st-device-sdk-c-ref.git
+cd st-device-sdk-c-ref
+python setup.py esp32
+
+# Confirm the switch example can be built before continuing.
+python build.py esp32 switch_example
+
+# Link our external AlarmDecoder-IoT project into the apps folder for st-device-sdk-c-ref.
+# or fetch the AlarmDecoder-IoT project directly inside of the st-device-sdk-c-ref apps/esp32/ folder.
+ln -s ~/Code/AlarmDecoder-IoT ~/esp/st-device-sdk-c-ref/apps/esp32
+```
 
 ####  6.2.2. <a name='configure-the-project'></a>Configure the project
-
+Run menu config and enable/disable components. Each module will consume code space and memory so test with the ```top``` command to be sure resources are not being exausted. 
+  - Component config:
+    - Enable ```SmartThings IoT Core```
+      - Enable ESP32 support. ```BSP Support(ESP32)```
+    - Disable ```AD2Iot * FTP demon```
 ```
-./build.sh esp32 AlarmDecoder-IoT menuconfig
+cd ~/esp/st-device-sdk-c-ref
+python build.py esp32 AlarmDecoder-IoT menuconfig
 ```
 
 ####  6.2.3. <a name='build,-flash,-and-run'></a>Build, Flash, and Run
@@ -759,7 +899,8 @@ cd ~/esp
 Build the project and flash it to the board, then run monitor tool to view serial output:
 
 ```
-./build.sh esp32 AlarmDecoder-IoT build flash monitor -p /dev/ttyUSB0
+cd ~/esp/st-device-sdk-c-ref
+python build.py esp32 AlarmDecoder-IoT build flash monitor -p /dev/ttyUSB0
 ```
 
 (To exit the serial monitor, type ``Ctrl-]``.)

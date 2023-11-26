@@ -33,7 +33,14 @@
 static const char *TAG = "FTPD";
 
 // module specific includes
+/// Problem with dirent included as "C" already by STSDK build.
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <dirent.h>
+#ifdef __cplusplus
+}
+#endif
 #include <fstream>
 
 #define FTPD_COMMAND          "ftpd"
@@ -1774,9 +1781,17 @@ static void _cli_cmd_ftpd_event(const char *string)
 void ftp_daemon_task(void *pvParameters)
 {
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "ftp daemon task starting.");
+     ESP_LOGI(TAG, "%s waiting for network layer to start.", TAG);
 #endif
+    while (1) {
+        if (!hal_get_netif_started()) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            break;
+        }
+    }
     if (ad2ftpd != nullptr) {
+        ESP_LOGI(TAG, "Network layer is OK. %s daemon service starting.", TAG);
         ad2ftpd->start();
     }
     vTaskDelete(NULL);
@@ -1819,12 +1834,6 @@ void ftpd_register_cmds()
  */
 void ftpd_init()
 {
-    // if netif not enabled then we can't start.
-    if (!hal_get_netif_started()) {
-        ad2_printf_host(true, "%s daemon disabled. Network interface not enabled.", TAG);
-        return;
-    }
-
     bool en = false;
     ad2_get_config_key_bool(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ENABLE, &en);
 
@@ -1850,7 +1859,7 @@ void ftpd_init()
         }
     }
 
-    ad2_printf_host(true, "%s: Init done. Daemon starting.", TAG);
+    ad2_printf_host(true, "%s: Init done.", TAG);
     xTaskCreate(&ftp_daemon_task, "ftp daemon", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }

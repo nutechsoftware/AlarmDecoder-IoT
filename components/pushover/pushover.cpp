@@ -98,7 +98,6 @@ public:
  */
 static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_client_config_t *config)
 {
-    esp_err_t err;
     // if perform failed this can be NULL
     if (client) {
         request_message *r = (request_message*) config->user_data;
@@ -109,7 +108,7 @@ static void _sendQ_ready_handler(esp_http_client_handle_t client, esp_http_clien
                               "&message=" + ad2_urlencode(r->message));
 
         // does not copy data just a pointer so we have to maintain memory.
-        err = esp_http_client_set_post_field(client, r->post.c_str(), r->post.length());
+        esp_http_client_set_post_field(client, r->post.c_str(), r->post.length());
 
     }
 }
@@ -247,7 +246,9 @@ void on_search_match_cb_pushover(std::string *msg, AD2PartitionState *s, void *a
 
         // Add client config to the http_sendQ for processing.
         bool res = ad2_add_http_sendQ(r->config_client, _sendQ_ready_handler, _sendQ_done_handler);
-        if (!res) {
+        if (res) {
+            ESP_LOGI(TAG,"Switch #%i match message '%s'. Sending '%s' to acid #%i", es->INT_ARG, msg->c_str(), es->out_message.c_str(), notify_slot);
+        } else {
             ESP_LOGE(TAG,"Error adding HTTP request to ad2_add_http_sendQ.");
             // destroy storage class if we fail to add to the sendQ
             delete r;
@@ -293,11 +294,11 @@ static void _cli_cmd_pushover_event_generic(std::string &subcmd, const char *str
         // <arg>
         if (ad2_copy_nth_arg(buf, string, 3) >= 0) {
             ad2_set_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf.c_str(), accountId);
-            ad2_printf_host(false, "Setting <acid> #%02i '%s' value '%s' finished.\r\n", accountId, subcmd.c_str(), buf.c_str());
+            ad2_printf_host(false, "Setting <acid> #%i '%s' value '%s' finished.\r\n", accountId, subcmd.c_str(), buf.c_str());
         } else {
             buf = "";
             ad2_get_config_key_string(PUSHOVER_CONFIG_SECTION, subcmd.c_str(), buf, accountId);
-            ad2_printf_host(false, "Current <acid> #%02i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
+            ad2_printf_host(false, "Current <acid> #%i '%s' value '%s'\r\n", accountId, subcmd.c_str(), buf.length() ? buf.c_str() : "EMPTY");
         }
     } else {
         ad2_printf_host(false, "Missing or invalid <acid> [1-8].\r\n");
@@ -360,7 +361,6 @@ static void _cli_cmd_pushover_smart_alert_switch(std::string &subcmd, const char
                 PUSHOVER_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
             std::string sk;
-            bool command_found = false;
             ad2_printf_host(false, "## [pushover] switch %i configuration.\r\n", swID);
             while (ss >> sk) {
                 tbuf = "";
@@ -555,6 +555,7 @@ void pushover_init()
             // load [switch N] required regex match settings
             std::string prefilter_regex;
             ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+            es1->PRE_FILTER_REGEX = prefilter_regex;
 
             // Load all regex search patterns for open, close, and trouble sub keys.
             std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
@@ -601,12 +602,12 @@ void pushover_init()
                 // incomplete switch so delete it and supporting pointers.
                 delete pslots;
                 delete es1;
-                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Need at least one open, close, or trouble filter expressions.", swID);
             }
         } else {
             if (open_output_format.length() || close_output_format.length()
                     || trouble_output_format.length()) {
-                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
+                ESP_LOGE(TAG, "Section config error. Need at least one open, close, or trouble output strings for switch %i.", swID);
             }
         }
     }

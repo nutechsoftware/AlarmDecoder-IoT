@@ -1,0 +1,95 @@
+name: CI build
+
+on: [push, workflow_dispatch]
+
+env:
+  PP: AD2IoT-Release
+  SHELL: /bin/bash
+  TERM: 'xterm-256color'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+            submodules: recursive
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Create base Artifact release package structure
+        run: |
+          mkdir $PP
+          cp README.md CHANGELOG.md LICENSE $PP/
+          mkdir $PP/esp32
+          cp contrib/README-FLASH-ESP32.md contrib/ESP32-DOWNLOAD-TOOL-UPLOADING-FIRMWARE.png $PP/esp32/
+
+      - name: Install required packages for st-device-c-ref build
+        run: |
+          sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
+
+      - name: Checkout st-device-sdk-c-ref
+        uses: actions/checkout@v3
+        with:
+          repository: SmartThingsCommunity/st-device-sdk-c-ref
+          path: ./.st-device-sdk-c-ref
+
+      - name: setup build environment for stsdk-c-ref and build AlarmDecoder-IoT for SmartThings
+        run: |
+          cd .st-device-sdk-c-ref
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "<>"
+          python setup.py esp32
+          ln -s  $RUNNER_WORKSPACE/AlarmDecoder-IoT apps/esp32/
+          python build.py esp32 AlarmDecoder-IoT
+          cd ..
+          # Remove any sdkconfig created in build to be safe.
+          rm sdkconfig
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build esp32-poe-iso
+        run: pio run -e esp32-poe-iso
+
+      - name: Build spiffs.bin for esp32-poe-iso
+        run: pio run -t buildfs -e esp32-poe-iso
+
+      - name: Create release package folders for each branch.
+        run: |
+          mkdir $PP/esp32/esp32-poe-iso-stsdk
+          mkdir $PP/esp32/esp32-poe-iso-webui
+
+      - name: Add esp32-poe-iso stsdk firmware build to release package
+        run: |
+          cp build/alarmdecoder_ad2iot_esp32.bin $PP/esp32/esp32-poe-iso-stsdk/firmware.bin
+ 
+      - name: Add esp32-poe-iso webui firmware build to release package
+        run: |
+          cp .pio/build/esp32-poe-iso/firmware.bin $PP/esp32/esp32-poe-iso-webui/
+
+      - name: Add common firmware files for each branch to the package.
+        run: |
+          cp .pio/build/esp32-poe-iso/spiffs.bin $PP/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/spiffs.bin $PP/esp32/esp32-poe-iso-stsdk/
+          cp .pio/build/esp32-poe-iso/bootloader.bin $PP/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/bootloader.bin $PP/esp32/esp32-poe-iso-stsdk/
+          cp .pio/build/esp32-poe-iso/partitions.bin $PP/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/partitions.bin $PP/esp32/esp32-poe-iso-stsdk/
+          cp .pio/build/esp32-poe-iso/ota_data_initial.bin $PP/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/ota_data_initial.bin $PP/esp32/esp32-poe-iso-stsdk/
+
+      - name: Upload firmware package Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: AD2IoT-Release-Package
+          path: AD2IoT-Release

@@ -526,7 +526,6 @@ static void _cli_cmd_switch_event(const char *command_string)
             AD2SWITCH_SK_CLOSE " "
             AD2SWITCH_SK_TROUBLE);
 
-        bool command_found = false;
         ad2_printf_host(false, "## switch %i global configuration.\r\n[%s]\r\n", sId, key.c_str());
         sk_index = 0;
         while (ss >> sk) {
@@ -704,7 +703,7 @@ static struct cli_command cmd_list[] = {
         "    close IDX REGEX         CLOSE event REGEX filter for IDX 1-8\r\n"
         "    trouble IDX REGEX       TROUBLE event REGEX filter for IDX 1-8\r\n"
         "Options:\r\n"
-        "    switchId                ad2iot virtual switch ID 1-255\r\n"
+        "    swid                    ad2iot virtual switch ID 1-255\r\n"
         "    IDX                     REGEX index 1-8 for multiple tests\r\n"
         "    REGEX                   Regular expression or exact match string.\r\n"
         "    TYPE                    Message types [ALPHA,LRR,REL,EXP,RFX,AUI,KPM,KPE,\r\n"
@@ -803,6 +802,8 @@ static struct cli_command cmd_list[] = {
         "                            device. Can be partial config.\r\n"
         "                            Example set mode Ademco with default address 18.\r\n"
         "                            ```ad2config mode=A&address=18```\r\n"
+        "                            Example set mode DSC with default address 1 Slot 2.\r\n"
+        "                            ```ad2config mode=D&address=12```\r\n"
         , _cli_cmd_ad2config_event
     },
     {

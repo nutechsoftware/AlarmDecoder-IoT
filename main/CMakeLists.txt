@@ -32,6 +32,13 @@ set(STDK_INCLUDE_PATH
         "$ENV{IDF_PATH}/components/bootloader_support/include"
     )
 
+# Fetch SimpleIni lib and as as include path.
+#  Todo: Only if not already downloaded.
+include(FetchContent) # once in the project to include the module
+FetchContent_Declare(simpleini GIT_REPOSITORY https://github.com/brofield/simpleini.git)
+FetchContent_MakeAvailable(simpleini)
+include_directories(${simpleini_SOURCE_DIR})
+
 if(CONFIG_STDK_IOT_CORE)
         add_subdirectory($ENV{STDK_CORE_PATH} iotcore)
         target_link_libraries(${COMPONENT_LIB} PUBLIC iotcore)
