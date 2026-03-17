@@ -37,7 +37,8 @@ jobs:
         run: |
           sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
 
-      - name: Checkout st-device-sdk-c-ref
+      # Checkout 'develop' branch of this project that is based on esp-idf 5.0
+      - name: Checkout st-device-sdk-c-ref develop branch
         uses: actions/checkout@v3
         with:
           repository: SmartThingsCommunity/st-device-sdk-c-ref
@@ -72,7 +73,7 @@ jobs:
       - name: Add esp32-poe-iso stsdk firmware build to release package
         run: |
           cp build/alarmdecoder_ad2iot_esp32.bin $PP/esp32/esp32-poe-iso-stsdk/firmware.bin
- 
+
       - name: Add esp32-poe-iso webui firmware build to release package
         run: |
           cp .pio/build/esp32-poe-iso/firmware.bin $PP/esp32/esp32-poe-iso-webui/

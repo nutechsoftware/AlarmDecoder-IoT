@@ -619,7 +619,7 @@ AD2PartitionState * AlarmDecoderParser::getAD2PState(uint32_t *amask, bool updat
             ad2ps->partition = AD2PStates.size();
             ad2ps->primary_address = 0;
 #if defined(IDF_VER)
-            ESP_LOGI(TAG, "AD2PStates[%08x] not found adding partition ID(%i)", *amask, ad2ps->partition);
+            ESP_LOGI(TAG, "AD2PStates[%08lux] not found adding partition ID(%i)", *amask, ad2ps->partition);
 #endif
         }
 
@@ -1249,7 +1249,7 @@ bool AlarmDecoderParser::put(uint8_t *buff, int8_t len)
 
                             // Debugging / testing output
 #if defined(IDF_VER)
-                            ESP_LOGD(TAG, "!DBG: SSIZE(%i) PID(%i) MASK(%08X) Ready(%i) Armed[Away(%i) Stay(%i)] Bypassed(%i) Exit(%i)",
+                            ESP_LOGD(TAG, "!DBG: SSIZE(%i) PID(%i) MASK(%08lX) Ready(%i) Armed[Away(%i) Stay(%i)] Bypassed(%i) Exit(%i)",
                                      AD2PStates.size(),ad2ps->partition,amask,ad2ps->ready,ad2ps->armed_away,ad2ps->armed_stay,ad2ps->zone_bypassed,ad2ps->exit_now);
 #endif
 

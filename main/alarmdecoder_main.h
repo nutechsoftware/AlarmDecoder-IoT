@@ -31,9 +31,7 @@
 #include "esp_log.h"
 #include "cJSON.h"
 #include <lwip/netdb.h>
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
 #include "esp_crt_bundle.h"
-#endif
 
 #include "esp_http_client.h"
 

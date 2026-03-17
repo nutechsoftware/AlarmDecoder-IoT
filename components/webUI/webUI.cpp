@@ -104,20 +104,20 @@ struct ws_session_storage {
 void uptimeString(std::string &tstring)
 {
     // 64bit milliseconds since boot
-    int64_t ms = hal_uptime_us() / 1000;
+    uint64_t ms = hal_uptime_us() / 1000;
     // seconds
-    int32_t s = ms / 1000;
+    uint32_t s = ms / 1000;
     // days
-    int32_t d = s / 86400;
+    uint32_t d = s / 86400;
     s %= 86400;
     // hours
-    uint8_t h = s / 3600;
+    uint32_t h = s / 3600;
     s %= 3600;
     // minutes
-    uint8_t m = s / 60;
+    uint32_t m = s / 60;
     s %= 60;
     char fbuff[255];
-    snprintf(fbuff, sizeof(fbuff), "%04dd:%02dh:%02dm:%02ds", d, h, m, s);
+    snprintf(fbuff, sizeof(fbuff), "%04lud:%02luh:%02lum:%02lus", d, h, m, s);
     tstring = fbuff;
 }
 

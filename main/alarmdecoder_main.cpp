@@ -30,12 +30,9 @@ static const char *TAG = "AD2_IoT";
 // esp component includes
 #include "driver/uart.h"
 #include "nvs_flash.h"
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-#include "tcpip_adapter.h"
-#else
 #include "esp_netif.h"
 #include "esp_tls.h"
-#endif
+
 // specific includes
 
 // SimpleIni
@@ -939,13 +936,9 @@ void init_ad2_uart_client(const char *args)
 
     // esp_restart causes issues with UART2 don't set config if reset switch pushed.
     // https://github.com/espressif/esp-idf/issues/5274
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
     if (esp_reset_reason() != ESP_RST_SW) {
-#endif
         uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
     }
-#endif
 
     uart_set_pin((uart_port_t)g_ad2_client_handle,
                  tx_pin,   // TX

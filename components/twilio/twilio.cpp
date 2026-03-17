@@ -183,7 +183,7 @@ static void _build_twilio_call_post(esp_http_client_handle_t client, tw_request_
     std::string toString;
     ad2_get_config_key_string(TWILIO_CONFIG_SECTION, TWILIO_TO_SUBCMD, toString, r->notify_slot);
 
-    std::string twiml = fmt::format(formatString, r->message);
+    std::string twiml = fmt::format(fmt::runtime(formatString), r->message);
 #if defined(DEBUG_TWILIO)
     ESP_LOGI(TAG, "Sending Twiml message: %s", twiml.c_str());
 #endif
@@ -468,6 +468,11 @@ esp_err_t _twilio_http_event_handler(esp_http_client_event_t *evt)
     case HTTP_EVENT_DISCONNECTED:
 #if defined(DEBUG_TWILIO)
         ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+#endif
+        break;
+    case HTTP_EVENT_REDIRECT:
+#if defined(DEBUG_TWILIO)
+        ESP_LOGI(TAG, "HTTP_EVENT_REDIRECT");
 #endif
         break;
     case HTTP_EVENT_ON_DATA:

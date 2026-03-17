@@ -39,7 +39,10 @@ static const char *TAG = "AD2UTIL";
 // esp includes
 #include "nvs_flash.h"
 #include "mbedtls/base64.h"
-
+#include "esp_system.h"
+#include "esp_mac.h"
+#include "esp_chip_info.h"
+#include "esp_flash.h"
 #include <SimpleIni.h>
 // ini config class
 static CSimpleIniA _ad2ini;
@@ -1649,7 +1652,9 @@ cJSON *ad2_get_ad2iot_device_info_json()
         cJSON_AddItemToArray(cjson_cpu_features, cJSON_CreateString("BT"));
     }
     cJSON_AddItemToObject(root, "cpu_features", cjson_cpu_features);
-    cJSON_AddNumberToObject(root, "cpu_flash_size", spi_flash_get_chip_size());
+    uint32_t size_flash_chip;
+    esp_flash_get_size(NULL, &size_flash_chip);
+    cJSON_AddNumberToObject(root, "cpu_flash_size", size_flash_chip);
     std::string flash_type = (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external";
     cJSON_AddStringToObject(root, "cpu_flash_type", flash_type.c_str());
 

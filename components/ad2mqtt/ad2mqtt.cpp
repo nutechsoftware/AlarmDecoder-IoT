@@ -507,12 +507,15 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
  * @param [in]event_data void *
  *
  */
-static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
+static void ad2_mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
 
-    esp_mqtt_client_handle_t client = event_data->client;
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_t*)event_data;
+    esp_mqtt_client_handle_t client = event->client;
+    int msg_id;
+
     // your_context_t *context = event->context;
-    switch (event_data->event_id) {
+    switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
 #if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
@@ -526,24 +529,24 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
         break;
     case MQTT_EVENT_SUBSCRIBED:
 #if defined(MQTT_EVENT_LOGGING)
-        ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event_data->msg_id);
+        ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
 #endif
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
 #if defined(MQTT_EVENT_LOGGING)
-        ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event_data->msg_id);
+        ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
 #endif
         break;
     case MQTT_EVENT_PUBLISHED:
 #if defined(MQTT_EVENT_LOGGING)
-        ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event_data->msg_id);
+        ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 #endif
         break;
     case MQTT_EVENT_DATA:
 #if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("TOPIC=%.*s\r\n", event_data->topic_len, event_data->topic);
-        printf("DATA=%.*s\r\n", event_data->data_len, event_data->data);
+        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        printf("DATA=%.*s\r\n", event->data_len, event->data);
 #endif
         // test if commands subscription is enabled
         if ( commands_enabled ) {
@@ -554,19 +557,19 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
             topic_path += mqttclient_UUID;
             topic_path += "/" MQTT_COMMANDS_TOPIC;
 
-            if ( event_data->topic_len == topic_path.length() ) {
-                std::string topic( event_data->topic, event_data->topic_len );
+            if ( event->topic_len == topic_path.length() ) {
+                std::string topic( event->topic, event->topic_len );
                 if ( topic.compare(topic_path) == 0 ) {
 
                     // We only want fresh messages no recordings.
                     // Check for retain flag skip if true.
-                    if ( event_data->retain ) {
+                    if ( event->retain ) {
                         break;
                     }
 
                     // sanity check the event_data->data_len
-                    if ( event_data->data_len < MQTT_COMMAND_MAX_DATA_LEN ) {
-                        std::string command( event_data->data, event_data->data_len );
+                    if ( event->data_len < MQTT_COMMAND_MAX_DATA_LEN ) {
+                        std::string command( event->data, event->data_len );
                         // grab the json buffer
                         // {
                         //   partition: {{ number partition ID see ```partition``` command. }},
@@ -662,7 +665,6 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
         break;
     }
 
-    return ESP_OK;
 }
 
 /**
@@ -1174,21 +1176,21 @@ void mqtt_startup_task(void *pvParameters)
     LWT_TOPIC+=mqttclient_UUID;
     LWT_TOPIC+="/status";
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-    const esp_mqtt_client_config_t mqtt_cfg = {
-        .event_handle = ad2_mqtt_event_handler,
-        .uri = brokerURL.c_str(),
-        .client_id = mqttclient_UUID.c_str(),
-        .lwt_topic = LWT_TOPIC.c_str(),
-        .lwt_msg =  "offline",
-        .lwt_qos = 1,    // For LWT use QOS1
-        .lwt_retain = 1  // FOr LWT use Retain
-    };
-#pragma GCC diagnostic pop
+    // Build mqtt client config
+    esp_mqtt_client_config_t mqtt_cfg = {};
+    mqtt_cfg.broker.address.uri = brokerURL.c_str();
+    mqtt_cfg.credentials.client_id = mqttclient_UUID.c_str();
+    mqtt_cfg.session.last_will.topic = LWT_TOPIC.c_str();
+    mqtt_cfg.session.last_will.msg = "offline";
+    mqtt_cfg.session.last_will.qos = 1;
+    mqtt_cfg.session.last_will.retain = 1;
 
     // Create and start the client.
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+
+    // register event callback
+    esp_mqtt_client_register_event(mqtt_client, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, ad2_mqtt_event_handler, NULL);
+
     err = esp_mqtt_client_start(mqtt_client);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_mqtt_client_start return error: %s.", esp_err_to_name(err));

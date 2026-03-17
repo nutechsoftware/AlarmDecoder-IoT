@@ -290,15 +290,9 @@ static int _crypto_sha256(const unsigned char *src, size_t src_len, unsigned cha
 #if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: src: %d@%p, dst: %p", __func__, src_len, src, dst);
 #endif
-    ret = mbedtls_sha256_ret(src, src_len, dst, 0);
-    if (ret) {
-#if defined(DEBUG_OTA)
-        ESP_LOGI(TAG, "%s: mbedtls_sha256_ret = -0x%04X", __func__, -ret);
-#endif
-        return ret;
-    }
+    mbedtls_sha256(src, src_len, dst, 0);
 
-    return 0;
+    return 1;
 }
 
 /**
@@ -508,11 +502,7 @@ esp_err_t ota_https_update_device(const char *buildflags)
     mbedtls_sha256_init( &ctx );
     b_ctx_init = true;
 
-    if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
-        ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
-        ret = ESP_FAIL;
-        goto clean_up;
-    }
+    mbedtls_sha256_starts( &ctx, 0);
 
     while (1) {
         int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
@@ -547,9 +537,7 @@ esp_err_t ota_https_update_device(const char *buildflags)
         }
 
         if (data_read > 0) {
-            if (mbedtls_sha256_update_ret(&ctx, (const unsigned char *)upgrade_data_buf, data_read) != 0) {
-                ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
-            }
+            mbedtls_sha256_update(&ctx, (const unsigned char *)upgrade_data_buf, data_read);
 
             ota_write_err = esp_ota_write( update_handle, (const void *)upgrade_data_buf, data_read);
             if (ota_write_err != ESP_OK) {
@@ -562,11 +550,7 @@ esp_err_t ota_https_update_device(const char *buildflags)
 #if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: Total binary data length writen: %d", __func__, total_read_len);
 #endif
-    if (mbedtls_sha256_finish_ret( &ctx, md) != 0) {
-        ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
-        ret = ESP_FAIL;
-        goto clean_up;
-    }
+    mbedtls_sha256_finish( &ctx, md);
 
     /* Check firmware validation */
     if (_check_firmware_validation((const unsigned char *)md, sig, sig_len) != true) {

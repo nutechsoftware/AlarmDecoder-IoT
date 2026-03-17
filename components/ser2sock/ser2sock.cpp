@@ -552,7 +552,7 @@ static bool _poll_read_fdset(fd_set *read_fdset)
                     /* clear our state vars */
                     newsockfd = -1;
                     {
-                        unsigned int addr_len;
+                        socklen_t addr_len;
                         struct sockaddr_storage peer_addr = {};
                         addr_len = sizeof(peer_addr);
                         newsockfd = accept(listen_sock, (struct sockaddr *) &peer_addr, &addr_len);

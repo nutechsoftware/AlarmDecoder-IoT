@@ -668,7 +668,7 @@ std::string FTPD::listenPassive()
     ESP_LOGI(TAG, "m_passiveSocket fd: %i", m_passiveSocket);
 #endif
 
-    unsigned int addrLen = sizeof(serverAddress);
+    socklen_t addrLen = sizeof(serverAddress);
     rc = getsockname(m_passiveSocket, (struct sockaddr*)&serverAddress, &addrLen);
     if (rc == -1) {
         ESP_LOGE(TAG, "m_passiveSocket getsockname() error %s", strerror(errno));
@@ -676,7 +676,7 @@ std::string FTPD::listenPassive()
         return "ERROR";
     }
 
-    unsigned int addrInfoSize = sizeof(clientAddrInfo);
+    socklen_t addrInfoSize = sizeof(clientAddrInfo);
     getsockname(m_clientSocket, (struct sockaddr*)&clientAddrInfo, &addrInfoSize);
 
     // Convert client address to string for ACL testing.
