@@ -57,13 +57,12 @@ static void usd_task_func(void * command)
 {
     ad2_printf_host(false, "Starting uSD update");
 
-    FILE *f = fopen("/sdcard/firmware.bin", "rb");
+    FILE *f = fopen(CONFIG_FIRMWARE_PATH, "rb");
     if (f == NULL) {
-        ad2_printf_host(false, "uSD update '/sdcard/firmware.bin' not found, aborting.");
+        ad2_printf_host(false, "uSD update '" CONFIG_FIRMWARE_PATH "' not found, aborting.");
         vTaskDelete(NULL);
     }
 
-    esp_err_t ota_res;
     esp_ota_handle_t update_handle = 0;
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
 
@@ -83,7 +82,7 @@ static void usd_task_func(void * command)
 
     free(buffer);
     fclose(f);
-    # remove the firmware file on success
+    remove(CONFIG_FIRMWARE_PATH);
     ad2_printf_host(true, "%s Prepare to restart system!", TAG);
     hal_restart();
 }

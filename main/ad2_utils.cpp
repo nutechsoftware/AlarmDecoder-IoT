@@ -979,7 +979,7 @@ int ad2_copy_nth_arg(std::string &dest, const char *src, int n, bool remaining)
  */
 void ad2_config_update(const char *arg)
 {
-
+    ESP_LOGI(TAG, "TODO: AD2IoT config update command");
 }
 
 /**
@@ -993,7 +993,7 @@ void ad2_config_update(const char *arg)
  */
 void ad2_fw_update(const char *arg)
 {
-
+    ESP_LOGI(TAG, "TODO: AD2 Firmware update command");
 }
 
 /**
