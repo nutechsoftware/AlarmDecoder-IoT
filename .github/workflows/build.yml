@@ -90,7 +90,7 @@ jobs:
           cp .pio/build/esp32-poe-iso/ota_data_initial.bin $PP/esp32/esp32-poe-iso-stsdk/
 
       - name: Upload firmware package Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: AD2IoT-Release-Package
           path: AD2IoT-Release
