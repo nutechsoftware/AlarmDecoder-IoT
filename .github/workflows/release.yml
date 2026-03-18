@@ -1,0 +1,81 @@
+name: CI build release
+
+on:
+  release:
+    types: [published] # Triggers when a release is published
+
+env:
+  REL_PATH: AD2IoT-Release
+  SHELL: /bin/bash
+  TERM: 'xterm-256color'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Grants permission to write to the repository content (including releases)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+            submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Create base Artifact release package structure
+        run: |
+          mkdir $REL_PATH
+          cp README.md CHANGELOG.md LICENSE $REL_PATH/
+          mkdir $REL_PATH/esp32
+          cp contrib/README-FLASH-ESP32.md contrib/ESP32-DOWNLOAD-TOOL-UPLOADING-FIRMWARE.png $REL_PATH/esp32/
+
+      - name: Install required packages for st-device-c-ref build
+        run: |
+          sudo apt-get install -y  gperf cmake ninja-build ccache dfu-util
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build esp32-poe-iso
+        run: pio run -e esp32-poe-iso
+
+      - name: Build spiffs.bin for esp32-poe-iso
+        run: pio run -t buildfs -e esp32-poe-iso
+
+      - name: Create release package folders for each branch.
+        run: |
+          mkdir $REL_PATH/esp32/esp32-poe-iso-webui
+
+      - name: Add esp32-poe-iso webui firmware build to release package
+        run: |
+          cp .pio/build/esp32-poe-iso/firmware.bin $REL_PATH/esp32/esp32-poe-iso-webui/
+
+      - name: Add common firmware files for each branch to the package.
+        run: |
+          cp .pio/build/esp32-poe-iso/spiffs.bin $REL_PATH/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/bootloader.bin $REL_PATH/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/partitions.bin $REL_PATH/esp32/esp32-poe-iso-webui/
+          cp .pio/build/esp32-poe-iso/ota_data_initial.bin $REL_PATH/esp32/esp32-poe-iso-webui/
+
+      - name: Zip the release folder
+        run: zip -r esp32-poe-iso-webui.zip $REL_PATH
+
+      - name: Upload firmware package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AD2IoT-Release-Package
+          path: $REL_PATH
+
+      - name: Upload Release Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The default token provided by GitHub Actions
+        run: |
+          # The 'gh release upload' command needs the tag name of the release
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          FILE_PATH="./esp32-poe-iso-webui.zip"
+          echo "Uploading $FILE_PATH to release $TAG_NAME"
+          # Use --clobber to overwrite the asset if it already exists
+          gh release upload "$TAG_NAME" "$FILE_PATH" --clobber
+        # You can also use wildcards for multiple files, e.g., './dist/*.tgz'
