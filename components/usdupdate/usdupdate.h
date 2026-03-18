@@ -1,9 +1,9 @@
 /**
- *  @file    ota_util.h
+ *  @file    usdupdate_util.h
  *  @author  Sean Mathews <coder@f34r.com>
  *  @date    09/18/2020
  *
- *  @brief OTA update support
+ *  @brief uSD firmware update support
  *
  *  @copyright Copyright (C) 2020 Nu Tech Software Solutions, Inc.
  *
@@ -21,12 +21,12 @@
  *
  */
 
-#ifndef _OTA_UTIL_H
-#define _OTA_UTIL_H
-#if CONFIG_AD2IOT_OTAUPDATE
-void ota_do_update(const char *arg);
-void ota_register_cmds();
-void ota_init();
-#endif
-#endif /* _OTA_UTIL_H */
+#ifndef _USDUPDATE_UTIL_H
+#define _USDUPDATE_UTIL_H
+
+void usd_do_update(const char *arg);
+void usdupdate_register_cmds();
+void usdupdate_init();
+
+#endif /* _USDUPDATE_UTIL_H */
 

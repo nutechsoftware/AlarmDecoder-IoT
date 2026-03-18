@@ -30,19 +30,23 @@ static const char *TAG = "AD2_IoT";
 // esp component includes
 #include "driver/uart.h"
 #include "nvs_flash.h"
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-#include "tcpip_adapter.h"
-#else
 #include "esp_netif.h"
 #include "esp_tls.h"
-#endif
+
 // specific includes
 
 // SimpleIni
 #include <SimpleIni.h>
 
-// OTA updates
+// OTA firmware updates
+#if CONFIG_AD2IOT_OTAUPDATE
 #include "ota_util.h"
+#endif
+
+// uSD flash firmware updates
+#if CONFIG_AD2IOT_USDUPDATE
+#include "usdupdate.h"
+#endif
 
 // Command line interface
 #include "ad2_cli_cmd.h"
@@ -503,6 +507,7 @@ void _update_top_task_stats()
  */
 bool _show_pretty_process_list()
 {
+#if CONFIG_AD2IOT_TOP
     // Format string for data columns.
     // "Name", "ID", "State", "Priority", "Stack", "CPU#", "TIME", "%BUSY, %CUR"
 #define TABBED_HEADER_FMT "%-15s %-3s %-5s %-8s %-5s %-4s %-20s %-6s %-6s\r\n"
@@ -621,6 +626,7 @@ bool _show_pretty_process_list()
                     "    Stack: Minimum stack free bytes, CPU#: CPU affinity\r\n"
                     "    TBusy: %% busy total, Busy: %% busy now\r\n"
                    );
+#endif
     return true;
 }
 
@@ -632,6 +638,7 @@ bool _show_pretty_process_list()
  */
 static void _cli_cmd_top_event(const char *string)
 {
+#if CONFIG_AD2IOT_TOP
     uint8_t rx_buffer[AD2_UART_RX_BUFF_SIZE];
     while(1) {
         if (ulTaskNotifyTake( pdTRUE, pdMS_TO_TICKS(100)) != 0) {
@@ -650,6 +657,7 @@ static void _cli_cmd_top_event(const char *string)
             break;
         }
     }
+#endif
 }
 #endif
 
@@ -935,13 +943,9 @@ void init_ad2_uart_client(const char *args)
 
     // esp_restart causes issues with UART2 don't set config if reset switch pushed.
     // https://github.com/espressif/esp-idf/issues/5274
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
     if (esp_reset_reason() != ESP_RST_SW) {
-#endif
         uart_param_config((uart_port_t)g_ad2_client_handle, uart_config);
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4,1,0)
     }
-#endif
 
     uart_set_pin((uart_port_t)g_ad2_client_handle,
                  tx_pin,   // TX
@@ -966,11 +970,13 @@ void init_ad2_uart_client(const char *args)
  */
 void dump_mem_stats()
 {
+#if CONFIG_AD2IOT_TOP
     float Total = heap_caps_get_total_size(MALLOC_CAP_32BIT);
     float Free_Size = heap_caps_get_free_size(MALLOC_CAP_32BIT);
     float DRam = heap_caps_get_free_size(MALLOC_CAP_8BIT);
     float IRam = heap_caps_get_free_size(MALLOC_CAP_32BIT) - heap_caps_get_free_size(MALLOC_CAP_8BIT);
     ad2_printf_host(true, "Total Heap Size %.2f Kb\nFree Space %.2f Kb\nDRAM  %.2f Kb\nIRAM  %.2f Kb\n",Total/1024,Free_Size/1024,DRam/1024,IRam/1024);
+#endif
 }
 
 // external call from FreeRTOS is CDECL
@@ -1123,6 +1129,16 @@ extern "C" {
         ftpd_register_cmds();
 #endif
 
+#if CONFIG_AD2IOT_OTAUPDATE
+        // Register OTA firmware update commands.
+        ota_register_cmds();
+#endif
+
+#if CONFIG_AD2IOT_USDUPDATE
+        // Register uSD firmware update commands.
+        usdupdate_register_cmds();
+#endif
+
         // Register AD2 CLI commands.
         register_ad2_cli_cmd();
 
@@ -1249,15 +1265,20 @@ extern "C" {
         // Initialize FTP daemon
         ftpd_init();
 #endif
+#if CONFIG_AD2IOT_OTAUPDATE
+        // Initialize OTA firmware updates
+        ota_init();
+#endif
+#if CONFIG_AD2IOT_USDUPDATE
+        // Initialize uSD firmware updates
+        usdupdate_init();
+#endif
 
         // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
         vTaskDelay(5000 / portTICK_PERIOD_MS);
 
         // Start main AlarmDecoder IoT app task
         xTaskCreate(ad2_app_main_task, "AD2 main", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
-
-        // Start firmware update task
-        ota_init();
 
         // If the AD2* is a socket connection we can hopefully start it now.
         if (g_ad2_mode == 'S') {

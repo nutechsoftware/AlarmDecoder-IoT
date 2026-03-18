@@ -36,6 +36,9 @@ static const char *TAG = "MQTT";
 // esp component includes
 #include "mqtt_client.h"
 
+// enable verbose debug logging
+//#define MQTT_DEBUG
+
 /* Constants that aren't configurable in menuconfig */
 #define MQTT_COMMAND        "mqtt"
 #define MQTT_ENABLE_SUBCMD  "enable"
@@ -504,12 +507,15 @@ void mqtt_on_connect(esp_mqtt_client_handle_t client)
  * @param [in]event_data void *
  *
  */
-static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
+static void ad2_mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
 
-    esp_mqtt_client_handle_t client = event_data->client;
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_t*)event_data;
+    esp_mqtt_client_handle_t client = event->client;
+    int msg_id;
+
     // your_context_t *context = event->context;
-    switch (event_data->event_id) {
+    switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
 #if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
@@ -523,24 +529,24 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
         break;
     case MQTT_EVENT_SUBSCRIBED:
 #if defined(MQTT_EVENT_LOGGING)
-        ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event_data->msg_id);
+        ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
 #endif
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
 #if defined(MQTT_EVENT_LOGGING)
-        ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event_data->msg_id);
+        ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
 #endif
         break;
     case MQTT_EVENT_PUBLISHED:
 #if defined(MQTT_EVENT_LOGGING)
-        ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event_data->msg_id);
+        ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 #endif
         break;
     case MQTT_EVENT_DATA:
 #if defined(MQTT_EVENT_LOGGING)
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("TOPIC=%.*s\r\n", event_data->topic_len, event_data->topic);
-        printf("DATA=%.*s\r\n", event_data->data_len, event_data->data);
+        printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
+        printf("DATA=%.*s\r\n", event->data_len, event->data);
 #endif
         // test if commands subscription is enabled
         if ( commands_enabled ) {
@@ -551,19 +557,19 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
             topic_path += mqttclient_UUID;
             topic_path += "/" MQTT_COMMANDS_TOPIC;
 
-            if ( event_data->topic_len == topic_path.length() ) {
-                std::string topic( event_data->topic, event_data->topic_len );
+            if ( event->topic_len == topic_path.length() ) {
+                std::string topic( event->topic, event->topic_len );
                 if ( topic.compare(topic_path) == 0 ) {
 
                     // We only want fresh messages no recordings.
                     // Check for retain flag skip if true.
-                    if ( event_data->retain ) {
+                    if ( event->retain ) {
                         break;
                     }
 
                     // sanity check the event_data->data_len
-                    if ( event_data->data_len < MQTT_COMMAND_MAX_DATA_LEN ) {
-                        std::string command( event_data->data, event_data->data_len );
+                    if ( event->data_len < MQTT_COMMAND_MAX_DATA_LEN ) {
+                        std::string command( event->data, event->data_len );
                         // grab the json buffer
                         // {
                         //   partition: {{ number partition ID see ```partition``` command. }},
@@ -623,7 +629,7 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
                             } else if ( action.compare("SEND_RAW") == 0 ) {
                                 ad2_send(arg);
                             } else if ( action.compare("FW_UPDATE_IOT") == 0 ) {
-                                hal_ota_do_update("");
+                                hal_do_fwupdate("");
                             } else if ( action.compare("FW_UPDATE_AD2") == 0 ) {
                                 ad2_fw_update(arg.c_str());
                             } else if ( action.compare("FW_CONFIG_IOT") == 0 ) {
@@ -659,7 +665,6 @@ static esp_err_t ad2_mqtt_event_handler(esp_mqtt_event_handle_t event_data)
         break;
     }
 
-    return ESP_OK;
 }
 
 /**
@@ -819,7 +824,9 @@ void mqtt_free()
 void on_search_match_cb_mqtt(std::string *msg, AD2PartitionState *s, void *arg)
 {
     AD2EventSearch *es = (AD2EventSearch *)arg;
-
+#if defined(MQTT_DEBUG)
+    ESP_LOGI(TAG, "ON_SEARCH_MATCH_CB: '%s' -> '%s' [switch %i]", msg->c_str(), es->out_message.c_str(), es->INT_ARG);
+#endif
     std::string message = es->out_message;
 
     // Grab the topic using the virtual switch ID pre saved into INT_ARG
@@ -843,6 +850,13 @@ void on_search_match_cb_mqtt(std::string *msg, AD2PartitionState *s, void *arg)
                                          MQTT_DEF_QOS,
                                          MQTT_DEF_RETAIN,
                                          MQTT_DEF_STORE);
+
+        if (msg_id) {
+            ESP_LOGI(TAG,"Switch #%i match message '%s'. Sending '%s'", es->INT_ARG, msg->c_str(), es->out_message.c_str());
+        } else {
+            ESP_LOGE(TAG,"Error adding mqtt message.");
+        }
+
         cJSON_free(state);
         cJSON_Delete(root);
     }
@@ -926,7 +940,6 @@ static void _cli_cmd_mqtt_smart_alert_switch(std::string &subcmd, const char *in
                 MQTT_CONFIG_SWITCH_SUFFIX_TROUBLE);
 
             std::string sk;
-            bool command_found = false;
             ad2_printf_host(false, "## [mqtt] switch %i configuration.\r\n", swID);
             while (ss >> sk) {
                 tbuf = "";
@@ -1115,40 +1128,23 @@ void mqtt_register_cmds()
 }
 
 /**
- * Initialize queue and SSL
+ * @brief daemon startup task
+ *
+ * @param [in]pvParameters currently not used NULL.
  */
-void mqtt_init()
+void mqtt_startup_task(void *pvParameters)
 {
-    // if netif not enabled then we can't start.
-    if (!hal_get_netif_started()) {
-        ad2_printf_host(true, "%s client disabled. Network interface not enabled.", TAG);
-        return;
-    }
-
-    bool en = false;
-    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD, &en);
-
-    // nothing more needs to be done once commands are set if not enabled.
-    if (!en) {
-        ad2_printf_host(true, "%s client disabled.", TAG);
-        return;
-    }
-
-#if 0 // debug logging settings.
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
-    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
-    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+#if defined(MQTT_DEBUG)
+    ESP_LOGI(TAG, "MQTT waiting for network layer to start.");
 #endif
-
-    // load commands subscription enable/disable setting
-    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_SUBCMD, &commands_enabled);
-
-    // generate our client's unique user id. UUID.
-    ad2_genUUID(0x10, mqttclient_UUID);
-    ad2_printf_host(true, "%s: Init UUID: %s", TAG, mqttclient_UUID.c_str());
+    while (1) {
+        if (!hal_get_netif_started()) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            break;
+        }
+    }
+    ESP_LOGI(TAG, "Network layer is OK. %s client starting.", TAG);
 
     // configure and start MQTT client
     esp_err_t err;
@@ -1180,25 +1176,58 @@ void mqtt_init()
     LWT_TOPIC+=mqttclient_UUID;
     LWT_TOPIC+="/status";
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-    const esp_mqtt_client_config_t mqtt_cfg = {
-        .event_handle = ad2_mqtt_event_handler,
-        .uri = brokerURL.c_str(),
-        .client_id = mqttclient_UUID.c_str(),
-        .lwt_topic = LWT_TOPIC.c_str(),
-        .lwt_msg =  "offline",
-        .lwt_qos = 1,    // For LWT use QOS1
-        .lwt_retain = 1  // FOr LWT use Retain
-    };
-#pragma GCC diagnostic pop
+    // Build mqtt client config
+    esp_mqtt_client_config_t mqtt_cfg = {};
+    mqtt_cfg.broker.address.uri = brokerURL.c_str();
+    mqtt_cfg.credentials.client_id = mqttclient_UUID.c_str();
+    mqtt_cfg.session.last_will.topic = LWT_TOPIC.c_str();
+    mqtt_cfg.session.last_will.msg = "offline";
+    mqtt_cfg.session.last_will.qos = 1;
+    mqtt_cfg.session.last_will.retain = 1;
 
     // Create and start the client.
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+
+    // register event callback
+    esp_mqtt_client_register_event(mqtt_client, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, ad2_mqtt_event_handler, NULL);
+
     err = esp_mqtt_client_start(mqtt_client);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_mqtt_client_start return error: %s.", esp_err_to_name(err));
     }
+
+    vTaskDelete(NULL);
+}
+
+/**
+ * Initialize queue and SSL
+ */
+void mqtt_init()
+{
+    bool en = false;
+    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_ENABLE_SUBCMD, &en);
+
+    // nothing more needs to be done once commands are set if not enabled.
+    if (!en) {
+        ad2_printf_host(true, "%s client disabled.", TAG);
+        return;
+    }
+
+#if 0 // debug logging settings.
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+#endif
+
+    // load commands subscription enable/disable setting
+    ad2_get_config_key_bool(MQTT_CONFIG_SECTION, MQTT_CMDEN_SUBCMD, &commands_enabled);
+
+    // generate our client's unique user id. UUID.
+    ad2_genUUID(0x10, mqttclient_UUID);
+    ad2_printf_host(true, "%s: Init UUID: %s", TAG, mqttclient_UUID.c_str());
 
     // Subscribe standard AlarmDecoder events
     AD2Parse.subscribeTo(ON_ARM, mqtt_on_state_change, (void *)ON_ARM);
@@ -1302,6 +1331,7 @@ void mqtt_init()
             // load [switch N] required regex match settings
             std::string prefilter_regex;
             ad2_get_config_key_string(key.c_str(), AD2SWITCH_SK_FILTER, prefilter_regex);
+            es1->PRE_FILTER_REGEX = prefilter_regex;
 
             // Load all regex search patterns for open, close, and trouble sub keys.
             std::string regex_sk_list = AD2SWITCH_SK_OPEN " "
@@ -1347,18 +1377,18 @@ void mqtt_init()
             } else {
                 // incomplete switch so delete it.
                 delete es1;
-                ESP_LOGE(TAG, "Error in config section [switch %i]. Missing required open, close, or fault filter expressions.", swID);
+                ESP_LOGE(TAG, "Error in config section [switch %i]. Need at least one open, close, or trouble filter expressions.", swID);
             }
         } else {
             if (open_output_format.length() || close_output_format.length()
                     || trouble_output_format.length()) {
-                ESP_LOGE(TAG, "Error in config for switch [switch %i]. Missing on or more required open,close, or fault output expressions.", swID);
+                ESP_LOGE(TAG, "Section config error. Need at least one open, close, or trouble output strings for switch %i.", swID);
             }
         }
     }
 
     ad2_printf_host(true, "%s: Init done. Found and configured %i virtual switches.", TAG, subscribers);
-
+    xTaskCreate(&mqtt_startup_task, "mqtt startup", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
 }
 
 #endif /*  CONFIG_AD2IOT_MQTT_CLIENT */

@@ -33,7 +33,14 @@
 static const char *TAG = "FTPD";
 
 // module specific includes
+/// Problem with dirent included as "C" already by STSDK build.
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <dirent.h>
+#ifdef __cplusplus
+}
+#endif
 #include <fstream>
 
 #define FTPD_COMMAND          "ftpd"
@@ -142,6 +149,8 @@ private:
     void onXmkd(std::istringstream& ss);
     void onXrmd(std::istringstream& ss);
     void onRest(std::istringstream& ss);
+    void onUpgd(std::istringstream& ss);
+    void onVers(std::istringstream& ss);
     bool openData();
 
     void receiveFile(std::string fileName);
@@ -661,7 +670,7 @@ std::string FTPD::listenPassive()
     ESP_LOGI(TAG, "m_passiveSocket fd: %i", m_passiveSocket);
 #endif
 
-    unsigned int addrLen = sizeof(serverAddress);
+    socklen_t addrLen = sizeof(serverAddress);
     rc = getsockname(m_passiveSocket, (struct sockaddr*)&serverAddress, &addrLen);
     if (rc == -1) {
         ESP_LOGE(TAG, "m_passiveSocket getsockname() error %s", strerror(errno));
@@ -669,7 +678,7 @@ std::string FTPD::listenPassive()
         return "ERROR";
     }
 
-    unsigned int addrInfoSize = sizeof(clientAddrInfo);
+    socklen_t addrInfoSize = sizeof(clientAddrInfo);
     getsockname(m_clientSocket, (struct sockaddr*)&clientAddrInfo, &addrInfoSize);
 
     // Convert client address to string for ACL testing.
@@ -964,6 +973,28 @@ void FTPD::onRest(std::istringstream& ss)
     ad2_printf_host(true, "%s: 'REST' command received. Restarting system now.", TAG);
     closeConnection();
     hal_restart();
+}
+
+/**
+ * @brief Process a UPGD operation.
+ * Upgrade and restart the AD2IoT
+ */
+void FTPD::onUpgd(std::istringstream& ss)
+{
+    sendResponse(RESPONSE_200_COMMAND_OK, "Starting ad2iot upgrade now. Reconnect in 1 minute."); // Command okay.
+    ad2_printf_host(true, "%s: 'UPGD' command received. Starting ad2iot upgrade now.", TAG);
+    closeConnection();
+    hal_do_fwupdate("");
+}
+
+
+/**
+ * @brief Process a VERS operation.
+ * Return the version of the AD2IoT firmware
+ */
+void FTPD::onVers(std::istringstream& ss)
+{
+    sendResponse(RESPONSE_200_COMMAND_OK, "AD2IoT installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ").\r\n"); // Command okay.
 }
 
 /**
@@ -1414,8 +1445,12 @@ void FTPD::processCommand()
                     onRnto(ss);
                 } else if (command.compare("REST")==0) { // Custom verb to restart AD2IoT
                     onRest(ss);
+                } else if (command.compare("UPGD")==0) { // Custom verb to upgrade the AD2IoT
+                    onUpgd(ss);
+                } else if (command.compare("VERS")==0) { // Custom verb to get the AD2IoT version string.
+                    onVers(ss);
                 } else {
-#if defined(FTPD_DEBUG)
+                    #if defined(FTPD_DEBUG)
                     ESP_LOGI(TAG, "Unknown command verb: '%s'. Teach me more please!", command.c_str());
 #endif
                     sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED); // Syntax error, command unrecognized.
@@ -1774,9 +1809,17 @@ static void _cli_cmd_ftpd_event(const char *string)
 void ftp_daemon_task(void *pvParameters)
 {
 #if defined(FTPD_DEBUG)
-    ESP_LOGI(TAG, "ftp daemon task starting.");
+     ESP_LOGI(TAG, "%s waiting for network layer to start.", TAG);
 #endif
+    while (1) {
+        if (!hal_get_netif_started()) {
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        } else {
+            break;
+        }
+    }
     if (ad2ftpd != nullptr) {
+        ESP_LOGI(TAG, "Network layer is OK. %s daemon service starting.", TAG);
         ad2ftpd->start();
     }
     vTaskDelete(NULL);
@@ -1819,12 +1862,6 @@ void ftpd_register_cmds()
  */
 void ftpd_init()
 {
-    // if netif not enabled then we can't start.
-    if (!hal_get_netif_started()) {
-        ad2_printf_host(true, "%s daemon disabled. Network interface not enabled.", TAG);
-        return;
-    }
-
     bool en = false;
     ad2_get_config_key_bool(FTPD_CONFIG_SECTION, FTPD_SUBCMD_ENABLE, &en);
 
@@ -1850,7 +1887,7 @@ void ftpd_init()
         }
     }
 
-    ad2_printf_host(true, "%s: Init done. Daemon starting.", TAG);
+    ad2_printf_host(true, "%s: Init done.", TAG);
     xTaskCreate(&ftp_daemon_task, "ftp daemon", 1024*8, NULL, tskIDLE_PRIORITY+1, NULL);
 
 }

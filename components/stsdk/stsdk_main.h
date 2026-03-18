@@ -41,14 +41,20 @@
 #include "caps_powerSource.h"
 #include "caps_battery.h"
 
-#define STSDK_ENABLE   "stenable"
-#define STSDK_CLEANUP  "stcleanup"
-#define STSDK_SERIAL   "stserial"
-#define STSDK_PUBKEY   "stpublickey"
-#define STSDK_PRIVKEY  "stprivatekey"
+#define STSDK_COMMAND        "smartthings"
+#define STSDK_SUBCMD_ENABLE  "enable"
+#define STSDK_SUBCMD_CLEANUP "cleanup"
+#define STSDK_SUBCMD_SERIAL  "serial"
+#define STSDK_SUBCMD_PUBKEY  "publickey"
+#define STSDK_SUBCMD_PRIVKEY "privatekey"
+
+#define STSDK_CONFIG_SECTION "smartthings"
+
 
 //#define SET_PIN_NUMBER_CONFRIM
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 void stsdk_register_cmds(void);
 void stsdk_init(void);
 void button_event(IOT_CAP_HANDLE *handle, int type, int count);
@@ -102,6 +108,7 @@ extern IOT_CAP_HANDLE *healthCheck_cap_handle;
 extern IOT_CAP_HANDLE *refresh_cap_handle;
 
 extern int noti_led_mode;
-
+#ifdef __cplusplus
+} // extern "C"
+#endif
 #endif /* _STSDK_MAIN_H */
-

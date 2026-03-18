@@ -3,6 +3,9 @@ idf_component_register(SRCS "ad2_utils.cpp" "alarmdecoder_main.cpp"
                             "ad2_cli_cmd.cpp"
                             "ad2_uart_cli.cpp"
                     REQUIRES idf::esp-tls
+                    REQUIRES idf::esp_wifi
+                    REQUIRES idf::esp_eth
+                    REQUIRES idf::spi_flash
                     REQUIRES idf::json
                     REQUIRES idf::fatfs
 		    REQUIRES idf::stsdk
@@ -10,6 +13,7 @@ idf_component_register(SRCS "ad2_utils.cpp" "alarmdecoder_main.cpp"
                     REQUIRES idf::spiffs
                     REQUIRES idf::alarmdecoder-api
                     REQUIRES idf::otaupdate
+                    REQUIRES idf::usdupdate
                     REQUIRES idf::pushover
                     REQUIRES idf::twilio
                     REQUIRES idf::ser2sock
@@ -20,17 +24,13 @@ idf_component_register(SRCS "ad2_utils.cpp" "alarmdecoder_main.cpp"
 
 set(STDK_IOT_CORE_USE_DEFINED_CONFIG "y")
 
-set(STDK_LINK_LIBRARY
-        __idf_libsodium
-        __idf_json
-   )
 
-set(STDK_INCLUDE_PATH
-        "$ENV{IDF_PATH}/components/freertos/include/freertos"
-        "$ENV{IDF_PATH}/components/nvs_flash/include"
-        "$ENV{IDF_PATH}/components/spi_flash/include"
-        "$ENV{IDF_PATH}/components/bootloader_support/include"
-    )
+# Fetch SimpleIni lib and as as include path.
+#  Todo: Only if not already downloaded.
+include(FetchContent) # once in the project to include the module
+FetchContent_Declare(simpleini GIT_REPOSITORY https://github.com/brofield/simpleini.git)
+FetchContent_MakeAvailable(simpleini)
+include_directories(${simpleini_SOURCE_DIR})
 
 if(CONFIG_STDK_IOT_CORE)
         add_subdirectory($ENV{STDK_CORE_PATH} iotcore)

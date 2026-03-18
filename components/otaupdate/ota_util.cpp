@@ -21,14 +21,18 @@
  *  limitations under the License.
  *
  */
-// FreeRTOS includes
+
+ static const char *TAG = "AD2OTA";
+
+ // AlarmDecoder std includes
+#include "alarmdecoder_main.h"
+
+ // Disable via config
+#if CONFIG_AD2IOT_OTAUPDATE
+
+ // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-
-static const char *TAG = "AD2OTA";
-
-// AlarmDecoder std includes
-#include "alarmdecoder_main.h"
 
 // esp component includes
 #include <esp_https_ota.h>
@@ -52,10 +56,11 @@ static const char *TAG = "AD2OTA";
 
 #define OTA_VERSION_INFO_BUF_SIZE 1024
 
-#define OTA_UPGRADE_CMD   "upgrade"
-#define OTA_VERSION_CMD   "version"
+#define OTA_UPGRADE_CMD   "upgradeota"
+#define OTA_VERSION_CMD   "versionota"
 
 #define OTA_FIRST_CHECK_DELAY_MS 30*1000
+#define OTA_RETRY_CHECK_DELAY_MS 300*1000
 #define OTA_SOCKET_TIMEOUT 10*1000
 
 // forward decl
@@ -289,15 +294,9 @@ static int _crypto_sha256(const unsigned char *src, size_t src_len, unsigned cha
 #if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: src: %d@%p, dst: %p", __func__, src_len, src, dst);
 #endif
-    ret = mbedtls_sha256_ret(src, src_len, dst, 0);
-    if (ret) {
-#if defined(DEBUG_OTA)
-        ESP_LOGI(TAG, "%s: mbedtls_sha256_ret = -0x%04X", __func__, -ret);
-#endif
-        return ret;
-    }
+    mbedtls_sha256(src, src_len, dst, 0);
 
-    return 0;
+    return 1;
 }
 
 /**
@@ -507,11 +506,7 @@ esp_err_t ota_https_update_device(const char *buildflags)
     mbedtls_sha256_init( &ctx );
     b_ctx_init = true;
 
-    if (mbedtls_sha256_starts_ret( &ctx, 0) != 0 ) {
-        ESP_LOGE(TAG, "%s: Failed to initialise api", __func__);
-        ret = ESP_FAIL;
-        goto clean_up;
-    }
+    mbedtls_sha256_starts( &ctx, 0);
 
     while (1) {
         int data_read = esp_http_client_read(client, upgrade_data_buf, OTA_DEFAULT_BUF_SIZE);
@@ -546,9 +541,7 @@ esp_err_t ota_https_update_device(const char *buildflags)
         }
 
         if (data_read > 0) {
-            if (mbedtls_sha256_update_ret(&ctx, (const unsigned char *)upgrade_data_buf, data_read) != 0) {
-                ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
-            }
+            mbedtls_sha256_update(&ctx, (const unsigned char *)upgrade_data_buf, data_read);
 
             ota_write_err = esp_ota_write( update_handle, (const void *)upgrade_data_buf, data_read);
             if (ota_write_err != ESP_OK) {
@@ -561,11 +554,7 @@ esp_err_t ota_https_update_device(const char *buildflags)
 #if defined(DEBUG_OTA)
     ESP_LOGI(TAG, "%s: Total binary data length writen: %d", __func__, total_read_len);
 #endif
-    if (mbedtls_sha256_finish_ret( &ctx, md) != 0) {
-        ESP_LOGE(TAG, "%s: Failed getting HASH", __func__);
-        ret = ESP_FAIL;
-        goto clean_up;
-    }
+    mbedtls_sha256_finish( &ctx, md);
 
     /* Check firmware validation */
     if (_check_firmware_validation((const unsigned char *)md, sig, sig_len) != true) {
@@ -719,7 +708,14 @@ esp_err_t ota_https_read_version_info(char **version_info, unsigned int *version
  */
 static void ota_polling_task_func(void *arg)
 {
+    uint32_t delay = OTA_FIRST_CHECK_DELAY_MS;
+    static int fail_count = 0;
     while (1) {
+        // failed too many times skip for 24h
+        if (fail_count > 2) {
+            fail_count--;
+            delay =  24 * 3600;
+        }
 #if defined(AD2_STACK_REPORT)
 #define EXTRA_INFO_EVERY 1
         static int extra_info = EXTRA_INFO_EVERY;
@@ -729,7 +725,7 @@ static void ota_polling_task_func(void *arg)
         }
 #endif
 
-        vTaskDelay(OTA_FIRST_CHECK_DELAY_MS / portTICK_PERIOD_MS);
+        vTaskDelay(delay / portTICK_PERIOD_MS);
 
         ESP_LOGI(TAG, "Starting check new version with current version '%s'-%s", FIRMWARE_VERSION, FIRMWARE_BUILDFLAGS);
 
@@ -738,8 +734,10 @@ static void ota_polling_task_func(void *arg)
             continue;
         }
 
-        if (!hal_get_network_connected()) {
-            ESP_LOGI(TAG, "Device update check aborted. No internet connection.");
+        if (!hal_get_netif_started()) {
+            ESP_LOGI(TAG, "Device update check aborted. Network interface not started.");
+            delay = OTA_RETRY_CHECK_DELAY_MS;
+            fail_count++;
             continue;
         }
 
@@ -759,8 +757,12 @@ static void ota_polling_task_func(void *arg)
                 if (available_version) {
                     free(available_version);
                 }
+                fail_count++;
                 continue;
             }
+
+            // reset fail count upon success
+            fail_count = 0;
 
             // Update and notify subscribers of a new version
             if (available_version) {
@@ -775,7 +777,7 @@ static void ota_polling_task_func(void *arg)
             }
         }
 
-        /* Set polling period */
+        /* Get polling period in days from server response and set it */
         unsigned int polling_day = ota_get_polling_period_day();
         unsigned int task_delay_sec = polling_day * 24 * 3600;
         vTaskDelay(task_delay_sec * 1000 / portTICK_PERIOD_MS);
@@ -818,15 +820,21 @@ static struct cli_command ota_cmd_list[] = {
 };
 
 /**
+ * @brief Register component cli commands.
+ */
+void ota_register_cmds()
+{
+    // Register CLI commands
+    for (int i = 0; i < ARRAY_SIZE(ota_cmd_list); i++) {
+        cli_register_command(&ota_cmd_list[i]);
+    }
+}
+
+/**
  * @brief Start the OTA check task.
  */
 void ota_init()
 {
-    // Register twilio CLI commands
-    for (int i = 0; i < ARRAY_SIZE(ota_cmd_list); i++) {
-        cli_register_command(&ota_cmd_list[i]);
-    }
-
     xTaskCreate(ota_polling_task_func, "AD2 ota check", 1024*4, NULL, tskIDLE_PRIORITY, NULL);
 }
 
@@ -837,3 +845,4 @@ void ota_do_version(const char *arg)
 {
     ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }
+#endif /* CONFIG_AD2IOT_OTAUPDATE */

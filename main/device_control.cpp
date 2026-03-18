@@ -38,8 +38,20 @@ static const char *TAG = "HAL";
 #include "nvs_flash.h"
 #include "esp_spiffs.h"
 
+#include "esp_system.h"
+#include "esp_mac.h"
+#include "esp_chip_info.h"
+#include "esp_eth_phy.h"
+#include "esp_flash.h"
+#include "esp_timer.h"
+
 // specific includes
+#if CONFIG_AD2IOT_OTAUPDATE
 #include "ota_util.h"
+#endif
+#if CONFIG_AD2IOT_USDUPDATE
+#include "usdupdate.h"
+#endif
 
 // forward decl for private event handlers.
 void _eth_event_handler(void *arg, esp_event_base_t event_base,
@@ -55,10 +67,7 @@ void _lost_ip_event_handler(void *arg, esp_event_base_t event_base,
 // track count of AP client connection attempts.
 static int ap_retry_num = 0;
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-#else
 static esp_netif_t* _netif = NULL;
-#endif
 
 
 // networking event state bits
@@ -68,7 +77,8 @@ const int NET_STA_CONNECT_BIT		= BIT2;
 const int NET_STA_DISCONNECT_BIT	= BIT3;
 const int NET_AP_START_BIT 		= BIT4;
 const int NET_AP_STOP_BIT 		= BIT5;
-const int NET_CONNECT_STATE_BITS = BIT1|BIT2|BIT3|BIT4|BIT5;
+const int NET_NETIF_HAS_IP 		= BIT6;
+const int NET_CONNECT_STATE_BITS = BIT1|BIT2|BIT3|BIT4|BIT5|BIT6;
 
 static bool switchAState = SWITCH_OFF;
 static bool switchBState = SWITCH_OFF;
@@ -173,7 +183,7 @@ int hal_get_button_event(int* button_event_type, int* button_event_count)
         vTaskDelay( pdMS_TO_TICKS(BUTTON_DEBOUNCE_TIME_MS) );
         gpio_level = gpio_get_level((gpio_num_t)GPIO_INPUT_BUTTON);
         if (button_last_state != gpio_level) {
-            ESP_LOGI(TAG, "%s: Button event, val: %d, tick: %u", __func__, gpio_level, (uint32_t)xTaskGetTickCount());
+            ESP_LOGI(TAG, "%s: Button event, val: %lu, tick: %lu", __func__, gpio_level, (uint32_t)xTaskGetTickCount());
             button_last_state = gpio_level;
             if (gpio_level == BUTTON_GPIO_PRESSED) {
                 button_count++;
@@ -413,7 +423,7 @@ void _wifi_event_handler(void *arg, esp_event_base_t event_base,
         break;
 
     default:
-        ESP_LOGI(TAG, "wifi_event_handler = %d", event_id);
+        ESP_LOGI(TAG, "wifi_event_handler = %lu", event_id);
         break;
     }
 
@@ -431,16 +441,10 @@ void hal_init_network_stack()
 
     ESP_LOGI(TAG, "network TCP/IP stack init start");
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(nullptr, nullptr));
-#else
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-#endif
 
-
-    xEventGroupSetBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
+    hal_set_netif_started(true);
 
     ESP_LOGI(TAG, "network TCP/IP stack init finish");
     return;
@@ -474,19 +478,11 @@ void hal_init_wifi(std::string &args)
         return;
     }
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL));
-#if CONFIG_LWIP_IPV6
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL));
-#endif
-#else
     _netif = esp_netif_create_default_wifi_sta();
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &_wifi_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &_got_ip_event_handler, NULL, NULL));
 #if CONFIG_LWIP_IPV6
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL, NULL));
-#endif
 #endif
 
     esp_ret = esp_wifi_set_storage(WIFI_STORAGE_RAM);
@@ -551,65 +547,33 @@ void hal_init_wifi(std::string &args)
         res = AD2Parse.query_key_value_string(args, "DNS1", dns1);
         res = AD2Parse.query_key_value_string(args, "DNS2", dns2);
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        tcpip_adapter_ip_info_t ip_info;
-        memset(&ip_info, 0, sizeof(tcpip_adapter_ip_info_t));
-        tcpip_adapter_dns_info_t dns_info;
-        memset(&dns_info, 0, sizeof(tcpip_adapter_dns_info_t));
-#else
         esp_netif_ip_info_t ip_info;
         memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
         esp_netif_dns_info_t dns_info;
         memset(&dns_info, 0, sizeof(esp_netif_dns_info_t));
-#endif
 
         // Assign static ip/netmask to interface
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        ip4addr_aton(ip.c_str(), &ip_info.ip);
-        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
-#else
         ip_info.ip.addr = esp_ip4addr_aton(ip.c_str());
         ip_info.netmask.addr = esp_ip4addr_aton(netmask.c_str());
-#endif
 
         // if gateway defined set it.
         if (gateway.length()) {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-            ip4addr_aton(gateway.c_str(), &ip_info.gw);
-#else
             ip_info.gw.addr = esp_ip4addr_aton(gateway.c_str());
-#endif
         }
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        // stop dhcp client service on interface.
-        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
-        ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
-#else
         ESP_ERROR_CHECK(esp_netif_dhcpc_stop(_netif));
         ESP_ERROR_CHECK(esp_netif_set_ip_info(_netif, &ip_info));
-#endif
 
         // assign DNS1 if avail.
         if (dns1.length()) {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-            ipaddr_aton(dns1.c_str(), &dns_info.ip);
-            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
-#else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
             ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_MAIN, &dns_info));
-#endif
         }
 
         // assign DNS2 if avail.
         if (dns2.length()) {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-            ipaddr_aton(dns2.c_str(), &dns_info.ip);
-            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_STA, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
-#else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
             ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
-#endif
         }
     } else {
         ESP_LOGI(TAG, "DHCP Mode selected");
@@ -660,39 +624,28 @@ void hal_init_eth(std::string &args)
     vTaskDelay(pdMS_TO_TICKS(10));
 #endif
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    ESP_ERROR_CHECK(tcpip_adapter_set_default_eth_handlers());
-    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL));
-#if CONFIG_LWIP_IPV6
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL));
-#endif
-#else
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
     _netif = esp_netif_new(&cfg);
-    esp_eth_set_default_handlers(_netif);
     ESP_ERROR_CHECK(esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &_eth_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &_got_ip_event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_LOST_IP, &_lost_ip_event_handler, NULL, NULL));
 #if CONFIG_LWIP_IPV6
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_GOT_IP6, &_got_ip_event_handler, NULL, NULL));
 #endif
-#endif
-
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+    eth_esp32_emac_config_t emac_config = ETH_ESP32_EMAC_DEFAULT_CONFIG();
 
     phy_config.phy_addr = CONFIG_AD2IOT_ETH_PHY_ADDR;
     phy_config.reset_gpio_num = CONFIG_AD2IOT_ETH_PHY_RST_GPIO;
     phy_config.reset_timeout_ms = 100;
 
 #if CONFIG_AD2IOT_USE_INTERNAL_ETHERNET
-    mac_config.smi_mdc_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDC_GPIO;
-    mac_config.smi_mdio_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDIO_GPIO;
-    esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&mac_config);
+    emac_config.smi_mdc_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDC_GPIO;
+    emac_config.smi_mdio_gpio_num = (gpio_num_t)CONFIG_AD2IOT_ETH_MDIO_GPIO;
+    esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&emac_config, &mac_config);
 #ifdef CONFIG_AD2IOT_ETH_PHY_LAN8720
-    esp_eth_phy_t *phy = esp_eth_phy_new_lan8720(&phy_config);
+    esp_eth_phy_t *phy = esp_eth_phy_new_lan87xx(&phy_config);
 #endif
 #endif
 
@@ -700,12 +653,7 @@ void hal_init_eth(std::string &args)
     esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
     esp_eth_handle_t eth_handle = NULL;
     ESP_ERROR_CHECK(esp_eth_driver_install(&config, &eth_handle));
-
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-#pragma message "No netif in older espidf not using."
-#else
     esp_netif_attach(_netif, esp_eth_new_netif_glue(eth_handle));
-#endif
 
     // test DHCP or Static configuration
     res = AD2Parse.query_key_value_string(args, "MODE", value);
@@ -735,65 +683,34 @@ void hal_init_eth(std::string &args)
         res = AD2Parse.query_key_value_string(args, "DNS1", dns1);
         res = AD2Parse.query_key_value_string(args, "DNS2", dns2);
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        tcpip_adapter_ip_info_t ip_info;
-        memset(&ip_info, 0, sizeof(tcpip_adapter_ip_info_t));
-        tcpip_adapter_dns_info_t dns_info;
-        memset(&dns_info, 0, sizeof(tcpip_adapter_dns_info_t));
-#else
         esp_netif_ip_info_t ip_info;
         memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
         esp_netif_dns_info_t dns_info;
         memset(&dns_info, 0, sizeof(esp_netif_dns_info_t));
-#endif
 
         // Assign static ip/netmask to interface
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        ip4addr_aton(ip.c_str(), &ip_info.ip);
-        ip4addr_aton(netmask.c_str(), &ip_info.netmask);
-#else
         ip_info.ip.addr = esp_ip4addr_aton(ip.c_str());
         ip_info.netmask.addr = esp_ip4addr_aton(netmask.c_str());
-#endif
 
         // if gateway defined set it.
         if (gateway.length()) {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-            ip4addr_aton(gateway.c_str(), &ip_info.gw);
-#else
             ip_info.gw.addr = esp_ip4addr_aton(gateway.c_str());
-#endif
         }
 
         // stop dhcp client service on interface and set the ip_info
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_ETH));
-        ESP_ERROR_CHECK(tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_ETH, &ip_info));
-#else
         ESP_ERROR_CHECK(esp_netif_dhcpc_stop(_netif));
         ESP_ERROR_CHECK(esp_netif_set_ip_info(_netif, &ip_info));
-#endif
 
         // assign DNS1 if avail.
         if (dns1.length()) {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-            ipaddr_aton(dns1.c_str(), &dns_info.ip);
-            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_MAIN, &dns_info));
-#else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns1.c_str());
             ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_MAIN, &dns_info));
-#endif
         }
 
         // assign DNS2 if avail.
         if (dns2.length()) {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-            ipaddr_aton(dns2.c_str(), &dns_info.ip);
-            ESP_ERROR_CHECK(tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, TCPIP_ADAPTER_DNS_BACKUP, &dns_info));
-#else
             dns_info.ip.u_addr.ip4.addr = esp_ip4addr_aton(dns2.c_str());
             ESP_ERROR_CHECK(esp_netif_set_dns_info(_netif, ESP_NETIF_DNS_BACKUP, &dns_info));
-#endif
         }
     } else {
         ESP_LOGI(TAG, "DHCP Mode selected");
@@ -810,11 +727,7 @@ void hal_init_eth(std::string &args)
 void hal_set_wifi_hostname(const char *hostname)
 {
     esp_err_t ret;
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
-#else
     ret = esp_netif_set_hostname(_netif, hostname);
-#endif
     if(ret != ESP_OK ) {
         ESP_LOGE(TAG,"failed to set wifi hostname: %i %i '%s'", ret, errno, strerror(errno));
     }
@@ -826,11 +739,7 @@ void hal_set_wifi_hostname(const char *hostname)
 void hal_set_eth_hostname(const char *hostname)
 {
     esp_err_t ret;
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-    ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_ETH, hostname);
-#else
     ret = esp_netif_set_hostname(_netif, hostname);
-#endif
     if(ret != ESP_OK ) {
         ESP_LOGE(TAG,"failed to set eth hostname: %i %i '%s'", ret, errno, strerror(errno));
     }
@@ -879,12 +788,8 @@ void _got_ip_event_handler(void *arg, esp_event_base_t event_base,
 #endif
         ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,1,0)
-        const tcpip_adapter_ip_info_t *ip_info = &event->ip_info;
-#else
         const esp_netif_ip_info_t *ip_info = &event->ip_info;
         IF = esp_netif_get_desc(event->esp_netif);
-#endif
         IP = ad2_string_printf(IPSTR, IP2STR(&ip_info->ip));
         MASK = ad2_string_printf(IPSTR, IP2STR(&ip_info->netmask));
         GW = ad2_string_printf(IPSTR, IP2STR(&ip_info->gw));
@@ -966,8 +871,15 @@ void hal_ad2_reset()
 {
 #if defined(GPIO_AD2_RESET)
     ESP_LOGI(TAG, "Asserting reset on AD2.");
-    gpio_pad_select_gpio(GPIO_AD2_RESET);
-    gpio_set_direction(GPIO_AD2_RESET, GPIO_MODE_OUTPUT);
+
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (gpio_num_t) 1 << GPIO_AD2_RESET;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+
     gpio_set_level(GPIO_AD2_RESET, 0);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     gpio_set_level(GPIO_AD2_RESET, 1);
@@ -983,6 +895,18 @@ bool hal_get_netif_started()
 }
 
 /**
+ * @brief Set network interface stack init state.
+ */
+void hal_set_netif_started(bool started)
+{
+    if (started) {
+      xEventGroupSetBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
+    } else {
+      xEventGroupClearBits(g_ad2_net_event_group, NET_NETIF_STARTED_BIT);
+    }
+}
+
+/**
  * @brief Get ip network connection state.
  */
 bool hal_get_network_connected()
@@ -991,11 +915,29 @@ bool hal_get_network_connected()
 }
 
 /**
+ * @brief SET ip network connection state.
+ */
+void hal_set_network_connected(bool connected)
+{
+    if (connected) {
+      xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    } else {
+      xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
+    }
+}
+
+/**
  * @brief Do an OTA update.
  */
-void hal_ota_do_update(const char * arg)
+void hal_do_fwupdate(const char * arg)
 {
+#if CONFIG_AD2IOT_OTAUPDATE
     ota_do_update((char*)arg);
+#else
+#if CONFIG_AD2IOT_USDUPDATE
+    usd_do_update((char*)arg);
+#endif
+#endif
 }
 
 /**
@@ -1006,18 +948,6 @@ uint64_t hal_uptime_us()
     return esp_timer_get_time();
 }
 
-/**
- * @brief get CONNECTED state.
- */
-void hal_set_network_connected(bool set)
-{
-    ESP_LOGD(TAG, "hal_set_network_connected %i", set);
-    if (set) {
-        xEventGroupSetBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
-    } else {
-        xEventGroupClearBits(g_ad2_net_event_group, NET_STA_CONNECT_BIT);
-    }
-}
 
 /**
  * @brief Initialize the uSD reader if one is connected.
@@ -1051,7 +981,6 @@ bool hal_init_sd_card()
     } else {
         ad2_printf_host(false, " pass.");
         // show stats and return true
-        size_t total = 0, used = 0;
         FATFS *fs;
         DWORD fre_clust, fre_sect, tot_sect;
         FRESULT res;
@@ -1179,7 +1108,10 @@ void hal_dump_hw_info()
 
     ad2_printf_host(false, "silicon revision %d, ", chip_info.revision);
 
-    ad2_printf_host(false, "%dMB %s flash", spi_flash_get_chip_size() / (1024 * 1024),
+    uint32_t size_flash_chip;
+    esp_flash_get_size(NULL, &size_flash_chip);
+
+    ad2_printf_host(false, "%dMB %s flash", size_flash_chip / (1024 * 1024),
                     (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
 }
