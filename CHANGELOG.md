@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ---
 ## Releases
-## [1.1.0 P2] - 2023-01-?? Sean Mathews - coder @f34rdotcom
+## [1.1.0 P2] - 2026-03-17 Sean Mathews - coder @f34rdotcom
 Changes:
   - Add CI using github Actions to test building and create an Artifact with a release package with compiled firmware and instructions.
     - More info on Artifacts: https://docs.github.com/en/actions/managing-workflow-runs/downloading-workflow-artifacts
@@ -39,9 +39,10 @@ Changes:
   - Improve error handling to fix null pointer crashes when processing unexpected response from Twilio rest API.
     - TODO: Find more time to audit and cleanup code.
   - Fixed some small errors in the default configuration ini file and made sure basic switches have examples in components.
-  - Get STSDK building again.
-    - Confirm adopting works after fixing key and serial storage omissions.
+  - Remove building broken STSDK during github commit.
   - Improved documentation fixing errors and adding config file examples in each section.
+  - Add new component to load firmware from uSD card. Upload firmware.bin to /sdcard using FileZilla and trigger upgrade with command 'UPGD' and 'VERS'. After upgrade the firmware.bin file will be removed from /sdcard folder.
+  - Disable OTA firmware update component.
 ### Change log
   - [X] SM OTA: Noticed it was trying too hard to connect at first boot after first check timeout. Set retry check time to 5 minutes when network down and on too many fails skip for 24h.
   - [X] SM MQTT,TWILIO,PUSOVER: Fix notify regex filter not applied to test causing a switch to fire even if a filter is set that would exclude it.
