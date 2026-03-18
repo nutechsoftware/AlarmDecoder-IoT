@@ -21,14 +21,18 @@
  *  limitations under the License.
  *
  */
-// FreeRTOS includes
+
+ static const char *TAG = "AD2OTA";
+
+ // AlarmDecoder std includes
+#include "alarmdecoder_main.h"
+
+ // Disable via config
+#if CONFIG_AD2IOT_OTAUPDATE
+
+ // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-
-static const char *TAG = "AD2OTA";
-
-// AlarmDecoder std includes
-#include "alarmdecoder_main.h"
 
 // esp component includes
 #include <esp_https_ota.h>
@@ -52,8 +56,8 @@ static const char *TAG = "AD2OTA";
 
 #define OTA_VERSION_INFO_BUF_SIZE 1024
 
-#define OTA_UPGRADE_CMD   "upgrade"
-#define OTA_VERSION_CMD   "version"
+#define OTA_UPGRADE_CMD   "upgradeota"
+#define OTA_VERSION_CMD   "versionota"
 
 #define OTA_FIRST_CHECK_DELAY_MS 30*1000
 #define OTA_RETRY_CHECK_DELAY_MS 300*1000
@@ -816,15 +820,21 @@ static struct cli_command ota_cmd_list[] = {
 };
 
 /**
+ * @brief Register component cli commands.
+ */
+void ota_register_cmds()
+{
+    // Register CLI commands
+    for (int i = 0; i < ARRAY_SIZE(ota_cmd_list); i++) {
+        cli_register_command(&ota_cmd_list[i]);
+    }
+}
+
+/**
  * @brief Start the OTA check task.
  */
 void ota_init()
 {
-    // Register twilio CLI commands
-    for (int i = 0; i < ARRAY_SIZE(ota_cmd_list); i++) {
-        cli_register_command(&ota_cmd_list[i]);
-    }
-
     xTaskCreate(ota_polling_task_func, "AD2 ota check", 1024*4, NULL, tskIDLE_PRIORITY, NULL);
 }
 
@@ -835,3 +845,4 @@ void ota_do_version(const char *arg)
 {
     ad2_printf_host(false, "Installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ") available version(%s).\r\n", ota_available_version.c_str());
 }
+#endif /* CONFIG_AD2IOT_OTAUPDATE */

@@ -629,7 +629,7 @@ static void ad2_mqtt_event_handler(void *handler_args, esp_event_base_t base, in
                             } else if ( action.compare("SEND_RAW") == 0 ) {
                                 ad2_send(arg);
                             } else if ( action.compare("FW_UPDATE_IOT") == 0 ) {
-                                hal_ota_do_update("");
+                                hal_do_fwupdate("");
                             } else if ( action.compare("FW_UPDATE_AD2") == 0 ) {
                                 ad2_fw_update(arg.c_str());
                             } else if ( action.compare("FW_CONFIG_IOT") == 0 ) {

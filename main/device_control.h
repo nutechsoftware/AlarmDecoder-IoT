@@ -136,7 +136,7 @@ bool hal_get_netif_started();
 void hal_set_netif_started(bool connected);
 bool hal_get_network_connected();
 void hal_set_network_connected(bool connected);
-void hal_ota_do_update(const char *);
+void hal_do_fwupdate(const char *);
 bool hal_init_sd_card();
 void hal_get_socket_client_ip(int sockfd, std::string& IP);
 void hal_get_socket_local_ip(int sockfd, std::string& IP);

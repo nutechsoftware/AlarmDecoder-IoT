@@ -1,0 +1,7 @@
+menu "AD2iot * Firmware update from uSD."
+    config AD2IOT_USDUPDATE
+        bool "uSD Firmware Updates"
+        default n
+        help
+            Enable uSD firmware updates.
+endmenu

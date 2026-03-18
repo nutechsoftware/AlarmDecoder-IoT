@@ -38,8 +38,15 @@ static const char *TAG = "AD2_IoT";
 // SimpleIni
 #include <SimpleIni.h>
 
-// OTA updates
+// OTA firmware updates
+#if CONFIG_AD2IOT_OTAUPDATE
 #include "ota_util.h"
+#endif
+
+// uSD flash firmware updates
+#if CONFIG_AD2IOT_USDUPDATE
+#include "usdupdate.h"
+#endif
 
 // Command line interface
 #include "ad2_cli_cmd.h"
@@ -1122,6 +1129,16 @@ extern "C" {
         ftpd_register_cmds();
 #endif
 
+#if CONFIG_AD2IOT_OTAUPDATE
+        // Register OTA firmware update commands.
+        ota_register_cmds();
+#endif
+
+#if CONFIG_AD2IOT_USDUPDATE
+        // Register uSD firmware update commands.
+        usdupdate_register_cmds();
+#endif
+
         // Register AD2 CLI commands.
         register_ad2_cli_cmd();
 
@@ -1248,15 +1265,20 @@ extern "C" {
         // Initialize FTP daemon
         ftpd_init();
 #endif
+#if CONFIG_AD2IOT_OTAUPDATE
+        // Initialize OTA firmware updates
+        ota_init();
+#endif
+#if CONFIG_AD2IOT_USDUPDATE
+        // Initialize uSD firmware updates
+        usdupdate_init();
+#endif
 
         // Sleep for another 5 seconds. Hopefully wifi is up before we continue connecting the AD2*.
         vTaskDelay(5000 / portTICK_PERIOD_MS);
 
         // Start main AlarmDecoder IoT app task
         xTaskCreate(ad2_app_main_task, "AD2 main", 1024*4, NULL, tskIDLE_PRIORITY+1, NULL);
-
-        // Start firmware update task
-        ota_init();
 
         // If the AD2* is a socket connection we can hopefully start it now.
         if (g_ad2_mode == 'S') {

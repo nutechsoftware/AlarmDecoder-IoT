@@ -41,8 +41,9 @@ static bool _enabled = false;
 
 // specific includes
 #include "stsdk_main.h"
+#if CONFIG_AD2IOT_OTAUPDATE
 #include "ota_util.h"
-
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif

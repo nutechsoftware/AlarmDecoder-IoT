@@ -1,0 +1,7 @@
+menu "AD2iot * Firmware update support OTA."
+    config AD2IOT_OTAUPDATE
+        bool "OTA Firmware Updates"
+        default n
+        help
+            Enable OTA firmware updates.
+endmenu

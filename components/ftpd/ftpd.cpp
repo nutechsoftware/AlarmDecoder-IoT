@@ -149,6 +149,8 @@ private:
     void onXmkd(std::istringstream& ss);
     void onXrmd(std::istringstream& ss);
     void onRest(std::istringstream& ss);
+    void onUpgd(std::istringstream& ss);
+    void onVers(std::istringstream& ss);
     bool openData();
 
     void receiveFile(std::string fileName);
@@ -974,6 +976,28 @@ void FTPD::onRest(std::istringstream& ss)
 }
 
 /**
+ * @brief Process a UPGD operation.
+ * Upgrade and restart the AD2IoT
+ */
+void FTPD::onUpgd(std::istringstream& ss)
+{
+    sendResponse(RESPONSE_200_COMMAND_OK, "Starting ad2iot upgrade now. Reconnect in 1 minute."); // Command okay.
+    ad2_printf_host(true, "%s: 'UPGD' command received. Starting ad2iot upgrade now.", TAG);
+    closeConnection();
+    hal_do_fwupdate("");
+}
+
+
+/**
+ * @brief Process a VERS operation.
+ * Return the version of the AD2IoT firmware
+ */
+void FTPD::onVers(std::istringstream& ss)
+{
+    sendResponse(RESPONSE_200_COMMAND_OK, "AD2IoT installed version(" FIRMWARE_VERSION  ") build flag (" FIRMWARE_BUILDFLAGS ").\r\n"); // Command okay.
+}
+
+/**
  * @brief Process a NOOP operation.
  */
 void FTPD::onNoop(std::istringstream& ss)
@@ -1421,8 +1445,12 @@ void FTPD::processCommand()
                     onRnto(ss);
                 } else if (command.compare("REST")==0) { // Custom verb to restart AD2IoT
                     onRest(ss);
+                } else if (command.compare("UPGD")==0) { // Custom verb to upgrade the AD2IoT
+                    onUpgd(ss);
+                } else if (command.compare("VERS")==0) { // Custom verb to get the AD2IoT version string.
+                    onVers(ss);
                 } else {
-#if defined(FTPD_DEBUG)
+                    #if defined(FTPD_DEBUG)
                     ESP_LOGI(TAG, "Unknown command verb: '%s'. Teach me more please!", command.c_str());
 #endif
                     sendResponse(FTPD::RESPONSE_500_COMMAND_UNRECOGNIZED); // Syntax error, command unrecognized.

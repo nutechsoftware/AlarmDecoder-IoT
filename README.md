@@ -57,7 +57,7 @@ The device firmware is stored in the onboard non-volatile flash making the devic
 Pre compiled firmware for the ESP32-POE-ISO board is available in the release package to flash to a new device or via OTA(over-the-air) update for devices that are already programmed with a current AD2IoT firmware.
 
 Currently two builds are available ```stsdk``` and ```webui```. To switch to a specific build over the internet using OTA include the buildflag in the upgrade command.
-- ```upgrade webui```
+- ```upgradeota webui```
 
 If the upgrade fails it may be the result of low memory on the device. Try disabling features restart the device and try again. Example. ```webui disable Y```. If all else fails install the latest release of the AD2IoT firmware over USB.
 
@@ -214,24 +214,40 @@ ftp daemon       12 B            1  7376    0                  615   0.00   0.00
     Stack: Minimum stack free bytes, CPU#: CPU affinity
     TBusy: % busy total, Busy: % busy now
 ```
-- upgrade
+- upgradeota
 ```console
-Usage: upgrade [buildflag]
+Usage: upgradeota [buildflag]
 
-    Preform an OTA upgrade now download and install new flash
+    Preform an OTA firmware upgrade now download and install new flash
 Options:
     buildflag               Specify a different build or use current if omitted
                             See release page for details on available builds
 ```
-- version
+- versionota
 ```console
-Usage: version
+Usage: versionota
 
-    Report the current and available version
+    Report the current and available version and build flag
 ```
 ```console
-AD2IOT # version
-Installed version(AD2IOT-1102) build flag (webui) available version(AD2IOT-1102).
+AD2IOT # versionota
+Installed version(AD2IOT-1103) build flag (webui) available version(AD2IOT-1103).
+```
+- upgradeusd
+```console
+Usage: upgradeusd
+
+    Preform an firmware upgrade reading firmware.bin from uSD disk
+```
+- versionusd
+```console
+Usage: versionusd
+
+    Report the current firmware version and build flag
+```
+```console
+AD2IOT # versionusd
+Installed version(AD2IOT-1103) build flag (webui).
 ```
 - netmode
 ```console
@@ -809,12 +825,15 @@ If enabled the daemon will allow update of files on the attached uSD card. This 
 
 This daemon only supports one command and control connection at a time. Be sure to disable or limit the client used to a single connection or the client may appear to stall or timeout.
 
+Custom FTPD commands can be sent using FileZilla with the "Server" menu and the "Enter custom command.." sub menu.
+Current custom commands are 'REST' to restart the device, 'UPGD' to trigger a firmware upgrade check, and 'VERS' get get the current firmware version.
+
 - Implementation notes:
   - root folder contains two virtual paths.
     * /spiffs
       - The spiffs partition. spiffs does not allow sub folders and has limits on file names.
     * /sdcard
-      - The first fat32 partition on a uSD card if available and connected
+      - The first fat32 partition on a uSD card if available and connected. For firmware updates over uSD place the ```firmware.bin``` file here that use usdupgrade cli command or issue a ```UPGD``` command using FileZilla connected to the ad2iot.
   - Basic commands to rename, remove, upload, and dowloand files on the spiffs partition and attached uSD.
 
 ####  5.8.1. <a name='configuration-for-ftp-server'></a>Configuration tool for ftp server

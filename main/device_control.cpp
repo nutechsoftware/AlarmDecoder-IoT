@@ -46,7 +46,12 @@ static const char *TAG = "HAL";
 #include "esp_timer.h"
 
 // specific includes
+#if CONFIG_AD2IOT_OTAUPDATE
 #include "ota_util.h"
+#endif
+#if CONFIG_AD2IOT_USDUPDATE
+#include "usdupdate.h"
+#endif
 
 // forward decl for private event handlers.
 void _eth_event_handler(void *arg, esp_event_base_t event_base,
@@ -924,9 +929,15 @@ void hal_set_network_connected(bool connected)
 /**
  * @brief Do an OTA update.
  */
-void hal_ota_do_update(const char * arg)
+void hal_do_fwupdate(const char * arg)
 {
+#if CONFIG_AD2IOT_OTAUPDATE
     ota_do_update((char*)arg);
+#else
+#if CONFIG_AD2IOT_USDUPDATE
+    usd_do_update((char*)arg);
+#endif
+#endif
 }
 
 /**
