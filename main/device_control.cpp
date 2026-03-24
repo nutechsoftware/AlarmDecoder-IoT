@@ -581,6 +581,8 @@ void hal_init_wifi(std::string &args)
 
     ESP_ERROR_CHECK( esp_wifi_start() );
 
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+
     ESP_LOGI(TAG, "WiFi hardware init done");
 
 }
